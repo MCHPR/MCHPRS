@@ -1,0 +1,47 @@
+[15:08:23] [main/INFO]: Using mbed TLS based native cipher.
+[15:08:23] [main/INFO]: Using zlib based native compressor.
+[15:08:23] [main/INFO]: Enabled Waterfall version git:Waterfall-Bootstrap:1.15-SNAPSHOT:b02f64c:327
+[15:08:23] [main/INFO]: Not on Windows, attempting to use enhanced EpollEventLoop
+[15:08:23] [main/INFO]: Epoll is working, utilising it!
+[15:08:23] [main/INFO]: Discovered module: ModuleSpec(name=cmd_alert, file=modules/cmd_alert.jar, provider=JenkinsModuleSource())
+[15:08:23] [main/INFO]: Discovered module: ModuleSpec(name=cmd_find, file=modules/cmd_find.jar, provider=JenkinsModuleSource())
+[15:08:23] [main/INFO]: Discovered module: ModuleSpec(name=cmd_list, file=modules/cmd_list.jar, provider=JenkinsModuleSource())
+[15:08:23] [main/INFO]: Discovered module: ModuleSpec(name=cmd_send, file=modules/cmd_send.jar, provider=JenkinsModuleSource())
+[15:08:23] [main/INFO]: Discovered module: ModuleSpec(name=cmd_server, file=modules/cmd_server.jar, provider=JenkinsModuleSource())
+[15:08:23] [main/INFO]: Discovered module: ModuleSpec(name=reconnect_yaml, file=modules/reconnect_yaml.jar, provider=JenkinsModuleSource())
+[15:08:23] [main/INFO]: Attempting to update plugin from null to ModuleVersion(build=327, git=b02f64c)
+[15:08:23] [main/INFO]: Attempting to Jenkins download module cmd_alert v327
+[15:08:25] [main/INFO]: Download complete
+[15:08:25] [main/INFO]: Attempting to update plugin from null to ModuleVersion(build=327, git=b02f64c)
+[15:08:25] [main/INFO]: Attempting to Jenkins download module cmd_find v327
+[15:08:25] [main/INFO]: Download complete
+[15:08:25] [main/INFO]: Attempting to update plugin from null to ModuleVersion(build=327, git=b02f64c)
+[15:08:25] [main/INFO]: Attempting to Jenkins download module cmd_list v327
+[15:08:26] [main/INFO]: Download complete
+[15:08:26] [main/INFO]: Attempting to update plugin from null to ModuleVersion(build=327, git=b02f64c)
+[15:08:26] [main/INFO]: Attempting to Jenkins download module cmd_send v327
+[15:08:26] [main/INFO]: Download complete
+[15:08:26] [main/INFO]: Attempting to update plugin from null to ModuleVersion(build=327, git=b02f64c)
+[15:08:26] [main/INFO]: Attempting to Jenkins download module cmd_server v327
+[15:08:27] [main/INFO]: Download complete
+[15:08:27] [main/INFO]: Attempting to update plugin from null to ModuleVersion(build=327, git=b02f64c)
+[15:08:27] [main/INFO]: Attempting to Jenkins download module reconnect_yaml v327
+[15:08:27] [main/INFO]: Download complete
+[15:08:27] [main/INFO]: Loaded plugin reconnect_yaml version git:reconnect_yaml:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Loaded plugin cmd_find version git:cmd_find:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Loaded plugin cmd_server version git:cmd_server:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Loaded plugin cmd_alert version git:cmd_alert:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Loaded plugin cmd_send version git:cmd_send:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Loaded plugin cmd_list version git:cmd_list:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/WARN]: Forced host server pvp is not defined
+[15:08:27] [main/INFO]: Enabled plugin reconnect_yaml version git:reconnect_yaml:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Enabled plugin cmd_find version git:cmd_find:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Enabled plugin cmd_server version git:cmd_server:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Enabled plugin cmd_alert version git:cmd_alert:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Enabled plugin cmd_send version git:cmd_send:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [main/INFO]: Enabled plugin cmd_list version git:cmd_list:1.15-SNAPSHOT:b02f64c:327 by WaterfallMC
+[15:08:27] [Netty Boss IO Thread #0/INFO]: Listening on /0.0.0.0:25577
+[15:09:37] [Netty Worker IO Thread #0/INFO]: [/127.0.0.1:45768] <-> InitialHandler has connected
+[15:09:38] [Netty Worker IO Thread #0/INFO]: [StackDoubleFlow] disconnected with: Could not connect to a default or fallback server, please try again later: io.netty.channel.AbstractChannel$AnnotatedConnectException
+[15:09:38] [Netty Worker IO Thread #0/INFO]: [/127.0.0.1:45768|StackDoubleFlow] -> UpstreamBridge has disconnected
+[15:09:42] [Netty Worker IO Thread #1/INFO]: [/127.0.0.1:45776] <-> InitialHandler has pinged
