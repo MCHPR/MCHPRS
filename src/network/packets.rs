@@ -4,17 +4,17 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use std::io::Read;
 
-struct PacketDecoder {
+pub struct PacketDecoder {
     buffer: Vec<u8>,
     i: usize,
     packet_id: u32,
 }
 
 impl PacketDecoder {
-    fn decode(compression: bool, buf: Vec<u8>) -> Vec<PacketDecoder> {
+    pub fn decode(compression: bool, buf: Vec<u8>) -> Vec<PacketDecoder> {
         let mut decoders = Vec::new();
         let mut i = 0;
-        loop {
+        while i < buf.len() {
             let length = PacketDecoder::read_varint_from_buffer(i, &buf);
             i += length.1 as usize;
             if compression {
@@ -22,11 +22,11 @@ impl PacketDecoder {
                 i += data_length.1 as usize;
                 let mut data = Vec::new();
                 // Decompress data
-                ZlibDecoder::new(&buf[i..i + data_length.0 as usize])
+                ZlibDecoder::new(&buf[i..i + (length.0 - data_length.1) as usize])
                     .read_to_end(&mut data)
                     .unwrap();
+                i += (length.0 - data_length.1) as usize;
                 let packet_id = PacketDecoder::read_varint_from_buffer(0, &data);
-
                 decoders.push(PacketDecoder {
                     buffer: Vec::from(&data[packet_id.1 as usize..data_length.0 as usize]),
                     i: 0,
@@ -34,16 +34,12 @@ impl PacketDecoder {
                 });
             } else {
                 let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
-                i += packet_id.1 as usize;
                 decoders.push(PacketDecoder {
                     buffer: Vec::from(&buf[i..i + length.0 as usize]),
                     i: 0,
                     packet_id: packet_id.0 as u32,
                 });
-            }
-
-            if i + 1 > buf.len() {
-                break;
+                i += length.0 as usize;
             }
         }
         decoders

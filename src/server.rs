@@ -1,4 +1,5 @@
 use crate::network::NetworkServer;
+use std::time::Duration;
 /// This represents a minecraft server
 pub struct MinecraftServer {
     network: NetworkServer,
@@ -15,13 +16,17 @@ impl MinecraftServer {
         let bind_addr = config
             .get_str("bind_address")
             .expect("Bind address not found in config file!");
-        MinecraftServer {
+        let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
             config,
         };
         loop {
-            // temporary
-            std::thread::sleep_ms(2);
+            server.update();
+            std::thread::sleep(Duration::from_millis(2));
         }
+    }
+
+    fn update(&mut self) {
+        self.network.update();
     }
 }
