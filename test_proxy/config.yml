@@ -18,7 +18,7 @@ online_mode: true
 disabled_commands:
 - disabledcommandhere
 servers:
-  lobby:
+  build:
     motd: '&1Just another Waterfall - Forced Host'
     address: localhost:25565
     restricted: false
@@ -42,7 +42,7 @@ ip_forward: false
 remote_ping_timeout: 5000
 prevent_proxy_connections: false
 groups:
-  md_5:
+  StackDoubleFlow:
   - admin
 connection_throttle: 4000
 stats: b9c45e9c-c74b-4e39-a8cd-65c2ad762542

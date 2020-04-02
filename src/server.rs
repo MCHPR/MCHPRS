@@ -6,7 +6,7 @@ pub struct MinecraftServer {
 }
 
 impl MinecraftServer {
-    pub fn run() -> MinecraftServer {
+    pub fn run() {
         println!("Starting server...");
         let mut config = config::Config::default();
         config.merge(config::File::with_name("Config")).expect("Error reading config file!");
@@ -14,6 +14,10 @@ impl MinecraftServer {
         MinecraftServer {
             network: NetworkServer::new(bind_addr),
             config
+        };
+        loop {
+            // temporary
+            std::thread::sleep_ms(2);
         }
     }
 }

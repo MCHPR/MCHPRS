@@ -40,7 +40,7 @@ impl NetworkServer {
     }
 
     /// Creates a new NetworkServer. The server will then start accepting TCP clients.
-    pub fn new<'a>(bind_address: String) -> NetworkServer {
+    pub fn new(bind_address: String) -> NetworkServer {
         let (sender, receiver) = mpsc::channel();
         thread::spawn(move || {
             NetworkServer::listen(&bind_address, sender)
@@ -49,5 +49,6 @@ impl NetworkServer {
             client_receiver: receiver
         }
     }
+
 
 }
