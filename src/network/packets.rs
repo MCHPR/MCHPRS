@@ -11,12 +11,100 @@ struct PacketDecoder {
 
 impl PacketDecoder {
 
-    fn new() -> PacketDecoder {
-        PacketDecoder {
-            buffer: Vec::new(),
-            i: 0,
-            packet_id: 0
+    fn decode() -> Vec<PacketDecoder> {
+        let decoders = Vec::new();
+        decoders
+    }
+
+    fn read_unsigned_byte(&mut self) -> u8 {
+        self.i += 1;
+        self.buffer[self.i - 1]
+    }
+
+    fn read_byte(&mut self) -> i8 {
+        self.i += 1;
+        self.buffer[self.i - 1] as i8
+    }
+
+    fn read_bytes(&mut self, bytes: usize) -> Vec<u8> {
+        let out = &self.buffer[self.i..self.i + bytes];
+        self.i += bytes;
+        out.to_vec()
+    }
+
+    fn read_long(&mut self) -> i64 {
+        let mut arr = [0; 8];
+        arr.copy_from_slice(&self.buffer[self.i..self.i + 8]);
+        let out = i64::from_be_bytes(arr);
+        self.i += 8;
+        out
+    }
+
+    fn read_int(&mut self) -> i32 {
+        let mut arr = [0; 4];
+        arr.copy_from_slice(&self.buffer[self.i..self.i + 4]);
+        let out = i32::from_be_bytes(arr);
+        self.i += 4;
+        out
+    }
+
+    fn read_bool(&mut self) -> bool {
+        let out = self.buffer[self.i] == 1;
+        self.i += 1;
+        out
+    }
+
+    fn read_varint(&mut self) -> i32 {
+        let mut num_read = 0;
+        let mut result = 0i32;
+        let mut read;
+        loop {
+            read = self.read_byte() as u8;
+            let value = (read & 0b01111111) as i32;
+            result |= value << (7 * num_read);
+
+            num_read += 1;
+            if num_read > 5 {
+                panic!("VarInt is too big!");
+            }
+            if read & 0b10000000 == 0 {
+                break;
+            }
         }
+        return result;
+    }
+
+    fn read_varlong(&mut self) -> i64 {
+        let mut num_read = 0;
+        let mut result = 0i64;
+        let mut read;
+        loop {
+            read = self.read_byte() as u8;
+            let value = (read & 0b01111111) as i64;
+            result |= value << (7 * num_read);
+
+            num_read += 1;
+            if num_read > 5 {
+                panic!("VarInt is too big!");
+            }
+            if read & 0b10000000 == 0 {
+                break;
+            }
+        }
+        result
+    }
+
+    fn read_string(&mut self) -> String {
+        let length = self.read_varint();
+        String::from_utf8(self.read_bytes(length as usize)).unwrap()
+    }
+
+    fn read_unsigned_short(&mut self) -> u16 {
+        let mut arr = [0; 2];
+        arr.copy_from_slice(&self.buffer[self.i..self.i + 2]);
+        let out = u16::from_be_bytes(arr);
+        self.i += 2;
+        out
     }
 
 }
