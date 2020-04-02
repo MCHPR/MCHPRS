@@ -1,17 +1,16 @@
-use flate2::write::ZlibEncoder;
-use flate2::bufread::ZlibDecoder;
-use flate2::Compression;
 use byteorder::{BigEndian, WriteBytesExt};
+use flate2::bufread::ZlibDecoder;
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use std::io::Read;
 
 struct PacketDecoder {
     buffer: Vec<u8>,
     i: usize,
-    packet_id: u32
+    packet_id: u32,
 }
 
 impl PacketDecoder {
-
     fn decode(compression: bool, buf: Vec<u8>) -> Vec<PacketDecoder> {
         let mut decoders = Vec::new();
         let mut i = 0;
@@ -23,13 +22,15 @@ impl PacketDecoder {
                 i += data_length.1 as usize;
                 let mut data = Vec::new();
                 // Decompress data
-                ZlibDecoder::new(&buf[i..i + data_length.0 as usize]).read_to_end(&mut data).unwrap();
+                ZlibDecoder::new(&buf[i..i + data_length.0 as usize])
+                    .read_to_end(&mut data)
+                    .unwrap();
                 let packet_id = PacketDecoder::read_varint_from_buffer(0, &data);
 
                 decoders.push(PacketDecoder {
                     buffer: Vec::from(&data[packet_id.1 as usize..data_length.0 as usize]),
                     i: 0,
-                    packet_id: packet_id.0 as u32
+                    packet_id: packet_id.0 as u32,
                 });
             } else {
                 let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
@@ -37,7 +38,7 @@ impl PacketDecoder {
                 decoders.push(PacketDecoder {
                     buffer: Vec::from(&buf[i..i + length.0 as usize]),
                     i: 0,
-                    packet_id: packet_id.0 as u32
+                    packet_id: packet_id.0 as u32,
                 });
             }
 
@@ -158,20 +159,18 @@ impl PacketDecoder {
         self.i += 2;
         out
     }
-
 }
 
 struct PacketEncoder {
     buffer: Vec<u8>,
-    packet_id: u32
+    packet_id: u32,
 }
 
 impl PacketEncoder {
-
     fn new(packet_id: u32) -> PacketEncoder {
         PacketEncoder {
             buffer: Vec::new(),
-            packet_id
+            packet_id,
         }
     }
 
@@ -247,7 +246,9 @@ impl PacketEncoder {
         let packet_id = self.varint(self.packet_id as i32);
         let data = [&packet_id[..], &self.buffer[..]].concat();
         let data_length = self.varint(data.len() as i32);
-        let compressed = ZlibEncoder::new(data, Compression::default()).finish().unwrap();
+        let compressed = ZlibEncoder::new(data, Compression::default())
+            .finish()
+            .unwrap();
         let packet_length = self.varint((data_length.len() + compressed.len()) as i32);
 
         [&packet_length[..], &data_length[..], &compressed[..]].concat()
@@ -261,6 +262,13 @@ impl PacketEncoder {
     }
 }
 
-trait Packet {
+trait ClientBoundPacket {
     fn encode(self) -> PacketEncoder;
+}
+
+struct S00Handshake {
+    protocol_version: i32,
+    server_address: String,
+    server_port: u16,
+    next_state: i32,
 }

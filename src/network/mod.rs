@@ -9,46 +9,39 @@ use std::thread;
 struct NetworkClient {
     /// All NetworkClients are identified by this id
     id: u32,
-    reader: BufReader<TcpStream>
+    reader: BufReader<TcpStream>,
 }
 
-impl NetworkClient {
-
-
-
-}
+impl NetworkClient {}
 
 /// This represents the network portion of a minecraft server
 pub struct NetworkServer {
-    client_receiver: mpsc::Receiver<NetworkClient>
+    client_receiver: mpsc::Receiver<NetworkClient>,
 }
 
 impl NetworkServer {
-
     fn listen(bind_address: &str, sender: mpsc::Sender<NetworkClient>) {
         let listener = TcpListener::bind(bind_address).unwrap();
 
         for (index, stream) in listener.incoming().enumerate() {
             let stream = stream.unwrap();
             stream.set_nonblocking(true).unwrap();
-            sender.send(NetworkClient {
-                // The index will increment after each client making it unique. We'll just use this as the id.
-                id: index as u32,
-                reader: BufReader::new(stream)
-            }).unwrap();
+            sender
+                .send(NetworkClient {
+                    // The index will increment after each client making it unique. We'll just use this as the id.
+                    id: index as u32,
+                    reader: BufReader::new(stream),
+                })
+                .unwrap();
         }
     }
 
     /// Creates a new NetworkServer. The server will then start accepting TCP clients.
     pub fn new(bind_address: String) -> NetworkServer {
         let (sender, receiver) = mpsc::channel();
-        thread::spawn(move || {
-            NetworkServer::listen(&bind_address, sender)
-        });
+        thread::spawn(move || NetworkServer::listen(&bind_address, sender));
         NetworkServer {
-            client_receiver: receiver
+            client_receiver: receiver,
         }
     }
-
-
 }

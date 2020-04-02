@@ -1,13 +1,9 @@
 use crate::player::Player;
 
 struct Plot {
-    player: Vec<Player>
+    player: Vec<Player>,
 }
 
 impl Plot {
-
-    fn set_block(&mut self) {
-
-    }
-
+    fn set_block(&mut self) {}
 }
