@@ -1,7 +1,8 @@
 use flate2::write::ZlibEncoder;
-use flate2::read::ZlibDecoder;
+use flate2::bufread::ZlibDecoder;
 use flate2::Compression;
 use byteorder::{BigEndian, WriteBytesExt};
+use std::io::Read;
 
 struct PacketDecoder {
     buffer: Vec<u8>,
@@ -11,8 +12,39 @@ struct PacketDecoder {
 
 impl PacketDecoder {
 
-    fn decode() -> Vec<PacketDecoder> {
-        let decoders = Vec::new();
+    fn decode(compression: bool, buf: Vec<u8>) -> Vec<PacketDecoder> {
+        let mut decoders = Vec::new();
+        let mut i = 0;
+        loop {
+            let length = PacketDecoder::read_varint_from_buffer(i, &buf);
+            i += length.1 as usize;
+            if compression {
+                let data_length = PacketDecoder::read_varint_from_buffer(i, &buf);
+                i += data_length.1 as usize;
+                let mut data = Vec::new();
+                // Decompress data
+                ZlibDecoder::new(&buf[i..i + data_length.0 as usize]).read_to_end(&mut data).unwrap();
+                let packet_id = PacketDecoder::read_varint_from_buffer(0, &data);
+
+                decoders.push(PacketDecoder {
+                    buffer: Vec::from(&data[packet_id.1 as usize..data_length.0 as usize]),
+                    i: 0,
+                    packet_id: packet_id.0 as u32
+                });
+            } else {
+                let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
+                i += packet_id.1 as usize;
+                decoders.push(PacketDecoder {
+                    buffer: Vec::from(&buf[i..i + length.0 as usize]),
+                    i: 0,
+                    packet_id: packet_id.0 as u32
+                });
+            }
+
+            if i + 1 > buf.len() {
+                break;
+            }
+        }
         decoders
     }
 
@@ -54,6 +86,26 @@ impl PacketDecoder {
         out
     }
 
+    fn read_varint_from_buffer(offset: usize, buf: &Vec<u8>) -> (i32, i32) {
+        let mut num_read = 0;
+        let mut result = 0i32;
+        let mut read;
+        loop {
+            read = buf[offset + num_read as usize] as u8;
+            let value = (read & 0b01111111) as i32;
+            result |= value << (7 * num_read);
+
+            num_read += 1;
+            if num_read > 5 {
+                panic!("VarInt is too big!");
+            }
+            if read & 0b10000000 == 0 {
+                break;
+            }
+        }
+        (result, num_read)
+    }
+
     fn read_varint(&mut self) -> i32 {
         let mut num_read = 0;
         let mut result = 0i32;
@@ -71,7 +123,7 @@ impl PacketDecoder {
                 break;
             }
         }
-        return result;
+        result
     }
 
     fn read_varlong(&mut self) -> i64 {
