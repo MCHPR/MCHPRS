@@ -3,12 +3,38 @@ use flate2::read::ZlibDecoder;
 use flate2::Compression;
 use byteorder::{BigEndian, WriteBytesExt};
 
+struct PacketDecoder {
+    buffer: Vec<u8>,
+    i: usize,
+    packet_id: u32
+}
+
+impl PacketDecoder {
+
+    fn new() -> PacketDecoder {
+        PacketDecoder {
+            buffer: Vec::new(),
+            i: 0,
+            packet_id: 0
+        }
+    }
+
+}
+
 struct PacketEncoder {
     buffer: Vec<u8>,
     packet_id: u32
 }
 
 impl PacketEncoder {
+
+    fn new(packet_id: u32) -> PacketEncoder {
+        PacketEncoder {
+            buffer: Vec::new(),
+            packet_id
+        }
+    }
+
     fn write_boolean(&mut self, val: bool) {
         self.buffer.push(val as u8);
     }

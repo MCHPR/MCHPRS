@@ -1,11 +1,11 @@
 mod network;
+mod player;
+mod plot;
+mod server;
 
-use network::NetworkServer;
-/// This represents a minecraft server
-struct MinecraftServer {
+use server::MinecraftServer;
 
-}
 
 fn main() {
-    println!("Hello, world!");
+    MinecraftServer::run();
 }
