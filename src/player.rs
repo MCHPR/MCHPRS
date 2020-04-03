@@ -74,9 +74,9 @@ impl Player {
             inventory.resize_with(46, || None);
             for entry in player_data.inventory {
                 inventory[entry.slot as usize] = Some(Item {
-                        id: entry.id,
-                        count: entry.count as u8,
-                        damage: entry.damage as u16
+                    id: entry.id,
+                    count: entry.count as u8,
+                    damage: entry.damage as u16,
                 });
             }
             Some(Player {
@@ -115,7 +115,7 @@ impl Player {
             fly_speed: 1f32,
             walk_speed: 1f32,
             on_ground: true,
-            flying: false
+            flying: false,
         }
     }
 
@@ -128,21 +128,25 @@ impl Player {
                     count: item.count as i8,
                     id: item.id,
                     damage: item.damage as i16,
-                    slot: slot as i8
+                    slot: slot as i8,
                 })
             }
         }
-        nbt::to_writer(&mut file, &PlayerData {
-            fly_speed: self.fly_speed,
-            flying: self.flying,
-            inventory,
-            motion: vec![0f64, 0f64, 0f64],
-            on_ground: self.on_ground,
-            position: vec![self.x, self.y, self.z],
-            rotation: vec![0f32, 0f32, 0f32],
-            selected_item_slot: self.selected_slot as i32,
-            walk_speed: self.walk_speed,
-        }, None);
+        nbt::to_writer(
+            &mut file,
+            &PlayerData {
+                fly_speed: self.fly_speed,
+                flying: self.flying,
+                inventory,
+                motion: vec![0f64, 0f64, 0f64],
+                on_ground: self.on_ground,
+                position: vec![self.x, self.y, self.z],
+                rotation: vec![0f32, 0f32, 0f32],
+                selected_item_slot: self.selected_slot as i32,
+                walk_speed: self.walk_speed,
+            },
+            None,
+        );
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}
