@@ -1,13 +1,12 @@
-use crate::network::packets::{
-    C02LoginSuccess, C03SetCompression, ClientBoundPacket, PacketDecoder, S00Handshake,
-    S00LoginStart, ServerBoundPacket,
-};
-use crate::network::{NetworkClient, NetworkServer, NetworkState};
+use crate::network::packets::clientbound::{C02LoginSuccess, C03SetCompression, ClientBoundPacket};
+use crate::network::packets::serverbound::{S00Handshake, S00LoginStart, ServerBoundPacket};
+use crate::network::packets::PacketDecoder;
+use crate::network::{NetworkServer, NetworkState};
 use crate::permissions::Permissions;
 use crate::player::Player;
 use crate::plot::Plot;
 use bus::Bus;
-use std::sync::mpsc::{self, Sender, Receiver};
+use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -17,13 +16,14 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub enum Message {
     Chat(String),
-    PlayerJoined(Arc<Player>),
+    PlayerJoined(Arc<Player>, PlayerInfo),
     PlayerLeft(u128),
     PlayerEnterPlot(Arc<Player>, i32, i32),
     PlayerTeleportOther(Arc<Player>, String),
     PlotUnload(i32, i32),
 }
 
+#[derive(Debug, Clone)]
 struct PlayerInfo {
     plot_x: i32,
     plot_z: i32,
@@ -78,9 +78,12 @@ impl MinecraftServer {
             0,
             server.broadcaster.add_rx(),
             server.plot_sender.clone(),
-            true
+            true,
         );
-        server.running_plots.push(PlotInfo { plot_x: 0, plot_z:0 });
+        server.running_plots.push(PlotInfo {
+            plot_x: 0,
+            plot_z: 0,
+        });
         loop {
             server.update();
             std::thread::sleep(Duration::from_millis(2));
@@ -91,9 +94,9 @@ impl MinecraftServer {
         while let Ok(message) = self.receiver.try_recv() {
             println!("Main thread received message: {:#?}", message);
             match message {
-                Message::PlayerJoined(player) => {
-                    let plot_x = (player.x / 128f64).floor() as i32;
-                    let plot_z = (player.y / 128f64).floor() as i32;
+                Message::PlayerJoined(player, player_info) => {
+                    let plot_x = player_info.plot_x;
+                    let plot_z = player_info.plot_z;
                     let plot_loaded = self
                         .running_plots
                         .iter()
@@ -107,19 +110,14 @@ impl MinecraftServer {
                             plot_z,
                             self.broadcaster.add_rx(),
                             self.plot_sender.clone(),
-                            false
+                            false,
                         );
                         self.running_plots.push(PlotInfo { plot_x, plot_z });
                     }
                     println!("Sending Player into Plot");
                     self.broadcaster
                         .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
-                    self.online_players.push(PlayerInfo {
-                        plot_x,
-                        plot_z, 
-                        username,
-                        uuid,
-                    });
+                    self.online_players.push(player_info);
                 }
                 Message::PlayerLeft(uuid) => {
                     let index = self.online_players.iter().position(|p| p.uuid == uuid);
@@ -179,8 +177,19 @@ impl MinecraftServer {
                             clients[client].state = NetworkState::Play;
                             let player =
                                 Player::load_player(uuid, username.clone(), clients.remove(client));
+                            let plot_x = (player.x / 128f64).floor() as i32;
+                            let plot_z = (player.y / 128f64).floor() as i32;
                             self.plot_sender
-                                .send(Message::PlayerJoined(Arc::new(player))).unwrap();
+                                .send(Message::PlayerJoined(
+                                    Arc::new(player),
+                                    PlayerInfo {
+                                        plot_x,
+                                        plot_z,
+                                        username,
+                                        uuid,
+                                    },
+                                ))
+                                .unwrap();
                         }
                     }
                     NetworkState::Play => {}

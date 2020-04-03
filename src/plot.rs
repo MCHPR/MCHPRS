@@ -1,13 +1,14 @@
+use crate::network::packets::*;
 use crate::player::Player;
 use crate::server::Message;
 use bus::BusReader;
-use std::sync::mpsc::Sender;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
 use std::io::Cursor;
+use std::sync::mpsc::Sender;
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
-use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PlotData {
@@ -84,7 +85,13 @@ impl Plot {
         }
     }
 
-    fn load(x: i32, z: i32, rx: BusReader<Message>, tx: Sender<Message>, always_running: bool) -> Plot {
+    fn load(
+        x: i32,
+        z: i32,
+        rx: BusReader<Message>,
+        tx: Sender<Message>,
+        always_running: bool,
+    ) -> Plot {
         if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
             // TODO: Handle format error
             let plot_data: PlotData = nbt::from_reader(Cursor::new(data)).unwrap();
@@ -147,7 +154,7 @@ impl Plot {
         z: i32,
         rx: BusReader<Message>,
         tx: Sender<Message>,
-        always_running: bool
+        always_running: bool,
     ) {
         let mut plot = Plot::load(x, z, rx, tx, always_running);
         thread::spawn(move || {

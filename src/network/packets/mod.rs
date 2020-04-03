@@ -4,6 +4,9 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use std::io::Read;
 
+pub mod clientbound;
+pub mod serverbound;
+
 pub struct PacketDecoder {
     buffer: Vec<u8>,
     i: usize,
@@ -266,118 +269,5 @@ impl PacketEncoder {
         let length = self.varint((self.buffer.len() + packet_id.len()) as i32);
 
         [&length[..], &packet_id[..], &self.buffer[..]].concat()
-    }
-}
-
-pub trait ClientBoundPacket {
-    fn encode(self) -> PacketEncoder;
-}
-
-pub struct C00Reponse {
-    pub json_response: String,
-}
-
-impl ClientBoundPacket for C00Reponse {
-    fn encode(self) -> PacketEncoder {
-        let mut encoder = PacketEncoder::new(0x00);
-        encoder.write_string(32767, self.json_response);
-        encoder
-    }
-}
-
-pub struct C01Pong {
-    pub payload: i64,
-}
-
-impl ClientBoundPacket for C01Pong {
-    fn encode(self) -> PacketEncoder {
-        let mut encoder = PacketEncoder::new(0x01);
-        encoder.write_long(self.payload);
-        encoder
-    }
-}
-
-pub struct C02LoginSuccess {
-    pub uuid: u128,
-    pub username: String,
-}
-
-impl ClientBoundPacket for C02LoginSuccess {
-    fn encode(self) -> PacketEncoder {
-        let mut encoder = PacketEncoder::new(0x02);
-        let mut hex = format!("{:032X}", self.uuid);
-        hex.insert(7, '-');
-        hex.insert(13, '-');
-        hex.insert(17, '-');
-        hex.insert(21, '-');
-        encoder.write_string(36, hex);
-        encoder.write_string(16, self.username);
-        encoder
-    }
-}
-
-pub struct C03SetCompression {
-    pub threshold: i32,
-}
-
-impl ClientBoundPacket for C03SetCompression {
-    fn encode(self) -> PacketEncoder {
-        let mut encoder = PacketEncoder::new(0x03);
-        encoder.write_varint(self.threshold);
-        encoder
-    }
-}
-
-pub trait ServerBoundPacket {
-    fn decode(decoder: PacketDecoder) -> Self;
-}
-
-pub struct S00Handshake {
-    pub protocol_version: i32,
-    pub server_address: String,
-    pub server_port: u16,
-    pub next_state: i32,
-}
-
-impl ServerBoundPacket for S00Handshake {
-    fn decode(mut decoder: PacketDecoder) -> Self {
-        S00Handshake {
-            protocol_version: decoder.read_varint(),
-            server_address: decoder.read_string(),
-            server_port: decoder.read_unsigned_short(),
-            next_state: decoder.read_varint(),
-        }
-    }
-}
-
-pub struct S00Request {}
-
-impl ServerBoundPacket for S00Request {
-    fn decode(mut _decoder: PacketDecoder) -> Self {
-        S00Request {}
-    }
-}
-
-pub struct S00Ping {
-    pub payload: i64,
-}
-
-impl ServerBoundPacket for S00Ping {
-    fn decode(mut decoder: PacketDecoder) -> Self {
-        S00Ping {
-            payload: decoder.read_long(),
-        }
-    }
-}
-
-pub struct S00LoginStart {
-    pub name: String,
-}
-
-impl ServerBoundPacket for S00LoginStart {
-    fn decode(mut decoder: PacketDecoder) -> Self {
-        S00LoginStart {
-            name: decoder.read_string(),
-        }
     }
 }
