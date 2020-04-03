@@ -1,10 +1,10 @@
 use crate::network::NetworkClient;
+use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::{self, File};
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
-use byteorder::{LittleEndian, ReadBytesExt};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
@@ -66,19 +66,20 @@ pub struct Player {
 impl fmt::Debug for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Player")
-            .field("uuid", &self.uuid)
             .field("username", &self.username)
+            .field("uuid", &format!("{:032x}", self.uuid))
             .finish()
     }
 }
 
 impl Player {
-    pub fn generate_offline_uuid(username: &String) -> u128 {
-        Cursor::new(md5::compute(username).0).read_u128::<LittleEndian>().unwrap()
+    pub fn generate_offline_uuid(username: &str) -> u128 {
+        Cursor::new(md5::compute(username).0)
+            .read_u128::<LittleEndian>()
+            .unwrap()
     }
 
-    /// This function returns `None` when a player is not found.
-    fn load_player(uuid: u128, username: String, client: NetworkClient) -> Option<Player> {
+    pub fn load_player(uuid: u128, username: String, client: NetworkClient) -> Player {
         if let Ok(data) = fs::read(format!("./world/players/{:032X}", uuid)) {
             // TODO: Handle format error
             let player_data: PlayerData = nbt::from_reader(Cursor::new(data)).unwrap();
@@ -92,7 +93,7 @@ impl Player {
                     damage: entry.damage as u16,
                 });
             }
-            Some(Player {
+            Player {
                 uuid,
                 username,
                 skin_parts: Default::default(),
@@ -106,9 +107,9 @@ impl Player {
                 on_ground: player_data.on_ground,
                 walk_speed: player_data.walk_speed,
                 fly_speed: player_data.fly_speed,
-            })
+            }
         } else {
-            None
+            Player::create_player(uuid, username, client)
         }
     }
 

@@ -24,8 +24,8 @@ pub struct NetworkClient {
     pub state: NetworkState,
     pub packets: Vec<PacketDecoder>,
     pub username: Option<String>,
-    alive: bool,
-    pub compressed: bool
+    pub alive: bool,
+    pub compressed: bool,
 }
 
 impl NetworkClient {
@@ -33,10 +33,14 @@ impl NetworkClient {
         if !self.alive {
             return;
         };
+        let mut would_block = false;
         let incoming_data = Vec::from(match self.reader.fill_buf() {
             Ok(data) => data,
             Err(e) => match e.kind() {
-                io::ErrorKind::WouldBlock => &[],
+                io::ErrorKind::WouldBlock => {
+                    would_block = true;
+                    &[]
+                }
                 _ => {
                     self.alive = false;
                     return;
@@ -45,10 +49,13 @@ impl NetworkClient {
         });
         let data_length = incoming_data.len();
         let mut incoming_packets = PacketDecoder::decode(false, incoming_data);
-        if incoming_packets.is_empty() {
+        if !incoming_packets.is_empty() {
             self.packets.append(&mut incoming_packets);
         }
         self.reader.consume(data_length);
+        if !would_block && data_length == 0 {
+            self.alive = false;
+        }
     }
 
     pub fn send_packet(&mut self, data: PacketEncoder) {
@@ -84,7 +91,7 @@ impl NetworkServer {
                     packets: Vec::new(),
                     username: None,
                     alive: true,
-                    compressed: false
+                    compressed: false,
                 })
                 .unwrap();
         }

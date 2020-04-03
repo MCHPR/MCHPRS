@@ -1,11 +1,13 @@
 use crate::player::Player;
 use crate::server::Message;
-use crossbeam::channel;
+use bus::BusReader;
+use std::sync::mpsc::Sender;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::Cursor;
 use std::thread;
 use std::time::{Duration, SystemTime};
+use std::sync::Arc;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PlotData {
@@ -13,33 +15,41 @@ struct PlotData {
     show_redstone: bool,
 }
 
-struct Plot {
+pub struct Plot {
     players: Vec<Player>,
     tps: u32,
-    message_receiver: channel::Receiver<Message>,
-    message_sender: channel::Sender<Message>,
+    message_receiver: BusReader<Message>,
+    message_sender: Sender<Message>,
     last_player_time: SystemTime,
     running: bool,
-    x: u32,
-    z: u32,
+    x: i32,
+    z: i32,
     show_redstone: bool,
+    always_running: bool,
 }
 
 impl Plot {
     fn set_block(&mut self) {}
 
     fn enter_plot(&mut self, player: Player) {
+        self.save();
         self.players.push(player);
     }
 
     fn tick(&mut self) {}
 
     fn update(&mut self) {
+        // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
+            println!(
+                "Plot({}, {}) received message: {:#?}",
+                self.x, self.z, message
+            );
             match message {
-                Message::PlayerTeleportOther(mut player, other_player) => {
+                Message::PlayerTeleportOther(player, other_player) => {
                     for p in self.players.iter() {
                         if p.username == other_player {
+                            let mut player = Arc::try_unwrap(player).unwrap();
                             player.teleport(p.x, p.y, p.z);
                             self.enter_plot(player);
                             break;
@@ -48,12 +58,14 @@ impl Plot {
                 }
                 Message::PlayerEnterPlot(player, plot_x, plot_z) => {
                     if plot_x == self.x && plot_z == self.z {
+                        let player = Arc::try_unwrap(player).unwrap();
                         self.enter_plot(player);
                     }
                 }
                 _ => {}
             }
         }
+        // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.tick();
         } else {
@@ -62,9 +74,17 @@ impl Plot {
                 self.running = false;
             }
         }
+        // Check if connected to player is still active
+        for player in 0..self.players.len() {
+            self.players[player].client.update();
+            if !self.players[player].client.alive {
+                let uuid = self.players.remove(player).uuid;
+                self.message_sender.send(Message::PlayerLeft(uuid)).unwrap();
+            }
+        }
     }
 
-    fn load(x: u32, z: u32, rx: channel::Receiver<Message>, tx: channel::Sender<Message>) -> Plot {
+    fn load(x: i32, z: i32, rx: BusReader<Message>, tx: Sender<Message>, always_running: bool) -> Plot {
         if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
             // TODO: Handle format error
             let plot_data: PlotData = nbt::from_reader(Cursor::new(data)).unwrap();
@@ -78,6 +98,7 @@ impl Plot {
                 tps: plot_data.tps as u32,
                 x,
                 z,
+                always_running,
             }
         } else {
             Plot {
@@ -90,12 +111,17 @@ impl Plot {
                 tps: 20,
                 x,
                 z,
+                always_running,
             }
         }
     }
 
     fn save(&self) {
-        let mut file = File::open(format!("./world/plots/p{}:{}", self.x, self.z)).unwrap();
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(format!("./world/plots/p{}:{}", self.x, self.z))
+            .unwrap();
         nbt::to_writer(
             &mut file,
             &PlotData {
@@ -105,9 +131,11 @@ impl Plot {
             None,
         )
         .unwrap();
+        file.sync_data().unwrap();
     }
 
     fn run(&mut self) {
+        println!("Running new plot!");
         while self.running {
             self.update();
             thread::sleep(Duration::from_millis(2));
@@ -115,13 +143,14 @@ impl Plot {
     }
 
     pub fn load_and_run(
-        x: u32,
-        y: u32,
-        rx: channel::Receiver<Message>,
-        tx: channel::Sender<Message>,
+        x: i32,
+        z: i32,
+        rx: BusReader<Message>,
+        tx: Sender<Message>,
+        always_running: bool
     ) {
+        let mut plot = Plot::load(x, z, rx, tx, always_running);
         thread::spawn(move || {
-            let mut plot = Plot::load(x, y, rx, tx);
             plot.run();
         });
     }
@@ -129,6 +158,7 @@ impl Plot {
 
 impl Drop for Plot {
     fn drop(&mut self) {
+        self.save();
         self.message_sender
             .send(Message::PlotUnload(self.x, self.z))
             .unwrap();

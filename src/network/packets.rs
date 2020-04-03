@@ -35,7 +35,7 @@ impl PacketDecoder {
             } else {
                 let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
                 decoders.push(PacketDecoder {
-                    buffer: Vec::from(&buf[i..i + length.0 as usize]),
+                    buffer: Vec::from(&buf[i + 1..i + length.0 as usize]),
                     i: 0,
                     packet_id: packet_id.0 as u32,
                 });
@@ -219,6 +219,7 @@ impl PacketEncoder {
         if val.len() > n * 4 + 3 {
             panic!("Tried to write string longer than the max length!");
         }
+        self.write_varint(val.len() as i32);
         self.buffer.append(&mut Vec::from(val.as_bytes()))
     }
 
@@ -245,13 +246,19 @@ impl PacketEncoder {
     pub fn compressed(&self) -> Vec<u8> {
         let packet_id = self.varint(self.packet_id as i32);
         let data = [&packet_id[..], &self.buffer[..]].concat();
-        let data_length = self.varint(data.len() as i32);
-        let compressed = ZlibEncoder::new(data, Compression::default())
-            .finish()
-            .unwrap();
-        let packet_length = self.varint((data_length.len() + compressed.len()) as i32);
+        if self.buffer.len() < 500 {
+            let data_length = self.varint(0);
+            let packet_length = self.varint((data_length.len() + data.len()) as i32);
+            [&packet_length[..], &data_length[..], &data[..]].concat()
+        } else {
+            let data_length = self.varint(data.len() as i32);
+            let compressed = ZlibEncoder::new(data, Compression::default())
+                .finish()
+                .unwrap();
+            let packet_length = self.varint((data_length.len() + compressed.len()) as i32);
 
-        [&packet_length[..], &data_length[..], &compressed[..]].concat()
+            [&packet_length[..], &data_length[..], &compressed[..]].concat()
+        }
     }
 
     pub fn uncompressed(&self) -> Vec<u8> {
@@ -292,7 +299,7 @@ impl ClientBoundPacket for C01Pong {
 
 pub struct C02LoginSuccess {
     pub uuid: u128,
-    pub username: String
+    pub username: String,
 }
 
 impl ClientBoundPacket for C02LoginSuccess {
@@ -310,7 +317,7 @@ impl ClientBoundPacket for C02LoginSuccess {
 }
 
 pub struct C03SetCompression {
-    pub threshold: i32
+    pub threshold: i32,
 }
 
 impl ClientBoundPacket for C03SetCompression {
