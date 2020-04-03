@@ -1,63 +1,28 @@
+use crate::network::NetworkClient;
 use serde::{Deserialize, Serialize};
-use std::fs;
+use std::fs::{self, File};
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
     id: String,
-    #[serde(rename = "Slot")]
-    slot: Option<i8>,
-    #[serde(rename = "Count")]
+    slot: i8,
     count: i8,
-    #[serde(rename = "Damage")]
     damage: i16,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct InventoryEntryDisplay {
-    #[serde(rename = "Name")]
-    name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PlayerAbilityData {
-    invulnerable: bool,
-    instabuild: bool,
-    flying: bool,
-    #[serde(rename = "flySpeed")]
-    fly_speed: f32,
-    #[serde(rename = "walkSpeed")]
-    walk_speed: f32,
-    #[serde(rename = "mayBuild")]
-    may_build: bool,
-    #[serde(rename = "mayfly")]
-    may_fly: bool,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 pub struct PlayerData {
-    abilities: PlayerAbilityData,
-
-    #[serde(rename = "OnGround")]
     on_ground: bool,
-    #[serde(rename = "Motion")]
-    motion: Vec<f64>, // [f64; 3]
-    #[serde(rename = "Pos")]
+    flying: bool,
+    motion: Vec<f64>,   // [f64; 3]
     position: Vec<f64>, // [f64; 3]
-    #[serde(rename = "Rotation")]
     rotation: Vec<f32>, // [f32; 2]
-
-    #[serde(rename = "PortalCooldown")]
-    portal_cooldown: Option<i32>,
-    #[serde(rename = "Invulnerable")]
-    invulnerable: Option<bool>,
-
-    #[serde(rename = "Inventory")]
     inventory: Vec<InventoryEntry>,
-
-    #[serde(rename = "SelectedItemSlot")]
-    selected_item_slot: Option<i32>,
+    selected_item_slot: i32,
+    fly_speed: f32,
+    walk_speed: f32,
 }
 
 bitflags! {
@@ -76,24 +41,31 @@ bitflags! {
 #[derive(Clone)]
 struct Item {
     id: String,
+    count: u8,
+    damage: u16,
 }
 
 pub struct Player {
-    uuid: u128,
-    username: String,
-    skin_parts: SkinParts,
-    inventory: Vec<Option<Item>>,
-    selected_slot: u32,
-    x: f64,
-    y: f64,
-    z: f64,
+    pub uuid: u128,
+    pub username: String,
+    pub skin_parts: SkinParts,
+    pub inventory: Vec<Option<Item>>,
+    pub selected_slot: u32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub client: NetworkClient,
+    pub flying: bool,
+    pub on_ground: bool,
+    pub fly_speed: f32,
+    pub walk_speed: f32,
 }
 
 impl Player {
     fn generate_offline_uuid(username: String) {}
 
     /// This function returns `None` when a player is not found.
-    fn load_player(uuid: u128, username: String) -> Option<Player> {
+    fn load_player(uuid: u128, username: String, client: NetworkClient) -> Option<Player> {
         if let Ok(data) = fs::read(format!("./world/players/{:032X}", uuid)) {
             // TODO: Handle format error
             let player_data: PlayerData = nbt::from_reader(Cursor::new(data)).unwrap();
@@ -101,24 +73,77 @@ impl Player {
             let mut inventory: Vec<Option<Item>> = vec![];
             inventory.resize_with(46, || None);
             for entry in player_data.inventory {
-                if let Some(slot) = entry.slot {
-                    inventory[slot as usize] = Some(Item { id: entry.id });
-                }
+                inventory[entry.slot as usize] = Some(Item {
+                        id: entry.id,
+                        count: entry.count as u8,
+                        damage: entry.damage as u16
+                });
             }
             Some(Player {
                 uuid,
                 username,
                 skin_parts: Default::default(),
                 inventory,
-                selected_slot: player_data.selected_item_slot.unwrap_or(0) as u32,
+                selected_slot: player_data.selected_item_slot as u32,
                 x: player_data.position[0],
                 y: player_data.position[1],
                 z: player_data.position[2],
+                client,
+                flying: player_data.flying,
+                on_ground: player_data.on_ground,
+                walk_speed: player_data.walk_speed,
+                fly_speed: player_data.fly_speed,
             })
         } else {
             None
         }
     }
 
-    fn create_player() {}
+    fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
+        let mut inventory: Vec<Option<Item>> = vec![];
+        inventory.resize_with(46, || None);
+        Player {
+            uuid,
+            username,
+            skin_parts: Default::default(),
+            selected_slot: 0,
+            x: 64f64,
+            y: 64f64,
+            z: 64f64,
+            client,
+            inventory,
+            fly_speed: 1f32,
+            walk_speed: 1f32,
+            on_ground: true,
+            flying: false
+        }
+    }
+
+    fn save(&self) {
+        let mut file = File::open(format!("./world/players/{:032X}", self.uuid)).unwrap();
+        let inventory: Vec<InventoryEntry> = Vec::new();
+        for (slot, item_option) in self.inventory.iter().enumerate() {
+            if let Some(item) = item_option {
+                inventory.push(InventoryEntry {
+                    count: item.count as i8,
+                    id: item.id,
+                    damage: item.damage as i16,
+                    slot: slot as i8
+                })
+            }
+        }
+        nbt::to_writer(&mut file, &PlayerData {
+            fly_speed: self.fly_speed,
+            flying: self.flying,
+            inventory,
+            motion: vec![0f64, 0f64, 0f64],
+            on_ground: self.on_ground,
+            position: vec![self.x, self.y, self.z],
+            rotation: vec![0f32, 0f32, 0f32],
+            selected_item_slot: self.selected_slot as i32,
+            walk_speed: self.walk_speed,
+        }, None);
+    }
+
+    pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}
 }

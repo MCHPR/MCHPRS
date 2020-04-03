@@ -15,21 +15,28 @@ enum NetworkState {
 }
 
 /// This struct represents a TCP Client
-struct NetworkClient {
+pub struct NetworkClient {
     /// All NetworkClients are identified by this id
     id: u32,
     reader: BufReader<TcpStream>,
     state: NetworkState,
     packets: Vec<PacketDecoder>,
+    alive: bool,
 }
 
 impl NetworkClient {
-    fn update(&mut self) {
+    pub fn update(&mut self) {
+        if !self.alive {
+            return;
+        };
         let incoming_data = Vec::from(match self.reader.fill_buf() {
             Ok(data) => data,
             Err(e) => match e.kind() {
                 io::ErrorKind::WouldBlock => &[],
-                _ => panic!(e),
+                _ => {
+                    self.alive = false;
+                    return;
+                }
             },
         });
         let data_length = incoming_data.len();
@@ -39,6 +46,8 @@ impl NetworkClient {
         }
         self.reader.consume(data_length);
     }
+
+    pub fn send_packet(data: Vec<u8>) {}
 }
 
 /// This represents the network portion of a minecraft server
@@ -62,6 +71,7 @@ impl NetworkServer {
                     reader: BufReader::new(stream),
                     state: NetworkState::Handshake,
                     packets: Vec::new(),
+                    alive: true,
                 })
                 .unwrap();
         }

@@ -1,22 +1,30 @@
 use crate::network::NetworkServer;
 use crate::permissions::Permissions;
 use crate::player::Player;
-use std::sync::{Arc, Mutex};
 use crossbeam::channel;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
-/// These messages are used to communicated when a player joins, leaves, or moves into another plot.
-/// These messages are also used to communicate chat messages.
-enum Message {
+/// These messages are used to communicated when a player joins, leaves, or moves into another plot,
+/// as well as to communicate chat messages.
+pub enum Message {
     Chat(String),
     PlayerJoined(Player),
     PlayerLeft(u32),
     PlayerEnterPlot(Player, u32, u32),
-    PlayerTeleport(Player, String),
+    PlayerTeleportOther(Player, String),
+    PlotUnload(u32, u32),
 }
 
 struct PlayerInfo {
+    plot_x: u32,
+    plot_y: u32,
+    username: String,
+    uuid: u128,
+}
+
+struct PlotInfo {
     plot_x: u32,
     plot_y: u32,
 }
@@ -25,9 +33,11 @@ struct PlayerInfo {
 pub struct MinecraftServer {
     network: NetworkServer,
     config: config::Config,
-    message_transmitter: channel::Sender<Message>,
+    message_sender: channel::Sender<Message>,
     message_receiver: channel::Receiver<Message>,
     permissions: Arc<Mutex<Permissions>>,
+    online_players: Vec<PlayerInfo>,
+    running_plots: Vec<PlotInfo>,
 }
 
 impl MinecraftServer {
@@ -45,9 +55,11 @@ impl MinecraftServer {
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
             config,
-            message_transmitter: tx,
+            message_sender: tx,
             message_receiver: rx,
             permissions,
+            online_players: Vec::new(),
+            running_plots: Vec::new(),
         };
         loop {
             server.update();
