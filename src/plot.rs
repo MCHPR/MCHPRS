@@ -1,16 +1,16 @@
 use crate::player::Player;
 use crate::server::Message;
 use crossbeam::channel;
-use std::thread;
-use std::time::{Duration, SystemTime};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Cursor;
+use std::thread;
+use std::time::{Duration, SystemTime};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PlotData {
     tps: i32,
-    show_redstone: bool
+    show_redstone: bool,
 }
 
 struct Plot {
@@ -22,7 +22,7 @@ struct Plot {
     running: bool,
     x: u32,
     z: u32,
-    show_redstone: bool
+    show_redstone: bool,
 }
 
 impl Plot {
@@ -60,7 +60,8 @@ impl Plot {
             // Unload plot after 300 seconds
             if self.last_player_time.elapsed().unwrap().as_secs() > 300 {
                 self.message_sender
-                    .send(Message::PlotUnload(self.x, self.z)).unwrap();
+                    .send(Message::PlotUnload(self.x, self.z))
+                    .unwrap();
             }
         }
     }
@@ -77,7 +78,8 @@ impl Plot {
                 running: true,
                 show_redstone: plot_data.show_redstone,
                 tps: plot_data.tps as u32,
-                x, z
+                x,
+                z,
             }
         } else {
             Plot {
@@ -88,7 +90,8 @@ impl Plot {
                 running: true,
                 show_redstone: true,
                 tps: 20,
-                x, z
+                x,
+                z,
             }
         }
     }
@@ -99,10 +102,11 @@ impl Plot {
             &mut file,
             &PlotData {
                 tps: self.tps as i32,
-                show_redstone: self.show_redstone
+                show_redstone: self.show_redstone,
             },
             None,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     fn run(&mut self) {
@@ -112,7 +116,12 @@ impl Plot {
         }
     }
 
-    pub fn load_and_run(x: u32, y: u32, rx: channel::Receiver<Message>, tx: channel::Sender<Message>) {
+    pub fn load_and_run(
+        x: u32,
+        y: u32,
+        rx: channel::Receiver<Message>,
+        tx: channel::Sender<Message>,
+    ) {
         thread::spawn(move || {
             let mut plot = Plot::load(x, y, rx, tx);
             plot.run();

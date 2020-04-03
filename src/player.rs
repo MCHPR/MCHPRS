@@ -1,9 +1,9 @@
 use crate::network::NetworkClient;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::fs::{self, File};
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
-use std::fmt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
@@ -156,7 +156,8 @@ impl Player {
                 walk_speed: self.walk_speed,
             },
             None,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}

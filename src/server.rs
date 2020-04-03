@@ -2,9 +2,9 @@ use crate::network::NetworkServer;
 use crate::permissions::Permissions;
 use crate::player::Player;
 use crossbeam::channel;
+use std::fmt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::fmt;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicated when a player joins, leaves, or moves into another plot,
@@ -18,8 +18,6 @@ pub enum Message {
     PlayerTeleportOther(Player, String),
     PlotUnload(u32, u32),
 }
-
-
 
 struct PlayerInfo {
     plot_x: u32,
