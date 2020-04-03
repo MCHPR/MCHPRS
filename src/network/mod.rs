@@ -1,15 +1,16 @@
-mod packets;
+pub mod packets;
 
 use crate::server::MinecraftServer;
-use packets::PacketDecoder;
-use std::io::{self, BufRead, BufReader};
+use packets::{PacketDecoder, PacketEncoder};
+use std::io::{self, BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
-#[derive(PartialEq)]
-enum NetworkState {
+#[derive(PartialEq, Clone)]
+pub enum NetworkState {
     Handshake,
+    Status,
     Login,
     Play,
 }
@@ -19,9 +20,12 @@ pub struct NetworkClient {
     /// All NetworkClients are identified by this id
     id: u32,
     reader: BufReader<TcpStream>,
-    state: NetworkState,
-    packets: Vec<PacketDecoder>,
+    stream: TcpStream,
+    pub state: NetworkState,
+    pub packets: Vec<PacketDecoder>,
+    pub username: Option<String>,
     alive: bool,
+    pub compressed: bool
 }
 
 impl NetworkClient {
@@ -47,14 +51,20 @@ impl NetworkClient {
         self.reader.consume(data_length);
     }
 
-    pub fn send_packet(data: Vec<u8>) {}
+    pub fn send_packet(&mut self, data: PacketEncoder) {
+        if self.compressed {
+            self.stream.write_all(&data.compressed());
+        } else {
+            self.stream.write_all(&data.uncompressed());
+        }
+    }
 }
 
 /// This represents the network portion of a minecraft server
 pub struct NetworkServer {
     client_receiver: mpsc::Receiver<NetworkClient>,
     /// These clients are either in the handshake, login, or ping state, once they shift to play, they will be moved to a plot
-    handshaking_clients: Vec<NetworkClient>,
+    pub handshaking_clients: Vec<NetworkClient>,
 }
 
 impl NetworkServer {
@@ -68,10 +78,13 @@ impl NetworkServer {
                 .send(NetworkClient {
                     // The index will increment after each client making it unique. We'll just use this as the id.
                     id: index as u32,
-                    reader: BufReader::new(stream),
+                    reader: BufReader::new(stream.try_clone().unwrap()),
+                    stream,
                     state: NetworkState::Handshake,
                     packets: Vec::new(),
+                    username: None,
                     alive: true,
+                    compressed: false
                 })
                 .unwrap();
         }

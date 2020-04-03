@@ -4,6 +4,7 @@ use std::fmt;
 use std::fs::{self, File};
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
+use byteorder::{LittleEndian, ReadBytesExt};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
@@ -72,7 +73,9 @@ impl fmt::Debug for Player {
 }
 
 impl Player {
-    fn generate_offline_uuid(username: String) {}
+    pub fn generate_offline_uuid(username: &String) -> u128 {
+        Cursor::new(md5::compute(username).0).read_u128::<LittleEndian>().unwrap()
+    }
 
     /// This function returns `None` when a player is not found.
     fn load_player(uuid: u128, username: String, client: NetworkClient) -> Option<Player> {

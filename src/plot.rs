@@ -59,9 +59,7 @@ impl Plot {
         } else {
             // Unload plot after 300 seconds
             if self.last_player_time.elapsed().unwrap().as_secs() > 300 {
-                self.message_sender
-                    .send(Message::PlotUnload(self.x, self.z))
-                    .unwrap();
+                self.running = false;
             }
         }
     }
@@ -126,5 +124,13 @@ impl Plot {
             let mut plot = Plot::load(x, y, rx, tx);
             plot.run();
         });
+    }
+}
+
+impl Drop for Plot {
+    fn drop(&mut self) {
+        self.message_sender
+            .send(Message::PlotUnload(self.x, self.z))
+            .unwrap();
     }
 }

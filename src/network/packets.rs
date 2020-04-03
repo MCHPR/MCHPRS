@@ -157,7 +157,7 @@ impl PacketDecoder {
     }
 }
 
-struct PacketEncoder {
+pub struct PacketEncoder {
     buffer: Vec<u8>,
     packet_id: u32,
 }
@@ -242,7 +242,7 @@ impl PacketEncoder {
         self.buffer.write_i64::<BigEndian>(val).unwrap()
     }
 
-    fn compressed(&self) -> Vec<u8> {
+    pub fn compressed(&self) -> Vec<u8> {
         let packet_id = self.varint(self.packet_id as i32);
         let data = [&packet_id[..], &self.buffer[..]].concat();
         let data_length = self.varint(data.len() as i32);
@@ -254,7 +254,7 @@ impl PacketEncoder {
         [&packet_length[..], &data_length[..], &compressed[..]].concat()
     }
 
-    fn uncompressed(&self) -> Vec<u8> {
+    pub fn uncompressed(&self) -> Vec<u8> {
         let packet_id = self.varint(self.packet_id as i32);
         let length = self.varint((self.buffer.len() + packet_id.len()) as i32);
 
@@ -262,12 +262,12 @@ impl PacketEncoder {
     }
 }
 
-trait ClientBoundPacket {
+pub trait ClientBoundPacket {
     fn encode(self) -> PacketEncoder;
 }
 
-struct C00Reponse {
-    json_response: String,
+pub struct C00Reponse {
+    pub json_response: String,
 }
 
 impl ClientBoundPacket for C00Reponse {
@@ -278,8 +278,8 @@ impl ClientBoundPacket for C00Reponse {
     }
 }
 
-struct C01Pong {
-    payload: i64,
+pub struct C01Pong {
+    pub payload: i64,
 }
 
 impl ClientBoundPacket for C01Pong {
@@ -290,15 +290,46 @@ impl ClientBoundPacket for C01Pong {
     }
 }
 
-trait ServerBoundPacket {
+pub struct C02LoginSuccess {
+    pub uuid: u128,
+    pub username: String
+}
+
+impl ClientBoundPacket for C02LoginSuccess {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x02);
+        let mut hex = format!("{:032X}", self.uuid);
+        hex.insert(7, '-');
+        hex.insert(13, '-');
+        hex.insert(17, '-');
+        hex.insert(21, '-');
+        encoder.write_string(36, hex);
+        encoder.write_string(16, self.username);
+        encoder
+    }
+}
+
+pub struct C03SetCompression {
+    pub threshold: i32
+}
+
+impl ClientBoundPacket for C03SetCompression {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x03);
+        encoder.write_varint(self.threshold);
+        encoder
+    }
+}
+
+pub trait ServerBoundPacket {
     fn decode(decoder: PacketDecoder) -> Self;
 }
 
-struct S00Handshake {
-    protocol_version: i32,
-    server_address: String,
-    server_port: u16,
-    next_state: i32,
+pub struct S00Handshake {
+    pub protocol_version: i32,
+    pub server_address: String,
+    pub server_port: u16,
+    pub next_state: i32,
 }
 
 impl ServerBoundPacket for S00Handshake {
@@ -312,7 +343,7 @@ impl ServerBoundPacket for S00Handshake {
     }
 }
 
-struct S00Request {}
+pub struct S00Request {}
 
 impl ServerBoundPacket for S00Request {
     fn decode(mut _decoder: PacketDecoder) -> Self {
@@ -320,14 +351,26 @@ impl ServerBoundPacket for S00Request {
     }
 }
 
-struct S00Ping {
-    payload: i64,
+pub struct S00Ping {
+    pub payload: i64,
 }
 
 impl ServerBoundPacket for S00Ping {
     fn decode(mut decoder: PacketDecoder) -> Self {
         S00Ping {
             payload: decoder.read_long(),
+        }
+    }
+}
+
+pub struct S00LoginStart {
+    pub name: String,
+}
+
+impl ServerBoundPacket for S00LoginStart {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S00LoginStart {
+            name: decoder.read_string(),
         }
     }
 }

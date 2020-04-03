@@ -1,4 +1,13 @@
-use crate::network::NetworkServer;
+use crate::network::{NetworkServer, NetworkState, NetworkClient};
+use crate::network::packets::{
+    PacketDecoder, 
+    S00Handshake, 
+    S00LoginStart, 
+    C02LoginSuccess,
+    C03SetCompression,
+    ServerBoundPacket,
+    ClientBoundPacket
+};
 use crate::permissions::Permissions;
 use crate::player::Player;
 use crossbeam::channel;
@@ -77,5 +86,48 @@ impl MinecraftServer {
             }
         }
         self.network.update();
+        for client in &mut self.network.handshaking_clients {
+            let packets: Vec<PacketDecoder> = client.packets.drain(..).collect();
+            for packet in packets {
+                match client.state {
+                    NetworkState::Handshake => {
+                        if packet.packet_id == 0x00 {
+                            let handshake = S00Handshake::decode(packet);
+                            match handshake.next_state {
+                                1 => client.state = NetworkState::Status,
+                                2 => client.state = NetworkState::Login,
+                                _ => {}
+                            }
+                        }
+                    },
+                    NetworkState::Status => {
+
+                    },
+                    NetworkState::Login => {
+                        if packet.packet_id == 0x00 {
+                            let login_start = S00LoginStart::decode(packet);
+                            client.username = Some(login_start.name);
+                            let set_compression = C03SetCompression {
+                                threshold: 500
+                            }.encode();
+                            client.send_packet(set_compression);
+                            client.compressed = true;
+                            if let Some(username) = &client.username {
+                                let login_success = C02LoginSuccess {
+                                    uuid: Player::generate_offline_uuid(username),
+                                    username: username.clone()
+                                }.encode();
+                                client.send_packet(login_success);
+                                client.state = NetworkState::Play;
+                            }
+                            
+                        }
+                    },
+                    NetworkState::Play => {}
+                }
+            }
+            
+        }
     }
+
 }
