@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
+use std::fmt;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
@@ -27,7 +28,7 @@ pub struct PlayerData {
 
 bitflags! {
     #[derive(Default)]
-    struct SkinParts: u32 {
+    pub struct SkinParts: u32 {
         const Cape = 0x01;
         const Jacket = 0x02;
         const LeftSleeve = 0x04;
@@ -39,7 +40,7 @@ bitflags! {
 }
 
 #[derive(Clone)]
-struct Item {
+pub struct Item {
     id: String,
     count: u8,
     damage: u16,
@@ -59,6 +60,15 @@ pub struct Player {
     pub on_ground: bool,
     pub fly_speed: f32,
     pub walk_speed: f32,
+}
+
+impl fmt::Debug for Player {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Player")
+            .field("uuid", &self.uuid)
+            .field("username", &self.username)
+            .finish()
+    }
 }
 
 impl Player {
@@ -121,12 +131,12 @@ impl Player {
 
     fn save(&self) {
         let mut file = File::open(format!("./world/players/{:032X}", self.uuid)).unwrap();
-        let inventory: Vec<InventoryEntry> = Vec::new();
+        let mut inventory: Vec<InventoryEntry> = Vec::new();
         for (slot, item_option) in self.inventory.iter().enumerate() {
             if let Some(item) = item_option {
                 inventory.push(InventoryEntry {
                     count: item.count as i8,
-                    id: item.id,
+                    id: item.id.clone(),
                     damage: item.damage as i16,
                     slot: slot as i8,
                 })
@@ -146,7 +156,7 @@ impl Player {
                 walk_speed: self.walk_speed,
             },
             None,
-        );
+        ).unwrap();
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}

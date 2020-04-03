@@ -4,10 +4,12 @@ use crate::player::Player;
 use crossbeam::channel;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::fmt;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicated when a player joins, leaves, or moves into another plot,
 /// as well as to communicate chat messages.
+#[derive(Debug)]
 pub enum Message {
     Chat(String),
     PlayerJoined(Player),
@@ -16,6 +18,8 @@ pub enum Message {
     PlayerTeleportOther(Player, String),
     PlotUnload(u32, u32),
 }
+
+
 
 struct PlayerInfo {
     plot_x: u32,
@@ -69,6 +73,7 @@ impl MinecraftServer {
 
     fn update(&mut self) {
         while let Ok(message) = self.message_receiver.try_recv() {
+            println!("{:#?}", message);
             match message {
                 _ => {}
             }

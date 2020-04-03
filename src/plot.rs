@@ -3,6 +3,15 @@ use crate::server::Message;
 use crossbeam::channel;
 use std::thread;
 use std::time::{Duration, SystemTime};
+use serde::{Serialize, Deserialize};
+use std::fs::{self, File};
+use std::io::Cursor;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PlotData {
+    tps: i32,
+    show_redstone: bool
+}
 
 struct Plot {
     players: Vec<Player>,
@@ -13,6 +22,7 @@ struct Plot {
     running: bool,
     x: u32,
     z: u32,
+    show_redstone: bool
 }
 
 impl Plot {
@@ -50,12 +60,50 @@ impl Plot {
             // Unload plot after 300 seconds
             if self.last_player_time.elapsed().unwrap().as_secs() > 300 {
                 self.message_sender
-                    .send(Message::PlotUnload(self.x, self.z));
+                    .send(Message::PlotUnload(self.x, self.z)).unwrap();
             }
         }
     }
 
-    fn load(x: u32, y: u32) -> Plot {}
+    fn load(x: u32, z: u32, rx: channel::Receiver<Message>, tx: channel::Sender<Message>) -> Plot {
+        if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
+            // TODO: Handle format error
+            let plot_data: PlotData = nbt::from_reader(Cursor::new(data)).unwrap();
+            Plot {
+                last_player_time: SystemTime::now(),
+                message_receiver: rx,
+                message_sender: tx,
+                players: Vec::new(),
+                running: true,
+                show_redstone: plot_data.show_redstone,
+                tps: plot_data.tps as u32,
+                x, z
+            }
+        } else {
+            Plot {
+                last_player_time: SystemTime::now(),
+                message_receiver: rx,
+                message_sender: tx,
+                players: Vec::new(),
+                running: true,
+                show_redstone: true,
+                tps: 20,
+                x, z
+            }
+        }
+    }
+
+    fn save(&self) {
+        let mut file = File::open(format!("./world/plots/p{}:{}", self.x, self.z)).unwrap();
+        nbt::to_writer(
+            &mut file,
+            &PlotData {
+                tps: self.tps as i32,
+                show_redstone: self.show_redstone
+            },
+            None,
+        ).unwrap();
+    }
 
     fn run(&mut self) {
         while self.running {
@@ -64,9 +112,9 @@ impl Plot {
         }
     }
 
-    pub fn load_and_run(x: u32, y: u32) {
-        thread::spawn(|| {
-            let plot = Plot::load(x, y);
+    pub fn load_and_run(x: u32, y: u32, rx: channel::Receiver<Message>, tx: channel::Sender<Message>) {
+        thread::spawn(move || {
+            let mut plot = Plot::load(x, y, rx, tx);
             plot.run();
         });
     }
