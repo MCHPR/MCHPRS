@@ -1,9 +1,33 @@
 use crate::network::NetworkServer;
+use crate::permissions::Permissions;
+use crate::player::Player;
+use std::sync::{Arc, Mutex};
+use crossbeam::channel;
 use std::time::Duration;
+
+/// Messages get passed between plot threads, the server thread, and the networking thread.
+/// These messages are used to communicated when a player joins, leaves, or moves into another plot.
+/// These messages are also used to communicate chat messages.
+enum Message {
+    Chat(String),
+    PlayerJoined(Player),
+    PlayerLeft(u32),
+    PlayerEnterPlot(Player, u32, u32),
+    PlayerTeleport(Player, String),
+}
+
+struct PlayerInfo {
+    plot_x: u32,
+    plot_y: u32,
+}
+
 /// This represents a minecraft server
 pub struct MinecraftServer {
     network: NetworkServer,
     config: config::Config,
+    message_transmitter: channel::Sender<Message>,
+    message_receiver: channel::Receiver<Message>,
+    permissions: Arc<Mutex<Permissions>>,
 }
 
 impl MinecraftServer {
@@ -16,9 +40,14 @@ impl MinecraftServer {
         let bind_addr = config
             .get_str("bind_address")
             .expect("Bind address not found in config file!");
+        let (tx, rx) = channel::unbounded();
+        let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
             config,
+            message_transmitter: tx,
+            message_receiver: rx,
+            permissions,
         };
         loop {
             server.update();
@@ -27,6 +56,11 @@ impl MinecraftServer {
     }
 
     fn update(&mut self) {
+        while let Ok(message) = self.message_receiver.try_recv() {
+            match message {
+                _ => {}
+            }
+        }
         self.network.update();
     }
 }

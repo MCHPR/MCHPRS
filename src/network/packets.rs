@@ -7,7 +7,7 @@ use std::io::Read;
 pub struct PacketDecoder {
     buffer: Vec<u8>,
     i: usize,
-    packet_id: u32,
+    pub packet_id: u32,
 }
 
 impl PacketDecoder {
@@ -238,6 +238,10 @@ impl PacketEncoder {
         }
     }
 
+    fn write_long(&mut self, val: i64) {
+        self.buffer.write_i64::<BigEndian>(val).unwrap()
+    }
+
     fn compressed(&self) -> Vec<u8> {
         let packet_id = self.varint(self.packet_id as i32);
         let data = [&packet_id[..], &self.buffer[..]].concat();
@@ -262,9 +266,68 @@ trait ClientBoundPacket {
     fn encode(self) -> PacketEncoder;
 }
 
+struct C00Reponse {
+    json_response: String,
+}
+
+impl ClientBoundPacket for C00Reponse {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x00);
+        encoder.write_string(32767, self.json_response);
+        encoder
+    }
+}
+
+struct C01Pong {
+    payload: i64,
+}
+
+impl ClientBoundPacket for C01Pong {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x01);
+        encoder.write_long(self.payload);
+        encoder
+    }
+}
+
+trait ServerBoundPacket {
+    fn decode(decoder: PacketDecoder) -> Self;
+}
+
 struct S00Handshake {
     protocol_version: i32,
     server_address: String,
     server_port: u16,
     next_state: i32,
+}
+
+impl ServerBoundPacket for S00Handshake {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S00Handshake {
+            protocol_version: decoder.read_varint(),
+            server_address: decoder.read_string(),
+            server_port: decoder.read_unsigned_short(),
+            next_state: decoder.read_varint(),
+        }
+    }
+}
+
+struct S00Request {}
+
+impl ServerBoundPacket for S00Request {
+    fn decode(mut _decoder: PacketDecoder) -> Self {
+        S00Request {}
+    }
+}
+
+struct S00Ping {
+    payload: i64,
+}
+
+impl ServerBoundPacket for S00Ping {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S00Ping {
+            payload: decoder.read_long(),
+        }
+    }
 }

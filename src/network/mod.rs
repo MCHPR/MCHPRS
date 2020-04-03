@@ -1,16 +1,17 @@
 mod packets;
 
-use std::io::{self, BufReader, BufRead};
+use crate::server::MinecraftServer;
+use packets::PacketDecoder;
+use std::io::{self, BufRead, BufReader};
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
-use packets::PacketDecoder;
 
 #[derive(PartialEq)]
 enum NetworkState {
     Handshake,
     Login,
-    Play
+    Play,
 }
 
 /// This struct represents a TCP Client
@@ -19,19 +20,16 @@ struct NetworkClient {
     id: u32,
     reader: BufReader<TcpStream>,
     state: NetworkState,
-    packets: Vec<PacketDecoder>
+    packets: Vec<PacketDecoder>,
 }
 
 impl NetworkClient {
-
     fn update(&mut self) {
         let incoming_data = Vec::from(match self.reader.fill_buf() {
             Ok(data) => data,
-            Err(e) => {
-                match e.kind() {
-                    io::ErrorKind::WouldBlock => &[],
-                    _ => panic!(e)
-                }
+            Err(e) => match e.kind() {
+                io::ErrorKind::WouldBlock => &[],
+                _ => panic!(e),
             },
         });
         let data_length = incoming_data.len();
@@ -41,14 +39,13 @@ impl NetworkClient {
         }
         self.reader.consume(data_length);
     }
-
 }
 
 /// This represents the network portion of a minecraft server
 pub struct NetworkServer {
     client_receiver: mpsc::Receiver<NetworkClient>,
-    /// These clients are either in the handshake or login state, once they shift to play, they will be moved to a plot
-    clients: Vec<NetworkClient>,
+    /// These clients are either in the handshake, login, or ping state, once they shift to play, they will be moved to a plot
+    handshaking_clients: Vec<NetworkClient>,
 }
 
 impl NetworkServer {
@@ -64,7 +61,7 @@ impl NetworkServer {
                     id: index as u32,
                     reader: BufReader::new(stream),
                     state: NetworkState::Handshake,
-                    packets: Vec::new()
+                    packets: Vec::new(),
                 })
                 .unwrap();
         }
@@ -76,21 +73,21 @@ impl NetworkServer {
         thread::spawn(move || NetworkServer::listen(&bind_address, sender));
         NetworkServer {
             client_receiver: receiver,
-            clients: Vec::new(),
+            handshaking_clients: Vec::new(),
         }
     }
 
     pub fn update(&mut self) {
         loop {
             match self.client_receiver.try_recv() {
-                Ok(client) => self.clients.push(client),
+                Ok(client) => self.handshaking_clients.push(client),
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {
                     panic!("Client receiver channel disconnected!")
                 }
             }
         }
-        for client in self.clients.iter_mut() {
+        for client in self.handshaking_clients.iter_mut() {
             client.update();
         }
     }

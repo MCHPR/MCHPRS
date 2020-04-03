@@ -1,7 +1,8 @@
 use crate::player::Player;
 
 struct Plot {
-    player: Vec<Player>,
+    players: Vec<Player>,
+    tps: u32,
 }
 
 impl Plot {
