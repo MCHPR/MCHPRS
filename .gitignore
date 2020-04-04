@@ -1,3 +1,4 @@
 /target
 test_proxy/logs/*
 world/*
+generators/reports

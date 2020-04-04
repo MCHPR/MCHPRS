@@ -16,6 +16,18 @@ impl ClientBoundPacket for C00Reponse {
     }
 }
 
+pub struct C00DisconnectLogin {
+    pub reason: String,
+}
+
+impl ClientBoundPacket for C00DisconnectLogin {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x00);
+        encoder.write_string(32767, self.reason);
+        encoder
+    }
+}
+
 pub struct C01Pong {
     pub payload: i64,
 }
@@ -57,11 +69,10 @@ impl ClientBoundPacket for C03SetCompression {
         encoder.write_varint(self.threshold);
         encoder
     }
-    
 }
 
 pub struct C19PluginMessageBrand {
-    pub brand: String
+    pub brand: String,
 }
 
 impl ClientBoundPacket for C19PluginMessageBrand {
@@ -71,7 +82,6 @@ impl ClientBoundPacket for C19PluginMessageBrand {
         encoder.write_string(32767, self.brand);
         encoder
     }
-    
 }
 
 pub struct C26JoinGame {
@@ -124,5 +134,4 @@ impl ClientBoundPacket for C36PlayerPositionAndLook {
         encoder.write_varint(self.teleport_id);
         encoder
     }
-    
 }

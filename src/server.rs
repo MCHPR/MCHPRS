@@ -1,11 +1,15 @@
-use crate::network::packets::clientbound::{ClientBoundPacket, C02LoginSuccess, C03SetCompression, C26JoinGame, C19PluginMessageBrand, C36PlayerPositionAndLook};
-use crate::network::packets::serverbound::{ServerBoundPacket, S00Handshake, S00LoginStart};
+use crate::network::packets::clientbound::{
+    C00DisconnectLogin, C02LoginSuccess, C03SetCompression, C19PluginMessageBrand, C26JoinGame,
+    C36PlayerPositionAndLook, ClientBoundPacket,
+};
+use crate::network::packets::serverbound::{S00Handshake, S00LoginStart, ServerBoundPacket};
 use crate::network::packets::PacketDecoder;
-use crate::network::{NetworkServer, NetworkClient, NetworkState};
+use crate::network::{NetworkServer, NetworkState};
 use crate::permissions::Permissions;
 use crate::player::Player;
 use crate::plot::Plot;
-use bus::Bus;
+use bus::{Bus, BusReader};
+use serde_json::json;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -16,7 +20,7 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub enum Message {
     Chat(String),
-    PlayerJoinedInfo(PlayerInfo),
+    PlayerJoinedInfo(PlayerJoinInfo),
     PlayerJoined(Arc<Player>),
     PlayerLeft(u128),
     PlayerEnterPlot(Arc<Player>, i32, i32),
@@ -25,14 +29,22 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone)]
-struct PlayerInfo {
+struct PlayerJoinInfo {
+    username: String,
+    uuid: u128,
+    skin: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+struct PlayerListEntry {
     plot_x: i32,
     plot_z: i32,
     username: String,
     uuid: u128,
+    skin: Option<String>,
 }
 
-struct PlotInfo {
+struct PlotListEntry {
     plot_x: i32,
     plot_z: i32,
 }
@@ -42,11 +54,12 @@ pub struct MinecraftServer {
     network: NetworkServer,
     config: config::Config,
     broadcaster: Bus<Message>,
+    debug_plot_receiver: BusReader<Message>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
     permissions: Arc<Mutex<Permissions>>,
-    online_players: Vec<PlayerInfo>,
-    running_plots: Vec<PlotInfo>,
+    online_players: Vec<PlayerListEntry>,
+    running_plots: Vec<PlotListEntry>,
 }
 
 impl MinecraftServer {
@@ -61,13 +74,15 @@ impl MinecraftServer {
             .expect("Bind address not found in config file!");
         let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
         let (plot_tx, server_rx) = mpsc::channel();
-        let bus = Bus::new(100);
+        let mut bus = Bus::new(100);
+        let debug_plot_receiver = bus.add_rx();
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
             config,
             broadcaster: bus,
             receiver: server_rx,
             plot_sender: plot_tx,
+            debug_plot_receiver,
             permissions,
             online_players: Vec::new(),
             running_plots: Vec::new(),
@@ -81,7 +96,7 @@ impl MinecraftServer {
             server.plot_sender.clone(),
             true,
         );
-        server.running_plots.push(PlotInfo {
+        server.running_plots.push(PlotListEntry {
             plot_x: 0,
             plot_z: 0,
         });
@@ -92,6 +107,9 @@ impl MinecraftServer {
     }
 
     fn update(&mut self) {
+        while let Ok(message) = self.debug_plot_receiver.try_recv() {
+            println!("Main thread broadcasted message: {:#?}", message);
+        }
         while let Ok(message) = self.receiver.try_recv() {
             println!("Main thread received message: {:#?}", message);
             match message {
@@ -103,7 +121,6 @@ impl MinecraftServer {
                         .iter()
                         .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
                     if !plot_loaded {
-                        println!("Plot is not running, loading it now...");
                         Plot::load_and_run(
                             plot_x,
                             plot_z,
@@ -111,20 +128,29 @@ impl MinecraftServer {
                             self.plot_sender.clone(),
                             false,
                         );
-                        self.running_plots.push(PlotInfo { plot_x, plot_z });
+                        self.running_plots.push(PlotListEntry { plot_x, plot_z });
                     }
-                    println!("Sending Player into Plot");
-                    let player_info = PlayerInfo {
+                    let player_list_entry = PlayerListEntry {
                         plot_x,
                         plot_z,
                         username: player.username.clone(),
                         uuid: player.uuid,
+                        skin: None,
+                    };
+                    let player_join_info = PlayerJoinInfo {
+                        username: player.username.clone(),
+                        uuid: player.uuid,
+                        skin: None,
                     };
                     self.broadcaster
-                        .broadcast(Message::PlayerJoinedInfo(player_info.clone()));
+                        .broadcast(Message::PlayerJoinedInfo(player_join_info));
+                    println!(
+                        "Arc count in main thread: {:#?}",
+                        Arc::strong_count(&player)
+                    );
                     self.broadcaster
                         .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
-                    self.online_players.push(player_info);
+                    self.online_players.push(player_list_entry);
                 }
                 Message::PlayerLeft(uuid) => {
                     let index = self.online_players.iter().position(|p| p.uuid == uuid);
@@ -162,6 +188,19 @@ impl MinecraftServer {
                                 2 => client.state = NetworkState::Login,
                                 _ => {}
                             }
+                            if client.state == NetworkState::Login
+                                && handshake.protocol_version != 578
+                            {
+                                let disconnect = C00DisconnectLogin {
+                                    reason: json!({
+                                        "text": "Version mismatch, pleast use version 1.15.2"
+                                    })
+                                    .to_string(),
+                                }
+                                .encode();
+                                client.send_packet(disconnect);
+                                client.close_connection();
+                            }
                         }
                     }
                     NetworkState::Status => {}
@@ -198,13 +237,15 @@ impl MinecraftServer {
                                 level_type: "default".to_string(),
                                 view_distance: 8,
                                 reduced_debug_info: false,
-                                enable_respawn_screen: false
-                            }.encode();
+                                enable_respawn_screen: false,
+                            }
+                            .encode();
                             client.send_packet(join_game);
 
                             let brand = C19PluginMessageBrand {
-                                brand: "Minecraft High Performace Redstone Server".to_string()
-                            }.encode();
+                                brand: "Minecraft High Performace Redstone Server".to_string(),
+                            }
+                            .encode();
                             client.send_packet(brand);
 
                             let mut player = Player::load_player(uuid, username.clone(), client);
@@ -216,14 +257,13 @@ impl MinecraftServer {
                                 yaw: player.yaw,
                                 pitch: player.pitch,
                                 flags: 0,
-                                teleport_id: 0
-                            }.encode();
+                                teleport_id: 0,
+                            }
+                            .encode();
                             player.client.send_packet(player_pos_and_look);
 
                             self.plot_sender
-                                .send(Message::PlayerJoined(
-                                    Arc::new(player),
-                                ))
+                                .send(Message::PlayerJoined(Arc::new(player)))
                                 .unwrap();
                         }
                     }

@@ -140,7 +140,11 @@ impl Player {
     }
 
     pub fn save(&self) {
-        let mut file = OpenOptions::new().write(true).create(true).open(format!("./world/players/{:032x}", self.uuid)).unwrap();
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(format!("./world/players/{:032x}", self.uuid))
+            .unwrap();
         let mut inventory: Vec<InventoryEntry> = Vec::new();
         for (slot, item_option) in self.inventory.iter().enumerate() {
             if let Some(item) = item_option {

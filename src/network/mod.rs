@@ -3,7 +3,7 @@ pub mod packets;
 use crate::server::MinecraftServer;
 use packets::{PacketDecoder, PacketEncoder};
 use std::io::{self, BufRead, BufReader, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
@@ -64,6 +64,11 @@ impl NetworkClient {
         } else {
             self.stream.write_all(&data.uncompressed());
         }
+    }
+
+    pub fn close_connection(&mut self) {
+        self.alive = false;
+        self.stream.shutdown(Shutdown::Both);
     }
 }
 

@@ -37,6 +37,17 @@ impl Plot {
         self.players.push(player);
     }
 
+    /// Blocks the thread until the arc has no other strong references,
+    /// this will then return the player.
+    fn receive_player(player_arc: Arc<Player>) -> Player {
+        // Maybe we could store a list of players waiting to be received instead of
+        // blocking the thread. Just maybe...
+        while Arc::strong_count(&player_arc) > 1 {
+            thread::sleep(Duration::from_millis(2));
+        }
+        Arc::try_unwrap(player_arc).unwrap()
+    }
+
     fn tick(&mut self) {}
 
     fn update(&mut self) {
@@ -50,7 +61,7 @@ impl Plot {
                 Message::PlayerTeleportOther(player, other_player) => {
                     for p in self.players.iter() {
                         if p.username == other_player {
-                            let mut player = Arc::try_unwrap(player).unwrap();
+                            let mut player = Plot::receive_player(player);
                             player.teleport(p.x, p.y, p.z);
                             self.enter_plot(player);
                             break;
@@ -59,7 +70,7 @@ impl Plot {
                 }
                 Message::PlayerEnterPlot(player, plot_x, plot_z) => {
                     if plot_x == self.x && plot_z == self.z {
-                        let player = Arc::try_unwrap(player).unwrap();
+                        let player = Plot::receive_player(player);
                         self.enter_plot(player);
                     }
                 }
@@ -76,13 +87,15 @@ impl Plot {
                 self.running = false;
             }
         }
-        // Check if connected to player is still active
+        // Check if connection to player is still active
         for player in 0..self.players.len() {
             self.players[player].client.update();
             if !self.players[player].client.alive {
                 let player = self.players.remove(player);
                 player.save();
-                self.message_sender.send(Message::PlayerLeft(player.uuid)).unwrap();
+                self.message_sender
+                    .send(Message::PlayerLeft(player.uuid))
+                    .unwrap();
             }
         }
     }
