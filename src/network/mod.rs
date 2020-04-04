@@ -18,7 +18,7 @@ pub enum NetworkState {
 /// This struct represents a TCP Client
 pub struct NetworkClient {
     /// All NetworkClients are identified by this id
-    id: u32,
+    pub id: u32,
     reader: BufReader<TcpStream>,
     stream: TcpStream,
     pub state: NetworkState,

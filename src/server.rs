@@ -1,7 +1,7 @@
-use crate::network::packets::clientbound::{C02LoginSuccess, C03SetCompression, ClientBoundPacket};
-use crate::network::packets::serverbound::{S00Handshake, S00LoginStart, ServerBoundPacket};
+use crate::network::packets::clientbound::{ClientBoundPacket, C02LoginSuccess, C03SetCompression, C26JoinGame, C19PluginMessageBrand};
+use crate::network::packets::serverbound::{ServerBoundPacket, S00Handshake, S00LoginStart};
 use crate::network::packets::PacketDecoder;
-use crate::network::{NetworkServer, NetworkState};
+use crate::network::{NetworkServer, NetworkClient, NetworkState};
 use crate::permissions::Permissions;
 use crate::player::Player;
 use crate::plot::Plot;
@@ -101,8 +101,6 @@ impl MinecraftServer {
                         .running_plots
                         .iter()
                         .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
-                    let uuid = player.uuid;
-                    let username = player.username.clone();
                     if !plot_loaded {
                         println!("Plot is not running, loading it now...");
                         Plot::load_and_run(
@@ -175,8 +173,24 @@ impl MinecraftServer {
                             .encode();
                             clients[client].send_packet(login_success);
                             clients[client].state = NetworkState::Play;
-                            let player =
-                                Player::load_player(uuid, username.clone(), clients.remove(client));
+                            let mut client = clients.remove(client);
+                            let join_game = C26JoinGame {
+                                entity_id: client.id as i32,
+                                gamemode: 1,
+                                dimention: 0,
+                                hash_seed: 0,
+                                max_players: u8::MAX,
+                                level_type: "default".to_string(),
+                                view_distance: 8,
+                                reduced_debug_info: false,
+                                enable_respawn_screen: false
+                            }.encode();
+                            client.send_packet(join_game);
+                            let brand = C19PluginMessageBrand {
+                                brand: "Minecraft High Performace Redstone Server".to_string()
+                            }.encode();
+                            client.send_packet(brand);
+                            let player = Player::load_player(uuid, username.clone(), client);
                             let plot_x = (player.x / 128f64).floor() as i32;
                             let plot_z = (player.y / 128f64).floor() as i32;
                             self.plot_sender

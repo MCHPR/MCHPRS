@@ -2,7 +2,7 @@ use crate::network::NetworkClient;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::io::Cursor;
 use std::sync::{Arc, RwLock};
 
@@ -80,7 +80,7 @@ impl Player {
     }
 
     pub fn load_player(uuid: u128, username: String, client: NetworkClient) -> Player {
-        if let Ok(data) = fs::read(format!("./world/players/{:032X}", uuid)) {
+        if let Ok(data) = fs::read(format!("./world/players/{:032x}", uuid)) {
             // TODO: Handle format error
             let player_data: PlayerData = nbt::from_reader(Cursor::new(data)).unwrap();
 
@@ -133,8 +133,8 @@ impl Player {
         }
     }
 
-    fn save(&self) {
-        let mut file = File::open(format!("./world/players/{:032X}", self.uuid)).unwrap();
+    pub fn save(&self) {
+        let mut file = OpenOptions::new().write(true).create(true).open(format!("./world/players/{:032x}", self.uuid)).unwrap();
         let mut inventory: Vec<InventoryEntry> = Vec::new();
         for (slot, item_option) in self.inventory.iter().enumerate() {
             if let Some(item) = item_option {

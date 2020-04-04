@@ -3,7 +3,7 @@ use crate::player::Player;
 use crate::server::Message;
 use bus::BusReader;
 use serde::{Deserialize, Serialize};
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, OpenOptions};
 use std::io::Cursor;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
@@ -42,10 +42,10 @@ impl Plot {
     fn update(&mut self) {
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
-            println!(
-                "Plot({}, {}) received message: {:#?}",
-                self.x, self.z, message
-            );
+            // println!(
+            //     "Plot({}, {}) received message: {:#?}",
+            //     self.x, self.z, message
+            // );
             match message {
                 Message::PlayerTeleportOther(player, other_player) => {
                     for p in self.players.iter() {
@@ -68,10 +68,11 @@ impl Plot {
         }
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
+            self.last_player_time = SystemTime::now();
             self.tick();
         } else {
-            // Unload plot after 300 seconds
-            if self.last_player_time.elapsed().unwrap().as_secs() > 300 {
+            // Unload plot after 300 seconds unless the plot should be always loaded
+            if self.last_player_time.elapsed().unwrap().as_secs() > 300 && !self.always_running {
                 self.running = false;
             }
         }
@@ -79,8 +80,9 @@ impl Plot {
         for player in 0..self.players.len() {
             self.players[player].client.update();
             if !self.players[player].client.alive {
-                let uuid = self.players.remove(player).uuid;
-                self.message_sender.send(Message::PlayerLeft(uuid)).unwrap();
+                let player = self.players.remove(player);
+                player.save();
+                self.message_sender.send(Message::PlayerLeft(player.uuid)).unwrap();
             }
         }
     }

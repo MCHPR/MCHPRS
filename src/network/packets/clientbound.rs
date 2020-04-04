@@ -47,6 +47,33 @@ impl ClientBoundPacket for C02LoginSuccess {
     }
 }
 
+pub struct C03SetCompression {
+    pub threshold: i32,
+}
+
+impl ClientBoundPacket for C03SetCompression {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x03);
+        encoder.write_varint(self.threshold);
+        encoder
+    }
+    
+}
+
+pub struct C19PluginMessageBrand {
+    pub brand: String
+}
+
+impl ClientBoundPacket for C19PluginMessageBrand {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x19);
+        encoder.write_string(32767, "minecraft:brand".to_string());
+        encoder.write_string(32767, self.brand);
+        encoder
+    }
+    
+}
+
 pub struct C26JoinGame {
     pub entity_id: i32,
     pub gamemode: u8,
@@ -71,18 +98,6 @@ impl ClientBoundPacket for C26JoinGame {
         encoder.write_varint(self.view_distance);
         encoder.write_boolean(self.reduced_debug_info);
         encoder.write_boolean(self.enable_respawn_screen);
-        encoder
-    }
-}
-
-pub struct C03SetCompression {
-    pub threshold: i32,
-}
-
-impl ClientBoundPacket for C03SetCompression {
-    fn encode(self) -> PacketEncoder {
-        let mut encoder = PacketEncoder::new(0x03);
-        encoder.write_varint(self.threshold);
         encoder
     }
 }
