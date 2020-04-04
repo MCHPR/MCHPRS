@@ -214,7 +214,12 @@ impl PacketEncoder {
     fn write_int(&mut self, val: i32) {
         self.buffer.write_i32::<BigEndian>(val).unwrap()
     }
-    fn write_double(&mut self, val: f32) {
+
+    fn write_double(&mut self, val: f64) {
+        self.buffer.write_f64::<BigEndian>(val).unwrap()
+    }
+
+    fn write_float(&mut self, val: f32) {
         self.buffer.write_f32::<BigEndian>(val).unwrap()
     }
 

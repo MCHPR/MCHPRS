@@ -1,4 +1,4 @@
-use crate::network::packets::clientbound::{ClientBoundPacket, C02LoginSuccess, C03SetCompression, C26JoinGame, C19PluginMessageBrand};
+use crate::network::packets::clientbound::{ClientBoundPacket, C02LoginSuccess, C03SetCompression, C26JoinGame, C19PluginMessageBrand, C36PlayerPositionAndLook};
 use crate::network::packets::serverbound::{ServerBoundPacket, S00Handshake, S00LoginStart};
 use crate::network::packets::PacketDecoder;
 use crate::network::{NetworkServer, NetworkClient, NetworkState};
@@ -16,7 +16,8 @@ use std::time::Duration;
 #[derive(Debug, Clone)]
 pub enum Message {
     Chat(String),
-    PlayerJoined(Arc<Player>, PlayerInfo),
+    PlayerJoinedInfo(PlayerInfo),
+    PlayerJoined(Arc<Player>),
     PlayerLeft(u128),
     PlayerEnterPlot(Arc<Player>, i32, i32),
     PlayerTeleportOther(Arc<Player>, String),
@@ -94,9 +95,9 @@ impl MinecraftServer {
         while let Ok(message) = self.receiver.try_recv() {
             println!("Main thread received message: {:#?}", message);
             match message {
-                Message::PlayerJoined(player, player_info) => {
-                    let plot_x = player_info.plot_x;
-                    let plot_z = player_info.plot_z;
+                Message::PlayerJoined(player) => {
+                    let plot_x = (player.x / 128f64).floor() as i32;
+                    let plot_z = (player.y / 128f64).floor() as i32;
                     let plot_loaded = self
                         .running_plots
                         .iter()
@@ -113,6 +114,14 @@ impl MinecraftServer {
                         self.running_plots.push(PlotInfo { plot_x, plot_z });
                     }
                     println!("Sending Player into Plot");
+                    let player_info = PlayerInfo {
+                        plot_x,
+                        plot_z,
+                        username: player.username.clone(),
+                        uuid: player.uuid,
+                    };
+                    self.broadcaster
+                        .broadcast(Message::PlayerJoinedInfo(player_info.clone()));
                     self.broadcaster
                         .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
                     self.online_players.push(player_info);
@@ -131,6 +140,9 @@ impl MinecraftServer {
                     if let Some(index) = index {
                         self.running_plots.remove(index);
                     }
+                }
+                Message::Chat(chat) => {
+                    self.broadcaster.broadcast(Message::Chat(chat));
                 }
                 _ => {}
             }
@@ -166,14 +178,17 @@ impl MinecraftServer {
                                 Default::default()
                             };
                             let uuid = Player::generate_offline_uuid(&username);
+
                             let login_success = C02LoginSuccess {
                                 uuid,
                                 username: username.clone(),
                             }
                             .encode();
                             clients[client].send_packet(login_success);
+
                             clients[client].state = NetworkState::Play;
                             let mut client = clients.remove(client);
+
                             let join_game = C26JoinGame {
                                 entity_id: client.id as i32,
                                 gamemode: 1,
@@ -186,22 +201,28 @@ impl MinecraftServer {
                                 enable_respawn_screen: false
                             }.encode();
                             client.send_packet(join_game);
+
                             let brand = C19PluginMessageBrand {
                                 brand: "Minecraft High Performace Redstone Server".to_string()
                             }.encode();
                             client.send_packet(brand);
-                            let player = Player::load_player(uuid, username.clone(), client);
-                            let plot_x = (player.x / 128f64).floor() as i32;
-                            let plot_z = (player.y / 128f64).floor() as i32;
+
+                            let mut player = Player::load_player(uuid, username.clone(), client);
+
+                            let player_pos_and_look = C36PlayerPositionAndLook {
+                                x: player.x,
+                                y: player.y,
+                                z: player.z,
+                                yaw: player.yaw,
+                                pitch: player.pitch,
+                                flags: 0,
+                                teleport_id: 0
+                            }.encode();
+                            player.client.send_packet(player_pos_and_look);
+
                             self.plot_sender
                                 .send(Message::PlayerJoined(
                                     Arc::new(player),
-                                    PlayerInfo {
-                                        plot_x,
-                                        plot_z,
-                                        username,
-                                        uuid,
-                                    },
                                 ))
                                 .unwrap();
                         }

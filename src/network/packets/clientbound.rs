@@ -101,3 +101,28 @@ impl ClientBoundPacket for C26JoinGame {
         encoder
     }
 }
+
+pub struct C36PlayerPositionAndLook {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub flags: u8,
+    pub teleport_id: i32,
+}
+
+impl ClientBoundPacket for C36PlayerPositionAndLook {
+    fn encode(self) -> PacketEncoder {
+        let mut encoder = PacketEncoder::new(0x36);
+        encoder.write_double(self.x);
+        encoder.write_double(self.y);
+        encoder.write_double(self.z);
+        encoder.write_float(self.yaw);
+        encoder.write_float(self.pitch);
+        encoder.write_unsigned_byte(self.flags);
+        encoder.write_varint(self.teleport_id);
+        encoder
+    }
+    
+}
