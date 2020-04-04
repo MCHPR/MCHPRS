@@ -10,6 +10,12 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ChunkData {
+    sections: Vec<nbt::Blob>
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct PlotData {
     tps: i32,
@@ -32,6 +38,8 @@ pub struct Plot {
 impl Plot {
     fn set_block(&mut self) {}
 
+    fn tick(&mut self) {}
+
     fn enter_plot(&mut self, player: Player) {
         self.save();
         self.players.push(player);
@@ -47,8 +55,6 @@ impl Plot {
         }
         Arc::try_unwrap(player_arc).unwrap()
     }
-
-    fn tick(&mut self) {}
 
     fn update(&mut self) {
         // Handle messages from the message channel
@@ -180,6 +186,13 @@ impl Plot {
 
 impl Drop for Plot {
     fn drop(&mut self) {
+        if !self.players.is_empty() {
+            // TODO: send all players to spawn and send them message along the lines of:
+            // "The plot you were in has crashed so you have been teleported to spawn."
+            for _player in &self.players {
+
+            }
+        }
         self.save();
         self.message_sender
             .send(Message::PlotUnload(self.x, self.z))

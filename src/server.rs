@@ -175,7 +175,8 @@ impl MinecraftServer {
         }
         self.network.update();
         let clients = &mut self.network.handshaking_clients;
-        for client in 0..clients.len() {
+        let mut client = 0;
+        while client < clients.len() {
             let packets: Vec<PacketDecoder> = clients[client].packets.drain(..).collect();
             for packet in packets {
                 match clients[client].state {
@@ -226,7 +227,8 @@ impl MinecraftServer {
                             clients[client].send_packet(login_success);
 
                             clients[client].state = NetworkState::Play;
-                            let mut client = clients.remove(client);
+                            client -= 0;
+                            let mut client = clients.remove(client + 1);
 
                             let join_game = C26JoinGame {
                                 entity_id: client.id as i32,
@@ -269,6 +271,8 @@ impl MinecraftServer {
                     }
                     NetworkState::Play => {}
                 }
+                client += 1;
+                println!("{} {}", client, clients.len());
             }
         }
     }
