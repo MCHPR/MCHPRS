@@ -144,10 +144,6 @@ impl MinecraftServer {
                     };
                     self.broadcaster
                         .broadcast(Message::PlayerJoinedInfo(player_join_info));
-                    println!(
-                        "Arc count in main thread: {:#?}",
-                        Arc::strong_count(&player)
-                    );
                     self.broadcaster
                         .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
                     self.online_players.push(player_list_entry);
