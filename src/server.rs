@@ -5,7 +5,7 @@ use crate::network::packets::clientbound::{
 use crate::network::packets::serverbound::{S00Handshake, S00LoginStart, ServerBoundPacket};
 use crate::network::packets::PacketDecoder;
 use crate::network::{NetworkServer, NetworkState};
-use crate::permissions::Permissions;
+//use crate::permissions::Permissions;
 use crate::player::Player;
 use crate::plot::Plot;
 use bus::{Bus, BusReader};
@@ -57,7 +57,7 @@ pub struct MinecraftServer {
     debug_plot_receiver: BusReader<Message>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
-    permissions: Arc<Mutex<Permissions>>,
+    //permissions: Arc<Mutex<Permissions>>,
     online_players: Vec<PlayerListEntry>,
     running_plots: Vec<PlotListEntry>,
 }
@@ -72,7 +72,7 @@ impl MinecraftServer {
         let bind_addr = config
             .get_str("bind_address")
             .expect("Bind address not found in config file!");
-        let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
+        //let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
         let (plot_tx, server_rx) = mpsc::channel();
         let mut bus = Bus::new(100);
         let debug_plot_receiver = bus.add_rx();
@@ -83,7 +83,7 @@ impl MinecraftServer {
             receiver: server_rx,
             plot_sender: plot_tx,
             debug_plot_receiver,
-            permissions,
+            // permissions,
             online_players: Vec::new(),
             running_plots: Vec::new(),
         };

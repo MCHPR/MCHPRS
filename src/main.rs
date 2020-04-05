@@ -1,5 +1,5 @@
 mod network;
-mod permissions;
+//mod permissions;
 mod player;
 mod plot;
 mod server;
