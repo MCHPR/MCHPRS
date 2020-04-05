@@ -1,25 +1,195 @@
-use crate::network::packets::*;
+use crate::network::packets::clientbound::*;
+use crate::network::packets::PacketEncoder;
 use crate::player::Player;
 use crate::server::Message;
 use bus::BusReader;
 use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::Cursor;
+use std::mem;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 
+struct BitBuffer {
+    bitsPerEntry: u8,
+    entries: usize,
+    longs: Vec<u64>,
+}
+
+impl BitBuffer {
+    fn create(bitsPerEntry: u8, entries: usize) -> BitBuffer {
+        let longs_len = entries * bitsPerEntry as usize / 64;
+        let longs = vec![0; longs_len];
+        BitBuffer {
+            bitsPerEntry,
+            longs,
+            entries,
+        }
+    }
+
+    fn load(bitsPerEntry: u8, longs: Vec<u64>) -> BitBuffer {
+        let entries = longs.len() * 64 / bitsPerEntry as usize;
+        BitBuffer {
+            bitsPerEntry,
+            longs,
+            entries,
+        }
+    }
+
+    fn get_entry(&self, index: usize) -> u32 {
+        let long_index = (self.bitsPerEntry as usize * index) >> 6;
+        let index_in_long = (self.bitsPerEntry as usize * index) & 0x3F;
+        let bitmask = (1u128 << (index_in_long + 1)) - 1;
+        let long_long =
+            self.longs[long_index] as u128 | ((self.longs[long_index + 1] as u128) << 64);
+        ((bitmask & long_long) >> index_in_long) as u32
+    }
+
+    fn set_entry(&mut self, index: usize, val: u32) {
+        let long_index = (self.bitsPerEntry as usize * index) >> 6;
+        let index_in_long = (self.bitsPerEntry as usize * index) & 0x3F;
+        let bitmask = !((1u128 << (index_in_long + 1)) - 1);
+        self.longs[long_index] =
+            (self.longs[long_index] & bitmask as u64) | (val << index_in_long) as u64;
+        if long_index + self.bitsPerEntry as usize > 64 {
+            self.longs[long_index + 1] = (self.longs[long_index + 1] & (bitmask >> 64) as u64)
+                | (val >> (64 - index_in_long)) as u64;
+        }
+    }
+}
+
+struct PalettedBitBuffer {
+    data: BitBuffer,
+    palatte: Vec<u32>,
+    max_entries: u32,
+    use_palatte: bool,
+}
+
+impl PalettedBitBuffer {
+    fn new() -> PalettedBitBuffer {
+        PalettedBitBuffer {
+            data: BitBuffer::create(4, 4096),
+            palatte: Vec::new(),
+            max_entries: 16,
+            use_palatte: true,
+        }
+    }
+
+    fn resize_buffer(&mut self) {
+        let old_bits_per_entry = self.data.bitsPerEntry;
+        if old_bits_per_entry + 1 > 8 {
+            let mut old_buffer = BitBuffer::create(14, 4096);
+            mem::swap(&mut self.data, &mut old_buffer);
+            self.max_entries = 1 << 14;
+            for entry in 0..old_buffer.entries {
+                self.data
+                    .set_entry(entry, self.palatte[old_buffer.get_entry(entry) as usize]);
+            }
+        } else {
+            let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, 4096);
+            mem::swap(&mut self.data, &mut old_buffer);
+            self.max_entries <<= 1;
+            for entry in 0..old_buffer.entries {
+                self.data.set_entry(entry, old_buffer.get_entry(entry));
+            }
+        };
+    }
+
+    fn get_entry(&self, index: usize) -> u32 {
+        if self.use_palatte {
+            self.palatte[self.data.get_entry(index) as usize]
+        } else {
+            self.data.get_entry(index)
+        }
+    }
+
+    fn set_entry(&mut self, index: usize, val: u32) {
+        if self.use_palatte {
+            if let Some(palatte_index) = self.palatte.iter().position(|x| x == &val) {
+                self.data.set_entry(index, palatte_index as u32);
+            } else {
+                if self.palatte.len() + 1 > self.max_entries as usize {
+                    self.resize_buffer();
+                }
+                let palatte_index = self.palatte.len();
+                self.palatte.push(val);
+                self.data.set_entry(index, palatte_index as u32);
+            }
+        } else {
+            self.data.set_entry(index, val);
+        }
+    }
+}
+
+struct ChunkSection {
+    y: u8,
+    data: PalettedBitBuffer,
+}
+
+impl ChunkSection {
+    fn get_index(x: u32, y: u32, z: u32) -> usize {
+        ((y << 8) | (z << 4) | x) as usize
+    }
+
+    fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
+        self.data.get_entry(ChunkSection::get_index(x, y, z))
+    }
+
+    fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) {
+        self.data.set_entry(ChunkSection::get_index(x, y, z), block);
+    }
+}
+
+struct Chunk {
+    sections: Vec<ChunkSection>,
+    x: i32,
+    z: i32,
+}
+
+impl Chunk {
+    fn encode_packet(&self) -> PacketEncoder {
+        let chunk_sections = Vec::new();
+        let mut heightmaps = nbt::Blob::new();
+        heightmaps.insert("MOTION_BLOCKING", vec![0i64, 256]).unwrap();
+        C22ChunkData {
+            biomes: Some(vec![0; 1024]),
+            chunk_sections,
+            chunk_x: self.x,
+            chunk_z: self.z,
+            full_chunk: true,
+            heightmaps,
+            primary_bit_mask: 0,
+        }
+        .encode()
+    }
+
+    fn save(&self) -> ChunkData {
+        ChunkData {
+            sections: Vec::new(),
+        }
+    }
+
+    fn empty(x: i32, z: i32) -> Chunk {
+        Chunk {
+            sections: Vec::new(),
+            x,
+            z,
+        }
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ChunkData {
-    sections: Vec<nbt::Blob>
+    sections: Vec<nbt::Blob>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct PlotData {
     tps: i32,
     show_redstone: bool,
+    chunk_data: Vec<ChunkData>,
 }
 
 pub struct Plot {
@@ -33,6 +203,7 @@ pub struct Plot {
     z: i32,
     show_redstone: bool,
     always_running: bool,
+    chunks: Vec<Chunk>,
 }
 
 impl Plot {
@@ -40,8 +211,11 @@ impl Plot {
 
     fn tick(&mut self) {}
 
-    fn enter_plot(&mut self, player: Player) {
+    fn enter_plot(&mut self, mut player: Player) {
         self.save();
+        // for chunk in &self.chunks {
+        //     player.client.send_packet(chunk.encode_packet());
+        // }
         self.players.push(player);
     }
 
@@ -88,8 +262,8 @@ impl Plot {
             self.last_player_time = SystemTime::now();
             self.tick();
         } else {
-            // Unload plot after 300 seconds unless the plot should be always loaded
-            if self.last_player_time.elapsed().unwrap().as_secs() > 300 && !self.always_running {
+            // Unload plot after 600 seconds unless the plot should be always loaded
+            if self.last_player_time.elapsed().unwrap().as_secs() > 600 && !self.always_running {
                 self.running = false;
             }
         }
@@ -127,8 +301,20 @@ impl Plot {
                 x,
                 z,
                 always_running,
+                chunks: Vec::new(),
             }
         } else {
+            let mut chunks = Vec::new();
+            let chunk_x_offset = x * 16;
+            let chunk_z_offset = z * 16;
+            for chunk_x in 0..8 {
+                for chunk_z in 0..8 {
+                    chunks.push(Chunk::empty(
+                        chunk_x + chunk_x_offset,
+                        chunk_z + chunk_z_offset,
+                    ));
+                }
+            }
             Plot {
                 last_player_time: SystemTime::now(),
                 message_receiver: rx,
@@ -140,6 +326,7 @@ impl Plot {
                 x,
                 z,
                 always_running,
+                chunks,
             }
         }
     }
@@ -155,6 +342,7 @@ impl Plot {
             &PlotData {
                 tps: self.tps as i32,
                 show_redstone: self.show_redstone,
+                chunk_data: Vec::new(),
             },
             None,
         )
@@ -188,10 +376,8 @@ impl Drop for Plot {
     fn drop(&mut self) {
         if !self.players.is_empty() {
             // TODO: send all players to spawn and send them message along the lines of:
-            // "The plot you were in has crashed so you have been teleported to spawn."
-            for _player in &self.players {
-
-            }
+            // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
+            for _player in &self.players {}
         }
         self.save();
         self.message_sender
