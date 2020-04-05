@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::Cursor;
-use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
@@ -30,13 +29,13 @@ pub struct PlayerData {
 bitflags! {
     #[derive(Default)]
     pub struct SkinParts: u32 {
-        const Cape = 0x01;
-        const Jacket = 0x02;
-        const LeftSleeve = 0x04;
-        const RightSleeve = 0x08;
-        const LeftPantsLeg = 0x10;
-        const RightPantsLeg = 0x20;
-        const Hat = 0x40;
+        const CAPE = 0x01;
+        const JACKET = 0x02;
+        const LEFT_SLEEVE = 0x04;
+        const RIGHT_SLEEVE = 0x08;
+        const LEFT_PANTS_LEG = 0x10;
+        const RIGHT_PANTS_LEG = 0x20;
+        const HAT = 0x40;
     }
 }
 
@@ -63,6 +62,7 @@ pub struct Player {
     pub on_ground: bool,
     pub fly_speed: f32,
     pub walk_speed: f32,
+    pub entity_id: u32,
 }
 
 impl fmt::Debug for Player {
@@ -106,6 +106,7 @@ impl Player {
                 z: player_data.position[2],
                 pitch: player_data.rotation[0],
                 yaw: player_data.rotation[1],
+                entity_id: client.id,
                 client,
                 flying: player_data.flying,
                 on_ground: player_data.on_ground,
@@ -130,6 +131,7 @@ impl Player {
             z: 64f64,
             yaw: 0f32,
             pitch: 0f32,
+            entity_id: client.id,
             client,
             inventory,
             fly_speed: 1f32,
