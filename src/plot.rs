@@ -140,6 +140,23 @@ impl ChunkSection {
     fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) {
         self.data.set_entry(ChunkSection::get_index(x, y, z), block);
     }
+
+    fn load(nbt: &nbt::Blob) -> ChunkSection {
+        ChunkSection {
+            y: if let nbt::Value::Byte(b) = nbt["y"] {
+                b as u8
+            } else {
+                panic!("Y value of chunk section was not a byte")
+            },
+            data: PalettedBitBuffer::new(),
+        }
+    }
+
+    fn save(&self) -> nbt::Blob {
+        let mut blob = nbt::Blob::new();
+        blob.insert("y", self.y as i8).unwrap();
+        blob
+    }
 }
 
 struct Chunk {
@@ -169,7 +186,19 @@ impl Chunk {
 
     fn save(&self) -> ChunkData {
         ChunkData {
-            sections: Vec::new(),
+            sections: self.sections.iter().map(|s| s.save()).collect(),
+        }
+    }
+
+    fn load(x: i32, z: i32, chunk_data: &ChunkData) -> Chunk {
+        Chunk {
+            x,
+            z,
+            sections: chunk_data
+                .sections
+                .iter()
+                .map(|s| ChunkSection::load(s))
+                .collect(),
         }
     }
 
@@ -215,9 +244,9 @@ impl Plot {
 
     fn enter_plot(&mut self, mut player: Player) {
         self.save();
-        // for chunk in &self.chunks {
-        //     player.client.send_packet(chunk.encode_packet());
-        // }
+        for chunk in &self.chunks {
+            player.client.send_packet(chunk.encode_packet());
+        }
         self.players.push(player);
     }
 
@@ -289,9 +318,24 @@ impl Plot {
         tx: Sender<Message>,
         always_running: bool,
     ) -> Plot {
+        let chunk_x_offset = x * 16;
+        let chunk_z_offset = z * 16;
         if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
+            // Load plot from file
             // TODO: Handle format error
             let plot_data: PlotData = nbt::from_reader(Cursor::new(data)).unwrap();
+            let chunks: Vec<Chunk> = plot_data
+                .chunk_data
+                .iter()
+                .enumerate()
+                .map(|(i, c)| {
+                    Chunk::load(
+                        chunk_x_offset + i as i32 / 8,
+                        chunk_z_offset + i as i32 % 8,
+                        c,
+                    )
+                })
+                .collect();
             Plot {
                 last_player_time: SystemTime::now(),
                 message_receiver: rx,
@@ -303,12 +347,11 @@ impl Plot {
                 x,
                 z,
                 always_running,
-                chunks: Vec::new(),
+                chunks,
             }
         } else {
+            // Create a new plot with empty chunks
             let mut chunks = Vec::new();
-            let chunk_x_offset = x * 16;
-            let chunk_z_offset = z * 16;
             for chunk_x in 0..8 {
                 for chunk_z in 0..8 {
                     chunks.push(Chunk::empty(
@@ -339,12 +382,13 @@ impl Plot {
             .create(true)
             .open(format!("./world/plots/p{}:{}", self.x, self.z))
             .unwrap();
+        let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
         nbt::to_writer(
             &mut file,
             &PlotData {
                 tps: self.tps as i32,
                 show_redstone: self.show_redstone,
-                chunk_data: Vec::new(),
+                chunk_data,
             },
             None,
         )
