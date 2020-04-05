@@ -1,8 +1,10 @@
 use crate::network::packets::clientbound::{
-    C00DisconnectLogin, C02LoginSuccess, C03SetCompression, C19PluginMessageBrand, C26JoinGame,
-    C36PlayerPositionAndLook, ClientBoundPacket,
+    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression,
+    C19PluginMessageBrand, C26JoinGame, C36PlayerPositionAndLook, ClientBoundPacket,
 };
-use crate::network::packets::serverbound::{S00Handshake, S00LoginStart, ServerBoundPacket};
+use crate::network::packets::serverbound::{
+    S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
+};
 use crate::network::packets::PacketDecoder;
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
@@ -11,7 +13,7 @@ use crate::plot::Plot;
 use bus::{Bus, BusReader};
 use serde_json::json;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
@@ -199,7 +201,41 @@ impl MinecraftServer {
                             }
                         }
                     }
-                    NetworkState::Status => {}
+                    NetworkState::Status => {
+                        let client = &mut clients[client];
+                        match packet.packet_id {
+                            0x00 => {
+                                let response = C00Response {
+                                    json_response: json!({
+                                        "version": {
+                                            "name": "1.15.2",
+                                            "protocol": 578
+                                        },
+                                        "players": {
+                                            "max": 9999,
+                                            "online": self.online_players.len(),
+                                            "sample": []
+                                        },
+                                        "description": {
+                                            "text": self.config.get_str("motd").unwrap_or_default()
+                                        }
+                                    })
+                                    .to_string(),
+                                }
+                                .encode();
+                                client.send_packet(response);
+                            }
+                            0x01 => {
+                                let ping = S00Ping::decode(packet);
+                                let pong = C01Pong {
+                                    payload: ping.payload,
+                                }
+                                .encode();
+                                client.send_packet(pong);
+                            }
+                            _ => {}
+                        }
+                    }
                     NetworkState::Login => {
                         if packet.packet_id == 0x00 {
                             let login_start = S00LoginStart::decode(packet);

@@ -4,11 +4,11 @@ pub trait ClientBoundPacket {
     fn encode(self) -> PacketEncoder;
 }
 
-pub struct C00Reponse {
+pub struct C00Response {
     pub json_response: String,
 }
 
-impl ClientBoundPacket for C00Reponse {
+impl ClientBoundPacket for C00Response {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, self.json_response);

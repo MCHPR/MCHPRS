@@ -1,1 +1,2 @@
 bind_address = "127.0.0.1:25565"
+motd = "Minecraft High Performace Redstone Server"

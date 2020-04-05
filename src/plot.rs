@@ -152,7 +152,9 @@ impl Chunk {
     fn encode_packet(&self) -> PacketEncoder {
         let chunk_sections = Vec::new();
         let mut heightmaps = nbt::Blob::new();
-        heightmaps.insert("MOTION_BLOCKING", vec![0i64, 256]).unwrap();
+        heightmaps
+            .insert("MOTION_BLOCKING", vec![0i64, 256])
+            .unwrap();
         C22ChunkData {
             biomes: Some(vec![0; 1024]),
             chunk_sections,
