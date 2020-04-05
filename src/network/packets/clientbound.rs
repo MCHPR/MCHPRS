@@ -84,7 +84,7 @@ impl ClientBoundPacket for C19PluginMessageBrand {
     }
 }
 
-pub struct ChunkSection {
+pub struct C22ChunkDataSection {
     pub block_count: i16,
     pub bits_per_block: u8,
     pub palette: Option<Vec<i32>>,
@@ -97,7 +97,7 @@ pub struct C22ChunkData {
     pub full_chunk: bool,
     pub primary_bit_mask: i32,
     pub heightmaps: nbt::Blob,
-    pub chunk_sections: Vec<ChunkSection>,
+    pub chunk_sections: Vec<C22ChunkDataSection>,
     pub biomes: Option<Vec<i32>>,
 }
 

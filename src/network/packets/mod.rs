@@ -161,7 +161,6 @@ impl PacketDecoder {
 }
 
 pub trait PacketEncoderExt: Write {
-
     fn write_boolean(&mut self, val: bool) {
         self.write_all(&[val as u8]).unwrap();
     }
@@ -225,7 +224,6 @@ pub trait PacketEncoderExt: Write {
     fn write_long(&mut self, val: i64) {
         self.write_i64::<BigEndian>(val).unwrap()
     }
-
 }
 
 impl PacketEncoderExt for Vec<u8> {}
@@ -237,10 +235,7 @@ pub struct PacketEncoder {
 
 impl PacketEncoder {
     fn new(buffer: Vec<u8>, packet_id: u32) -> PacketEncoder {
-        PacketEncoder {
-            buffer,
-            packet_id,
-        }
+        PacketEncoder { buffer, packet_id }
     }
 
     // This function is seperate because it is needed when writing packet headers
@@ -271,7 +266,8 @@ impl PacketEncoder {
             let compressed = ZlibEncoder::new(data, Compression::default())
                 .finish()
                 .unwrap();
-            let packet_length = PacketEncoder::varint((data_length.len() + compressed.len()) as i32);
+            let packet_length =
+                PacketEncoder::varint((data_length.len() + compressed.len()) as i32);
 
             [&packet_length[..], &data_length[..], &compressed[..]].concat()
         }
