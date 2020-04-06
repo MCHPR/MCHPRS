@@ -1,5 +1,6 @@
 use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
+use crate::network::packets::serverbound::*;
 use crate::network::packets::{PacketDecoder, PacketEncoder};
 use crate::player::Player;
 use crate::server::Message;
@@ -12,6 +13,7 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
+use serde_json::json;
 
 struct BitBuffer {
     bitsPerEntry: u8,
@@ -328,6 +330,11 @@ impl Plot {
                         self.enter_plot(player);
                     }
                 }
+                Message::Chat(message) => {
+                    for player in &mut self.players {
+                        player.send_chat_message(message.clone());
+                    }
+                }
                 _ => {}
             }
         }
@@ -358,6 +365,15 @@ impl Plot {
                 self.players[player].client.packets.drain(..).collect();
             for packet in packets {
                 match packet.packet_id {
+                    0x03 => {
+                        let player = &self.players[player];
+                        let chat_message = S03ChatMessage::decode(packet);
+                        let message = chat_message.message;
+                        let broadcast_message = Message::Chat(json!({
+                            "text": format!("{}: {}", player.username, message)
+                        }).to_string());
+                        self.message_sender.send(broadcast_message);
+                    }
                     _ => {}
                 }
             }
@@ -465,9 +481,9 @@ impl Plot {
         always_running: bool,
     ) {
         let mut plot = Plot::load(x, z, rx, tx, always_running);
-        thread::spawn(move || {
+        thread::Builder::new().name(format!("p{}:{}", x, z)).spawn(move || {
             plot.run();
-        });
+        }).unwrap();
     }
 }
 

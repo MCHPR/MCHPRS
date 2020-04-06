@@ -1,4 +1,5 @@
 use crate::network::NetworkClient;
+use crate::network::packets::clientbound::*;
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -177,4 +178,11 @@ impl Player {
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}
+
+    pub fn send_chat_message(&mut self, message: String) {
+        let chat_message = C0FChatMessage {
+            message, position: 0
+        }.encode();
+        self.client.send_packet(chat_message);
+    }
 }

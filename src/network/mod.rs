@@ -48,7 +48,7 @@ impl NetworkClient {
             },
         });
         let data_length = incoming_data.len();
-        let mut incoming_packets = PacketDecoder::decode(false, incoming_data);
+        let mut incoming_packets = PacketDecoder::decode(self.compressed, incoming_data);
         if !incoming_packets.is_empty() {
             self.packets.append(&mut incoming_packets);
         }

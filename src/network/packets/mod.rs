@@ -21,21 +21,36 @@ impl PacketDecoder {
             let length = PacketDecoder::read_varint_from_buffer(i, &buf);
             i += length.1 as usize;
             if compression {
+                // Compression is enabled
                 let data_length = PacketDecoder::read_varint_from_buffer(i, &buf);
                 i += data_length.1 as usize;
-                let mut data = Vec::new();
-                // Decompress data
-                ZlibDecoder::new(&buf[i..i + (length.0 - data_length.1) as usize])
-                    .read_to_end(&mut data)
-                    .unwrap();
-                i += (length.0 - data_length.1) as usize;
-                let packet_id = PacketDecoder::read_varint_from_buffer(0, &data);
-                decoders.push(PacketDecoder {
-                    buffer: Vec::from(&data[packet_id.1 as usize..data_length.0 as usize]),
-                    i: 0,
-                    packet_id: packet_id.0 as u32,
-                });
+                if data_length.0 > 0 {
+                    let mut data = Vec::new();
+                    // Decompress data
+                    ZlibDecoder::new(&buf[i..i + (length.0 - data_length.1) as usize])
+                        .read_to_end(&mut data)
+                        .unwrap();
+                    i += (length.0 - data_length.1) as usize;
+                    let packet_id = PacketDecoder::read_varint_from_buffer(0, &data);
+                    decoders.push(PacketDecoder {
+                        buffer: Vec::from(&data[packet_id.1 as usize..data_length.0 as usize]),
+                        i: 0,
+                        packet_id: packet_id.0 as u32,
+                    });
+                } else {
+                    // Even though compression is enabled, packet is not compressed
+                    let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
+                    i += packet_id.1 as usize;
+                    let data = &buf[i..i + length.0 as usize - data_length.1 as usize - packet_id.1 as usize];
+                    decoders.push(PacketDecoder {
+                        buffer: Vec::from(data),
+                        i: 0,
+                        packet_id: packet_id.0 as u32,
+                    });
+                    i += length.0 as usize - data_length.1 as usize - packet_id.1 as usize;
+                }
             } else {
+                // Compression is disabled
                 let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
                 decoders.push(PacketDecoder {
                     buffer: Vec::from(&buf[i + 1..i + length.0 as usize]),

@@ -71,6 +71,20 @@ impl ClientBoundPacket for C03SetCompression {
     }
 }
 
+pub struct C0FChatMessage {
+    pub message: String,
+    pub position: i8
+}
+
+impl ClientBoundPacket for C0FChatMessage {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_string(32767, self.message);
+        buf.write_byte(self.position);
+        PacketEncoder::new(buf, 0x0F)
+    }
+}
+
 pub struct C19PluginMessageBrand {
     pub brand: String,
 }
