@@ -2,7 +2,7 @@ use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::{PacketDecoder, PacketEncoder};
-use crate::player::Player;
+use crate::player::{Player, SkinParts};
 use crate::server::Message;
 use bus::BusReader;
 use serde::{Deserialize, Serialize};
@@ -290,7 +290,7 @@ impl Plot {
     fn enter_plot(&mut self, mut player: Player) {
         self.save();
         for chunk in &self.chunks {
-            player.client.send_packet(chunk.encode_packet());
+            player.client.send_packet(&chunk.encode_packet());
         }
         self.players.push(player);
     }
@@ -382,6 +382,24 @@ impl Plot {
                             }).to_string());
                             self.message_sender.send(broadcast_message).unwrap();
                         }
+                    }
+                    0x05 => {
+                        let player = &mut self.players[player];
+                        let client_settings = S05ClientSettings::decode(packet);
+                        player.skin_parts = SkinParts::from_bits_truncate(client_settings.displayed_skin_parts as u32);
+                        let metadata_entry = C44EntityMetadataEntry {
+                            index: 16,
+                            metadata_type: 0,
+                            value: vec![player.skin_parts.bits() as u8],
+                        };
+                        let entity_metadata = C44EntityMetadata {
+                            entity_id: player.entity_id as i32,
+                            metadata: vec![metadata_entry]
+                        }.encode();
+                        for player in &mut self.players {
+                            player.client.send_packet(&entity_metadata);
+                        }
+
                     }
                     0x0F => self.players[player].last_keep_alive_received = Instant::now(),
                     0x11 => {

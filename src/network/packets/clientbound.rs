@@ -5,6 +5,8 @@ pub trait ClientBoundPacket {
     fn encode(self) -> PacketEncoder;
 }
 
+// Server List Ping Packets
+
 pub struct C00Response {
     pub json_response: String,
 }
@@ -16,6 +18,8 @@ impl ClientBoundPacket for C00Response {
         PacketEncoder::new(buf, 0x00)
     }
 }
+
+// Login Packets
 
 pub struct C00DisconnectLogin {
     pub reason: String,
@@ -66,6 +70,8 @@ impl ClientBoundPacket for C03SetCompression {
         PacketEncoder::new(buf, 0x03)
     }
 }
+
+// Play Packets
 
 pub struct C0FChatMessage {
     pub message: String,
@@ -281,5 +287,30 @@ impl ClientBoundPacket for C36PlayerPositionAndLook {
         buf.write_unsigned_byte(self.flags);
         buf.write_varint(self.teleport_id);
         PacketEncoder::new(buf, 0x36)
+    }
+}
+
+pub struct C44EntityMetadataEntry {
+    pub index: u8,
+    pub metadata_type: i32,
+    pub value: Vec<u8>
+}
+
+pub struct C44EntityMetadata {
+    pub entity_id: i32,
+    pub metadata: Vec<C44EntityMetadataEntry>,
+}
+
+impl ClientBoundPacket for C44EntityMetadata {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        for entry in self.metadata {
+            buf.write_unsigned_byte(entry.index);
+            buf.write_varint(entry.metadata_type);
+            buf.write_bytes(&entry.value);
+        }
+        buf.write_byte(-1); // 0xFF
+        PacketEncoder::new(buf, 0x44)
     }
 }

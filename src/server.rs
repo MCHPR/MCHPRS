@@ -196,7 +196,7 @@ impl MinecraftServer {
                                     .to_string(),
                                 }
                                 .encode();
-                                client.send_packet(disconnect);
+                                client.send_packet(&disconnect);
                                 client.close_connection();
                             }
                         }
@@ -223,7 +223,7 @@ impl MinecraftServer {
                                     .to_string(),
                                 }
                                 .encode();
-                                client.send_packet(response);
+                                client.send_packet(&response);
                             }
                             0x01 => {
                                 let ping = S00Ping::decode(packet);
@@ -231,7 +231,7 @@ impl MinecraftServer {
                                     payload: ping.payload,
                                 }
                                 .encode();
-                                client.send_packet(pong);
+                                client.send_packet(&pong);
                             }
                             _ => {}
                         }
@@ -241,7 +241,7 @@ impl MinecraftServer {
                             let login_start = S00LoginStart::decode(packet);
                             clients[client].username = Some(login_start.name);
                             let set_compression = C03SetCompression { threshold: 500 }.encode();
-                            clients[client].send_packet(set_compression);
+                            clients[client].send_packet(&set_compression);
                             clients[client].compressed = true;
                             let username = if let Some(name) = &clients[client].username {
                                 name.clone()
@@ -255,7 +255,7 @@ impl MinecraftServer {
                                 username: username.clone(),
                             }
                             .encode();
-                            clients[client].send_packet(login_success);
+                            clients[client].send_packet(&login_success);
 
                             clients[client].state = NetworkState::Play;
                             let mut client = clients.remove(client);
@@ -272,13 +272,13 @@ impl MinecraftServer {
                                 enable_respawn_screen: false,
                             }
                             .encode();
-                            client.send_packet(join_game);
+                            client.send_packet(&join_game);
 
                             let brand = C19PluginMessageBrand {
                                 brand: "Minecraft High Performace Redstone Server".to_string(),
                             }
                             .encode();
-                            client.send_packet(brand);
+                            client.send_packet(&brand);
 
                             let mut player = Player::load_player(uuid, username.clone(), client);
 
@@ -292,7 +292,7 @@ impl MinecraftServer {
                                 teleport_id: 0,
                             }
                             .encode();
-                            player.client.send_packet(player_pos_and_look);
+                            player.client.send_packet(&player_pos_and_look);
 
                             let mut add_player_list = Vec::new();
                             for player in &self.online_players {
@@ -314,7 +314,7 @@ impl MinecraftServer {
                                 properties: Vec::new()
                             });
                             let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
-                            player.client.send_packet(player_info);
+                            player.client.send_packet(&player_info);
 
                             self.plot_sender
                                 .send(Message::PlayerJoined(Arc::new(player)))

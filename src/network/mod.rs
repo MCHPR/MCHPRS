@@ -58,7 +58,7 @@ impl NetworkClient {
         }
     }
 
-    pub fn send_packet(&mut self, data: PacketEncoder) {
+    pub fn send_packet(&mut self, data: &PacketEncoder) {
         if self.compressed {
             self.stream.write_all(&data.compressed());
         } else {

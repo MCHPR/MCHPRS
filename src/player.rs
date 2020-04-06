@@ -224,7 +224,7 @@ impl Player {
         let keep_alive = C21KeepAlive {
             id: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
         }.encode();
-        self.client.send_packet(keep_alive);
+        self.client.send_packet(&keep_alive);
         self.last_keep_alive_sent = Instant::now();
     }
 
@@ -234,14 +234,14 @@ impl Player {
         let chat_message = C0FChatMessage {
             message, position: 0
         }.encode();
-        self.client.send_packet(chat_message);
+        self.client.send_packet(&chat_message);
     }
 
     pub fn send_raw_system_message(&mut self, message: String) {
         let chat_message = C0FChatMessage {
             message, position: 1
         }.encode();
-        self.client.send_packet(chat_message);
+        self.client.send_packet(&chat_message);
     }
 
     pub fn send_chat_message(&mut self, message: String) {
@@ -278,6 +278,6 @@ impl Player {
         let disconnect = C1BDisconnect {
             reason
         }.encode();
-        self.client.send_packet(disconnect);
+        self.client.send_packet(&disconnect);
     }
 }

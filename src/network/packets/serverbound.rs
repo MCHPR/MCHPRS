@@ -66,6 +66,28 @@ impl ServerBoundPacket for S03ChatMessage {
     }
 }
 
+pub struct S05ClientSettings {
+    pub locale: String,
+    pub view_distance: i8,
+    pub chat_mode: i32,
+    pub chat_colors: bool,
+    pub displayed_skin_parts: u8,
+    pub main_hand: i32,
+}
+
+impl ServerBoundPacket for S05ClientSettings {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S05ClientSettings {
+            locale: decoder.read_string(),
+            view_distance: decoder.read_byte(),
+            chat_mode: decoder.read_varint(),
+            chat_colors: decoder.read_bool(),
+            displayed_skin_parts: decoder.read_unsigned_byte(),
+            main_hand: decoder.read_varint(),
+        }
+    }
+}
+
 pub struct S0FKeepAlive {
     pub id: i64,
 }
