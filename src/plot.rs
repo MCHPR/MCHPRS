@@ -12,7 +12,7 @@ use std::mem;
 use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 use serde_json::json;
 
 struct BitBuffer {
@@ -350,7 +350,7 @@ impl Plot {
         }
         // Check if connection to player is still active
         for player in 0..self.players.len() {
-            self.players[player].client.update();
+            self.players[player].update();
             if !self.players[player].client.alive {
                 let player = self.players.remove(player);
                 player.save();
@@ -373,6 +373,11 @@ impl Plot {
                             "text": format!("{}: {}", player.username, message)
                         }).to_string());
                         self.message_sender.send(broadcast_message);
+                    }
+                    0x0F => {
+                        self.players[player].last_keep_alive_received = Instant::now();
+                        
+
                     }
                     _ => {}
                 }

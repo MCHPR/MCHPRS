@@ -98,6 +98,30 @@ impl ClientBoundPacket for C19PluginMessageBrand {
     }
 }
 
+pub struct C1BDisconnect {
+    pub reason: String,
+}
+
+impl ClientBoundPacket for C1BDisconnect {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_string(32767, self.reason);
+        PacketEncoder::new(buf, 0x1B)
+    }
+}
+
+pub struct C21KeepAlive {
+    pub id: i64,
+}
+
+impl ClientBoundPacket for C21KeepAlive {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_long(self.id);
+        PacketEncoder::new(buf, 0x21)
+    }
+}
+
 pub struct C22ChunkDataSection {
     pub block_count: i16,
     pub bits_per_block: u8,

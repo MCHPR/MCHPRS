@@ -65,3 +65,16 @@ impl ServerBoundPacket for S03ChatMessage {
         }
     }
 }
+
+pub struct S0FKeepAlive {
+    pub id: i64,
+}
+
+impl ServerBoundPacket for S0FKeepAlive {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S0FKeepAlive {
+            id: decoder.read_long(),
+        }
+    }
+}
+

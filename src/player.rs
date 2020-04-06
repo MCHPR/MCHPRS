@@ -1,5 +1,6 @@
 use crate::network::NetworkClient;
 use crate::network::packets::clientbound::*;
+use std::time::{Instant, SystemTime};
 use byteorder::{LittleEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -58,12 +59,15 @@ pub struct Player {
     pub z: f64,
     pub yaw: f32,
     pub pitch: f32,
-    pub client: NetworkClient,
     pub flying: bool,
     pub on_ground: bool,
     pub fly_speed: f32,
     pub walk_speed: f32,
     pub entity_id: u32,
+    // Networking
+    pub client: NetworkClient,
+    pub last_keep_alive_received: Instant,
+    last_keep_alive_sent: Instant,
 }
 
 impl fmt::Debug for Player {
@@ -113,6 +117,8 @@ impl Player {
                 on_ground: player_data.on_ground,
                 walk_speed: player_data.walk_speed,
                 fly_speed: player_data.fly_speed,
+                last_keep_alive_received: Instant::now(),
+                last_keep_alive_sent: Instant::now(),
             }
         } else {
             Player::create_player(uuid, username, client)
@@ -139,6 +145,8 @@ impl Player {
             walk_speed: 1f32,
             on_ground: true,
             flying: false,
+            last_keep_alive_received: Instant::now(),
+            last_keep_alive_sent: Instant::now(),
         }
     }
 
@@ -177,6 +185,24 @@ impl Player {
         .unwrap();
     }
 
+    pub fn update(&mut self) {
+        if self.last_keep_alive_received.elapsed().as_secs() > 30 {
+            self.kick("Timed out".to_string());
+        }
+        if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
+            self.send_keep_alive();
+        }
+        self.client.update();
+    }
+
+    pub fn send_keep_alive(&mut self) {
+        let keep_alive = C21KeepAlive {
+            id: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
+        }.encode();
+        self.client.send_packet(keep_alive);
+        self.last_keep_alive_sent = Instant::now();
+    }
+
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}
 
     pub fn send_chat_message(&mut self, message: String) {
@@ -184,5 +210,12 @@ impl Player {
             message, position: 0
         }.encode();
         self.client.send_packet(chat_message);
+    }
+
+    pub fn kick(&mut self, reason: String) {
+        let disconnect = C1BDisconnect {
+            reason
+        }.encode();
+        self.client.send_packet(disconnect);
     }
 }
