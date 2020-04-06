@@ -78,3 +78,70 @@ impl ServerBoundPacket for S0FKeepAlive {
     }
 }
 
+pub struct S11PlayerPosition {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub on_ground: bool,
+}
+
+impl ServerBoundPacket for S11PlayerPosition {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S11PlayerPosition {
+            x: decoder.read_double(),
+            y: decoder.read_double(),
+            z: decoder.read_double(),
+            on_ground: decoder.read_bool(),
+        }
+    }
+}
+
+pub struct S12PlayerPositionAndRotation {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub on_ground: bool,
+}
+
+impl ServerBoundPacket for S12PlayerPositionAndRotation {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S12PlayerPositionAndRotation {
+            x: decoder.read_double(),
+            y: decoder.read_double(),
+            z: decoder.read_double(),
+            yaw: decoder.read_float(),
+            pitch: decoder.read_float(),
+            on_ground: decoder.read_bool(),
+        }
+    }
+}
+
+pub struct S13PlayerRotation {
+    pub yaw: f32,
+    pub pitch: f32,
+    pub on_ground: bool,
+}
+
+impl ServerBoundPacket for S13PlayerRotation {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S13PlayerRotation {
+            yaw: decoder.read_float(),
+            pitch: decoder.read_float(),
+            on_ground: decoder.read_bool(),
+        }
+    }
+}
+
+pub struct S14PlayerMovement {
+    pub on_ground: bool,
+}
+
+impl ServerBoundPacket for S14PlayerMovement {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S14PlayerMovement {
+            on_ground: decoder.read_bool(),
+        }
+    }
+}

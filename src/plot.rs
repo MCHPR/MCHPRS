@@ -383,10 +383,18 @@ impl Plot {
                             self.message_sender.send(broadcast_message).unwrap();
                         }
                     }
-                    0x0F => {
-                        self.players[player].last_keep_alive_received = Instant::now();
-                        
-
+                    0x0F => self.players[player].last_keep_alive_received = Instant::now(),
+                    0x11 => {
+                        let player = &mut self.players[player];
+                    }
+                    0x12 => {
+                        let player = &mut self.players[player];
+                    }
+                    0x13 => {
+                        let player = &mut self.players[player];
+                    }
+                    0x14 => {
+                        let player = &mut self.players[player];
                     }
                     _ => {}
                 }

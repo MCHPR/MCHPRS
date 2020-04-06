@@ -95,6 +95,22 @@ impl PacketDecoder {
         out
     }
 
+    fn read_double(&mut self) -> f64 {
+        let mut arr = [0; 8];
+        arr.copy_from_slice(&self.buffer[self.i..self.i + 8]);
+        let out = f64::from_be_bytes(arr);
+        self.i += 8;
+        out
+    }
+
+    fn read_float(&mut self) -> f32 {
+        let mut arr = [0; 4];
+        arr.copy_from_slice(&self.buffer[self.i..self.i + 4]);
+        let out = f32::from_be_bytes(arr);
+        self.i += 4;
+        out
+    }
+
     fn read_bool(&mut self) -> bool {
         let out = self.buffer[self.i] == 1;
         self.i += 1;
