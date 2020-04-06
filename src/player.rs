@@ -1,5 +1,6 @@
 use crate::network::NetworkClient;
 use crate::network::packets::clientbound::*;
+use serde_json::json;
 use std::time::{Instant, SystemTime};
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
@@ -68,6 +69,9 @@ pub struct Player {
     pub client: NetworkClient,
     pub last_keep_alive_received: Instant,
     last_keep_alive_sent: Instant,
+    // Worldedit
+    pub first_position: Option<(i32, i32, i32)>,
+    pub second_position: Option<(i32, i32, i32)>,
 }
 
 impl fmt::Debug for Player {
@@ -136,6 +140,8 @@ impl Player {
                 fly_speed: player_data.fly_speed,
                 last_keep_alive_received: Instant::now(),
                 last_keep_alive_sent: Instant::now(),
+                first_position: None,
+                second_position: None,
             }
         } else {
             Player::create_player(uuid, username, client)
@@ -164,6 +170,8 @@ impl Player {
             flying: false,
             last_keep_alive_received: Instant::now(),
             last_keep_alive_sent: Instant::now(),
+            first_position: None,
+            second_position: None,
         }
     }
 
@@ -222,12 +230,49 @@ impl Player {
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}
 
-    pub fn send_chat_message(&mut self, message: String) {
+    pub fn send_raw_chat(&mut self, message: String) {
         let chat_message = C0FChatMessage {
             message, position: 0
         }.encode();
         self.client.send_packet(chat_message);
     }
+
+    pub fn send_raw_system_message(&mut self, message: String) {
+        let chat_message = C0FChatMessage {
+            message, position: 1
+        }.encode();
+        self.client.send_packet(chat_message);
+    }
+
+    pub fn send_chat_message(&mut self, message: String) {
+        self.send_raw_chat(json!({
+            "text": message
+        }).to_string());
+    }
+
+    pub fn send_system_message(&mut self, message: String) {
+        self.send_raw_system_message(json!({
+            "text": message,
+            "color": "yellow"
+        }).to_string());
+    }
+
+    pub fn set_first_position(&mut self, x: i32, y: i32, z: i32) {
+        self.send_raw_system_message(json!({
+            "text": format!("First position set to ({}, {}, {})", x, y, z),
+            "color": "light_purple"
+        }).to_string());
+        self.first_position = Some((x, y, z));
+    }
+
+    pub fn set_second_position(&mut self, x: i32, y: i32, z: i32) {
+        self.send_raw_system_message(json!({
+            "text": format!("Second position set to ({}, {}, {})", x, y, z),
+            "color": "light_purple"
+        }).to_string());
+        self.second_position = Some((x, y, z));
+    }
+
 
     pub fn kick(&mut self, reason: String) {
         let disconnect = C1BDisconnect {

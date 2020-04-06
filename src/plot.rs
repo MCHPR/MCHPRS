@@ -332,7 +332,7 @@ impl Plot {
                 }
                 Message::Chat(message) => {
                     for player in &mut self.players {
-                        player.send_chat_message(message.clone());
+                        player.send_raw_chat(message.clone());
                     }
                 }
                 _ => {}
@@ -366,13 +366,22 @@ impl Plot {
             for packet in packets {
                 match packet.packet_id {
                     0x03 => {
-                        let player = &self.players[player];
+                        let player = &mut self.players[player];
                         let chat_message = S03ChatMessage::decode(packet);
                         let message = chat_message.message;
-                        let broadcast_message = Message::Chat(json!({
-                            "text": format!("{}: {}", player.username, message)
-                        }).to_string());
-                        self.message_sender.send(broadcast_message);
+                        if message.starts_with('/') {
+                            let mut args: Vec<&str> = message.split(' ').collect();
+                            match args.remove(0) {
+                                "//1" | "//pos1" => player.set_first_position(player.x as i32, player.y as i32, player.z as i32),
+                                "//2" | "//pos2" => player.set_second_position(player.x as i32, player.y as i32, player.z as i32),
+                                _ => player.send_system_message("Command not found!".to_string())
+                            }
+                        } else {
+                            let broadcast_message = Message::Chat(json!({
+                                "text": format!("{}: {}", player.username, message)
+                            }).to_string());
+                            self.message_sender.send(broadcast_message).unwrap();
+                        }
                     }
                     0x0F => {
                         self.players[player].last_keep_alive_received = Instant::now();
