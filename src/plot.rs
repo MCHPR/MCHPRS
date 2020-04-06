@@ -404,15 +404,33 @@ impl Plot {
                     0x0F => self.players[player].last_keep_alive_received = Instant::now(),
                     0x11 => {
                         let player = &mut self.players[player];
+                        let player_position = S11PlayerPosition::decode(packet);
+                        player.x = player_position.x;
+                        player.y = player_position.y;
+                        player.z = player_position.z;
+                        player.on_ground = player_position.on_ground;
                     }
                     0x12 => {
                         let player = &mut self.players[player];
+                        let player_position_and_rotation = S12PlayerPositionAndRotation::decode(packet);
+                        player.x = player_position_and_rotation.x;
+                        player.y = player_position_and_rotation.y;
+                        player.z = player_position_and_rotation.z;
+                        player.yaw = player_position_and_rotation.yaw;
+                        player.pitch = player_position_and_rotation.pitch;
+                        player.on_ground = player_position_and_rotation.on_ground;
                     }
                     0x13 => {
                         let player = &mut self.players[player];
+                        let player_rotation = S13PlayerRotation::decode(packet);
+                        player.yaw = player_rotation.yaw;
+                        player.pitch = player_rotation.pitch;
+                        player.on_ground = player_rotation.on_ground;
                     }
                     0x14 => {
                         let player = &mut self.players[player];
+                        let player_movement = S14PlayerMovement::decode(packet);
+                        player.on_ground = player_movement.on_ground;
                     }
                     _ => {}
                 }
