@@ -53,3 +53,15 @@ impl ServerBoundPacket for S00LoginStart {
         }
     }
 }
+
+pub struct S03ChatMessage {
+    pub message: String,
+}
+
+impl ServerBoundPacket for S03ChatMessage {
+    fn decode(mut decoder: PacketDecoder) -> Self {
+        S03ChatMessage {
+            message: decoder.read_string(),
+        }
+    }
+}

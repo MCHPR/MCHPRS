@@ -1,5 +1,6 @@
 mod network;
 //mod permissions;
+mod blocks;
 mod player;
 mod plot;
 mod server;

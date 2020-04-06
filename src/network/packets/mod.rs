@@ -263,9 +263,9 @@ impl PacketEncoder {
             [&packet_length[..], &data_length[..], &data[..]].concat()
         } else {
             let data_length = PacketEncoder::varint(data.len() as i32);
-            let compressed = ZlibEncoder::new(data, Compression::default())
-                .finish()
-                .unwrap();
+            let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+            encoder.write_all(&data).unwrap();
+            let compressed = encoder.finish().unwrap();
             let packet_length =
                 PacketEncoder::varint((data_length.len() + compressed.len()) as i32);
 

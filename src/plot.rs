@@ -1,5 +1,6 @@
+use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
-use crate::network::packets::PacketEncoder;
+use crate::network::packets::{PacketDecoder, PacketEncoder};
 use crate::player::Player;
 use crate::server::Message;
 use bus::BusReader;
@@ -157,6 +158,13 @@ impl ChunkSection {
         blob.insert("y", self.y as i8).unwrap();
         blob
     }
+
+    fn new(y: u8) -> ChunkSection {
+        ChunkSection {
+            y,
+            data: PalettedBitBuffer::new(),
+        }
+    }
 }
 
 struct Chunk {
@@ -182,6 +190,27 @@ impl Chunk {
             primary_bit_mask: 0,
         }
         .encode()
+    }
+
+    fn set_block(&mut self, x: u32, y: u32, z: u32, block: Block) {
+        let block_id = Block::get_id(&block);
+        let section_y = (y / 16) as u8;
+        if let Some(section) = self.sections.iter_mut().find(|s| s.y == section_y) {
+            section.set_block(x, y & 16, z, block_id);
+        } else if !block.compare_variant(&Block::Air) {
+            let mut section = ChunkSection::new(section_y);
+            section.set_block(x, y & 16, z, block_id);
+            self.sections.push(section);
+        }
+    }
+
+    fn get_block(&self, x: u32, y: u32, z: u32) -> Block {
+        let section_y = (y / 16) as u8;
+        if let Some(section) = self.sections.iter().find(|s| s.y == section_y) {
+            Block::from_block_state(section.get_block(x, y & 16, z))
+        } else {
+            Block::Air
+        }
     }
 
     fn save(&self) -> ChunkData {
@@ -238,7 +267,21 @@ pub struct Plot {
 }
 
 impl Plot {
-    fn set_block(&mut self) {}
+    fn get_chunk_index(block_x: i32, block_z: i32) -> usize {
+        let chunk_x = block_x / 16;
+        let chunk_z = block_z / 16;
+        (chunk_x * 8 + chunk_z) as usize
+    }
+
+    fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) {
+        let chunk = &mut self.chunks[Plot::get_chunk_index(x, z)];
+        chunk.set_block((x & 16) as u32, y, (z & 16) as u32, block);
+    }
+
+    fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
+        let chunk = &self.chunks[Plot::get_chunk_index(x, z)];
+        chunk.get_block((x & 16) as u32, y, (z & 16) as u32)
+    }
 
     fn tick(&mut self) {}
 
@@ -307,6 +350,16 @@ impl Plot {
                 self.message_sender
                     .send(Message::PlayerLeft(player.uuid))
                     .unwrap();
+            }
+        }
+        // Handle received packets
+        for player in 0..self.players.len() {
+            let packets: Vec<PacketDecoder> =
+                self.players[player].client.packets.drain(..).collect();
+            for packet in packets {
+                match packet.packet_id {
+                    _ => {}
+                }
             }
         }
     }
