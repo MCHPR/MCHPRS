@@ -1,4 +1,5 @@
 use super::{PacketEncoder, PacketEncoderExt};
+use crate::player::Player;
 
 pub trait ClientBoundPacket {
     fn encode(self) -> PacketEncoder;
@@ -48,12 +49,7 @@ pub struct C02LoginSuccess {
 impl ClientBoundPacket for C02LoginSuccess {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        let mut hex = format!("{:032X}", self.uuid);
-        hex.insert(7, '-');
-        hex.insert(13, '-');
-        hex.insert(17, '-');
-        hex.insert(21, '-');
-        buf.write_string(36, hex);
+        buf.write_string(36, Player::uuid_with_hyphens(self.uuid));
         buf.write_string(16, self.username);
         PacketEncoder::new(buf, 0x02)
     }
@@ -202,6 +198,65 @@ impl ClientBoundPacket for C26JoinGame {
         buf.write_boolean(self.reduced_debug_info);
         buf.write_boolean(self.enable_respawn_screen);
         PacketEncoder::new(buf, 0x26)
+    }
+}
+
+pub struct C34PlayerInfoAddPlayerProperty {
+    name: String,
+    value: String,
+    signature: Option<String>,
+}
+
+pub struct C34PlayerInfoAddPlayer {
+    pub uuid: u128,
+    pub name: String,
+    pub properties: Vec<C34PlayerInfoAddPlayerProperty>,
+    pub gamemode: i32,
+    pub ping: i32,
+    pub display_name: Option<String>,
+}
+
+pub enum C34PlayerInfo {
+    AddPlayer(Vec<C34PlayerInfoAddPlayer>),
+    RemovePlayer(Vec<u128>)
+}
+
+impl ClientBoundPacket for C34PlayerInfo {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        match self {
+            C34PlayerInfo::AddPlayer(ps) => {
+                buf.write_varint(0);
+                buf.write_varint(ps.len() as i32);
+                for p in ps {
+                    buf.write_uuid(p.uuid);
+                    buf.write_string(16, p.name);
+                    buf.write_varint(p.properties.len() as i32);
+                    for prop in p.properties {
+                        buf.write_string(32767, prop.name);
+                        buf.write_string(32767, prop.value);
+                        buf.write_boolean(prop.signature.is_some());
+                        if let Some(signature) = prop.signature {
+                            buf.write_string(32767, signature);
+                        }
+                    }
+                    buf.write_varint(p.gamemode);
+                    buf.write_varint(p.ping);
+                    buf.write_boolean(p.display_name.is_some());
+                    if let Some(display_name) = p.display_name {
+                        buf.write_string(32767, display_name);
+                    }
+                }
+            }
+            C34PlayerInfo::RemovePlayer(uuids) => {
+                buf.write_varint(4);
+                buf.write_varint(uuids.len() as i32);
+                for uuid in uuids {
+                    buf.write_uuid(uuid);
+                }
+            }
+        }
+        PacketEncoder::new(buf, 0x34)
     }
 }
 

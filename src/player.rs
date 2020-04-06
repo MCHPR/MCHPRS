@@ -1,7 +1,7 @@
 use crate::network::NetworkClient;
 use crate::network::packets::clientbound::*;
 use std::time::{Instant, SystemTime};
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs::{self, OpenOptions};
@@ -74,16 +74,33 @@ impl fmt::Debug for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Player")
             .field("username", &self.username)
-            .field("uuid", &format!("{:032x}", self.uuid))
-            .finish()
+          //.field("uuid", &format!("{:032x}", self.uuid))
+            .field("uuid", &Player::uuid_with_hyphens(self.uuid))
+            .finish() 
     }
 }
 
+// bfc93de5-cf9f-3e88-918c-ed818f97abf8
+// bfc93de5-cf9f-3e88-918c-ed818f97abf8
+
 impl Player {
     pub fn generate_offline_uuid(username: &str) -> u128 {
-        Cursor::new(md5::compute(username).0)
-            .read_u128::<LittleEndian>()
-            .unwrap()
+        Cursor::new(md5::compute(format!("OfflinePlayer:{}", username)).0)
+            .read_u128::<BigEndian>()
+            .unwrap() 
+            // Encode version and varient into uuid
+            & (!(0xC << 60) & !(0xF << 76)) 
+            | ( (0x8 << 60) |  (0x3 << 76))
+
+    }
+
+    pub fn uuid_with_hyphens(uuid: u128) -> String {
+        let mut hex = format!("{:032x}", uuid);
+        hex.insert(8, '-');
+        hex.insert(13, '-');
+        hex.insert(18, '-');
+        hex.insert(23, '-');
+        hex
     }
 
     pub fn load_player(uuid: u128, username: String, client: NetworkClient) -> Player {

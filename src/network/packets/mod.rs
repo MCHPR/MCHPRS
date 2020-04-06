@@ -236,6 +236,10 @@ pub trait PacketEncoderExt: Write {
         self.write_all(val.as_bytes()).unwrap();
     }
 
+    fn write_uuid(&mut self, val: u128) {
+        self.write_u128::<BigEndian>(val).unwrap();
+    }
+
     fn write_long(&mut self, val: i64) {
         self.write_i64::<BigEndian>(val).unwrap()
     }

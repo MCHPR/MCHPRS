@@ -1,6 +1,6 @@
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression,
-    C19PluginMessageBrand, C26JoinGame, C36PlayerPositionAndLook, ClientBoundPacket,
+    C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer, C36PlayerPositionAndLook, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
@@ -293,6 +293,28 @@ impl MinecraftServer {
                             }
                             .encode();
                             player.client.send_packet(player_pos_and_look);
+
+                            let mut add_player_list = Vec::new();
+                            for player in &self.online_players {
+                                add_player_list.push(C34PlayerInfoAddPlayer {
+                                    uuid: player.uuid,
+                                    name: player.username.clone(),
+                                    display_name: None,
+                                    gamemode: 1,
+                                    ping: 0,
+                                    properties: Vec::new()
+                                });
+                            }
+                            add_player_list.push(C34PlayerInfoAddPlayer {
+                                uuid: player.uuid,
+                                name: player.username.clone(),
+                                display_name: None,
+                                gamemode: 1,
+                                ping: 0,
+                                properties: Vec::new()
+                            });
+                            let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
+                            player.client.send_packet(player_info);
 
                             self.plot_sender
                                 .send(Message::PlayerJoined(Arc::new(player)))
