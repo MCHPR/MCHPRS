@@ -266,7 +266,7 @@ impl MinecraftServer {
                                 dimention: 0,
                                 hash_seed: 0,
                                 max_players: u8::MAX,
-                                level_type: "default".to_string(),
+                                level_type: "flat".to_string(),
                                 view_distance: 8,
                                 reduced_debug_info: false,
                                 enable_respawn_screen: false,
