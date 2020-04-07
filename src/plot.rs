@@ -270,8 +270,8 @@ pub struct Plot {
 
 impl Plot {
     fn get_chunk_index(block_x: i32, block_z: i32) -> usize {
-        let chunk_x = block_x / 16;
-        let chunk_z = block_z / 16;
+        let chunk_x = block_x >> 4;
+        let chunk_z = block_z >> 4;
         (chunk_x * 8 + chunk_z) as usize
     }
 
@@ -292,6 +292,7 @@ impl Plot {
         for chunk in &self.chunks {
             player.client.send_packet(&chunk.encode_packet());
         }
+        player.send_system_message(format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
     }
 
@@ -304,6 +305,13 @@ impl Plot {
             thread::sleep(Duration::from_millis(2));
         }
         Arc::try_unwrap(player_arc).unwrap()
+    }
+
+    fn in_plot_bounds(&self, x: i32, z: i32) -> bool {
+        x >= self.x * 128 &&
+        x < (self.x + 1) * 128 &&
+        z >= self.z * 128 &&
+        z < (self.z + 1) * 128
     }
 
     fn update(&mut self) {
@@ -436,6 +444,13 @@ impl Plot {
                 }
             }
         }
+        // Check if a player has left the plot
+        for player in 0..self.players.len() {
+            if !self.in_plot_bounds(self.players[player].x as i32, self.players[player].z as i32) {
+                let player_leave_plot = Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
+                self.message_sender.send(player_leave_plot).unwrap();
+            }
+        }
     }
 
     fn load(
@@ -445,8 +460,8 @@ impl Plot {
         tx: Sender<Message>,
         always_running: bool,
     ) -> Plot {
-        let chunk_x_offset = x * 16;
-        let chunk_z_offset = z * 16;
+        let chunk_x_offset = x << 3;
+        let chunk_z_offset = z << 3;
         if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
             // Load plot from file
             // TODO: Handle format error

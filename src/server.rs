@@ -26,6 +26,7 @@ pub enum Message {
     PlayerJoined(Arc<Player>),
     PlayerLeft(u128),
     PlayerEnterPlot(Arc<Player>, i32, i32),
+    PlayerLeavePlot(Arc<Player>),
     PlayerTeleportOther(Arc<Player>, String),
     PlotUnload(i32, i32),
 }
@@ -116,8 +117,8 @@ impl MinecraftServer {
             println!("Main thread received message: {:#?}", message);
             match message {
                 Message::PlayerJoined(player) => {
-                    let plot_x = (player.x / 128f64).floor() as i32;
-                    let plot_z = (player.y / 128f64).floor() as i32;
+                    let plot_x = (player.x as i32) >> 7;
+                    let plot_z = (player.z as i32) >> 7;
                     let plot_loaded = self
                         .running_plots
                         .iter()
@@ -168,6 +169,26 @@ impl MinecraftServer {
                 Message::Chat(chat) => {
                     self.broadcaster.broadcast(Message::Chat(chat));
                 }
+                Message::PlayerLeavePlot(player) => {
+                    let plot_x = (player.x as i32) >> 7;
+                    let plot_z = (player.z as i32) >> 7;
+                    let plot_loaded = self
+                        .running_plots
+                        .iter()
+                        .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
+                    if !plot_loaded {
+                        Plot::load_and_run(
+                            plot_x,
+                            plot_z,
+                            self.broadcaster.add_rx(),
+                            self.plot_sender.clone(),
+                            false,
+                        );
+                        self.running_plots.push(PlotListEntry { plot_x, plot_z });
+                    }
+                    self.broadcaster
+                        .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
+                } 
                 _ => {}
             }
         }
