@@ -32,9 +32,9 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone)]
-struct PlayerJoinInfo {
-    username: String,
-    uuid: u128,
+pub struct PlayerJoinInfo {
+    pub username: String,
+    pub uuid: u128,
     skin: Option<String>,
 }
 

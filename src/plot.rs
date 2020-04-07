@@ -343,6 +343,19 @@ impl Plot {
                         player.send_raw_chat(message.clone());
                     }
                 }
+                Message::PlayerJoinedInfo(player_join_info) => {
+                    let player_info = C34PlayerInfo::AddPlayer(vec![C34PlayerInfoAddPlayer {
+                        name: player_join_info.username,
+                        properties: Vec::new(),
+                        gamemode: 1,
+                        ping: 0,
+                        uuid: player_join_info.uuid,
+                        display_name: None
+                    }]).encode();
+                    for player in &mut self.players {
+                        player.client.send_packet(&player_info);
+                    }
+                }
                 _ => {}
             }
         }
