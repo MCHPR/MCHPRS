@@ -164,6 +164,7 @@ impl MinecraftServer {
                     if let Some(index) = index {
                         self.online_players.remove(index);
                     }
+                    self.broadcaster.broadcast(message);
                 }
                 Message::PlotUnload(plot_x, plot_z) => {
                     let index = self

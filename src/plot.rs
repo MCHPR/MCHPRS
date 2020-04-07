@@ -356,6 +356,12 @@ impl Plot {
                         player.client.send_packet(&player_info);
                     }
                 }
+                Message::PlayerLeft(uuid) => {
+                    let player_info = C34PlayerInfo::RemovePlayer(vec![uuid]).encode();
+                    for player in &mut self.players {
+                        player.client.send_packet(&player_info);
+                    }
+                }
                 _ => {}
             }
         }
@@ -369,17 +375,23 @@ impl Plot {
                 self.running = false;
             }
         }
+        let message_sender = &mut self.message_sender;
+
+        for player in &mut self.players {
+            player.update();
+        }
         // Check if connection to player is still active
-        for player in 0..self.players.len() {
-            self.players[player].update();
-            if !self.players[player].client.alive {
-                let player = self.players.remove(player);
+        self.players.retain(|player| {
+            
+            let alive = player.client.alive;
+            if !alive {
                 player.save();
-                self.message_sender
+                message_sender
                     .send(Message::PlayerLeft(player.uuid))
                     .unwrap();
             }
-        }
+            alive
+        });
         // Handle received packets
         for player in 0..self.players.len() {
             let packets: Vec<PacketDecoder> =
