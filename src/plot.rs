@@ -6,6 +6,7 @@ use crate::player::{Player, SkinParts};
 use crate::server::Message;
 use bus::BusReader;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fs::{self, OpenOptions};
 use std::io::Cursor;
 use std::mem;
@@ -13,7 +14,6 @@ use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
-use serde_json::json;
 
 struct BitBuffer {
     bitsPerEntry: u8,
@@ -308,10 +308,7 @@ impl Plot {
     }
 
     fn in_plot_bounds(&self, x: i32, z: i32) -> bool {
-        x >= self.x * 128 &&
-        x < (self.x + 1) * 128 &&
-        z >= self.z * 128 &&
-        z < (self.z + 1) * 128
+        x >= self.x * 128 && x < (self.x + 1) * 128 && z >= self.z * 128 && z < (self.z + 1) * 128
     }
 
     fn update(&mut self) {
@@ -350,8 +347,9 @@ impl Plot {
                         gamemode: 1,
                         ping: 0,
                         uuid: player_join_info.uuid,
-                        display_name: None
-                    }]).encode();
+                        display_name: None,
+                    }])
+                    .encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
@@ -376,13 +374,12 @@ impl Plot {
             }
         }
         let message_sender = &mut self.message_sender;
-
+        // Update players
         for player in &mut self.players {
             player.update();
         }
         // Check if connection to player is still active
         self.players.retain(|player| {
-            
             let alive = player.client.alive;
             if !alive {
                 player.save();
@@ -405,21 +402,32 @@ impl Plot {
                         if message.starts_with('/') {
                             let mut args: Vec<&str> = message.split(' ').collect();
                             match args.remove(0) {
-                                "//1" | "//pos1" => player.set_first_position(player.x as i32, player.y as i32, player.z as i32),
-                                "//2" | "//pos2" => player.set_second_position(player.x as i32, player.y as i32, player.z as i32),
-                                _ => player.send_system_message("Command not found!".to_string())
+                                "//1" | "//pos1" => player.set_first_position(
+                                    player.x as i32,
+                                    player.y as i32,
+                                    player.z as i32,
+                                ),
+                                "//2" | "//pos2" => player.set_second_position(
+                                    player.x as i32,
+                                    player.y as i32,
+                                    player.z as i32,
+                                ),
+                                _ => player.send_system_message("Command not found!".to_string()),
                             }
                         } else {
-                            let broadcast_message = Message::Chat(json!({
-                                "text": format!("{}: {}", player.username, message)
-                            }).to_string());
+                            let broadcast_message = Message::Chat(
+                                json!({ "text": format!("{}: {}", player.username, message) })
+                                    .to_string(),
+                            );
                             self.message_sender.send(broadcast_message).unwrap();
                         }
                     }
                     0x05 => {
                         let player = &mut self.players[player];
                         let client_settings = S05ClientSettings::decode(packet);
-                        player.skin_parts = SkinParts::from_bits_truncate(client_settings.displayed_skin_parts as u32);
+                        player.skin_parts = SkinParts::from_bits_truncate(
+                            client_settings.displayed_skin_parts as u32,
+                        );
                         let metadata_entry = C44EntityMetadataEntry {
                             index: 16,
                             metadata_type: 0,
@@ -427,12 +435,12 @@ impl Plot {
                         };
                         let entity_metadata = C44EntityMetadata {
                             entity_id: player.entity_id as i32,
-                            metadata: vec![metadata_entry]
-                        }.encode();
+                            metadata: vec![metadata_entry],
+                        }
+                        .encode();
                         for player in &mut self.players {
                             player.client.send_packet(&entity_metadata);
                         }
-
                     }
                     0x0F => self.players[player].last_keep_alive_received = Instant::now(),
                     0x11 => {
@@ -445,7 +453,8 @@ impl Plot {
                     }
                     0x12 => {
                         let player = &mut self.players[player];
-                        let player_position_and_rotation = S12PlayerPositionAndRotation::decode(packet);
+                        let player_position_and_rotation =
+                            S12PlayerPositionAndRotation::decode(packet);
                         player.x = player_position_and_rotation.x;
                         player.y = player_position_and_rotation.y;
                         player.z = player_position_and_rotation.z;
@@ -472,7 +481,8 @@ impl Plot {
         // Check if a player has left the plot
         for player in 0..self.players.len() {
             if !self.in_plot_bounds(self.players[player].x as i32, self.players[player].z as i32) {
-                let player_leave_plot = Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
+                let player_leave_plot =
+                    Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
                 self.message_sender.send(player_leave_plot).unwrap();
             }
         }
@@ -579,9 +589,12 @@ impl Plot {
         always_running: bool,
     ) {
         let mut plot = Plot::load(x, z, rx, tx, always_running);
-        thread::Builder::new().name(format!("p{}:{}", x, z)).spawn(move || {
-            plot.run();
-        }).unwrap();
+        thread::Builder::new()
+            .name(format!("p{}:{}", x, z))
+            .spawn(move || {
+                plot.run();
+            })
+            .unwrap();
     }
 }
 

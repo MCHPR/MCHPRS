@@ -1,12 +1,12 @@
-use crate::network::NetworkClient;
 use crate::network::packets::clientbound::*;
-use serde_json::json;
-use std::time::{Instant, SystemTime};
+use crate::network::NetworkClient;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::Cursor;
+use std::time::{Instant, SystemTime};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
@@ -78,9 +78,9 @@ impl fmt::Debug for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Player")
             .field("username", &self.username)
-          //.field("uuid", &format!("{:032x}", self.uuid))
+            //.field("uuid", &format!("{:032x}", self.uuid))
             .field("uuid", &Player::uuid_with_hyphens(self.uuid))
-            .finish() 
+            .finish()
     }
 }
 
@@ -91,11 +91,10 @@ impl Player {
     pub fn generate_offline_uuid(username: &str) -> u128 {
         Cursor::new(md5::compute(format!("OfflinePlayer:{}", username)).0)
             .read_u128::<BigEndian>()
-            .unwrap() 
+            .unwrap()
             // Encode version and varient into uuid
-            & (!(0xC << 60) & !(0xF << 76)) 
-            | ( (0x8 << 60) |  (0x3 << 76))
-
+            & (!(0xC << 60) & !(0xF << 76))
+            | ((0x8 << 60) | (0x3 << 76))
     }
 
     pub fn uuid_with_hyphens(uuid: u128) -> String {
@@ -222,8 +221,12 @@ impl Player {
 
     pub fn send_keep_alive(&mut self) {
         let keep_alive = C21KeepAlive {
-            id: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
-        }.encode();
+            id: SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64,
+        }
+        .encode();
         self.client.send_packet(&keep_alive);
         self.last_keep_alive_sent = Instant::now();
     }
@@ -232,52 +235,60 @@ impl Player {
 
     pub fn send_raw_chat(&mut self, message: String) {
         let chat_message = C0FChatMessage {
-            message, position: 0
-        }.encode();
+            message,
+            position: 0,
+        }
+        .encode();
         self.client.send_packet(&chat_message);
     }
 
     pub fn send_raw_system_message(&mut self, message: String) {
         let chat_message = C0FChatMessage {
-            message, position: 1
-        }.encode();
+            message,
+            position: 1,
+        }
+        .encode();
         self.client.send_packet(&chat_message);
     }
 
     pub fn send_chat_message(&mut self, message: String) {
-        self.send_raw_chat(json!({
-            "text": message
-        }).to_string());
+        self.send_raw_chat(json!({ "text": message }).to_string());
     }
 
     pub fn send_system_message(&mut self, message: String) {
-        self.send_raw_system_message(json!({
-            "text": message,
-            "color": "yellow"
-        }).to_string());
+        self.send_raw_system_message(
+            json!({
+                "text": message,
+                "color": "yellow"
+            })
+            .to_string(),
+        );
     }
 
     pub fn set_first_position(&mut self, x: i32, y: i32, z: i32) {
-        self.send_raw_system_message(json!({
-            "text": format!("First position set to ({}, {}, {})", x, y, z),
-            "color": "light_purple"
-        }).to_string());
+        self.send_raw_system_message(
+            json!({
+                "text": format!("First position set to ({}, {}, {})", x, y, z),
+                "color": "light_purple"
+            })
+            .to_string(),
+        );
         self.first_position = Some((x, y, z));
     }
 
     pub fn set_second_position(&mut self, x: i32, y: i32, z: i32) {
-        self.send_raw_system_message(json!({
-            "text": format!("Second position set to ({}, {}, {})", x, y, z),
-            "color": "light_purple"
-        }).to_string());
+        self.send_raw_system_message(
+            json!({
+                "text": format!("Second position set to ({}, {}, {})", x, y, z),
+                "color": "light_purple"
+            })
+            .to_string(),
+        );
         self.second_position = Some((x, y, z));
     }
 
-
     pub fn kick(&mut self, reason: String) {
-        let disconnect = C1BDisconnect {
-            reason
-        }.encode();
+        let disconnect = C1BDisconnect { reason }.encode();
         self.client.send_packet(&disconnect);
     }
 }

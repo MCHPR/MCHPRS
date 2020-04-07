@@ -1,6 +1,7 @@
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression,
-    C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer, C36PlayerPositionAndLook, ClientBoundPacket,
+    C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
+    C36PlayerPositionAndLook, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
@@ -198,7 +199,7 @@ impl MinecraftServer {
                     self.update_player_entry(player.uuid, plot_x, plot_z);
                     self.broadcaster
                         .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
-                } 
+                }
                 _ => {}
             }
         }
@@ -333,7 +334,7 @@ impl MinecraftServer {
                                     display_name: None,
                                     gamemode: 1,
                                     ping: 0,
-                                    properties: Vec::new()
+                                    properties: Vec::new(),
                                 });
                             }
                             add_player_list.push(C34PlayerInfoAddPlayer {
@@ -342,7 +343,7 @@ impl MinecraftServer {
                                 display_name: None,
                                 gamemode: 1,
                                 ping: 0,
-                                properties: Vec::new()
+                                properties: Vec::new(),
                             });
                             let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
                             player.client.send_packet(&player_info);

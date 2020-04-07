@@ -75,7 +75,7 @@ impl ClientBoundPacket for C03SetCompression {
 
 pub struct C0FChatMessage {
     pub message: String,
-    pub position: i8
+    pub position: i8,
 }
 
 impl ClientBoundPacket for C0FChatMessage {
@@ -224,7 +224,7 @@ pub struct C34PlayerInfoAddPlayer {
 
 pub enum C34PlayerInfo {
     AddPlayer(Vec<C34PlayerInfoAddPlayer>),
-    RemovePlayer(Vec<u128>)
+    RemovePlayer(Vec<u128>),
 }
 
 impl ClientBoundPacket for C34PlayerInfo {
@@ -293,7 +293,7 @@ impl ClientBoundPacket for C36PlayerPositionAndLook {
 pub struct C44EntityMetadataEntry {
     pub index: u8,
     pub metadata_type: i32,
-    pub value: Vec<u8>
+    pub value: Vec<u8>,
 }
 
 pub struct C44EntityMetadata {
