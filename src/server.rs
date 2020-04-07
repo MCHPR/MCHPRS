@@ -109,6 +109,14 @@ impl MinecraftServer {
         }
     }
 
+    fn update_player_entry(&mut self, uuid: u128, plot_x: i32, plot_z: i32) {
+        let player = self.online_players.iter_mut().find(|p| p.uuid == uuid);
+        if let Some(player) = player {
+            player.plot_x = plot_x;
+            player.plot_z = plot_z;
+        }
+    }
+
     fn update(&mut self) {
         while let Ok(message) = self.debug_plot_receiver.try_recv() {
             println!("Main thread broadcasted message: {:#?}", message);
@@ -186,6 +194,7 @@ impl MinecraftServer {
                         );
                         self.running_plots.push(PlotListEntry { plot_x, plot_z });
                     }
+                    self.update_player_entry(player.uuid, plot_x, plot_z);
                     self.broadcaster
                         .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
                 } 
