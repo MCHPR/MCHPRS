@@ -1,15 +1,14 @@
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Write, Cursor};
 
 pub mod clientbound;
 pub mod serverbound;
 
 pub struct PacketDecoder {
-    buffer: Vec<u8>,
-    i: usize,
+    buffer: Cursor<Vec<u8>>,
     pub packet_id: u32,
 }
 
@@ -33,8 +32,7 @@ impl PacketDecoder {
                     i += (length.0 - data_length.1) as usize;
                     let packet_id = PacketDecoder::read_varint_from_buffer(0, &data);
                     decoders.push(PacketDecoder {
-                        buffer: Vec::from(&data[packet_id.1 as usize..data_length.0 as usize]),
-                        i: 0,
+                        buffer: Cursor::new(Vec::from(&data[packet_id.1 as usize..data_length.0 as usize])),
                         packet_id: packet_id.0 as u32,
                     });
                 } else {
@@ -44,8 +42,7 @@ impl PacketDecoder {
                     let data = &buf
                         [i..i + length.0 as usize - data_length.1 as usize - packet_id.1 as usize];
                     decoders.push(PacketDecoder {
-                        buffer: Vec::from(data),
-                        i: 0,
+                        buffer: Cursor::new(Vec::from(data)),
                         packet_id: packet_id.0 as u32,
                     });
                     i += length.0 as usize - data_length.1 as usize - packet_id.1 as usize;
@@ -54,8 +51,7 @@ impl PacketDecoder {
                 // Compression is disabled
                 let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
                 decoders.push(PacketDecoder {
-                    buffer: Vec::from(&buf[i + 1..i + length.0 as usize]),
-                    i: 0,
+                    buffer: Cursor::new(Vec::from(&buf[i + 1..i + length.0 as usize])),
                     packet_id: packet_id.0 as u32,
                 });
                 i += length.0 as usize;
@@ -65,65 +61,45 @@ impl PacketDecoder {
     }
 
     fn read_unsigned_byte(&mut self) -> u8 {
-        self.i += 1;
-        self.buffer[self.i - 1]
+        self.buffer.read_u8().unwrap()
     }
 
     fn read_byte(&mut self) -> i8 {
-        self.i += 1;
-        self.buffer[self.i - 1] as i8
+        self.buffer.read_i8().unwrap()
     }
 
     fn read_bytes(&mut self, bytes: usize) -> Vec<u8> {
-        let out = &self.buffer[self.i..self.i + bytes];
-        self.i += bytes;
-        out.to_vec()
+        let read = vec![0; bytes];
+        self.buffer.read_exact(&mut read);
+        read
     }
 
     fn read_long(&mut self) -> i64 {
-        let mut arr = [0; 8];
-        arr.copy_from_slice(&self.buffer[self.i..self.i + 8]);
-        let out = i64::from_be_bytes(arr);
-        self.i += 8;
-        out
+        self.buffer.read_i64::<BigEndian>().unwrap()
     }
 
     fn read_int(&mut self) -> i32 {
-        let mut arr = [0; 4];
-        arr.copy_from_slice(&self.buffer[self.i..self.i + 4]);
-        let out = i32::from_be_bytes(arr);
-        self.i += 4;
-        out
+        self.buffer.read_i32::<BigEndian>().unwrap()
     }
 
     fn read_short(&mut self) -> i16 {
-        let mut arr = [0; 2];
-        arr.copy_from_slice(&self.buffer[self.i..self.i + 2]);
-        let out = i16::from_be_bytes(arr);
-        self.i += 2;
-        out
+        self.buffer.read_i16::<BigEndian>().unwrap()
+    }
+
+    fn read_unsigned_short(&mut self) -> u16 {
+        self.buffer.read_u16::<BigEndian>().unwrap()
     }
 
     fn read_double(&mut self) -> f64 {
-        let mut arr = [0; 8];
-        arr.copy_from_slice(&self.buffer[self.i..self.i + 8]);
-        let out = f64::from_be_bytes(arr);
-        self.i += 8;
-        out
+        self.buffer.read_f64::<BigEndian>().unwrap()
     }
 
     fn read_float(&mut self) -> f32 {
-        let mut arr = [0; 4];
-        arr.copy_from_slice(&self.buffer[self.i..self.i + 4]);
-        let out = f32::from_be_bytes(arr);
-        self.i += 4;
-        out
+        self.buffer.read_f32::<BigEndian>().unwrap()
     }
 
     fn read_bool(&mut self) -> bool {
-        let out = self.buffer[self.i] == 1;
-        self.i += 1;
-        out
+        self.buffer.read_u8().unwrap() == 1
     }
 
     fn read_varint_from_buffer(offset: usize, buf: &Vec<u8>) -> (i32, i32) {
@@ -189,14 +165,6 @@ impl PacketDecoder {
     fn read_string(&mut self) -> String {
         let length = self.read_varint();
         String::from_utf8(self.read_bytes(length as usize)).unwrap()
-    }
-
-    fn read_unsigned_short(&mut self) -> u16 {
-        let mut arr = [0; 2];
-        arr.copy_from_slice(&self.buffer[self.i..self.i + 2]);
-        let out = u16::from_be_bytes(arr);
-        self.i += 2;
-        out
     }
 }
 
@@ -268,9 +236,17 @@ pub trait PacketEncoderExt: Write {
     fn write_long(&mut self, val: i64) {
         self.write_i64::<BigEndian>(val).unwrap()
     }
+
+    fn write_nbt_blob(&mut self, blob: nbt::Blob);
 }
 
-impl PacketEncoderExt for Vec<u8> {}
+impl PacketEncoderExt for Vec<u8> {
+
+    fn write_nbt_blob(&mut self, blob: nbt::Blob) {
+        blob.to_writer(self).unwrap();
+    }
+
+}
 
 pub struct PacketEncoder {
     buffer: Vec<u8>,
