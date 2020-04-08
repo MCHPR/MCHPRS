@@ -7,21 +7,47 @@ use std::io::{self, Read, Write, Cursor};
 pub mod clientbound;
 pub mod serverbound;
 
+pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
+pub type EncodeResult<T> = std::result::Result<T, PacketEncodeError>;
+
+#[derive(Debug)]
+pub enum PacketDecodeError {
+    IoError(io::Error),
+    FromUtf8Error(std::string::FromUtf8Error)
+}
+
+impl From<io::Error> for PacketDecodeError {
+    fn from(err: io::Error) -> PacketDecodeError {
+        PacketDecodeError::IoError(err)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for PacketDecodeError {
+    fn from(err: std::string::FromUtf8Error) -> PacketDecodeError {
+        PacketDecodeError::FromUtf8Error(err)
+    }
+}
+
+#[derive(Debug)]
+enum PacketEncodeError {
+
+}
+
 pub struct PacketDecoder {
     buffer: Cursor<Vec<u8>>,
     pub packet_id: u32,
 }
 
 impl PacketDecoder {
-    pub fn decode(compression: bool, buf: Vec<u8>) -> Vec<PacketDecoder> {
+    pub fn decode(compression: bool, buf: Vec<u8>) -> DecodeResult<Vec<PacketDecoder>> {
         let mut decoders = Vec::new();
         let mut i = 0;
         while i < buf.len() {
-            let length = PacketDecoder::read_varint_from_buffer(i, &buf);
+            let length = PacketDecoder::read_varint_from_buffer(i, &buf)?;
             i += length.1 as usize;
             if compression {
                 // Compression is enabled
-                let data_length = PacketDecoder::read_varint_from_buffer(i, &buf);
+                let data_length = PacketDecoder::read_varint_from_buffer(i, &buf)?;
                 i += data_length.1 as usize;
                 if data_length.0 > 0 {
                     let mut data = Vec::new();
@@ -30,14 +56,14 @@ impl PacketDecoder {
                         .read_to_end(&mut data)
                         .unwrap();
                     i += (length.0 - data_length.1) as usize;
-                    let packet_id = PacketDecoder::read_varint_from_buffer(0, &data);
+                    let packet_id = PacketDecoder::read_varint_from_buffer(0, &data)?;
                     decoders.push(PacketDecoder {
                         buffer: Cursor::new(Vec::from(&data[packet_id.1 as usize..data_length.0 as usize])),
                         packet_id: packet_id.0 as u32,
                     });
                 } else {
                     // Even though compression is enabled, packet is not compressed
-                    let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
+                    let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf)?;
                     i += packet_id.1 as usize;
                     let data = &buf
                         [i..i + length.0 as usize - data_length.1 as usize - packet_id.1 as usize];
@@ -49,7 +75,7 @@ impl PacketDecoder {
                 }
             } else {
                 // Compression is disabled
-                let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf);
+                let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf)?;
                 decoders.push(PacketDecoder {
                     buffer: Cursor::new(Vec::from(&buf[i + 1..i + length.0 as usize])),
                     packet_id: packet_id.0 as u32,
@@ -57,114 +83,114 @@ impl PacketDecoder {
                 i += length.0 as usize;
             }
         }
-        decoders
+        Ok(decoders)
     }
 
-    fn read_unsigned_byte(&mut self) -> u8 {
-        self.buffer.read_u8().unwrap()
+    fn read_unsigned_byte(&mut self) -> DecodeResult<u8> {
+        Ok(self.buffer.read_u8()?)
     }
 
-    fn read_byte(&mut self) -> i8 {
-        self.buffer.read_i8().unwrap()
+    fn read_byte(&mut self) -> DecodeResult<i8> {
+        Ok(self.buffer.read_i8()?)
     }
 
-    fn read_bytes(&mut self, bytes: usize) -> Vec<u8> {
+    fn read_bytes(&mut self, bytes: usize) -> DecodeResult<Vec<u8>> {
         let mut read = vec![0; bytes];
-        self.buffer.read_exact(&mut read).unwrap();
-        read
+        self.buffer.read_exact(&mut read)?;
+        Ok(read)
     }
 
-    fn read_long(&mut self) -> i64 {
-        self.buffer.read_i64::<BigEndian>().unwrap()
+    fn read_long(&mut self) -> DecodeResult<i64> {
+        Ok(self.buffer.read_i64::<BigEndian>()?)
     }
 
-    fn read_int(&mut self) -> i32 {
-        self.buffer.read_i32::<BigEndian>().unwrap()
+    fn read_int(&mut self) -> DecodeResult<i32> {
+        Ok(self.buffer.read_i32::<BigEndian>()?)
     }
 
-    fn read_short(&mut self) -> i16 {
-        self.buffer.read_i16::<BigEndian>().unwrap()
+    fn read_short(&mut self) -> DecodeResult<i16> {
+        Ok(self.buffer.read_i16::<BigEndian>()?)
     }
 
-    fn read_unsigned_short(&mut self) -> u16 {
-        self.buffer.read_u16::<BigEndian>().unwrap()
+    fn read_unsigned_short(&mut self) -> DecodeResult<u16> {
+        Ok(self.buffer.read_u16::<BigEndian>()?)
     }
 
-    fn read_double(&mut self) -> f64 {
-        self.buffer.read_f64::<BigEndian>().unwrap()
+    fn read_double(&mut self) -> DecodeResult<f64> {
+        Ok(self.buffer.read_f64::<BigEndian>()?)
     }
 
-    fn read_float(&mut self) -> f32 {
-        self.buffer.read_f32::<BigEndian>().unwrap()
+    fn read_float(&mut self) -> DecodeResult<f32> {
+        Ok(self.buffer.read_f32::<BigEndian>()?)
     }
 
-    fn read_bool(&mut self) -> bool {
-        self.buffer.read_u8().unwrap() == 1
+    fn read_bool(&mut self) -> DecodeResult<bool> {
+        Ok(self.buffer.read_u8()? == 1)
     }
 
-    fn read_varint_from_buffer(offset: usize, buf: &Vec<u8>) -> (i32, i32) {
+    fn read_varint_from_buffer(offset: usize, buf: &Vec<u8>) -> DecodeResult<(i32, i32)> {
         let mut num_read = 0;
         let mut result = 0i32;
         let mut read;
         loop {
             read = buf[offset + num_read as usize] as u8;
-            let value = (read & 0b01111111) as i32;
+            let value = (read & 0b0111_1111) as i32;
             result |= value << (7 * num_read);
 
             num_read += 1;
             if num_read > 5 {
                 panic!("VarInt is too big!");
             }
-            if read & 0b10000000 == 0 {
+            if read & 0b1000_0000 == 0 {
                 break;
             }
         }
-        (result, num_read)
+        Ok((result, num_read))
     }
 
-    fn read_varint(&mut self) -> i32 {
+    fn read_varint(&mut self) -> DecodeResult<i32> {
         let mut num_read = 0;
         let mut result = 0i32;
         let mut read;
         loop {
-            read = self.read_byte() as u8;
-            let value = (read & 0b01111111) as i32;
+            read = self.read_byte()? as u8;
+            let value = (read & 0b0111_1111) as i32;
             result |= value << (7 * num_read);
 
             num_read += 1;
             if num_read > 5 {
                 panic!("VarInt is too big!");
             }
-            if read & 0b10000000 == 0 {
+            if read & 0b1000_0000 == 0 {
                 break;
             }
         }
-        result
+        Ok(result)
     }
 
-    fn read_varlong(&mut self) -> i64 {
+    fn read_varlong(&mut self) -> DecodeResult<i64> {
         let mut num_read = 0;
         let mut result = 0i64;
         let mut read;
         loop {
-            read = self.read_byte() as u8;
-            let value = (read & 0b01111111) as i64;
+            read = self.read_byte()? as u8;
+            let value = (read & 0b0111_1111) as i64;
             result |= value << (7 * num_read);
 
             num_read += 1;
             if num_read > 5 {
                 panic!("VarInt is too big!");
             }
-            if read & 0b10000000 == 0 {
+            if read & 0b1000_0000 == 0 {
                 break;
             }
         }
-        result
+        Ok(result)
     }
 
-    fn read_string(&mut self) -> String {
-        let length = self.read_varint();
-        String::from_utf8(self.read_bytes(length as usize)).unwrap()
+    fn read_string(&mut self) -> DecodeResult<String> {
+        let length = self.read_varint()?;
+        Ok(String::from_utf8(self.read_bytes(length as usize)?)?)
     }
 }
 
@@ -181,10 +207,10 @@ pub trait PacketEncoderExt: Write {
 
     fn write_varlong(&mut self, mut val: i64) {
         loop {
-            let mut temp = (val & 0b11111111) as u8;
+            let mut temp = (val & 0b1111_1111) as u8;
             val = val >> 7;
             if val != 0 {
-                temp |= 0b10000000;
+                temp |= 0b1000_0000;
             }
             self.write_all(&[temp]).unwrap();
             if val == 0 {
@@ -262,10 +288,10 @@ impl PacketEncoder {
     fn varint(mut val: i32) -> Vec<u8> {
         let mut buf = Vec::new();
         loop {
-            let mut temp = (val & 0b11111111) as u8;
+            let mut temp = (val & 0b1111_1111) as u8;
             val = val >> 7;
             if val != 0 {
-                temp |= 0b10000000;
+                temp |= 0b1000_0000;
             }
             buf.push(temp);
             if val == 0 {

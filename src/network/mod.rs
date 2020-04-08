@@ -1,7 +1,6 @@
 pub mod packets;
 
-use crate::server::MinecraftServer;
-use packets::{PacketDecoder, PacketEncoder};
+use packets::{PacketDecoder, PacketEncoder, DecodeResult};
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::mpsc;
@@ -29,9 +28,9 @@ pub struct NetworkClient {
 }
 
 impl NetworkClient {
-    pub fn update(&mut self) {
+    pub fn update(&mut self) -> DecodeResult<()> {
         if !self.alive {
-            return;
+            return Ok(());
         };
         let mut would_block = false;
         let incoming_data = Vec::from(match self.reader.fill_buf() {
@@ -43,12 +42,12 @@ impl NetworkClient {
                 }
                 _ => {
                     self.alive = false;
-                    return;
+                    return Ok(());
                 }
             },
         });
         let data_length = incoming_data.len();
-        let mut incoming_packets = PacketDecoder::decode(self.compressed, incoming_data);
+        let mut incoming_packets = PacketDecoder::decode(self.compressed, incoming_data)?;
         if !incoming_packets.is_empty() {
             self.packets.append(&mut incoming_packets);
         }
@@ -56,6 +55,7 @@ impl NetworkClient {
         if !would_block && data_length == 0 {
             self.alive = false;
         }
+        Ok(())
     }
 
     pub fn send_packet(&mut self, data: &PacketEncoder) {

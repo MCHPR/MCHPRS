@@ -211,7 +211,7 @@ impl MinecraftServer {
                 match clients[client].state {
                     NetworkState::Handshake => {
                         if packet.packet_id == 0x00 {
-                            let handshake = S00Handshake::decode(packet);
+                            let handshake = S00Handshake::decode(packet).unwrap();
                             let client = &mut clients[client];
                             match handshake.next_state {
                                 1 => client.state = NetworkState::Status,
@@ -258,7 +258,7 @@ impl MinecraftServer {
                                 client.send_packet(&response);
                             }
                             0x01 => {
-                                let ping = S00Ping::decode(packet);
+                                let ping = S00Ping::decode(packet).unwrap();
                                 let pong = C01Pong {
                                     payload: ping.payload,
                                 }
@@ -270,7 +270,7 @@ impl MinecraftServer {
                     }
                     NetworkState::Login => {
                         if packet.packet_id == 0x00 {
-                            let login_start = S00LoginStart::decode(packet);
+                            let login_start = S00LoginStart::decode(packet).unwrap();
                             clients[client].username = Some(login_start.name);
                             let set_compression = C03SetCompression { threshold: 500 }.encode();
                             clients[client].send_packet(&set_compression);

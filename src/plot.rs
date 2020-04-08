@@ -464,7 +464,7 @@ impl Plot {
                 match packet.packet_id {
                     0x03 => {
                         //let player = &mut self.players[player];
-                        let chat_message = S03ChatMessage::decode(packet);
+                        let chat_message = S03ChatMessage::decode(packet).unwrap();
                         let message = chat_message.message;
                         if message.starts_with('/') {
                             let mut args: Vec<&str> = message.split(' ').collect();
@@ -513,7 +513,7 @@ impl Plot {
                     }
                     0x05 => {
                         let player = &mut self.players[player];
-                        let client_settings = S05ClientSettings::decode(packet);
+                        let client_settings = S05ClientSettings::decode(packet).unwrap();
                         player.skin_parts = SkinParts::from_bits_truncate(
                             client_settings.displayed_skin_parts as u32,
                         );
@@ -534,7 +534,7 @@ impl Plot {
                     0x0F => self.players[player].last_keep_alive_received = Instant::now(),
                     0x11 => {
                         let player = &mut self.players[player];
-                        let player_position = S11PlayerPosition::decode(packet);
+                        let player_position = S11PlayerPosition::decode(packet).unwrap();
                         player.x = player_position.x;
                         player.y = player_position.y;
                         player.z = player_position.z;
@@ -543,7 +543,7 @@ impl Plot {
                     0x12 => {
                         let player = &mut self.players[player];
                         let player_position_and_rotation =
-                            S12PlayerPositionAndRotation::decode(packet);
+                            S12PlayerPositionAndRotation::decode(packet).unwrap();
                         player.x = player_position_and_rotation.x;
                         player.y = player_position_and_rotation.y;
                         player.z = player_position_and_rotation.z;
@@ -553,14 +553,14 @@ impl Plot {
                     }
                     0x13 => {
                         let player = &mut self.players[player];
-                        let player_rotation = S13PlayerRotation::decode(packet);
+                        let player_rotation = S13PlayerRotation::decode(packet).unwrap();
                         player.yaw = player_rotation.yaw;
                         player.pitch = player_rotation.pitch;
                         player.on_ground = player_rotation.on_ground;
                     }
                     0x14 => {
                         let player = &mut self.players[player];
-                        let player_movement = S14PlayerMovement::decode(packet);
+                        let player_movement = S14PlayerMovement::decode(packet).unwrap();
                         player.on_ground = player_movement.on_ground;
                     }
                     _ => {}
