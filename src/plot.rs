@@ -16,34 +16,34 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
 struct BitBuffer {
-    bitsPerEntry: u8,
+    bits_per_entry: u8,
     entries: usize,
     longs: Vec<u64>,
 }
 
 impl BitBuffer {
-    fn create(bitsPerEntry: u8, entries: usize) -> BitBuffer {
-        let longs_len = entries * bitsPerEntry as usize / 64;
+    fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
+        let longs_len = entries * bits_per_entry as usize / 64;
         let longs = vec![0; longs_len];
         BitBuffer {
-            bitsPerEntry,
+            bits_per_entry,
             longs,
             entries,
         }
     }
 
-    fn load(bitsPerEntry: u8, longs: Vec<u64>) -> BitBuffer {
-        let entries = longs.len() * 64 / bitsPerEntry as usize;
+    fn load(bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
+        let entries = longs.len() * 64 / bits_per_entry as usize;
         BitBuffer {
-            bitsPerEntry,
+            bits_per_entry,
             longs,
             entries,
         }
     }
 
     fn get_entry(&self, index: usize) -> u32 {
-        let long_index = (self.bitsPerEntry as usize * index) >> 6;
-        let index_in_long = (self.bitsPerEntry as usize * index) & 0x3F;
+        let long_index = (self.bits_per_entry as usize * index) >> 6;
+        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
         let bitmask = (1u128 << (index_in_long + 1)) - 1;
         let long_long =
             self.longs[long_index] as u128 | ((self.longs[long_index + 1] as u128) << 64);
@@ -51,14 +51,15 @@ impl BitBuffer {
     }
 
     fn set_entry(&mut self, index: usize, val: u32) {
-        let long_index = (self.bitsPerEntry as usize * index) >> 6;
-        let index_in_long = (self.bitsPerEntry as usize * index) & 0x3F;
+        let long_index = (self.bits_per_entry as usize * index) >> 6; // 0
+        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F; // 36
         let bitmask = !((1u128 << (index_in_long + 1)) - 1);
+        //dbg!(long_index, index_in_long, (val as u64) << index_in_long);
         self.longs[long_index] =
-            (self.longs[long_index] & bitmask as u64) | (val << index_in_long) as u64;
-        if long_index + self.bitsPerEntry as usize > 64 {
+            (self.longs[long_index] & bitmask as u64) | ((val as u64) << index_in_long) as u64;
+        if long_index + self.bits_per_entry as usize > 64 {
             self.longs[long_index + 1] = (self.longs[long_index + 1] & (bitmask >> 64) as u64)
-                | (val >> (64 - index_in_long)) as u64;
+                | val.overflowing_shr((64 - index_in_long) as u32).0 as u64;
         }
     }
 }
@@ -80,8 +81,17 @@ impl PalettedBitBuffer {
         }
     }
 
+    fn load(bits_per_entry: u8, longs: Vec<u64>, palatte: Vec<u32>) -> PalettedBitBuffer {
+        PalettedBitBuffer {
+            data: BitBuffer::load(bits_per_entry, longs),
+            palatte,
+            use_palatte: bits_per_entry > 8,
+            max_entries: 1 << bits_per_entry
+        }
+    }
+
     fn resize_buffer(&mut self) {
-        let old_bits_per_entry = self.data.bitsPerEntry;
+        let old_bits_per_entry = self.data.bits_per_entry;
         if old_bits_per_entry + 1 > 8 {
             let mut old_buffer = BitBuffer::create(14, 4096);
             mem::swap(&mut self.data, &mut old_buffer);
@@ -110,6 +120,7 @@ impl PalettedBitBuffer {
 
     fn set_entry(&mut self, index: usize, val: u32) {
         if self.use_palatte {
+            dbg!(&self.palatte);
             if let Some(palatte_index) = self.palatte.iter().position(|x| x == &val) {
                 self.data.set_entry(index, palatte_index as u32);
             } else {
@@ -144,20 +155,46 @@ impl ChunkSection {
         self.buffer.set_entry(ChunkSection::get_index(x, y, z), block);
     }
 
-    fn load(nbt: &nbt::Blob) -> ChunkSection {
+    fn load(nbt: nbt::Blob) -> ChunkSection {
+        let loaded_longs;
+        let bits_per_entry;
+        let palette;
+        // Once if-let chains are stabalizes, this can be simplified
+        dbg!(&nbt["data"]);
+        if let nbt::Value::LongArray(longs) = nbt["data"].clone() {
+            loaded_longs = longs.into_iter().map(|x| x as u64).collect();
+        } else {
+            panic!("Invalid plot format!");
+        }
+        if let nbt::Value::Byte(bits) = nbt["bits_per_entry"] {
+            bits_per_entry = bits as u8;
+        } else {
+            panic!("Invalid plot format!");
+        }
+        if let nbt::Value::IntArray(array) = nbt["palette"].clone() {
+            palette = array.into_iter().map(|x| x as u32).collect();
+        } else {
+            panic!("Invalid plot format!");
+        }
+        let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
         ChunkSection {
             y: if let nbt::Value::Byte(b) = nbt["y"] {
                 b as u8
             } else {
                 panic!("Y value of chunk section was not a byte")
             },
-            buffer: PalettedBitBuffer::new(),
+            buffer,
         }
     }
 
     fn save(&self) -> nbt::Blob {
         let mut blob = nbt::Blob::new();
         blob.insert("y", self.y as i8).unwrap();
+        let longs: Vec<i64> = self.buffer.data.longs.clone().into_iter().map(|x| x as i64).collect();
+        blob.insert("data", longs).unwrap();
+        let palatte: Vec<i32> = self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect();
+        blob.insert("palatte", palatte).unwrap();
+        blob.insert("bits_per_block", self.buffer.data.bits_per_entry as i8).unwrap();
         blob
     }
 
@@ -168,18 +205,18 @@ impl ChunkSection {
         }
     }
 
-    // fn encode_packet(&self) -> C22ChunkDataSection {
-    //     C22ChunkDataSection {
-    //         bits_per_block: self.buffer.data.bitsPerEntry,
-    //         block_count: 10,
-    //         data_array: self.buffer.data.longs.clone(),
-    //         palette: if self.buffer.use_palatte {
-    //             Some(self.buffer.palatte as Vec<i32>)
-    //         } else {
-    //             None
-    //         },
-    //     }
-    // }
+    fn encode_packet(&self) -> C22ChunkDataSection {
+        C22ChunkDataSection {
+            bits_per_block: self.buffer.data.bits_per_entry,
+            block_count: 10,
+            data_array: self.buffer.data.longs.clone(),
+            palette: if self.buffer.use_palatte {
+                Some(self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect())
+            } else {
+                None
+            },
+        }
+    }
 }
 
 struct Chunk {
@@ -190,15 +227,23 @@ struct Chunk {
 
 impl Chunk {
     fn encode_packet(&self) -> PacketEncoder {
+        let mut heightmap_buffer = BitBuffer::create(9, 256);
+        for x in 0..16 {
+            for z in 0..16 {
+                heightmap_buffer.set_entry((x * 16) + z, self.get_top_most_block(x as u32, z as u32));
+            }
+        }
+
         let mut chunk_sections = Vec::new();
         let mut bitmask = 0;
         for section in &self.sections {
             bitmask |= 1 << section.y;
-            // chunk_sections.push(section.encode_packet());
+            chunk_sections.push(section.encode_packet());
         }
         let mut heightmaps = nbt::Blob::new();
+        let heightmap_longs: Vec<i64> = heightmap_buffer.longs.into_iter().map(|x| x as i64).collect();
         heightmaps
-            .insert("MOTION_BLOCKING", vec![0i64, 256])
+            .insert("MOTION_BLOCKING", heightmap_longs)
             .unwrap();
         C22ChunkData {
             biomes: Some(vec![0; 1024]),
@@ -212,14 +257,27 @@ impl Chunk {
         .encode()
     }
 
+    fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
+        let mut top_most = 0;
+        for section in &self.sections {
+            for y in (0..15).rev() {
+                let block_state = section.get_block(x, y, z);
+                if block_state != 0 && top_most < y + section.y as u32 * 16 {
+                    top_most = section.y as u32 * 16;
+                }
+            }
+        }
+        top_most
+    }
+
     fn set_block(&mut self, x: u32, y: u32, z: u32, block: Block) {
         let block_id = Block::get_id(&block);
-        let section_y = (y / 16) as u8;
+        let section_y = (y >> 4) as u8;
         if let Some(section) = self.sections.iter_mut().find(|s| s.y == section_y) {
-            section.set_block(x, y & 16, z, block_id);
+            section.set_block(x, y & 0xF, z, block_id);
         } else if !block.compare_variant(&Block::Air) {
             let mut section = ChunkSection::new(section_y);
-            section.set_block(x, y & 16, z, block_id);
+            section.set_block(x, y & 0xF, z, block_id);
             self.sections.push(section);
         }
     }
@@ -227,7 +285,7 @@ impl Chunk {
     fn get_block(&self, x: u32, y: u32, z: u32) -> Block {
         let section_y = (y / 16) as u8;
         if let Some(section) = self.sections.iter().find(|s| s.y == section_y) {
-            Block::from_block_state(section.get_block(x, y & 16, z))
+            Block::from_block_state(section.get_block(x, y & 0xF, z))
         } else {
             Block::Air
         }
@@ -239,13 +297,13 @@ impl Chunk {
         }
     }
 
-    fn load(x: i32, z: i32, chunk_data: &ChunkData) -> Chunk {
+    fn load(x: i32, z: i32, chunk_data: ChunkData) -> Chunk {
         Chunk {
             x,
             z,
             sections: chunk_data
                 .sections
-                .iter()
+                .into_iter()
                 .map(|s| ChunkSection::load(s))
                 .collect(),
         }
@@ -296,12 +354,12 @@ impl Plot {
 
     fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) {
         let chunk = &mut self.chunks[Plot::get_chunk_index(x, z)];
-        chunk.set_block((x & 16) as u32, y, (z & 16) as u32, block);
+        chunk.set_block((x & 0xF) as u32, y, (z & 0xF) as u32, block);
     }
 
     fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
         let chunk = &self.chunks[Plot::get_chunk_index(x, z)];
-        chunk.get_block((x & 16) as u32, y, (z & 16) as u32)
+        chunk.get_block((x & 0xF) as u32, y, (z & 0xF) as u32)
     }
 
     fn worldedit_verify_positions(
@@ -333,7 +391,6 @@ impl Plot {
     }
 
     fn worldedit_set(&mut self, player: usize, block: Block) {
-        dbg!("Got here");
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let x_start = std::cmp::min(first_pos.0, second_pos.0);
             let x_end = std::cmp::max(first_pos.0, second_pos.0);
@@ -597,7 +654,7 @@ impl Plot {
             let plot_data: PlotData = nbt::from_reader(Cursor::new(data)).unwrap();
             let chunks: Vec<Chunk> = plot_data
                 .chunk_data
-                .iter()
+                .into_iter()
                 .enumerate()
                 .map(|(i, c)| {
                     Chunk::load(

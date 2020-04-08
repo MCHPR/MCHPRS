@@ -93,12 +93,13 @@ impl Block {
                     + wire.south.get_id() * 3
                     + wire.west.get_id()
             }
-            Block::Unknown(id) => id.clone(),
+            Block::Unknown(id) => *id,
         }
     }
 
     pub fn from_name(name: &str) -> Option<Block> {
         match name {
+            "air" => Some(Block::Air),
             "sandstone" => Some(Block::Unknown(245)),
             _ => None,
         }
