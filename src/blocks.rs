@@ -1,5 +1,6 @@
 use std::mem;
 
+#[derive(Copy, Clone)]
 enum RedstoneWireSide {
     Up,
     Side,
@@ -27,6 +28,7 @@ impl RedstoneWireSide {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct RedstoneWire {
     north: RedstoneWireSide,
     south: RedstoneWireSide,
@@ -53,6 +55,7 @@ impl RedstoneWire {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum Block {
     Air,
     RedstoneWire(RedstoneWire),
@@ -91,6 +94,13 @@ impl Block {
                     + wire.west.get_id()
             }
             Block::Unknown(id) => id.clone(),
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Block> {
+        match name {
+            "sandstone" => Some(Block::Unknown(245)),
+            _ => None,
         }
     }
 }

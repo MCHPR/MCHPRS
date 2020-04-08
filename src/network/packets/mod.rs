@@ -96,6 +96,14 @@ impl PacketDecoder {
         out
     }
 
+    fn read_short(&mut self) -> i16 {
+        let mut arr = [0; 2];
+        arr.copy_from_slice(&self.buffer[self.i..self.i + 2]);
+        let out = i16::from_be_bytes(arr);
+        self.i += 2;
+        out
+    }
+
     fn read_double(&mut self) -> f64 {
         let mut arr = [0; 8];
         arr.copy_from_slice(&self.buffer[self.i..self.i + 8]);

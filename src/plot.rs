@@ -128,7 +128,7 @@ impl PalettedBitBuffer {
 
 struct ChunkSection {
     y: u8,
-    data: PalettedBitBuffer,
+    buffer: PalettedBitBuffer,
 }
 
 impl ChunkSection {
@@ -137,11 +137,11 @@ impl ChunkSection {
     }
 
     fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
-        self.data.get_entry(ChunkSection::get_index(x, y, z))
+        self.buffer.get_entry(ChunkSection::get_index(x, y, z))
     }
 
     fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) {
-        self.data.set_entry(ChunkSection::get_index(x, y, z), block);
+        self.buffer.set_entry(ChunkSection::get_index(x, y, z), block);
     }
 
     fn load(nbt: &nbt::Blob) -> ChunkSection {
@@ -151,7 +151,7 @@ impl ChunkSection {
             } else {
                 panic!("Y value of chunk section was not a byte")
             },
-            data: PalettedBitBuffer::new(),
+            buffer: PalettedBitBuffer::new(),
         }
     }
 
@@ -164,9 +164,22 @@ impl ChunkSection {
     fn new(y: u8) -> ChunkSection {
         ChunkSection {
             y,
-            data: PalettedBitBuffer::new(),
+            buffer: PalettedBitBuffer::new(),
         }
     }
+
+    // fn encode_packet(&self) -> C22ChunkDataSection {
+    //     C22ChunkDataSection {
+    //         bits_per_block: self.buffer.data.bitsPerEntry,
+    //         block_count: 10,
+    //         data_array: self.buffer.data.longs.clone(),
+    //         palette: if self.buffer.use_palatte {
+    //             Some(self.buffer.palatte as Vec<i32>)
+    //         } else {
+    //             None
+    //         },
+    //     }
+    // }
 }
 
 struct Chunk {
@@ -177,7 +190,12 @@ struct Chunk {
 
 impl Chunk {
     fn encode_packet(&self) -> PacketEncoder {
-        let chunk_sections = Vec::new();
+        let mut chunk_sections = Vec::new();
+        let mut bitmask = 0;
+        for section in &self.sections {
+            bitmask |= 1 << section.y;
+            // chunk_sections.push(section.encode_packet());
+        }
         let mut heightmaps = nbt::Blob::new();
         heightmaps
             .insert("MOTION_BLOCKING", vec![0i64, 256])
@@ -189,7 +207,7 @@ impl Chunk {
             chunk_z: self.z,
             full_chunk: true,
             heightmaps,
-            primary_bit_mask: 0,
+            primary_bit_mask: bitmask as i32,
         }
         .encode()
     }
@@ -254,6 +272,7 @@ struct PlotData {
     chunk_data: Vec<ChunkData>,
 }
 
+
 pub struct Plot {
     players: Vec<Player>,
     tps: u32,
@@ -285,6 +304,54 @@ impl Plot {
         chunk.get_block((x & 16) as u32, y, (z & 16) as u32)
     }
 
+    fn worldedit_verify_positions(
+        &mut self,
+        player: usize,
+    ) -> Option<((i32, i32, i32), (i32, i32, i32))> {
+        let player = &mut self.players[player];
+        let first_pos;
+        let second_pos;
+        if let Some(pos) = player.first_position {
+            first_pos = pos;
+        } else {
+            player.send_system_message("First position is not set!".to_string());
+            return None;
+        }
+        if let Some(pos) = player.second_position {
+            second_pos = pos;
+        } else {
+            player.send_system_message("Second position is not set!".to_string());
+            return None;
+        }
+        if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
+            player.send_system_message("First position is outside plot bounds!".to_string());
+        }
+        if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
+            player.send_system_message("Second position is outside plot bounds!".to_string());
+        }
+        Some((first_pos, second_pos))
+    }
+
+    fn worldedit_set(&mut self, player: usize, block: Block) {
+        dbg!("Got here");
+        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
+            let x_start = std::cmp::min(first_pos.0, second_pos.0);
+            let x_end = std::cmp::max(first_pos.0, second_pos.0);
+            let y_start = std::cmp::min(first_pos.1, second_pos.1);
+            let y_end = std::cmp::max(first_pos.1, second_pos.1);
+            let z_start = std::cmp::min(first_pos.2, second_pos.2);
+            let z_end = std::cmp::max(first_pos.2, second_pos.2);
+            for x in x_start..x_end {
+                for y in y_start..y_end {
+                    for z in z_start..z_end {
+                        dbg!(x, y, z);
+                        self.set_block(x, y as u32, z, block);
+                    }
+                }
+            }
+        }
+    }
+
     fn tick(&mut self) {}
 
     fn enter_plot(&mut self, mut player: Player) {
@@ -307,8 +374,8 @@ impl Plot {
         Arc::try_unwrap(player_arc).unwrap()
     }
 
-    fn in_plot_bounds(&self, x: i32, z: i32) -> bool {
-        x >= self.x * 128 && x < (self.x + 1) * 128 && z >= self.z * 128 && z < (self.z + 1) * 128
+    fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
+        x >= plot_x * 128 && x < (plot_x + 1) * 128 && z >= plot_z * 128 && z < (plot_z + 1) * 128
     }
 
     fn update(&mut self) {
@@ -396,25 +463,47 @@ impl Plot {
             for packet in packets {
                 match packet.packet_id {
                     0x03 => {
-                        let player = &mut self.players[player];
+                        //let player = &mut self.players[player];
                         let chat_message = S03ChatMessage::decode(packet);
                         let message = chat_message.message;
                         if message.starts_with('/') {
                             let mut args: Vec<&str> = message.split(' ').collect();
                             match args.remove(0) {
-                                "//1" | "//pos1" => player.set_first_position(
-                                    player.x as i32,
-                                    player.y as i32,
-                                    player.z as i32,
-                                ),
-                                "//2" | "//pos2" => player.set_second_position(
-                                    player.x as i32,
-                                    player.y as i32,
-                                    player.z as i32,
-                                ),
-                                _ => player.send_system_message("Command not found!".to_string()),
+                                "//1" | "//pos1" => {
+                                    let player = &mut self.players[player];
+                                    player.set_first_position(
+                                        player.x as i32,
+                                        player.y as i32,
+                                        player.z as i32,
+                                    );
+                                }
+                                "//2" | "//pos2" => {
+                                    let player = &mut self.players[player];
+                                    player.set_second_position(
+                                        player.x as i32,
+                                        player.y as i32,
+                                        player.z as i32,
+                                    );
+                                }
+                                "//set" => {
+                                    let block = Block::from_name(&args[0]);
+                                    if let Some(block) = block {
+                                        self.worldedit_set(player, block);
+                                    } else {
+                                        self.players[player].send_system_message("Invalid block. Note that not all blocks are supported.".to_string());
+                                    }
+                                }
+                                "/setblock" => {
+                                    // TODO: Remove or make better
+                                    let player = &self.players[player];
+                                    let block = Block::from_name(&args[0]).unwrap();
+                                    self.set_block(player.x as i32, player.y as u32, player.z as i32, block);
+                                }
+                                _ => self.players[player]
+                                    .send_system_message("Command not found!".to_string()),
                             }
                         } else {
+                            let player = &self.players[player];
                             let broadcast_message = Message::Chat(
                                 json!({ "text": format!("{}: {}", player.username, message) })
                                     .to_string(),
@@ -480,7 +569,12 @@ impl Plot {
         }
         // Check if a player has left the plot
         for player in 0..self.players.len() {
-            if !self.in_plot_bounds(self.players[player].x as i32, self.players[player].z as i32) {
+            if !Plot::in_plot_bounds(
+                self.x,
+                self.z,
+                self.players[player].x as i32,
+                self.players[player].z as i32,
+            ) {
                 let player_leave_plot =
                     Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
                 self.message_sender.send(player_leave_plot).unwrap();
