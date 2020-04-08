@@ -69,8 +69,8 @@ impl PacketDecoder {
     }
 
     fn read_bytes(&mut self, bytes: usize) -> Vec<u8> {
-        let read = vec![0; bytes];
-        self.buffer.read_exact(&mut read);
+        let mut read = vec![0; bytes];
+        self.buffer.read_exact(&mut read).unwrap();
         read
     }
 
