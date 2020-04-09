@@ -65,6 +65,8 @@ pub struct Player {
     pub x: f64,
     pub y: f64,
     pub z: f64,
+    pub last_chunk_x: i32,
+    pub last_chunk_z: i32,
     pub yaw: f32,
     pub pitch: f32,
     pub flying: bool,
@@ -138,6 +140,8 @@ impl Player {
                 z: player_data.position[2],
                 pitch: player_data.rotation[0],
                 yaw: player_data.rotation[1],
+                last_chunk_x: 0,
+                last_chunk_z: 0,
                 entity_id: client.id,
                 client,
                 flying: player_data.flying,
@@ -165,6 +169,8 @@ impl Player {
             x: 64f64,
             y: 64f64,
             z: 64f64,
+            last_chunk_x: 4,
+            last_chunk_z: 4,
             yaw: 0f32,
             pitch: 0f32,
             entity_id: client.id,
@@ -223,6 +229,16 @@ impl Player {
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
         }
+        let chunk_x = self.x as i32 >> 4;
+        let chunk_z = self.z as i32 >> 4;
+        if chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z {
+            let update_view = C41UpdateViewPosition {
+                chunk_x, chunk_z
+            }.encode();
+            self.client.send_packet(&update_view);
+        }
+        self.last_chunk_x = chunk_x;
+        self.last_chunk_z = chunk_z;
         self.client.update();
     }
 
@@ -238,7 +254,19 @@ impl Player {
         self.last_keep_alive_sent = Instant::now();
     }
 
-    pub fn teleport(&mut self, x: f64, y: f64, z: f64) {}
+    pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
+        let player_position_and_look = C36PlayerPositionAndLook {
+            x, y, z,
+            yaw: 0f32,
+            pitch: 0f32,
+            flags: 0x08 | 0x10, // pitch and yaw are relative
+            teleport_id: 0
+        }.encode();
+        self.x = x;
+        self.y = y;
+        self.z = z;
+        self.client.send_packet(&player_position_and_look);
+    }
 
     pub fn send_raw_chat(&mut self, message: String) {
         let chat_message = C0FChatMessage {

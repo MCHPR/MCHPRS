@@ -54,10 +54,9 @@ impl BitBuffer {
         let long_index = (self.bits_per_entry as usize * index) >> 6; // 0
         let index_in_long = (self.bits_per_entry as usize * index) & 0x3F; // 36
         let bitmask = !((1u128 << (index_in_long + 1)) - 1);
-        //dbg!(long_index, index_in_long, (val as u64) << index_in_long);
         self.longs[long_index] =
             (self.longs[long_index] & bitmask as u64) | ((val as u64) << index_in_long) as u64;
-        if long_index + self.bits_per_entry as usize > 64 {
+        if index_in_long + self.bits_per_entry as usize > 64 {
             self.longs[long_index + 1] = (self.longs[long_index + 1] & (bitmask >> 64) as u64)
                 | val.overflowing_shr((64 - index_in_long) as u32).0 as u64;
         }
@@ -120,7 +119,6 @@ impl PalettedBitBuffer {
 
     fn set_entry(&mut self, index: usize, val: u32) {
         if self.use_palatte {
-            dbg!(&self.palatte);
             if let Some(palatte_index) = self.palatte.iter().position(|x| x == &val) {
                 self.data.set_entry(index, palatte_index as u32);
             } else {
@@ -140,6 +138,7 @@ impl PalettedBitBuffer {
 struct ChunkSection {
     y: u8,
     buffer: PalettedBitBuffer,
+    block_count: u32
 }
 
 impl ChunkSection {
@@ -155,60 +154,41 @@ impl ChunkSection {
         self.buffer.set_entry(ChunkSection::get_index(x, y, z), block);
     }
 
-    fn load(nbt: nbt::Blob) -> ChunkSection {
-        let loaded_longs;
-        let bits_per_entry;
-        let palette;
+    fn load(data: ChunkSectionData) -> ChunkSection {
+        let loaded_longs  = data.data.into_iter().map(|x| x as u64).collect();
+        let bits_per_entry  = data.bits_per_block as u8;
+        let palette  = data.palatte.into_iter().map(|x| x as u32).collect();
         // Once if-let chains are stabalizes, this can be simplified
-        dbg!(&nbt["data"]);
-        if let nbt::Value::LongArray(longs) = nbt["data"].clone() {
-            loaded_longs = longs.into_iter().map(|x| x as u64).collect();
-        } else {
-            panic!("Invalid plot format!");
-        }
-        if let nbt::Value::Byte(bits) = nbt["bits_per_entry"] {
-            bits_per_entry = bits as u8;
-        } else {
-            panic!("Invalid plot format!");
-        }
-        if let nbt::Value::IntArray(array) = nbt["palette"].clone() {
-            palette = array.into_iter().map(|x| x as u32).collect();
-        } else {
-            panic!("Invalid plot format!");
-        }
         let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
         ChunkSection {
-            y: if let nbt::Value::Byte(b) = nbt["y"] {
-                b as u8
-            } else {
-                panic!("Y value of chunk section was not a byte")
-            },
+            y: data.y as u8,
             buffer,
+            block_count: 0,
         }
     }
 
-    fn save(&self) -> nbt::Blob {
-        let mut blob = nbt::Blob::new();
-        blob.insert("y", self.y as i8).unwrap();
+    fn save(&self) -> ChunkSectionData {
         let longs: Vec<i64> = self.buffer.data.longs.clone().into_iter().map(|x| x as i64).collect();
-        blob.insert("data", longs).unwrap();
         let palatte: Vec<i32> = self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect();
-        blob.insert("palatte", palatte).unwrap();
-        blob.insert("bits_per_block", self.buffer.data.bits_per_entry as i8).unwrap();
-        blob
+        ChunkSectionData {
+            data: longs, palatte,
+            bits_per_block: self.buffer.data.bits_per_entry as i8,
+            y: self.y as i8
+        }
     }
 
     fn new(y: u8) -> ChunkSection {
         ChunkSection {
             y,
             buffer: PalettedBitBuffer::new(),
+            block_count: 10
         }
     }
 
     fn encode_packet(&self) -> C22ChunkDataSection {
         C22ChunkDataSection {
             bits_per_block: self.buffer.data.bits_per_entry,
-            block_count: 10,
+            block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
             palette: if self.buffer.use_palatte {
                 Some(self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect())
@@ -304,7 +284,7 @@ impl Chunk {
             sections: chunk_data
                 .sections
                 .into_iter()
-                .map(|s| ChunkSection::load(s))
+                .map(ChunkSection::load)
                 .collect(),
         }
     }
@@ -319,8 +299,16 @@ impl Chunk {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct ChunkSectionData {
+    y: i8,
+    data: Vec<i64>,
+    palatte: Vec<i32>,
+    bits_per_block: i8,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct ChunkData {
-    sections: Vec<nbt::Blob>,
+    sections: Vec<ChunkSectionData>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -349,7 +337,7 @@ impl Plot {
     fn get_chunk_index(block_x: i32, block_z: i32) -> usize {
         let chunk_x = block_x >> 4;
         let chunk_z = block_z >> 4;
-        (chunk_x * 8 + chunk_z) as usize
+        (chunk_x * 8 + chunk_z).abs() as usize
     }
 
     fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) {
@@ -401,7 +389,6 @@ impl Plot {
             for x in x_start..x_end {
                 for y in y_start..y_end {
                     for z in z_start..z_end {
-                        dbg!(x, y, z);
                         self.set_block(x, y as u32, z, block);
                     }
                 }
@@ -555,6 +542,36 @@ impl Plot {
                                     let player = &self.players[player];
                                     let block = Block::from_name(&args[0]).unwrap();
                                     self.set_block(player.x as i32, player.y as u32, player.z as i32, block);
+                                }
+                                "/tp" => {
+                                    if args.len() == 3 {
+                                        let x;
+                                        let y;
+                                        let z;
+                                        if let Ok(x_arg) = args[0].parse::<f64>() {
+                                            x = x_arg;
+                                        } else {
+                                            self.players[player].send_system_message("Unable to parse x coordinate!".to_string());
+                                            return;
+                                        }
+                                        if let Ok(y_arg) = args[1].parse::<f64>() {
+                                            y = y_arg;
+                                        } else {
+                                            self.players[player].send_system_message("Unable to parse y coordinate!".to_string());
+                                            return;
+                                        }
+                                        if let Ok(z_arg) = args[2].parse::<f64>() {
+                                            z = z_arg;
+                                        } else {
+                                            self.players[player].send_system_message("Unable to parse z coordinate!".to_string());
+                                            return;
+                                        }
+                                        self.players[player].teleport(x, y, z);
+                                    } else if args.len() == 1 {
+                                        self.players[player].send_system_message("TODO: teleport to player".to_string());
+                                    } else {
+                                        self.players[player].send_system_message("Wrong number of arguments for teleport command!".to_string());
+                                    }
                                 }
                                 _ => self.players[player]
                                     .send_system_message("Command not found!".to_string()),

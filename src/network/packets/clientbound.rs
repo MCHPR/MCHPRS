@@ -290,6 +290,21 @@ impl ClientBoundPacket for C36PlayerPositionAndLook {
     }
 }
 
+pub struct C41UpdateViewPosition {
+    pub chunk_x: i32,
+    pub chunk_z: i32,
+}
+
+impl ClientBoundPacket for C41UpdateViewPosition {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.chunk_x);
+        buf.write_varint(self.chunk_z);
+        PacketEncoder::new(buf, 0x41)
+    }
+}
+
+
 pub struct C44EntityMetadataEntry {
     pub index: u8,
     pub metadata_type: i32,
