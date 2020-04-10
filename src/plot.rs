@@ -602,7 +602,7 @@ impl PalettedBitBuffer {
         PalettedBitBuffer {
             data: BitBuffer::load(bits_per_entry, longs),
             palatte,
-            use_palatte: bits_per_entry > 8,
+            use_palatte: bits_per_entry < 9,
             max_entries: 1 << bits_per_entry,
         }
     }
