@@ -26,10 +26,14 @@ pub enum Message {
     PlayerJoinedInfo(PlayerJoinInfo),
     PlayerJoined(Arc<Player>),
     PlayerLeft(u128),
-    PlayerEnterPlot(Arc<Player>, i32, i32),
     PlayerLeavePlot(Arc<Player>),
     PlayerTeleportOther(Arc<Player>, String),
     PlotUnload(i32, i32),
+}
+
+#[derive(Debug)]
+pub enum PrivMessage {
+    PlayerEnterPlot(Player),
 }
 
 #[derive(Debug, Clone)]
@@ -51,6 +55,7 @@ struct PlayerListEntry {
 struct PlotListEntry {
     plot_x: i32,
     plot_z: i32,
+    priv_message_sender: mpsc::Sender<PrivMessage>
 }
 
 /// This represents a minecraft server
@@ -93,16 +98,20 @@ impl MinecraftServer {
         };
         // Load the spawn area plot on server start
         // This plot should be always active
+        let (spawn_tx, spawn_rx) = mpsc::channel();
         Plot::load_and_run(
             0,
             0,
             server.broadcaster.add_rx(),
             server.plot_sender.clone(),
+            spawn_rx,
             true,
+            None
         );
         server.running_plots.push(PlotListEntry {
             plot_x: 0,
             plot_z: 0,
+            priv_message_sender: spawn_tx
         });
         loop {
             server.update();
@@ -125,23 +134,16 @@ impl MinecraftServer {
         while let Ok(message) = self.receiver.try_recv() {
             println!("Main thread received message: {:#?}", message);
             match message {
-                Message::PlayerJoined(player) => {
+                Message::PlayerJoined(player_arc) => {
+                    let player = Arc::try_unwrap(player_arc).unwrap();
+                    // Check if plot is loaded
                     let plot_x = (player.x as i32) >> 7;
                     let plot_z = (player.z as i32) >> 7;
                     let plot_loaded = self
                         .running_plots
                         .iter()
                         .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
-                    if !plot_loaded {
-                        Plot::load_and_run(
-                            plot_x,
-                            plot_z,
-                            self.broadcaster.add_rx(),
-                            self.plot_sender.clone(),
-                            false,
-                        );
-                        self.running_plots.push(PlotListEntry { plot_x, plot_z });
-                    }
+                    // Add player to the player list
                     let player_list_entry = PlayerListEntry {
                         plot_x,
                         plot_z,
@@ -149,6 +151,8 @@ impl MinecraftServer {
                         uuid: player.uuid,
                         skin: None,
                     };
+                    self.online_players.push(player_list_entry);
+                    // Send player info to plots
                     let player_join_info = PlayerJoinInfo {
                         username: player.username.clone(),
                         uuid: player.uuid,
@@ -156,9 +160,24 @@ impl MinecraftServer {
                     };
                     self.broadcaster
                         .broadcast(Message::PlayerJoinedInfo(player_join_info));
-                    self.broadcaster
-                        .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
-                    self.online_players.push(player_list_entry);
+                    // Load the plot if it's not loaded
+                    if !plot_loaded {
+                        let (priv_tx, priv_rx) = mpsc::channel();
+                        Plot::load_and_run(
+                            plot_x,
+                            plot_z,
+                            self.broadcaster.add_rx(),
+                            self.plot_sender.clone(),
+                            priv_rx,
+                            false,
+                            Some(player)
+                        );
+                        self.running_plots.push(PlotListEntry { plot_x, plot_z, priv_message_sender: priv_tx });
+                    } else {
+                        let plot_list_entry = self.running_plots.iter().find(|p| p.plot_x == plot_x && p.plot_z == plot_z).unwrap();
+                        plot_list_entry.priv_message_sender
+                            .send(PrivMessage::PlayerEnterPlot(player));
+                    }
                 }
                 Message::PlayerLeft(uuid) => {
                     let index = self.online_players.iter().position(|p| p.uuid == uuid);
@@ -179,26 +198,35 @@ impl MinecraftServer {
                 Message::Chat(chat) => {
                     self.broadcaster.broadcast(Message::Chat(chat));
                 }
-                Message::PlayerLeavePlot(player) => {
+                Message::PlayerLeavePlot(player_arc) => {
+                    println!("Player moving into new plot");
+                    let player = Arc::try_unwrap(player_arc).unwrap();
                     let plot_x = (player.x as i32) >> 7;
                     let plot_z = (player.z as i32) >> 7;
                     let plot_loaded = self
                         .running_plots
                         .iter()
                         .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
+                    self.update_player_entry(player.uuid, plot_x, plot_z);
                     if !plot_loaded {
+                        println!("Loading plot with initial player");
+                        let (priv_tx, priv_rx) = mpsc::channel();
                         Plot::load_and_run(
                             plot_x,
                             plot_z,
                             self.broadcaster.add_rx(),
                             self.plot_sender.clone(),
+                            priv_rx,
                             false,
+                            Some(player)
                         );
-                        self.running_plots.push(PlotListEntry { plot_x, plot_z });
+                        self.running_plots.push(PlotListEntry { plot_x, plot_z, priv_message_sender: priv_tx });
+                    } else {
+                        println!("Sending player to plot");
+                        let plot_list_entry = self.running_plots.iter().find(|p| p.plot_x == plot_x && p.plot_z == plot_z).unwrap();
+                        plot_list_entry.priv_message_sender
+                            .send(PrivMessage::PlayerEnterPlot(player));
                     }
-                    self.update_player_entry(player.uuid, plot_x, plot_z);
-                    self.broadcaster
-                        .broadcast(Message::PlayerEnterPlot(player, plot_x, plot_z));
                 }
                 _ => {}
             }

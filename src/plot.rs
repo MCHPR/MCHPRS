@@ -3,327 +3,24 @@ use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::{PacketDecoder, PacketEncoder};
 use crate::player::{Player, SkinParts};
-use crate::server::Message;
+use crate::server::{Message, PrivMessage};
 use bus::BusReader;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::{self, OpenOptions};
 use std::io::Cursor;
 use std::mem;
-use std::sync::mpsc::Sender;
+use std::sync::mpsc::{Sender, Receiver};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
-
-struct BitBuffer {
-    bits_per_entry: u8,
-    entries: usize,
-    longs: Vec<u64>,
-}
-
-impl BitBuffer {
-    fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
-        let longs_len = entries * bits_per_entry as usize / 64;
-        let longs = vec![0; longs_len];
-        BitBuffer {
-            bits_per_entry,
-            longs,
-            entries,
-        }
-    }
-
-    fn load(bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
-        let entries = longs.len() * 64 / bits_per_entry as usize;
-        BitBuffer {
-            bits_per_entry,
-            longs,
-            entries,
-        }
-    }
-
-    fn get_entry(&self, index: usize) -> u32 {
-        let long_index = (self.bits_per_entry as usize * index) >> 6;
-        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
-        let bitmask = (1u128 << (index_in_long + 1)) - 1;
-        let long_long =
-            self.longs[long_index] as u128 | ((self.longs[long_index + 1] as u128) << 64);
-        ((bitmask & long_long) >> index_in_long) as u32
-    }
-
-    fn set_entry(&mut self, index: usize, val: u32) {
-        let long_index = (self.bits_per_entry as usize * index) >> 6; // 0
-        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F; // 36
-        let bitmask = !((1u128 << (index_in_long + 1)) - 1);
-        self.longs[long_index] =
-            (self.longs[long_index] & bitmask as u64) | ((val as u64) << index_in_long) as u64;
-        if index_in_long + self.bits_per_entry as usize > 64 {
-            self.longs[long_index + 1] = (self.longs[long_index + 1] & (bitmask >> 64) as u64)
-                | val.overflowing_shr((64 - index_in_long) as u32).0 as u64;
-        }
-    }
-}
-
-struct PalettedBitBuffer {
-    data: BitBuffer,
-    palatte: Vec<u32>,
-    max_entries: u32,
-    use_palatte: bool,
-}
-
-impl PalettedBitBuffer {
-    fn new() -> PalettedBitBuffer {
-        PalettedBitBuffer {
-            data: BitBuffer::create(4, 4096),
-            palatte: Vec::new(),
-            max_entries: 16,
-            use_palatte: true,
-        }
-    }
-
-    fn load(bits_per_entry: u8, longs: Vec<u64>, palatte: Vec<u32>) -> PalettedBitBuffer {
-        PalettedBitBuffer {
-            data: BitBuffer::load(bits_per_entry, longs),
-            palatte,
-            use_palatte: bits_per_entry > 8,
-            max_entries: 1 << bits_per_entry
-        }
-    }
-
-    fn resize_buffer(&mut self) {
-        let old_bits_per_entry = self.data.bits_per_entry;
-        if old_bits_per_entry + 1 > 8 {
-            let mut old_buffer = BitBuffer::create(14, 4096);
-            mem::swap(&mut self.data, &mut old_buffer);
-            self.max_entries = 1 << 14;
-            for entry in 0..old_buffer.entries {
-                self.data
-                    .set_entry(entry, self.palatte[old_buffer.get_entry(entry) as usize]);
-            }
-        } else {
-            let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, 4096);
-            mem::swap(&mut self.data, &mut old_buffer);
-            self.max_entries <<= 1;
-            for entry in 0..old_buffer.entries {
-                self.data.set_entry(entry, old_buffer.get_entry(entry));
-            }
-        };
-    }
-
-    fn get_entry(&self, index: usize) -> u32 {
-        if self.use_palatte {
-            self.palatte[self.data.get_entry(index) as usize]
-        } else {
-            self.data.get_entry(index)
-        }
-    }
-
-    fn set_entry(&mut self, index: usize, val: u32) {
-        if self.use_palatte {
-            if let Some(palatte_index) = self.palatte.iter().position(|x| x == &val) {
-                self.data.set_entry(index, palatte_index as u32);
-            } else {
-                if self.palatte.len() + 1 > self.max_entries as usize {
-                    self.resize_buffer();
-                }
-                let palatte_index = self.palatte.len();
-                self.palatte.push(val);
-                self.data.set_entry(index, palatte_index as u32);
-            }
-        } else {
-            self.data.set_entry(index, val);
-        }
-    }
-}
-
-struct ChunkSection {
-    y: u8,
-    buffer: PalettedBitBuffer,
-    block_count: u32
-}
-
-impl ChunkSection {
-    fn get_index(x: u32, y: u32, z: u32) -> usize {
-        ((y << 8) | (z << 4) | x) as usize
-    }
-
-    fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
-        self.buffer.get_entry(ChunkSection::get_index(x, y, z))
-    }
-
-    fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) {
-        self.buffer.set_entry(ChunkSection::get_index(x, y, z), block);
-    }
-
-    fn load(data: ChunkSectionData) -> ChunkSection {
-        let loaded_longs  = data.data.into_iter().map(|x| x as u64).collect();
-        let bits_per_entry  = data.bits_per_block as u8;
-        let palette  = data.palatte.into_iter().map(|x| x as u32).collect();
-        // Once if-let chains are stabalizes, this can be simplified
-        let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
-        ChunkSection {
-            y: data.y as u8,
-            buffer,
-            block_count: 0,
-        }
-    }
-
-    fn save(&self) -> ChunkSectionData {
-        let longs: Vec<i64> = self.buffer.data.longs.clone().into_iter().map(|x| x as i64).collect();
-        let palatte: Vec<i32> = self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect();
-        ChunkSectionData {
-            data: longs, palatte,
-            bits_per_block: self.buffer.data.bits_per_entry as i8,
-            y: self.y as i8
-        }
-    }
-
-    fn new(y: u8) -> ChunkSection {
-        ChunkSection {
-            y,
-            buffer: PalettedBitBuffer::new(),
-            block_count: 10
-        }
-    }
-
-    fn encode_packet(&self) -> C22ChunkDataSection {
-        C22ChunkDataSection {
-            bits_per_block: self.buffer.data.bits_per_entry,
-            block_count: self.block_count as i16,
-            data_array: self.buffer.data.longs.clone(),
-            palette: if self.buffer.use_palatte {
-                Some(self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect())
-            } else {
-                None
-            },
-        }
-    }
-}
-
-struct Chunk {
-    sections: Vec<ChunkSection>,
-    x: i32,
-    z: i32,
-}
-
-impl Chunk {
-    fn encode_packet(&self) -> PacketEncoder {
-        let mut heightmap_buffer = BitBuffer::create(9, 256);
-        for x in 0..16 {
-            for z in 0..16 {
-                heightmap_buffer.set_entry((x * 16) + z, self.get_top_most_block(x as u32, z as u32));
-            }
-        }
-
-        let mut chunk_sections = Vec::new();
-        let mut bitmask = 0;
-        for section in &self.sections {
-            bitmask |= 1 << section.y;
-            chunk_sections.push(section.encode_packet());
-        }
-        let mut heightmaps = nbt::Blob::new();
-        let heightmap_longs: Vec<i64> = heightmap_buffer.longs.into_iter().map(|x| x as i64).collect();
-        heightmaps
-            .insert("MOTION_BLOCKING", heightmap_longs)
-            .unwrap();
-        C22ChunkData {
-            biomes: Some(vec![0; 1024]),
-            chunk_sections,
-            chunk_x: self.x,
-            chunk_z: self.z,
-            full_chunk: true,
-            heightmaps,
-            primary_bit_mask: bitmask as i32,
-        }
-        .encode()
-    }
-
-    fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
-        let mut top_most = 0;
-        for section in &self.sections {
-            for y in (0..15).rev() {
-                let block_state = section.get_block(x, y, z);
-                if block_state != 0 && top_most < y + section.y as u32 * 16 {
-                    top_most = section.y as u32 * 16;
-                }
-            }
-        }
-        top_most
-    }
-
-    fn set_block(&mut self, x: u32, y: u32, z: u32, block: Block) {
-        let block_id = Block::get_id(&block);
-        let section_y = (y >> 4) as u8;
-        if let Some(section) = self.sections.iter_mut().find(|s| s.y == section_y) {
-            section.set_block(x, y & 0xF, z, block_id);
-        } else if !block.compare_variant(&Block::Air) {
-            let mut section = ChunkSection::new(section_y);
-            section.set_block(x, y & 0xF, z, block_id);
-            self.sections.push(section);
-        }
-    }
-
-    fn get_block(&self, x: u32, y: u32, z: u32) -> Block {
-        let section_y = (y / 16) as u8;
-        if let Some(section) = self.sections.iter().find(|s| s.y == section_y) {
-            Block::from_block_state(section.get_block(x, y & 0xF, z))
-        } else {
-            Block::Air
-        }
-    }
-
-    fn save(&self) -> ChunkData {
-        ChunkData {
-            sections: self.sections.iter().map(|s| s.save()).collect(),
-        }
-    }
-
-    fn load(x: i32, z: i32, chunk_data: ChunkData) -> Chunk {
-        Chunk {
-            x,
-            z,
-            sections: chunk_data
-                .sections
-                .into_iter()
-                .map(ChunkSection::load)
-                .collect(),
-        }
-    }
-
-    fn empty(x: i32, z: i32) -> Chunk {
-        Chunk {
-            sections: Vec::new(),
-            x,
-            z,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ChunkSectionData {
-    y: i8,
-    data: Vec<i64>,
-    palatte: Vec<i32>,
-    bits_per_block: i8,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct ChunkData {
-    sections: Vec<ChunkSectionData>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct PlotData {
-    tps: i32,
-    show_redstone: bool,
-    chunk_data: Vec<ChunkData>,
-}
-
 
 pub struct Plot {
     players: Vec<Player>,
     tps: u32,
     message_receiver: BusReader<Message>,
     message_sender: Sender<Message>,
+    priv_message_receiver: Receiver<PrivMessage>,
     last_player_time: SystemTime,
     running: bool,
     x: i32,
@@ -340,9 +37,21 @@ impl Plot {
         (chunk_x * 8 + chunk_z).abs() as usize
     }
 
-    fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) {
+    /// Sets a block in storage without sending a block change packet to the client
+    fn set_block_raw(&mut self, x: i32, y: u32, z: i32, block: u32) {
         let chunk = &mut self.chunks[Plot::get_chunk_index(x, z)];
         chunk.set_block((x & 0xF) as u32, y, (z & 0xF) as u32, block);
+    }
+
+    fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) {
+        let block_id = Block::get_id(&block);
+        self.set_block_raw(x, y, z, block_id);
+        let block_change = C0CBlockChange {
+            block_id: block_id as i32, x, y: y as i32, z
+        }.encode();
+        for player in &mut self.players {
+            player.client.send_packet(&block_change);
+        }
     }
 
     fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
@@ -386,19 +95,22 @@ impl Plot {
             let y_end = std::cmp::max(first_pos.1, second_pos.1);
             let z_start = std::cmp::min(first_pos.2, second_pos.2);
             let z_end = std::cmp::max(first_pos.2, second_pos.2);
-            for x in x_start..x_end {
-                for y in y_start..y_end {
-                    for z in z_start..z_end {
+            for x in x_start..=x_end {
+                for y in y_start..=y_end {
+                    for z in z_start..=z_end {
                         self.set_block(x, y as u32, z, block);
                     }
                 }
             }
+            let blocks_updated = (x_end - x_start) * (y_end - y_start) * (z_end - z_start);
+            self.players[player].send_worldedit_message(format!("Operation completed: {} block(s) updated", blocks_updated));
         }
     }
 
     fn tick(&mut self) {}
 
     fn enter_plot(&mut self, mut player: Player) {
+        println!("Player enter plot!");
         self.save();
         for chunk in &self.chunks {
             player.client.send_packet(&chunk.encode_packet());
@@ -413,7 +125,8 @@ impl Plot {
         // Maybe we could store a list of players waiting to be received instead of
         // blocking the thread. Just maybe...
         while Arc::strong_count(&player_arc) > 1 {
-            thread::sleep(Duration::from_millis(2));
+            thread::sleep(Duration::from_millis(10));
+            println!("Waiting to receive player");
         }
         Arc::try_unwrap(player_arc).unwrap()
     }
@@ -423,12 +136,16 @@ impl Plot {
     }
 
     fn update(&mut self) {
+        // Handle messages from the private message channel
+        while let Ok(message) = self.priv_message_receiver.try_recv() {
+            match message {
+                PrivMessage::PlayerEnterPlot(player) => {
+                    self.enter_plot(player);
+                }
+            }
+        }
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
-            // println!(
-            //     "Plot({}, {}) received message: {:#?}",
-            //     self.x, self.z, message
-            // );
             match message {
                 Message::PlayerTeleportOther(player, other_player) => {
                     for p in self.players.iter() {
@@ -438,12 +155,6 @@ impl Plot {
                             self.enter_plot(player);
                             break;
                         }
-                    }
-                }
-                Message::PlayerEnterPlot(player, plot_x, plot_z) => {
-                    if plot_x == self.x && plot_z == self.z {
-                        let player = Plot::receive_player(player);
-                        self.enter_plot(player);
                     }
                 }
                 Message::Chat(message) => {
@@ -649,6 +360,7 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
+                println!("Player has left plot bounds");
                 let player_leave_plot =
                     Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
                 self.message_sender.send(player_leave_plot).unwrap();
@@ -661,6 +373,7 @@ impl Plot {
         z: i32,
         rx: BusReader<Message>,
         tx: Sender<Message>,
+        priv_rx: Receiver<PrivMessage>,
         always_running: bool,
     ) -> Plot {
         let chunk_x_offset = x << 3;
@@ -685,6 +398,7 @@ impl Plot {
                 last_player_time: SystemTime::now(),
                 message_receiver: rx,
                 message_sender: tx,
+                priv_message_receiver: priv_rx,
                 players: Vec::new(),
                 running: true,
                 show_redstone: plot_data.show_redstone,
@@ -709,6 +423,7 @@ impl Plot {
                 last_player_time: SystemTime::now(),
                 message_receiver: rx,
                 message_sender: tx,
+                priv_message_receiver: priv_rx,
                 players: Vec::new(),
                 running: true,
                 show_redstone: true,
@@ -741,11 +456,14 @@ impl Plot {
         file.sync_data().unwrap();
     }
 
-    fn run(&mut self) {
+    fn run(&mut self, initial_player: Option<Player>) {
         println!("Running new plot!");
+        if let Some(player) = initial_player {
+            self.enter_plot(player);
+        }
         while self.running {
             self.update();
-            thread::sleep(Duration::from_millis(2));
+            thread::sleep(Duration::from_millis(100));
         }
     }
 
@@ -754,13 +472,15 @@ impl Plot {
         z: i32,
         rx: BusReader<Message>,
         tx: Sender<Message>,
+        priv_rx: Receiver<PrivMessage>,
         always_running: bool,
+        initial_player: Option<Player>
     ) {
-        let mut plot = Plot::load(x, z, rx, tx, always_running);
+        let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
         thread::Builder::new()
             .name(format!("p{}:{}", x, z))
             .spawn(move || {
-                plot.run();
+                plot.run(initial_player);
             })
             .unwrap();
     }
@@ -778,4 +498,316 @@ impl Drop for Plot {
             .send(Message::PlotUnload(self.x, self.z))
             .unwrap();
     }
+}
+
+struct BitBuffer {
+    bits_per_entry: u8,
+    entries: usize,
+    longs: Vec<u64>,
+}
+
+impl BitBuffer {
+    fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
+        let longs_len = entries * bits_per_entry as usize / 64;
+        let longs = vec![0; longs_len];
+        BitBuffer {
+            bits_per_entry,
+            longs,
+            entries,
+        }
+    }
+
+    fn load(bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
+        let entries = longs.len() * 64 / bits_per_entry as usize;
+        BitBuffer {
+            bits_per_entry,
+            longs,
+            entries,
+        }
+    }
+
+    fn get_entry(&self, index: usize) -> u32 {
+        dbg!(index);
+        let long_index = (self.bits_per_entry as usize * index) >> 6;
+        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
+        let bitmask = (1u128 << (index_in_long + 1)) - 1;
+        let long_long =
+            self.longs[long_index] as u128 | ((self.longs[long_index + 1] as u128) << 64);
+        ((bitmask & long_long) >> index_in_long) as u32
+    }
+
+    fn set_entry(&mut self, index: usize, val: u32) {
+        let long_index = (self.bits_per_entry as usize * index) >> 6; // 0
+        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F; // 36
+        let bitmask = !((1u128 << (index_in_long + 1)) - 1);
+        self.longs[long_index] =
+            (self.longs[long_index] & bitmask as u64) | ((val as u64) << index_in_long) as u64;
+        if index_in_long + self.bits_per_entry as usize > 64 {
+            self.longs[long_index + 1] = (self.longs[long_index + 1] & (bitmask >> 64) as u64)
+                | val.overflowing_shr((64 - index_in_long) as u32).0 as u64;
+        }
+    }
+}
+
+struct PalettedBitBuffer {
+    data: BitBuffer,
+    palatte: Vec<u32>,
+    max_entries: u32,
+    use_palatte: bool,
+}
+
+impl PalettedBitBuffer {
+    fn new() -> PalettedBitBuffer {
+        let mut palatte = Vec::new();
+        palatte.push(0);
+        PalettedBitBuffer {
+            data: BitBuffer::create(4, 4096),
+            palatte,
+            max_entries: 16,
+            use_palatte: true,
+        }
+    }
+
+    fn load(bits_per_entry: u8, longs: Vec<u64>, palatte: Vec<u32>) -> PalettedBitBuffer {
+        PalettedBitBuffer {
+            data: BitBuffer::load(bits_per_entry, longs),
+            palatte,
+            use_palatte: bits_per_entry > 8,
+            max_entries: 1 << bits_per_entry
+        }
+    }
+
+    fn resize_buffer(&mut self) {
+        let old_bits_per_entry = self.data.bits_per_entry;
+        if old_bits_per_entry + 1 > 8 {
+            let mut old_buffer = BitBuffer::create(14, 4096);
+            mem::swap(&mut self.data, &mut old_buffer);
+            self.max_entries = 1 << 14;
+            for entry in 0..old_buffer.entries {
+                self.data
+                    .set_entry(entry, self.palatte[old_buffer.get_entry(entry) as usize]);
+            }
+        } else {
+            let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, 4096);
+            mem::swap(&mut self.data, &mut old_buffer);
+            self.max_entries <<= 1;
+            for entry in 0..old_buffer.entries {
+                self.data.set_entry(entry, old_buffer.get_entry(entry));
+            }
+        };
+    }
+
+    fn get_entry(&self, index: usize) -> u32 {
+        if self.use_palatte {
+            self.palatte[self.data.get_entry(index) as usize]
+        } else {
+            self.data.get_entry(index)
+        }
+    }
+
+    fn set_entry(&mut self, index: usize, val: u32) {
+        if self.use_palatte {
+            if let Some(palatte_index) = self.palatte.iter().position(|x| x == &val) {
+                self.data.set_entry(index, palatte_index as u32);
+            } else {
+                if self.palatte.len() + 1 > self.max_entries as usize {
+                    self.resize_buffer();
+                }
+                let palatte_index = self.palatte.len();
+                self.palatte.push(val);
+                self.data.set_entry(index, palatte_index as u32);
+            }
+        } else {
+            self.data.set_entry(index, val);
+        }
+    }
+}
+
+struct ChunkSection {
+    y: u8,
+    buffer: PalettedBitBuffer,
+    block_count: u32
+}
+
+impl ChunkSection {
+    fn get_index(x: u32, y: u32, z: u32) -> usize {
+        ((y << 8) | (z << 4) | x) as usize
+    }
+
+    fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
+        self.buffer.get_entry(ChunkSection::get_index(x, y, z))
+    }
+
+    fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) {
+        let old_block = self.get_block(x, y, z);
+        if old_block == 0 && block != 0 {
+            self.block_count += 1;
+        } else if old_block != 0 && block == 0 {
+            self.block_count -= 1;
+        }
+        self.buffer.set_entry(ChunkSection::get_index(x, y, z), block);
+    }
+
+    fn load(data: ChunkSectionData) -> ChunkSection {
+        let loaded_longs  = data.data.into_iter().map(|x| x as u64).collect();
+        let bits_per_entry  = data.bits_per_block as u8;
+        let palette  = data.palatte.into_iter().map(|x| x as u32).collect();
+        let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
+        ChunkSection {
+            y: data.y as u8,
+            buffer,
+            block_count: data.block_count as u32,
+        }
+    }
+
+    fn save(&self) -> ChunkSectionData {
+        let longs: Vec<i64> = self.buffer.data.longs.clone().into_iter().map(|x| x as i64).collect();
+        let palatte: Vec<i32> = self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect();
+        ChunkSectionData {
+            data: longs, palatte,
+            bits_per_block: self.buffer.data.bits_per_entry as i8,
+            y: self.y as i8,
+            block_count: self.block_count as i32,
+        }
+    }
+
+    fn new(y: u8) -> ChunkSection {
+        ChunkSection {
+            y,
+            buffer: PalettedBitBuffer::new(),
+            block_count: 10
+        }
+    }
+
+    fn encode_packet(&self) -> C22ChunkDataSection {
+        C22ChunkDataSection {
+            bits_per_block: self.buffer.data.bits_per_entry,
+            block_count: self.block_count as i16,
+            data_array: self.buffer.data.longs.clone(),
+            palette: if self.buffer.use_palatte {
+                Some(self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect())
+            } else {
+                None
+            },
+        }
+    }
+}
+
+struct Chunk {
+    sections: Vec<ChunkSection>,
+    x: i32,
+    z: i32,
+}
+
+impl Chunk {
+    fn encode_packet(&self) -> PacketEncoder {
+        let mut heightmap_buffer = BitBuffer::create(9, 256);
+        for x in 0..16 {
+            for z in 0..16 {
+                heightmap_buffer.set_entry((x * 16) + z, self.get_top_most_block(x as u32, z as u32));
+            }
+        }
+
+        let mut chunk_sections = Vec::new();
+        let mut bitmask = 0;
+        for section in &self.sections {
+            bitmask |= 1 << section.y;
+            chunk_sections.push(section.encode_packet());
+        }
+        let mut heightmaps = nbt::Blob::new();
+        let heightmap_longs: Vec<i64> = heightmap_buffer.longs.into_iter().map(|x| x as i64).collect();
+        heightmaps
+            .insert("MOTION_BLOCKING", heightmap_longs)
+            .unwrap();
+        C22ChunkData {
+            biomes: Some(vec![0; 1024]),
+            chunk_sections,
+            chunk_x: self.x,
+            chunk_z: self.z,
+            full_chunk: true,
+            heightmaps,
+            primary_bit_mask: bitmask as i32,
+        }
+        .encode()
+    }
+
+    fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
+        let mut top_most = 0;
+        for section in &self.sections {
+            for y in (0..15).rev() {
+                let block_state = section.get_block(x, y, z);
+                if block_state != 0 && top_most < y + section.y as u32 * 16 {
+                    top_most = section.y as u32 * 16;
+                }
+            }
+        }
+        top_most
+    }
+
+    fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) {
+        let section_y = (y >> 4) as u8;
+        if let Some(section) = self.sections.iter_mut().find(|s| s.y == section_y) {
+            section.set_block(x, y & 0xF, z, block_id);
+        } else if block_id != 0 {
+            let mut section = ChunkSection::new(section_y);
+            section.set_block(x, y & 0xF, z, block_id);
+            self.sections.push(section);
+        }
+    }
+
+    fn get_block(&self, x: u32, y: u32, z: u32) -> Block {
+        let section_y = (y / 16) as u8;
+        if let Some(section) = self.sections.iter().find(|s| s.y == section_y) {
+            Block::from_block_state(section.get_block(x, y & 0xF, z))
+        } else {
+            Block::Air
+        }
+    }
+
+    fn save(&self) -> ChunkData {
+        ChunkData {
+            sections: self.sections.iter().map(|s| s.save()).collect(),
+        }
+    }
+
+    fn load(x: i32, z: i32, chunk_data: ChunkData) -> Chunk {
+        Chunk {
+            x,
+            z,
+            sections: chunk_data
+                .sections
+                .into_iter()
+                .map(ChunkSection::load)
+                .collect(),
+        }
+    }
+
+    fn empty(x: i32, z: i32) -> Chunk {
+        Chunk {
+            sections: Vec::new(),
+            x,
+            z,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ChunkSectionData {
+    y: i8,
+    data: Vec<i64>,
+    palatte: Vec<i32>,
+    bits_per_block: i8,
+    block_count: i32
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ChunkData {
+    sections: Vec<ChunkSectionData>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PlotData {
+    tps: i32,
+    show_redstone: bool,
+    chunk_data: Vec<ChunkData>,
 }

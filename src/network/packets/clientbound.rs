@@ -73,6 +73,22 @@ impl ClientBoundPacket for C03SetCompression {
 
 // Play Packets
 
+pub struct C0CBlockChange {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub block_id: i32,
+}
+
+impl ClientBoundPacket for C0CBlockChange {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_position(self.x, self.y, self.z);
+        buf.write_varint(self.block_id);
+        PacketEncoder::new(buf, 0x0C)
+    }
+}
+
 pub struct C0FChatMessage {
     pub message: String,
     pub position: i8,

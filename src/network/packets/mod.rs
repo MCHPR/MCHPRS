@@ -263,6 +263,11 @@ pub trait PacketEncoderExt: Write {
         self.write_i64::<BigEndian>(val).unwrap()
     }
 
+    fn write_position(&mut self, x: i32, y: i32, z: i32) {
+        let long = ((x as i64 & 0x3FF_FFFF) << 38) | ((z as i64 & 0x3FF_FFFF) << 12) | (y as i64 & 0xFFF);
+        self.write_long(long);
+    }
+
     fn write_nbt_blob(&mut self, blob: nbt::Blob);
 }
 
@@ -285,7 +290,8 @@ impl PacketEncoder {
     }
 
     // This function is seperate because it is needed when writing packet headers
-    fn varint(mut val: i32) -> Vec<u8> {
+    fn varint(val: i32) -> Vec<u8> {
+        let mut val = val as u32;
         let mut buf = Vec::new();
         loop {
             let mut temp = (val & 0b1111_1111) as u8;

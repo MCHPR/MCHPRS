@@ -300,25 +300,23 @@ impl Player {
         );
     }
 
-    pub fn set_first_position(&mut self, x: i32, y: i32, z: i32) {
+    pub fn send_worldedit_message(&mut self, message: String) {
         self.send_raw_system_message(
             json!({
-                "text": format!("First position set to ({}, {}, {})", x, y, z),
+                "text": message,
                 "color": "light_purple"
             })
             .to_string(),
         );
+    }
+
+    pub fn set_first_position(&mut self, x: i32, y: i32, z: i32) {
+        self.send_worldedit_message(format!("First position set to ({}, {}, {})", x, y, z));
         self.first_position = Some((x, y, z));
     }
 
     pub fn set_second_position(&mut self, x: i32, y: i32, z: i32) {
-        self.send_raw_system_message(
-            json!({
-                "text": format!("Second position set to ({}, {}, {})", x, y, z),
-                "color": "light_purple"
-            })
-            .to_string(),
-        );
+        self.send_worldedit_message(format!("Second position set to ({}, {}, {})", x, y, z));
         self.second_position = Some((x, y, z));
     }
 
