@@ -146,6 +146,157 @@ impl Plot {
         x >= plot_x * 128 && x < (plot_x + 1) * 128 && z >= plot_z * 128 && z < (plot_z + 1) * 128
     }
 
+    fn handle_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+        match command {
+            "//1" | "//pos1" => {
+                let player = &mut self.players[player];
+                player.set_first_position(
+                    player.x as i32,
+                    player.y as i32,
+                    player.z as i32,
+                );
+            }
+            "//2" | "//pos2" => {
+                let player = &mut self.players[player];
+                player.set_second_position(
+                    player.x as i32,
+                    player.y as i32,
+                    player.z as i32,
+                );
+            }
+            "//set" => {
+                let block = Block::from_name(&args[0]);
+                if let Some(block) = block {
+                    self.worldedit_set(player, block);
+                } else {
+                    self.players[player].send_system_message("Invalid block. Note that not all blocks are supported.".to_string());
+                }
+            }
+            "/tp" => {
+                if args.len() == 3 {
+                    let x;
+                    let y;
+                    let z;
+                    if let Ok(x_arg) = args[0].parse::<f64>() {
+                        x = x_arg;
+                    } else {
+                        self.players[player].send_system_message(
+                            "Unable to parse x coordinate!".to_string(),
+                        );
+                        return;
+                    }
+                    if let Ok(y_arg) = args[1].parse::<f64>() {
+                        y = y_arg;
+                    } else {
+                        self.players[player].send_system_message(
+                            "Unable to parse y coordinate!".to_string(),
+                        );
+                        return;
+                    }
+                    if let Ok(z_arg) = args[2].parse::<f64>() {
+                        z = z_arg;
+                    } else {
+                        self.players[player].send_system_message(
+                            "Unable to parse z coordinate!".to_string(),
+                        );
+                        return;
+                    }
+                    self.players[player].teleport(x, y, z);
+                } else if args.len() == 1 {
+                    self.players[player].send_system_message(
+                        "TODO: teleport to player".to_string(),
+                    );
+                } else {
+                    self.players[player].send_system_message(
+                        "Wrong number of arguments for teleport command!"
+                            .to_string(),
+                    );
+                }
+            }
+            _ => self.players[player]
+                .send_system_message("Command not found!".to_string()),
+        }
+    }
+
+    fn handle_packets_for_player(&mut self, player: usize) {
+        let packets: Vec<PacketDecoder> =
+                self.players[player].client.packets.drain(..).collect();
+        for packet in packets {
+            match packet.packet_id {
+                0x03 => {
+                    //let player = &mut self.players[player];
+                    let chat_message = S03ChatMessage::decode(packet).unwrap();
+                    let message = chat_message.message;
+                    if message.starts_with('/') {
+                        let mut args: Vec<&str> = message.split(' ').collect();
+                        let command = args.remove(0);
+                        self.handle_command(player, command, args);
+                    } else {
+                        let player = &self.players[player];
+                        let broadcast_message = Message::Chat(
+                            json!({ "text": format!("{}: {}", player.username, message) })
+                                .to_string(),
+                        );
+                        self.message_sender.send(broadcast_message).unwrap();
+                    }
+                }
+                0x05 => {
+                    let player = &mut self.players[player];
+                    let client_settings = S05ClientSettings::decode(packet).unwrap();
+                    player.skin_parts = SkinParts::from_bits_truncate(
+                        client_settings.displayed_skin_parts as u32,
+                    );
+                    let metadata_entry = C44EntityMetadataEntry {
+                        index: 16,
+                        metadata_type: 0,
+                        value: vec![player.skin_parts.bits() as u8],
+                    };
+                    let entity_metadata = C44EntityMetadata {
+                        entity_id: player.entity_id as i32,
+                        metadata: vec![metadata_entry],
+                    }
+                    .encode();
+                    for player in &mut self.players {
+                        player.client.send_packet(&entity_metadata);
+                    }
+                }
+                0x0F => self.players[player].last_keep_alive_received = Instant::now(),
+                0x11 => {
+                    let player = &mut self.players[player];
+                    let player_position = S11PlayerPosition::decode(packet).unwrap();
+                    player.x = player_position.x;
+                    player.y = player_position.y;
+                    player.z = player_position.z;
+                    player.on_ground = player_position.on_ground;
+                }
+                0x12 => {
+                    let player = &mut self.players[player];
+                    let player_position_and_rotation =
+                        S12PlayerPositionAndRotation::decode(packet).unwrap();
+                    player.x = player_position_and_rotation.x;
+                    player.y = player_position_and_rotation.y;
+                    player.z = player_position_and_rotation.z;
+                    player.yaw = player_position_and_rotation.yaw;
+                    player.pitch = player_position_and_rotation.pitch;
+                    player.on_ground = player_position_and_rotation.on_ground;
+                }
+                0x13 => {
+                    let player = &mut self.players[player];
+                    let player_rotation = S13PlayerRotation::decode(packet).unwrap();
+                    player.yaw = player_rotation.yaw;
+                    player.pitch = player_rotation.pitch;
+                    player.on_ground = player_rotation.on_ground;
+                }
+                0x14 => {
+                    let player = &mut self.players[player];
+                    let player_movement = S14PlayerMovement::decode(packet).unwrap();
+                    player.on_ground = player_movement.on_ground;
+                }
+                _ => {}
+            }
+        }
+    }
+
     fn update(&mut self) {
         // Handle messages from the private message channel
         while let Ok(message) = self.priv_message_receiver.try_recv() {
@@ -224,149 +375,7 @@ impl Plot {
         });
         // Handle received packets
         for player in 0..self.players.len() {
-            let packets: Vec<PacketDecoder> =
-                self.players[player].client.packets.drain(..).collect();
-            for packet in packets {
-                match packet.packet_id {
-                    0x03 => {
-                        //let player = &mut self.players[player];
-                        let chat_message = S03ChatMessage::decode(packet).unwrap();
-                        let message = chat_message.message;
-                        if message.starts_with('/') {
-                            let mut args: Vec<&str> = message.split(' ').collect();
-                            match args.remove(0) {
-                                "//1" | "//pos1" => {
-                                    let player = &mut self.players[player];
-                                    player.set_first_position(
-                                        player.x as i32,
-                                        player.y as i32,
-                                        player.z as i32,
-                                    );
-                                }
-                                "//2" | "//pos2" => {
-                                    let player = &mut self.players[player];
-                                    player.set_second_position(
-                                        player.x as i32,
-                                        player.y as i32,
-                                        player.z as i32,
-                                    );
-                                }
-                                "//set" => {
-                                    let block = Block::from_name(&args[0]);
-                                    if let Some(block) = block {
-                                        self.worldedit_set(player, block);
-                                    } else {
-                                        self.players[player].send_system_message("Invalid block. Note that not all blocks are supported.".to_string());
-                                    }
-                                }
-                                "/tp" => {
-                                    if args.len() == 3 {
-                                        let x;
-                                        let y;
-                                        let z;
-                                        if let Ok(x_arg) = args[0].parse::<f64>() {
-                                            x = x_arg;
-                                        } else {
-                                            self.players[player].send_system_message(
-                                                "Unable to parse x coordinate!".to_string(),
-                                            );
-                                            return;
-                                        }
-                                        if let Ok(y_arg) = args[1].parse::<f64>() {
-                                            y = y_arg;
-                                        } else {
-                                            self.players[player].send_system_message(
-                                                "Unable to parse y coordinate!".to_string(),
-                                            );
-                                            return;
-                                        }
-                                        if let Ok(z_arg) = args[2].parse::<f64>() {
-                                            z = z_arg;
-                                        } else {
-                                            self.players[player].send_system_message(
-                                                "Unable to parse z coordinate!".to_string(),
-                                            );
-                                            return;
-                                        }
-                                        self.players[player].teleport(x, y, z);
-                                    } else if args.len() == 1 {
-                                        self.players[player].send_system_message(
-                                            "TODO: teleport to player".to_string(),
-                                        );
-                                    } else {
-                                        self.players[player].send_system_message(
-                                            "Wrong number of arguments for teleport command!"
-                                                .to_string(),
-                                        );
-                                    }
-                                }
-                                _ => self.players[player]
-                                    .send_system_message("Command not found!".to_string()),
-                            }
-                        } else {
-                            let player = &self.players[player];
-                            let broadcast_message = Message::Chat(
-                                json!({ "text": format!("{}: {}", player.username, message) })
-                                    .to_string(),
-                            );
-                            self.message_sender.send(broadcast_message).unwrap();
-                        }
-                    }
-                    0x05 => {
-                        let player = &mut self.players[player];
-                        let client_settings = S05ClientSettings::decode(packet).unwrap();
-                        player.skin_parts = SkinParts::from_bits_truncate(
-                            client_settings.displayed_skin_parts as u32,
-                        );
-                        let metadata_entry = C44EntityMetadataEntry {
-                            index: 16,
-                            metadata_type: 0,
-                            value: vec![player.skin_parts.bits() as u8],
-                        };
-                        let entity_metadata = C44EntityMetadata {
-                            entity_id: player.entity_id as i32,
-                            metadata: vec![metadata_entry],
-                        }
-                        .encode();
-                        for player in &mut self.players {
-                            player.client.send_packet(&entity_metadata);
-                        }
-                    }
-                    0x0F => self.players[player].last_keep_alive_received = Instant::now(),
-                    0x11 => {
-                        let player = &mut self.players[player];
-                        let player_position = S11PlayerPosition::decode(packet).unwrap();
-                        player.x = player_position.x;
-                        player.y = player_position.y;
-                        player.z = player_position.z;
-                        player.on_ground = player_position.on_ground;
-                    }
-                    0x12 => {
-                        let player = &mut self.players[player];
-                        let player_position_and_rotation =
-                            S12PlayerPositionAndRotation::decode(packet).unwrap();
-                        player.x = player_position_and_rotation.x;
-                        player.y = player_position_and_rotation.y;
-                        player.z = player_position_and_rotation.z;
-                        player.yaw = player_position_and_rotation.yaw;
-                        player.pitch = player_position_and_rotation.pitch;
-                        player.on_ground = player_position_and_rotation.on_ground;
-                    }
-                    0x13 => {
-                        let player = &mut self.players[player];
-                        let player_rotation = S13PlayerRotation::decode(packet).unwrap();
-                        player.yaw = player_rotation.yaw;
-                        player.pitch = player_rotation.pitch;
-                        player.on_ground = player_rotation.on_ground;
-                    }
-                    0x14 => {
-                        let player = &mut self.players[player];
-                        let player_movement = S14PlayerMovement::decode(packet).unwrap();
-                        player.on_ground = player_movement.on_ground;
-                    }
-                    _ => {}
-                }
-            }
+            self.handle_packets_for_player(player);
         }
         // Check if a player has left the plot
         for player in 0..self.players.len() {
