@@ -357,12 +357,16 @@ impl Plot {
                 self.running = false;
             }
         }
-        let message_sender = &mut self.message_sender;
         // Update players
         for player in &mut self.players {
             player.update();
         }
+        // Handle received packets
+        for player in 0..self.players.len() {
+            self.handle_packets_for_player(player);
+        }
         // Check if connection to player is still active
+        let message_sender = &mut self.message_sender;
         self.players.retain(|player| {
             let alive = player.client.alive;
             if !alive {
@@ -373,10 +377,6 @@ impl Plot {
             }
             alive
         });
-        // Handle received packets
-        for player in 0..self.players.len() {
-            self.handle_packets_for_player(player);
-        }
         // Check if a player has left the plot
         for player in 0..self.players.len() {
             if !Plot::in_plot_bounds(
