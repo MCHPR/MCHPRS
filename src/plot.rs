@@ -8,9 +8,9 @@ use bus::BusReader;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::{self, OpenOptions};
-use std::io::Cursor;
+use std::io::Write;
 use std::mem;
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
@@ -37,21 +37,27 @@ impl Plot {
         (chunk_x * 8 + chunk_z).abs() as usize
     }
 
-    /// Sets a block in storage without sending a block change packet to the client
-    fn set_block_raw(&mut self, x: i32, y: u32, z: i32, block: u32) {
+    /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
+    fn set_block_raw(&mut self, x: i32, y: u32, z: i32, block: u32) -> bool {
         let chunk = &mut self.chunks[Plot::get_chunk_index(x, z)];
-        chunk.set_block((x & 0xF) as u32, y, (z & 0xF) as u32, block);
+        chunk.set_block((x & 0xF) as u32, y, (z & 0xF) as u32, block)
     }
 
-    fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) {
+    /// Returns true if a block was changed
+    fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) -> bool {
         let block_id = Block::get_id(&block);
-        self.set_block_raw(x, y, z, block_id);
+        let changed = self.set_block_raw(x, y, z, block_id);
         let block_change = C0CBlockChange {
-            block_id: block_id as i32, x, y: y as i32, z
-        }.encode();
+            block_id: block_id as i32,
+            x,
+            y: y as i32,
+            z,
+        }
+        .encode();
         for player in &mut self.players {
             player.client.send_packet(&block_change);
         }
+        changed
     }
 
     fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
@@ -89,6 +95,7 @@ impl Plot {
 
     fn worldedit_set(&mut self, player: usize, block: Block) {
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
+            let mut blocks_updated = 0;
             let x_start = std::cmp::min(first_pos.0, second_pos.0);
             let x_end = std::cmp::max(first_pos.0, second_pos.0);
             let y_start = std::cmp::min(first_pos.1, second_pos.1);
@@ -98,12 +105,16 @@ impl Plot {
             for x in x_start..=x_end {
                 for y in y_start..=y_end {
                     for z in z_start..=z_end {
-                        self.set_block(x, y as u32, z, block);
+                        if self.set_block(x, y as u32, z, block) {
+                            blocks_updated += 1;
+                        }
                     }
                 }
             }
-            let blocks_updated = (x_end - x_start) * (y_end - y_start) * (z_end - z_start);
-            self.players[player].send_worldedit_message(format!("Operation completed: {} block(s) updated", blocks_updated));
+            self.players[player].send_worldedit_message(format!(
+                "Operation completed: {} block(s) updated",
+                blocks_updated
+            ));
         }
     }
 
@@ -252,7 +263,12 @@ impl Plot {
                                     // TODO: Remove or make better
                                     let player = &self.players[player];
                                     let block = Block::from_name(&args[0]).unwrap();
-                                    self.set_block(player.x as i32, player.y as u32, player.z as i32, block);
+                                    self.set_block(
+                                        player.x as i32,
+                                        player.y as u32,
+                                        player.z as i32,
+                                        block,
+                                    );
                                 }
                                 "/tp" => {
                                     if args.len() == 3 {
@@ -262,26 +278,37 @@ impl Plot {
                                         if let Ok(x_arg) = args[0].parse::<f64>() {
                                             x = x_arg;
                                         } else {
-                                            self.players[player].send_system_message("Unable to parse x coordinate!".to_string());
+                                            self.players[player].send_system_message(
+                                                "Unable to parse x coordinate!".to_string(),
+                                            );
                                             return;
                                         }
                                         if let Ok(y_arg) = args[1].parse::<f64>() {
                                             y = y_arg;
                                         } else {
-                                            self.players[player].send_system_message("Unable to parse y coordinate!".to_string());
+                                            self.players[player].send_system_message(
+                                                "Unable to parse y coordinate!".to_string(),
+                                            );
                                             return;
                                         }
                                         if let Ok(z_arg) = args[2].parse::<f64>() {
                                             z = z_arg;
                                         } else {
-                                            self.players[player].send_system_message("Unable to parse z coordinate!".to_string());
+                                            self.players[player].send_system_message(
+                                                "Unable to parse z coordinate!".to_string(),
+                                            );
                                             return;
                                         }
                                         self.players[player].teleport(x, y, z);
                                     } else if args.len() == 1 {
-                                        self.players[player].send_system_message("TODO: teleport to player".to_string());
+                                        self.players[player].send_system_message(
+                                            "TODO: teleport to player".to_string(),
+                                        );
                                     } else {
-                                        self.players[player].send_system_message("Wrong number of arguments for teleport command!".to_string());
+                                        self.players[player].send_system_message(
+                                            "Wrong number of arguments for teleport command!"
+                                                .to_string(),
+                                        );
                                     }
                                 }
                                 _ => self.players[player]
@@ -381,7 +408,8 @@ impl Plot {
         if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
             // Load plot from file
             // TODO: Handle format error
-            let plot_data: PlotData = nbt::from_reader(Cursor::new(data)).unwrap();
+            let plot_data: PlotData = bincode::deserialize(&data).unwrap();
+            println!("{:?}", plot_data);
             let chunks: Vec<Chunk> = plot_data
                 .chunk_data
                 .into_iter()
@@ -443,16 +471,12 @@ impl Plot {
             .open(format!("./world/plots/p{}:{}", self.x, self.z))
             .unwrap();
         let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
-        nbt::to_writer(
-            &mut file,
-            &PlotData {
-                tps: self.tps as i32,
-                show_redstone: self.show_redstone,
-                chunk_data,
-            },
-            None,
-        )
-        .unwrap();
+        let encoded: Vec<u8> = bincode::serialize(&PlotData {
+            tps: self.tps as i32,
+            show_redstone: self.show_redstone,
+            chunk_data,
+        }).unwrap();
+        file.write_all(&encoded).unwrap();
         file.sync_data().unwrap();
     }
 
@@ -474,7 +498,7 @@ impl Plot {
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
-        initial_player: Option<Player>
+        initial_player: Option<Player>,
     ) {
         let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
         thread::Builder::new()
@@ -527,19 +551,23 @@ impl BitBuffer {
     }
 
     fn get_entry(&self, index: usize) -> u32 {
-        dbg!(index);
         let long_index = (self.bits_per_entry as usize * index) >> 6;
         let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
-        let bitmask = (1u128 << (index_in_long + 1)) - 1;
-        let long_long =
-            self.longs[long_index] as u128 | ((self.longs[long_index + 1] as u128) << 64);
+        let bitmask = ((1u128 << self.bits_per_entry) - 1) << index_in_long;
+        let mut long_long = self.longs[long_index] as u128;
+        if self.longs.len() > long_index + 1 {
+            long_long |= (self.longs[long_index + 1] as u128) << 64;
+        }
+        // if ((bitmask & long_long) >> index_in_long) != 0 {
+        //     println!("long:    {:0128b}\nbitmask: {:128b} {}", long_long, bitmask, self.bits_per_entry);
+        // }
         ((bitmask & long_long) >> index_in_long) as u32
     }
 
     fn set_entry(&mut self, index: usize, val: u32) {
-        let long_index = (self.bits_per_entry as usize * index) >> 6; // 0
-        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F; // 36
-        let bitmask = !((1u128 << (index_in_long + 1)) - 1);
+        let long_index = (self.bits_per_entry as usize * index) >> 6;
+        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
+        let bitmask = ((1u128 << self.bits_per_entry) - 1) << index_in_long;
         self.longs[long_index] =
             (self.longs[long_index] & bitmask as u64) | ((val as u64) << index_in_long) as u64;
         if index_in_long + self.bits_per_entry as usize > 64 {
@@ -573,7 +601,7 @@ impl PalettedBitBuffer {
             data: BitBuffer::load(bits_per_entry, longs),
             palatte,
             use_palatte: bits_per_entry > 8,
-            max_entries: 1 << bits_per_entry
+            max_entries: 1 << bits_per_entry,
         }
     }
 
@@ -626,7 +654,7 @@ impl PalettedBitBuffer {
 struct ChunkSection {
     y: u8,
     buffer: PalettedBitBuffer,
-    block_count: u32
+    block_count: u32,
 }
 
 impl ChunkSection {
@@ -638,20 +666,23 @@ impl ChunkSection {
         self.buffer.get_entry(ChunkSection::get_index(x, y, z))
     }
 
-    fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) {
+    /// Sets a block in the chunk sections. Returns true if a block was changed.
+    fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) -> bool {
         let old_block = self.get_block(x, y, z);
         if old_block == 0 && block != 0 {
             self.block_count += 1;
         } else if old_block != 0 && block == 0 {
             self.block_count -= 1;
         }
-        self.buffer.set_entry(ChunkSection::get_index(x, y, z), block);
+        self.buffer
+            .set_entry(ChunkSection::get_index(x, y, z), block);
+        old_block != block
     }
 
     fn load(data: ChunkSectionData) -> ChunkSection {
-        let loaded_longs  = data.data.into_iter().map(|x| x as u64).collect();
-        let bits_per_entry  = data.bits_per_block as u8;
-        let palette  = data.palatte.into_iter().map(|x| x as u32).collect();
+        let loaded_longs = data.data.into_iter().map(|x| x as u64).collect();
+        let bits_per_entry = data.bits_per_block as u8;
+        let palette = data.palatte.into_iter().map(|x| x as u32).collect();
         let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
         ChunkSection {
             y: data.y as u8,
@@ -661,10 +692,24 @@ impl ChunkSection {
     }
 
     fn save(&self) -> ChunkSectionData {
-        let longs: Vec<i64> = self.buffer.data.longs.clone().into_iter().map(|x| x as i64).collect();
-        let palatte: Vec<i32> = self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect();
+        let longs: Vec<i64> = self
+            .buffer
+            .data
+            .longs
+            .clone()
+            .into_iter()
+            .map(|x| x as i64)
+            .collect();
+        let palatte: Vec<i32> = self
+            .buffer
+            .palatte
+            .clone()
+            .into_iter()
+            .map(|x| x as i32)
+            .collect();
         ChunkSectionData {
-            data: longs, palatte,
+            data: longs,
+            palatte,
             bits_per_block: self.buffer.data.bits_per_entry as i8,
             y: self.y as i8,
             block_count: self.block_count as i32,
@@ -675,7 +720,7 @@ impl ChunkSection {
         ChunkSection {
             y,
             buffer: PalettedBitBuffer::new(),
-            block_count: 10
+            block_count: 10,
         }
     }
 
@@ -685,7 +730,14 @@ impl ChunkSection {
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
             palette: if self.buffer.use_palatte {
-                Some(self.buffer.palatte.clone().into_iter().map(|x| x as i32).collect())
+                Some(
+                    self.buffer
+                        .palatte
+                        .clone()
+                        .into_iter()
+                        .map(|x| x as i32)
+                        .collect(),
+                )
             } else {
                 None
             },
@@ -704,7 +756,8 @@ impl Chunk {
         let mut heightmap_buffer = BitBuffer::create(9, 256);
         for x in 0..16 {
             for z in 0..16 {
-                heightmap_buffer.set_entry((x * 16) + z, self.get_top_most_block(x as u32, z as u32));
+                heightmap_buffer
+                    .set_entry((x * 16) + z, self.get_top_most_block(x as u32, z as u32));
             }
         }
 
@@ -715,7 +768,11 @@ impl Chunk {
             chunk_sections.push(section.encode_packet());
         }
         let mut heightmaps = nbt::Blob::new();
-        let heightmap_longs: Vec<i64> = heightmap_buffer.longs.into_iter().map(|x| x as i64).collect();
+        let heightmap_longs: Vec<i64> = heightmap_buffer
+            .longs
+            .into_iter()
+            .map(|x| x as i64)
+            .collect();
         heightmaps
             .insert("MOTION_BLOCKING", heightmap_longs)
             .unwrap();
@@ -744,14 +801,19 @@ impl Chunk {
         top_most
     }
 
-    fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) {
+    /// Sets a block in the chunk. Returns true if a block was changed.
+    fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
         let section_y = (y >> 4) as u8;
         if let Some(section) = self.sections.iter_mut().find(|s| s.y == section_y) {
-            section.set_block(x, y & 0xF, z, block_id);
+            section.set_block(x, y & 0xF, z, block_id)
         } else if block_id != 0 {
             let mut section = ChunkSection::new(section_y);
             section.set_block(x, y & 0xF, z, block_id);
             self.sections.push(section);
+            true
+        } else {
+            // The block was air so a new chunk section does not need to be created.
+            false
         }
     }
 
@@ -797,7 +859,7 @@ struct ChunkSectionData {
     data: Vec<i64>,
     palatte: Vec<i32>,
     bits_per_block: i8,
-    block_count: i32
+    block_count: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

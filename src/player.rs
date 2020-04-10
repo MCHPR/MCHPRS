@@ -232,9 +232,7 @@ impl Player {
         let chunk_x = self.x as i32 >> 4;
         let chunk_z = self.z as i32 >> 4;
         if chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z {
-            let update_view = C41UpdateViewPosition {
-                chunk_x, chunk_z
-            }.encode();
+            let update_view = C41UpdateViewPosition { chunk_x, chunk_z }.encode();
             self.client.send_packet(&update_view);
         }
         self.last_chunk_x = chunk_x;
@@ -256,12 +254,15 @@ impl Player {
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
         let player_position_and_look = C36PlayerPositionAndLook {
-            x, y, z,
+            x,
+            y,
+            z,
             yaw: 0f32,
             pitch: 0f32,
             flags: 0x08 | 0x10, // pitch and yaw are relative
-            teleport_id: 0
-        }.encode();
+            teleport_id: 0,
+        }
+        .encode();
         self.x = x;
         self.y = y;
         self.z = z;

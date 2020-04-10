@@ -1,8 +1,8 @@
-use byteorder::{BigEndian, WriteBytesExt, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use std::io::{self, Read, Write, Cursor};
+use std::io::{self, Cursor, Read, Write};
 
 pub mod clientbound;
 pub mod serverbound;
@@ -13,7 +13,7 @@ pub type EncodeResult<T> = std::result::Result<T, PacketEncodeError>;
 #[derive(Debug)]
 pub enum PacketDecodeError {
     IoError(io::Error),
-    FromUtf8Error(std::string::FromUtf8Error)
+    FromUtf8Error(std::string::FromUtf8Error),
 }
 
 impl From<io::Error> for PacketDecodeError {
@@ -29,9 +29,7 @@ impl From<std::string::FromUtf8Error> for PacketDecodeError {
 }
 
 #[derive(Debug)]
-enum PacketEncodeError {
-
-}
+enum PacketEncodeError {}
 
 pub struct PacketDecoder {
     buffer: Cursor<Vec<u8>>,
@@ -58,7 +56,9 @@ impl PacketDecoder {
                     i += (length.0 - data_length.1) as usize;
                     let packet_id = PacketDecoder::read_varint_from_buffer(0, &data)?;
                     decoders.push(PacketDecoder {
-                        buffer: Cursor::new(Vec::from(&data[packet_id.1 as usize..data_length.0 as usize])),
+                        buffer: Cursor::new(Vec::from(
+                            &data[packet_id.1 as usize..data_length.0 as usize],
+                        )),
                         packet_id: packet_id.0 as u32,
                     });
                 } else {
@@ -264,7 +264,8 @@ pub trait PacketEncoderExt: Write {
     }
 
     fn write_position(&mut self, x: i32, y: i32, z: i32) {
-        let long = ((x as i64 & 0x3FF_FFFF) << 38) | ((z as i64 & 0x3FF_FFFF) << 12) | (y as i64 & 0xFFF);
+        let long =
+            ((x as i64 & 0x3FF_FFFF) << 38) | ((z as i64 & 0x3FF_FFFF) << 12) | (y as i64 & 0xFFF);
         self.write_long(long);
     }
 
@@ -272,11 +273,9 @@ pub trait PacketEncoderExt: Write {
 }
 
 impl PacketEncoderExt for Vec<u8> {
-
     fn write_nbt_blob(&mut self, blob: nbt::Blob) {
         blob.to_writer(self).unwrap();
     }
-
 }
 
 pub struct PacketEncoder {

@@ -1,7 +1,9 @@
-use super::{PacketDecoder, DecodeResult};
+use super::{DecodeResult, PacketDecoder};
 
 pub trait ServerBoundPacket {
-    fn decode(decoder: PacketDecoder) -> DecodeResult<Self> where Self: Sized;
+    fn decode(decoder: PacketDecoder) -> DecodeResult<Self>
+    where
+        Self: Sized;
 }
 
 pub struct S00Handshake {

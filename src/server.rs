@@ -55,7 +55,7 @@ struct PlayerListEntry {
 struct PlotListEntry {
     plot_x: i32,
     plot_z: i32,
-    priv_message_sender: mpsc::Sender<PrivMessage>
+    priv_message_sender: mpsc::Sender<PrivMessage>,
 }
 
 /// This represents a minecraft server
@@ -106,12 +106,12 @@ impl MinecraftServer {
             server.plot_sender.clone(),
             spawn_rx,
             true,
-            None
+            None,
         );
         server.running_plots.push(PlotListEntry {
             plot_x: 0,
             plot_z: 0,
-            priv_message_sender: spawn_tx
+            priv_message_sender: spawn_tx,
         });
         loop {
             server.update();
@@ -170,12 +170,21 @@ impl MinecraftServer {
                             self.plot_sender.clone(),
                             priv_rx,
                             false,
-                            Some(player)
+                            Some(player),
                         );
-                        self.running_plots.push(PlotListEntry { plot_x, plot_z, priv_message_sender: priv_tx });
+                        self.running_plots.push(PlotListEntry {
+                            plot_x,
+                            plot_z,
+                            priv_message_sender: priv_tx,
+                        });
                     } else {
-                        let plot_list_entry = self.running_plots.iter().find(|p| p.plot_x == plot_x && p.plot_z == plot_z).unwrap();
-                        plot_list_entry.priv_message_sender
+                        let plot_list_entry = self
+                            .running_plots
+                            .iter()
+                            .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
+                            .unwrap();
+                        plot_list_entry
+                            .priv_message_sender
                             .send(PrivMessage::PlayerEnterPlot(player));
                     }
                 }
@@ -218,13 +227,22 @@ impl MinecraftServer {
                             self.plot_sender.clone(),
                             priv_rx,
                             false,
-                            Some(player)
+                            Some(player),
                         );
-                        self.running_plots.push(PlotListEntry { plot_x, plot_z, priv_message_sender: priv_tx });
+                        self.running_plots.push(PlotListEntry {
+                            plot_x,
+                            plot_z,
+                            priv_message_sender: priv_tx,
+                        });
                     } else {
                         println!("Sending player to plot");
-                        let plot_list_entry = self.running_plots.iter().find(|p| p.plot_x == plot_x && p.plot_z == plot_z).unwrap();
-                        plot_list_entry.priv_message_sender
+                        let plot_list_entry = self
+                            .running_plots
+                            .iter()
+                            .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
+                            .unwrap();
+                        plot_list_entry
+                            .priv_message_sender
                             .send(PrivMessage::PlayerEnterPlot(player));
                     }
                 }

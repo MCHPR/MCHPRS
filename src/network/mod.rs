@@ -1,6 +1,6 @@
 pub mod packets;
 
-use packets::{PacketDecoder, PacketEncoder, DecodeResult};
+use packets::{DecodeResult, PacketDecoder, PacketEncoder};
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::mpsc;

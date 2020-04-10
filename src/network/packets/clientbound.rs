@@ -320,7 +320,6 @@ impl ClientBoundPacket for C41UpdateViewPosition {
     }
 }
 
-
 pub struct C44EntityMetadataEntry {
     pub index: u8,
     pub metadata_type: i32,
