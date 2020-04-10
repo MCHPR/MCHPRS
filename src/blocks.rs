@@ -1,6 +1,6 @@
 use std::mem;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 enum RedstoneWireSide {
     Up,
     Side,
@@ -28,7 +28,7 @@ impl RedstoneWireSide {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct RedstoneWire {
     north: RedstoneWireSide,
     south: RedstoneWireSide,
@@ -55,7 +55,7 @@ impl RedstoneWire {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum Block {
     Air,
     RedstoneWire(RedstoneWire),

@@ -62,7 +62,7 @@ impl Plot {
 
     fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
         let chunk = &self.chunks[Plot::get_chunk_index(x, z)];
-        chunk.get_block((x & 0xF) as u32, y, (z & 0xF) as u32)
+        Block::from_block_state(chunk.get_block((x & 0xF) as u32, y, (z & 0xF) as u32))
     }
 
     fn worldedit_verify_positions(
@@ -121,7 +121,6 @@ impl Plot {
     fn tick(&mut self) {}
 
     fn enter_plot(&mut self, mut player: Player) {
-        println!("Player enter plot!");
         self.save();
         for chunk in &self.chunks {
             player.client.send_packet(&chunk.encode_packet());
@@ -136,8 +135,7 @@ impl Plot {
         // Maybe we could store a list of players waiting to be received instead of
         // blocking the thread. Just maybe...
         while Arc::strong_count(&player_arc) > 1 {
-            thread::sleep(Duration::from_millis(10));
-            println!("Waiting to receive player");
+            thread::sleep(Duration::from_millis(10))
         }
         Arc::try_unwrap(player_arc).unwrap()
     }
@@ -387,7 +385,6 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
-                println!("Player has left plot bounds");
                 let player_leave_plot =
                     Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
                 self.message_sender.send(player_leave_plot).unwrap();
@@ -475,7 +472,8 @@ impl Plot {
             tps: self.tps as i32,
             show_redstone: self.show_redstone,
             chunk_data,
-        }).unwrap();
+        })
+        .unwrap();
         file.write_all(&encoded).unwrap();
         file.sync_data().unwrap();
     }
@@ -554,6 +552,7 @@ impl BitBuffer {
         let long_index = (self.bits_per_entry as usize * index) >> 6;
         let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
         let bitmask = ((1u128 << self.bits_per_entry) - 1) << index_in_long;
+
         let mut long_long = self.longs[long_index] as u128;
         if self.longs.len() > long_index + 1 {
             long_long |= (self.longs[long_index + 1] as u128) << 64;
@@ -568,11 +567,14 @@ impl BitBuffer {
         let long_index = (self.bits_per_entry as usize * index) >> 6;
         let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
         let bitmask = ((1u128 << self.bits_per_entry) - 1) << index_in_long;
-        self.longs[long_index] =
-            (self.longs[long_index] & bitmask as u64) | ((val as u64) << index_in_long) as u64;
+
+        self.longs[long_index] = (self.longs[long_index] & !(bitmask as u64)) // Remove old value
+            | ((val as u128) << index_in_long as u128) as u64; // Insert new value, TODO: use a better way than `as u128`
+
+        // Check if the value overlaps into the next long
         if index_in_long + self.bits_per_entry as usize > 64 {
-            self.longs[long_index + 1] = (self.longs[long_index + 1] & (bitmask >> 64) as u64)
-                | val.overflowing_shr((64 - index_in_long) as u32).0 as u64;
+            self.longs[long_index + 1] = (self.longs[long_index + 1] & !(bitmask >> 64) as u64) // Remove old value
+                | (val >> (64 - index_in_long)) as u64; // Insert new value
         }
     }
 }
@@ -817,12 +819,12 @@ impl Chunk {
         }
     }
 
-    fn get_block(&self, x: u32, y: u32, z: u32) -> Block {
+    fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
         let section_y = (y / 16) as u8;
         if let Some(section) = self.sections.iter().find(|s| s.y == section_y) {
-            Block::from_block_state(section.get_block(x, y & 0xF, z))
+            section.get_block(x, y & 0xF, z)
         } else {
-            Block::Air
+            0
         }
     }
 
@@ -833,6 +835,7 @@ impl Chunk {
     }
 
     fn load(x: i32, z: i32, chunk_data: ChunkData) -> Chunk {
+        println!("Loading chunk {},{}", x, z);
         Chunk {
             x,
             z,
@@ -853,7 +856,7 @@ impl Chunk {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct ChunkSectionData {
     y: i8,
     data: Vec<i64>,
@@ -862,7 +865,7 @@ struct ChunkSectionData {
     block_count: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct ChunkData {
     sections: Vec<ChunkSectionData>,
 }
@@ -872,4 +875,16 @@ struct PlotData {
     tps: i32,
     show_redstone: bool,
     chunk_data: Vec<ChunkData>,
+}
+
+#[test]
+fn chunk_save_test() {
+    let mut chunk = Chunk::empty(1, 1);
+    chunk.set_block(13, 63, 12, 332);
+    chunk.set_block(13, 62, 12, 331);
+    let chunk_data = chunk.save();
+    let loaded_chunk = Chunk::load(1, 1, chunk_data);
+    assert_eq!(loaded_chunk.get_block(13, 63, 12), 332);
+    assert_eq!(loaded_chunk.get_block(13, 62, 12), 331);
+    assert_eq!(loaded_chunk.get_block(13, 64, 12), 0);
 }
