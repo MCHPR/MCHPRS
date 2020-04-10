@@ -47,15 +47,17 @@ impl Plot {
     fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) -> bool {
         let block_id = Block::get_id(&block);
         let changed = self.set_block_raw(x, y, z, block_id);
-        let block_change = C0CBlockChange {
-            block_id: block_id as i32,
-            x,
-            y: y as i32,
-            z,
-        }
-        .encode();
-        for player in &mut self.players {
-            player.client.send_packet(&block_change);
+        if changed {
+            let block_change = C0CBlockChange {
+                block_id: block_id as i32,
+                x,
+                y: y as i32,
+                z,
+            }
+            .encode();
+            for player in &mut self.players {
+                player.client.send_packet(&block_change);
+            }
         }
         changed
     }
@@ -112,7 +114,7 @@ impl Plot {
                 }
             }
             self.players[player].send_worldedit_message(format!(
-                "Operation completed: {} block(s) updated",
+                "Operation completed: {} block(s) affected",
                 blocks_updated
             ));
         }
@@ -257,17 +259,6 @@ impl Plot {
                                         self.players[player].send_system_message("Invalid block. Note that not all blocks are supported.".to_string());
                                     }
                                 }
-                                "/setblock" => {
-                                    // TODO: Remove or make better
-                                    let player = &self.players[player];
-                                    let block = Block::from_name(&args[0]).unwrap();
-                                    self.set_block(
-                                        player.x as i32,
-                                        player.y as u32,
-                                        player.z as i32,
-                                        block,
-                                    );
-                                }
                                 "/tp" => {
                                     if args.len() == 3 {
                                         let x;
@@ -406,7 +397,6 @@ impl Plot {
             // Load plot from file
             // TODO: Handle format error
             let plot_data: PlotData = bincode::deserialize(&data).unwrap();
-            println!("{:?}", plot_data);
             let chunks: Vec<Chunk> = plot_data
                 .chunk_data
                 .into_iter()
@@ -835,7 +825,6 @@ impl Chunk {
     }
 
     fn load(x: i32, z: i32, chunk_data: ChunkData) -> Chunk {
-        println!("Loading chunk {},{}", x, z);
         Chunk {
             x,
             z,
