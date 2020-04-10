@@ -878,7 +878,7 @@ struct PlotData {
 }
 
 #[test]
-fn chunk_save_test() {
+fn chunk_and_load_test() {
     let mut chunk = Chunk::empty(1, 1);
     chunk.set_block(13, 63, 12, 332);
     chunk.set_block(13, 62, 12, 331);
