@@ -71,6 +71,31 @@ impl ClientBoundPacket for C03SetCompression {
     }
 }
 
+pub struct C05SpawnPlayer {
+    pub entity_id: i32,
+    pub uuid: u128,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub on_ground: bool,
+}
+
+impl ClientBoundPacket for C05SpawnPlayer {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_uuid(self.uuid);
+        buf.write_double(self.x);
+        buf.write_double(self.y);
+        buf.write_double(self.z);
+        buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
+        buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
+        PacketEncoder::new(buf, 0x05)
+    }
+}
+
 // Play Packets
 
 pub struct C0CBlockChange {
@@ -223,6 +248,80 @@ impl ClientBoundPacket for C26JoinGame {
     }
 }
 
+pub struct C29EntityPosition {
+    pub entity_id: i32,
+    pub delta_x: i16,
+    pub delta_y: i16,
+    pub delta_z: i16,
+    pub on_ground: bool,
+}
+
+impl ClientBoundPacket for C29EntityPosition {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_short(self.delta_x);
+        buf.write_short(self.delta_y);
+        buf.write_short(self.delta_z);
+        buf.write_bool(self.on_ground);
+        PacketEncoder::new(buf, 0x29)
+    }
+}
+
+pub struct C2AEntityPositionAndRotation {
+    pub entity_id: i32,
+    pub delta_x: i16,
+    pub delta_y: i16,
+    pub delta_z: i16,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub on_ground: bool,
+}
+
+impl ClientBoundPacket for C2AEntityPositionAndRotation {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_short(self.delta_x);
+        buf.write_short(self.delta_y);
+        buf.write_short(self.delta_z);
+        buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
+        buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
+        buf.write_bool(self.on_ground);
+        PacketEncoder::new(buf, 0x2A)
+    }
+}
+
+pub struct C2BEntityRotation {
+    pub entity_id: i32,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub on_ground: bool,
+}
+
+impl ClientBoundPacket for C2BEntityRotation {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
+        buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
+        buf.write_bool(self.on_ground);
+        PacketEncoder::new(buf, 0x2B)
+    }
+}
+
+pub struct C2CEntityMovement {
+    pub entity_id: i32,
+}
+
+impl ClientBoundPacket for C2CEntityMovement {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        PacketEncoder::new(buf, 0x2C)
+    }
+}
+
 pub struct C34PlayerInfoAddPlayerProperty {
     name: String,
     value: String,
@@ -306,6 +405,20 @@ impl ClientBoundPacket for C36PlayerPositionAndLook {
     }
 }
 
+pub struct C3CEntityHeadLook {
+    pub entity_id: i32,
+    pub yaw: f32,
+}
+
+impl ClientBoundPacket for C3CEntityHeadLook {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
+        PacketEncoder::new(buf, 0x3C)
+    }
+}
+
 pub struct C41UpdateViewPosition {
     pub chunk_x: i32,
     pub chunk_z: i32,
@@ -342,5 +455,29 @@ impl ClientBoundPacket for C44EntityMetadata {
         }
         buf.write_byte(-1); // 0xFF
         PacketEncoder::new(buf, 0x44)
+    }
+}
+
+pub struct C57EntityTeleport {
+    pub entity_id: i32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub on_ground: bool,
+}
+
+impl ClientBoundPacket for C57EntityTeleport {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_double(self.x);
+        buf.write_double(self.y);
+        buf.write_double(self.z);
+        buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
+        buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
+        buf.write_bool(self.on_ground);
+        PacketEncoder::new(buf, 0x57)
     }
 }

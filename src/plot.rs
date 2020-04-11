@@ -127,8 +127,34 @@ impl Plot {
         for chunk in &self.chunks {
             player.client.send_packet(&chunk.encode_packet());
         }
+        let spawn_player = C05SpawnPlayer {
+            entity_id: player.entity_id as i32,
+            uuid: player.uuid,
+            on_ground: player.on_ground,
+            pitch: player.pitch,
+            yaw: player.yaw,
+            x: player.x,
+            y: player.y,
+            z: player.z,
+        }.encode();
+        for other_player in &mut self.players {
+            dbg!(other_player.uuid);
+            other_player.client.send_packet(&spawn_player);
+            let spawn_other_player = C05SpawnPlayer {
+                entity_id: other_player.entity_id as i32,
+                uuid: other_player.uuid,
+                on_ground: other_player.on_ground,
+                pitch: other_player.pitch,
+                yaw: other_player.yaw,
+                x: other_player.x,
+                y: other_player.y,
+                z: other_player.z,
+            }.encode();
+            player.client.send_packet(&spawn_other_player);
+        }
         player.send_system_message(format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
+
     }
 
     /// Blocks the thread until the arc has no other strong references,
@@ -150,26 +176,20 @@ impl Plot {
         match command {
             "//1" | "//pos1" => {
                 let player = &mut self.players[player];
-                player.set_first_position(
-                    player.x as i32,
-                    player.y as i32,
-                    player.z as i32,
-                );
+                player.set_first_position(player.x as i32, player.y as i32, player.z as i32);
             }
             "//2" | "//pos2" => {
                 let player = &mut self.players[player];
-                player.set_second_position(
-                    player.x as i32,
-                    player.y as i32,
-                    player.z as i32,
-                );
+                player.set_second_position(player.x as i32, player.y as i32, player.z as i32);
             }
             "//set" => {
                 let block = Block::from_name(&args[0]);
                 if let Some(block) = block {
                     self.worldedit_set(player, block);
                 } else {
-                    self.players[player].send_system_message("Invalid block. Note that not all blocks are supported.".to_string());
+                    self.players[player].send_system_message(
+                        "Invalid block. Note that not all blocks are supported.".to_string(),
+                    );
                 }
             }
             "/tp" => {
@@ -180,47 +200,40 @@ impl Plot {
                     if let Ok(x_arg) = args[0].parse::<f64>() {
                         x = x_arg;
                     } else {
-                        self.players[player].send_system_message(
-                            "Unable to parse x coordinate!".to_string(),
-                        );
+                        self.players[player]
+                            .send_system_message("Unable to parse x coordinate!".to_string());
                         return;
                     }
                     if let Ok(y_arg) = args[1].parse::<f64>() {
                         y = y_arg;
                     } else {
-                        self.players[player].send_system_message(
-                            "Unable to parse y coordinate!".to_string(),
-                        );
+                        self.players[player]
+                            .send_system_message("Unable to parse y coordinate!".to_string());
                         return;
                     }
                     if let Ok(z_arg) = args[2].parse::<f64>() {
                         z = z_arg;
                     } else {
-                        self.players[player].send_system_message(
-                            "Unable to parse z coordinate!".to_string(),
-                        );
+                        self.players[player]
+                            .send_system_message("Unable to parse z coordinate!".to_string());
                         return;
                     }
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
-                    self.players[player].send_system_message(
-                        "TODO: teleport to player".to_string(),
-                    );
+                    self.players[player]
+                        .send_system_message("TODO: teleport to player".to_string());
                 } else {
                     self.players[player].send_system_message(
-                        "Wrong number of arguments for teleport command!"
-                            .to_string(),
+                        "Wrong number of arguments for teleport command!".to_string(),
                     );
                 }
             }
-            _ => self.players[player]
-                .send_system_message("Command not found!".to_string()),
+            _ => self.players[player].send_system_message("Command not found!".to_string()),
         }
     }
 
     fn handle_packets_for_player(&mut self, player: usize) {
-        let packets: Vec<PacketDecoder> =
-                self.players[player].client.packets.drain(..).collect();
+        let packets: Vec<PacketDecoder> = self.players[player].client.packets.drain(..).collect();
         for packet in packets {
             match packet.packet_id {
                 0x03 => {
@@ -243,9 +256,8 @@ impl Plot {
                 0x05 => {
                     let player = &mut self.players[player];
                     let client_settings = S05ClientSettings::decode(packet).unwrap();
-                    player.skin_parts = SkinParts::from_bits_truncate(
-                        client_settings.displayed_skin_parts as u32,
-                    );
+                    player.skin_parts =
+                        SkinParts::from_bits_truncate(client_settings.displayed_skin_parts as u32);
                     let metadata_entry = C44EntityMetadataEntry {
                         index: 16,
                         metadata_type: 0,
@@ -262,35 +274,130 @@ impl Plot {
                 }
                 0x0F => self.players[player].last_keep_alive_received = Instant::now(),
                 0x11 => {
-                    let player = &mut self.players[player];
                     let player_position = S11PlayerPosition::decode(packet).unwrap();
-                    player.x = player_position.x;
-                    player.y = player_position.y;
-                    player.z = player_position.z;
-                    player.on_ground = player_position.on_ground;
+                    let old_x = self.players[player].x;
+                    let old_y = self.players[player].y;
+                    let old_z = self.players[player].z;
+                    let new_x = player_position.x;
+                    let new_y = player_position.y;
+                    let new_z = player_position.z;
+                    self.players[player].x = player_position.x;
+                    self.players[player].y = player_position.y;
+                    self.players[player].z = player_position.z;
+                    self.players[player].on_ground = player_position.on_ground;
+                    let packet = if (new_x - old_x).abs() > 8f64
+                        || (new_y - old_y).abs() > 8f64
+                        || (new_z - old_z).abs() > 8f64
+                    {
+                        C57EntityTeleport {
+                            entity_id: self.players[player].entity_id as i32,
+                            x: new_x,
+                            y: new_y,
+                            z: new_z,
+                            yaw: self.players[player].yaw,
+                            pitch: self.players[player].pitch,
+                            on_ground: player_position.on_ground,
+                        }.encode()
+                    } else {
+                        let delta_x = ((player_position.x * 32f64 - old_x * 32f64) * 128f64) as i16;
+                        let delta_y = ((player_position.y * 32f64 - old_y * 32f64) * 128f64) as i16;
+                        let delta_z = ((player_position.z * 32f64 - old_z * 32f64) * 128f64) as i16;
+                        C29EntityPosition {
+                            delta_x,
+                            delta_y,
+                            delta_z,
+                            entity_id: self.players[player].entity_id as i32,
+                            on_ground: player_position.on_ground,
+                        }.encode()
+                    };
+                    for other_player in 0..self.players.len() {
+                        if player == other_player { continue };
+                        self.players[other_player].client.send_packet(&packet);
+                    }
                 }
                 0x12 => {
-                    let player = &mut self.players[player];
                     let player_position_and_rotation =
                         S12PlayerPositionAndRotation::decode(packet).unwrap();
-                    player.x = player_position_and_rotation.x;
-                    player.y = player_position_and_rotation.y;
-                    player.z = player_position_and_rotation.z;
-                    player.yaw = player_position_and_rotation.yaw;
-                    player.pitch = player_position_and_rotation.pitch;
-                    player.on_ground = player_position_and_rotation.on_ground;
+                    let old_x = self.players[player].x;
+                    let old_y = self.players[player].y;
+                    let old_z = self.players[player].z;
+                    let new_x = player_position_and_rotation.x;
+                    let new_y = player_position_and_rotation.y;
+                    let new_z = player_position_and_rotation.z;
+                    self.players[player].x = player_position_and_rotation.x;
+                    self.players[player].y = player_position_and_rotation.y;
+                    self.players[player].z = player_position_and_rotation.z;
+                    self.players[player].yaw = player_position_and_rotation.yaw;
+                    self.players[player].pitch = player_position_and_rotation.pitch;
+                    self.players[player].on_ground = player_position_and_rotation.on_ground;
+                    let packet = if (new_x - old_x).abs() > 8f64
+                        || (new_y - old_y).abs() > 8f64
+                        || (new_z - old_z).abs() > 8f64
+                    {
+                        C57EntityTeleport {
+                            entity_id: self.players[player].entity_id as i32,
+                            x: new_x,
+                            y: new_y,
+                            z: new_z,
+                            yaw: self.players[player].yaw,
+                            pitch: self.players[player].pitch,
+                            on_ground: player_position_and_rotation.on_ground,
+                        }.encode()
+                    } else {
+                        let delta_x = ((player_position_and_rotation.x * 32f64 - old_x * 32f64) * 128f64) as i16;
+                        let delta_y = ((player_position_and_rotation.y * 32f64 - old_y * 32f64) * 128f64) as i16;
+                        let delta_z = ((player_position_and_rotation.z * 32f64 - old_z * 32f64) * 128f64) as i16;
+                        C2AEntityPositionAndRotation {
+                            delta_x,
+                            delta_y,
+                            delta_z,
+                            pitch: player_position_and_rotation.pitch,
+                            yaw: player_position_and_rotation.yaw,
+                            entity_id: self.players[player].entity_id as i32,
+                            on_ground: player_position_and_rotation.on_ground,
+                        }.encode()
+                    };
+                    let entity_head_look = C3CEntityHeadLook {
+                        entity_id: self.players[player].entity_id as i32,
+                        yaw: player_position_and_rotation.yaw,
+                    }.encode();
+                    for other_player in 0..self.players.len() {
+                        if player == other_player { continue };
+                        self.players[other_player].client.send_packet(&packet);
+                        self.players[other_player].client.send_packet(&entity_head_look);
+                    }
                 }
                 0x13 => {
-                    let player = &mut self.players[player];
                     let player_rotation = S13PlayerRotation::decode(packet).unwrap();
-                    player.yaw = player_rotation.yaw;
-                    player.pitch = player_rotation.pitch;
-                    player.on_ground = player_rotation.on_ground;
+                    self.players[player].yaw = player_rotation.yaw;
+                    self.players[player].pitch = player_rotation.pitch;
+                    self.players[player].on_ground = player_rotation.on_ground;
+                    let rotation_packet = C2BEntityRotation {
+                        entity_id: self.players[player].entity_id as i32,
+                        yaw: player_rotation.yaw,
+                        pitch: player_rotation.pitch,
+                        on_ground: player_rotation.on_ground
+                    }.encode();
+                    let entity_head_look = C3CEntityHeadLook {
+                        entity_id: self.players[player].entity_id as i32,
+                        yaw: player_rotation.yaw,
+                    }.encode();
+                    for other_player in 0..self.players.len() {
+                        if player == other_player { continue };
+                        self.players[other_player].client.send_packet(&rotation_packet);
+                        self.players[other_player].client.send_packet(&entity_head_look);
+                    }
                 }
                 0x14 => {
-                    let player = &mut self.players[player];
                     let player_movement = S14PlayerMovement::decode(packet).unwrap();
-                    player.on_ground = player_movement.on_ground;
+                    self.players[player].on_ground = player_movement.on_ground;
+                    let packet = C2CEntityMovement {
+                        entity_id: self.players[player].entity_id as i32
+                    }.encode();
+                    for other_player in 0..self.players.len() {
+                        if player == other_player { continue };
+                        self.players[player].client.send_packet(&packet);
+                    }
                 }
                 _ => {}
             }
@@ -298,14 +405,6 @@ impl Plot {
     }
 
     fn update(&mut self) {
-        // Handle messages from the private message channel
-        while let Ok(message) = self.priv_message_receiver.try_recv() {
-            match message {
-                PrivMessage::PlayerEnterPlot(player) => {
-                    self.enter_plot(player);
-                }
-            }
-        }
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
@@ -345,6 +444,14 @@ impl Plot {
                     }
                 }
                 _ => {}
+            }
+        }
+        // Handle messages from the private message channel
+        while let Ok(message) = self.priv_message_receiver.try_recv() {
+            match message {
+                PrivMessage::PlayerEnterPlot(player) => {
+                    self.enter_plot(player);
+                }
             }
         }
         // Only tick if there are players in the plot

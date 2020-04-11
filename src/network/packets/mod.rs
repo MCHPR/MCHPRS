@@ -269,6 +269,10 @@ pub trait PacketEncoderExt: Write {
         self.write_long(long);
     }
 
+    fn write_bool(&mut self, val: bool) {
+        self.write_u8(val as u8).unwrap();
+    }
+
     fn write_nbt_blob(&mut self, blob: nbt::Blob);
 }
 
