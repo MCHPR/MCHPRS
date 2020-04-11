@@ -399,6 +399,38 @@ impl Plot {
                         self.players[player].client.send_packet(&packet);
                     }
                 }
+                0x1B => {
+                    let entity_action = S1BEntityAction::decode(packet).unwrap();
+                    match entity_action.action_id {
+                        0 => self.players[player].crouching = true,
+                        1 => self.players[player].crouching = false,
+                        3 => self.players[player].sprinting = true,
+                        4 => self.players[player].sprinting = false,
+                        _ => {}
+                    }
+                    let mut bitfield = 0;
+                    if self.players[player].crouching { bitfield |= 0x02 };
+                    if self.players[player].sprinting { bitfield |= 0x08 };
+                    let mut metadata_entries = Vec::new();
+                    metadata_entries.push(C44EntityMetadataEntry {
+                        index: 0,
+                        metadata_type: 0,
+                        value: vec![bitfield]
+                    });
+                    metadata_entries.push(C44EntityMetadataEntry {
+                        index: 6,
+                        metadata_type: 18,
+                        value: vec![if self.players[player].crouching { 5 } else { 0 }]
+                    });
+                    let entity_metadata = C44EntityMetadata {
+                        entity_id: self.players[player].entity_id as i32,
+                        metadata: metadata_entries
+                    }.encode();
+                    for other_player in 0..self.players.len() {
+                        if player == other_player { continue };
+                        self.players[other_player].client.send_packet(&entity_metadata);
+                    }
+                }
                 _ => {}
             }
         }

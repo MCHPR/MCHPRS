@@ -169,3 +169,19 @@ impl ServerBoundPacket for S14PlayerMovement {
         })
     }
 }
+
+pub struct S1BEntityAction {
+    pub entity_id: i32,
+    pub action_id: i32,
+    pub jump_boost: i32,
+}
+
+impl ServerBoundPacket for S1BEntityAction {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        Ok(S1BEntityAction {
+            entity_id: decoder.read_varint()?,
+            action_id: decoder.read_varint()?,
+            jump_boost: decoder.read_varint()?,
+        })
+    }
+}
