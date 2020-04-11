@@ -90,6 +90,20 @@ impl ServerBoundPacket for S05ClientSettings {
     }
 }
 
+pub struct S0BPluginMessage {
+    pub channel: String,
+    pub data: Vec<u8>,
+}
+
+impl ServerBoundPacket for S0BPluginMessage {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        Ok(S0BPluginMessage {
+            channel: decoder.read_string()?,
+            data: decoder.read_to_end()?,
+        })
+    }
+}
+
 pub struct S0FKeepAlive {
     pub id: i64,
 }

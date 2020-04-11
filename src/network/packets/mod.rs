@@ -192,6 +192,12 @@ impl PacketDecoder {
         let length = self.read_varint()?;
         Ok(String::from_utf8(self.read_bytes(length as usize)?)?)
     }
+
+    fn read_to_end(&mut self) -> DecodeResult<Vec<u8>> {
+        let mut data = Vec::new();
+        self.buffer.read_to_end(&mut data)?;
+        Ok(data)
+    }
 }
 
 pub trait PacketEncoderExt: Write {

@@ -272,6 +272,10 @@ impl Plot {
                         player.client.send_packet(&entity_metadata);
                     }
                 }
+                0x0B => {
+                    let plugin_message = S0BPluginMessage::decode(packet).unwrap();
+                    dbg!(plugin_message.channel);
+                }
                 0x0F => self.players[player].last_keep_alive_received = Instant::now(),
                 0x11 => {
                     let player_position = S11PlayerPosition::decode(packet).unwrap();
@@ -399,6 +403,9 @@ impl Plot {
                         self.players[player].client.send_packet(&packet);
                     }
                 }
+                0x1A => {
+                    self.players[player].send_system_message("TODO: Player digging".to_string());
+                }
                 0x1B => {
                     let entity_action = S1BEntityAction::decode(packet).unwrap();
                     match entity_action.action_id {
@@ -431,7 +438,12 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_metadata);
                     }
                 }
-                _ => {}
+                0x2C => {
+                    self.players[player].send_system_message("TODO: Player block placement".to_string());
+                }
+                id => {
+                    println!("Unhandled packet: {:02X}", id);
+                }
             }
         }
     }
