@@ -461,6 +461,22 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_metadata);
                     }
                 }
+                0x2A => {
+                    let animation = S2AAnimation::decode(packet).unwrap();
+                    let animation_id = match animation.hand {
+                        0 => 0,
+                        1 => 3,
+                        _ => 0
+                    };
+                    let entity_animation = C06EntityAnimation {
+                        entity_id: self.players[player].entity_id as i32,
+                        animation: animation_id,
+                    }.encode();
+                    for other_player in 0..self.players.len() {
+                        if player == other_player { continue };
+                        self.players[other_player].client.send_packet(&entity_animation);
+                    }
+                }
                 0x2C => {
                     self.players[player].send_system_message("TODO: Player block placement".to_string());
                 }

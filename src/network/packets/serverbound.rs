@@ -199,3 +199,15 @@ impl ServerBoundPacket for S1BEntityAction {
         })
     }
 }
+
+pub struct S2AAnimation {
+    pub hand: i32,
+}
+
+impl ServerBoundPacket for S2AAnimation {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        Ok(S2AAnimation {
+            hand: decoder.read_varint()?,
+        })
+    }
+}

@@ -98,6 +98,20 @@ impl ClientBoundPacket for C05SpawnPlayer {
 
 // Play Packets
 
+pub struct C06EntityAnimation {
+    pub entity_id: i32,
+    pub animation: u8,
+}
+
+impl ClientBoundPacket for C06EntityAnimation {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_unsigned_byte(self.animation);
+        PacketEncoder::new(buf, 0x06)
+    }
+}
+
 pub struct C0CBlockChange {
     pub x: i32,
     pub y: i32,
