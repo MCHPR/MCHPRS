@@ -135,9 +135,9 @@ impl Plot {
             on_ground: player.on_ground,
             pitch: player.pitch,
             yaw: player.yaw,
-            x: player.x,
-            y: player.y,
-            z: player.z,
+            x: dbg!(player.x),
+            y: dbg!(player.y),
+            z: dbg!(player.z),
         }.encode();
         let mut metadata_entries = Vec::new();
         metadata_entries.push(C44EntityMetadataEntry {
@@ -313,9 +313,9 @@ impl Plot {
                     self.players[player].y = player_position.y;
                     self.players[player].z = player_position.z;
                     self.players[player].on_ground = player_position.on_ground;
-                    let packet = if (new_x - old_x).abs() > 8f64
-                        || (new_y - old_y).abs() > 8f64
-                        || (new_z - old_z).abs() > 8f64
+                    let packet = if (new_x - old_x).abs() > 8.0
+                        || (new_y - old_y).abs() > 8.0
+                        || (new_z - old_z).abs() > 8.0
                     {
                         C57EntityTeleport {
                             entity_id: self.players[player].entity_id as i32,
@@ -327,9 +327,9 @@ impl Plot {
                             on_ground: player_position.on_ground,
                         }.encode()
                     } else {
-                        let delta_x = ((player_position.x * 32f64 - old_x * 32f64) * 128f64) as i16;
-                        let delta_y = ((player_position.y * 32f64 - old_y * 32f64) * 128f64) as i16;
-                        let delta_z = ((player_position.z * 32f64 - old_z * 32f64) * 128f64) as i16;
+                        let delta_x = ((player_position.x * 32.0 - old_x * 32.0) * 128.0) as i16;
+                        let delta_y = ((player_position.y * 32.0 - old_y * 32.0) * 128.0) as i16;
+                        let delta_z = ((player_position.z * 32.0 - old_z * 32.0) * 128.0) as i16;
                         C29EntityPosition {
                             delta_x,
                             delta_y,
@@ -358,9 +358,9 @@ impl Plot {
                     self.players[player].yaw = player_position_and_rotation.yaw;
                     self.players[player].pitch = player_position_and_rotation.pitch;
                     self.players[player].on_ground = player_position_and_rotation.on_ground;
-                    let packet = if (new_x - old_x).abs() > 8f64
-                        || (new_y - old_y).abs() > 8f64
-                        || (new_z - old_z).abs() > 8f64
+                    let packet = if (new_x - old_x).abs() > 8.0
+                        || (new_y - old_y).abs() > 8.0
+                        || (new_z - old_z).abs() > 8.0
                     {
                         C57EntityTeleport {
                             entity_id: self.players[player].entity_id as i32,
@@ -372,9 +372,9 @@ impl Plot {
                             on_ground: player_position_and_rotation.on_ground,
                         }.encode()
                     } else {
-                        let delta_x = ((player_position_and_rotation.x * 32f64 - old_x * 32f64) * 128f64) as i16;
-                        let delta_y = ((player_position_and_rotation.y * 32f64 - old_y * 32f64) * 128f64) as i16;
-                        let delta_z = ((player_position_and_rotation.z * 32f64 - old_z * 32f64) * 128f64) as i16;
+                        let delta_x = ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
+                        let delta_y = ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
+                        let delta_z = ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
                         C2AEntityPositionAndRotation {
                             delta_x,
                             delta_y,
