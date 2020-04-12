@@ -1,6 +1,6 @@
 # Minecraft High Performance Redstone Server
 
-A minecraft creative server built for redstone. Each 128x128 plot runs on its own thread, allowing for less lag and better concurrency.
+A minecraft creative server built for redstone. Each 128x128 plot runs on its own thread, allowing for less lag and more concurrency.
 
 ## Installation
 
