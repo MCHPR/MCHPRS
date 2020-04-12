@@ -137,8 +137,20 @@ impl Plot {
             y: player.y,
             z: player.z,
         }.encode();
+        let mut metadata_entries = Vec::new();
+        metadata_entries.push(C44EntityMetadataEntry {
+            index: 16,
+            metadata_type: 0,
+            value: vec![player.skin_parts.bits() as u8]
+        });
+        let metadata = C44EntityMetadata {
+            entity_id: player.entity_id as i32,
+            metadata: metadata_entries
+        }.encode();
         for other_player in &mut self.players {
             other_player.client.send_packet(&spawn_player);
+            other_player.client.send_packet(&metadata);
+
             let spawn_other_player = C05SpawnPlayer {
                 entity_id: other_player.entity_id as i32,
                 uuid: other_player.uuid,
@@ -150,6 +162,18 @@ impl Plot {
                 z: other_player.z,
             }.encode();
             player.client.send_packet(&spawn_other_player);
+
+            let mut other_metadata_entries = Vec::new();
+            other_metadata_entries.push(C44EntityMetadataEntry {
+                index: 16,
+                metadata_type: 0,
+                value: vec![other_player.skin_parts.bits() as u8]
+            });
+            let other_metadata = C44EntityMetadata {
+                entity_id: other_player.entity_id as i32,
+                metadata: other_metadata_entries
+            }.encode();
+            player.client.send_packet(&other_metadata);
         }
         player.send_system_message(format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
