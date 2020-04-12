@@ -88,9 +88,11 @@ impl Plot {
         }
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
             player.send_system_message("First position is outside plot bounds!".to_string());
+            return None;
         }
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
             player.send_system_message("Second position is outside plot bounds!".to_string());
+            return None;
         }
         Some((first_pos, second_pos))
     }
