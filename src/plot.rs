@@ -580,9 +580,16 @@ impl Plot {
             }
         }
         // Remove players outside of the plot
-        for player in out_of_bounds_players {
+        for player_index in out_of_bounds_players {
+            let player = self.players.remove(player_index);
+            let destroy_entities = C38DestroyEntities {
+                entity_ids: vec![player.entity_id as i32],
+            }.encode();
+            for player in &mut self.players {
+                player.client.send_packet(&destroy_entities);
+            }
             let player_leave_plot =
-                Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
+                Message::PlayerLeavePlot(Arc::from(player));
             self.message_sender.send(player_leave_plot).unwrap();
         }
     }

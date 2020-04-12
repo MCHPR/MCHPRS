@@ -495,3 +495,18 @@ impl ClientBoundPacket for C57EntityTeleport {
         PacketEncoder::new(buf, 0x57)
     }
 }
+
+pub struct C38DestroyEntities {
+    pub entity_ids: Vec<i32>,
+}
+
+impl ClientBoundPacket for C38DestroyEntities {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_ids.len() as i32);
+        for entity_id in self.entity_ids {
+            buf.write_varint(entity_id);
+        }
+        PacketEncoder::new(buf, 0x38)
+    }
+}
