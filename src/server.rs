@@ -208,7 +208,6 @@ impl MinecraftServer {
                     self.broadcaster.broadcast(Message::Chat(chat));
                 }
                 Message::PlayerLeavePlot(player_arc) => {
-                    println!("Player moving into new plot");
                     let player = Arc::try_unwrap(player_arc).unwrap();
                     let plot_x = (player.x as i32) >> 7;
                     let plot_z = (player.z as i32) >> 7;
@@ -218,7 +217,6 @@ impl MinecraftServer {
                         .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
                     self.update_player_entry(player.uuid, plot_x, plot_z);
                     if !plot_loaded {
-                        println!("Loading plot with initial player");
                         let (priv_tx, priv_rx) = mpsc::channel();
                         Plot::load_and_run(
                             plot_x,
@@ -235,7 +233,6 @@ impl MinecraftServer {
                             priv_message_sender: priv_tx,
                         });
                     } else {
-                        println!("Sending player to plot");
                         let plot_list_entry = self
                             .running_plots
                             .iter()

@@ -179,7 +179,6 @@ impl Plot {
         }
         player.send_system_message(format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
-
     }
 
     /// Blocks the thread until the arc has no other strong references,
@@ -557,12 +556,16 @@ impl Plot {
         for player in 0..self.players.len() {
             self.handle_packets_for_player(player);
         }
-        // Check if connection to player is still active
+
         let message_sender = &mut self.message_sender;
+        let mut dead_entity_ids = Vec::new();
+
+        // Check if connection to player is still active
         self.players.retain(|player| {
             let alive = player.client.alive;
             if !alive {
                 player.save();
+                dead_entity_ids.push(player.entity_id as i32);
                 message_sender
                     .send(Message::PlayerLeft(player.uuid))
                     .unwrap();
@@ -584,15 +587,19 @@ impl Plot {
         // Remove players outside of the plot
         for player_index in out_of_bounds_players {
             let player = self.players.remove(player_index);
+            dead_entity_ids.push(player.entity_id as i32);
+            let player_leave_plot =
+                Message::PlayerLeavePlot(Arc::from(player));
+            self.message_sender.send(player_leave_plot).unwrap();
+        }
+
+        if !dead_entity_ids.is_empty() {
             let destroy_entities = C38DestroyEntities {
-                entity_ids: vec![player.entity_id as i32],
+                entity_ids: dead_entity_ids,
             }.encode();
             for player in &mut self.players {
                 player.client.send_packet(&destroy_entities);
             }
-            let player_leave_plot =
-                Message::PlayerLeavePlot(Arc::from(player));
-            self.message_sender.send(player_leave_plot).unwrap();
         }
     }
 
