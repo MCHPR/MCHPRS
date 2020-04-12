@@ -269,7 +269,7 @@ impl MinecraftServer {
                             {
                                 let disconnect = C00DisconnectLogin {
                                     reason: json!({
-                                        "text": "Version mismatch, pleast use version 1.15.2"
+                                        "text": "Version mismatch, I'm on 1.15.2!"
                                     })
                                     .to_string(),
                                 }

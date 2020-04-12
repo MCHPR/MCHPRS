@@ -138,7 +138,6 @@ impl Plot {
             z: player.z,
         }.encode();
         for other_player in &mut self.players {
-            dbg!(other_player.uuid);
             other_player.client.send_packet(&spawn_player);
             let spawn_other_player = C05SpawnPlayer {
                 entity_id: other_player.entity_id as i32,
