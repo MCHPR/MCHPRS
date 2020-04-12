@@ -568,6 +568,7 @@ impl Plot {
             alive
         });
         // Check if a player has left the plot
+        let mut out_of_bounds_players = Vec::new();
         for player in 0..self.players.len() {
             if !Plot::in_plot_bounds(
                 self.x,
@@ -575,10 +576,14 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
-                let player_leave_plot =
-                    Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
-                self.message_sender.send(player_leave_plot).unwrap();
+                out_of_bounds_players.push(player);
             }
+        }
+        // Remove players outside of the plot
+        for player in out_of_bounds_players {
+            let player_leave_plot =
+                Message::PlayerLeavePlot(Arc::from(self.players.remove(player)));
+            self.message_sender.send(player_leave_plot).unwrap();
         }
     }
 
