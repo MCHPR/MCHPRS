@@ -675,7 +675,7 @@ impl Plot {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
-            .open(format!("./world/plots/p{}:{}", self.x, self.z))
+            .open(format!("./world/plots/p{},{}", self.x, self.z))
             .unwrap();
         let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
@@ -710,7 +710,7 @@ impl Plot {
     ) {
         let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
         thread::Builder::new()
-            .name(format!("p{}:{}", x, z))
+            .name(format!("p{},{}", x, z))
             .spawn(move || {
                 plot.run(initial_player);
             })
