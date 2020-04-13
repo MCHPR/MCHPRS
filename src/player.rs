@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
 use std::fs::{self, OpenOptions};
-use std::io::Cursor;
+use std::io::{Write, Cursor};
 use std::time::{Instant, SystemTime};
 
 pub struct SlotData {
@@ -120,7 +120,7 @@ impl Player {
     pub fn load_player(uuid: u128, username: String, client: NetworkClient) -> Player {
         if let Ok(data) = fs::read(format!("./world/players/{:032x}", uuid)) {
             // TODO: Handle format error
-            let player_data: PlayerData = nbt::from_reader(Cursor::new(data)).unwrap();
+            let player_data: PlayerData = bincode::deserialize(&data).unwrap();
 
             let mut inventory: Vec<Option<Item>> = vec![];
             inventory.resize_with(46, || None);
@@ -210,22 +210,18 @@ impl Player {
                 })
             }
         }
-        nbt::to_writer(
-            &mut file,
-            &PlayerData {
-                fly_speed: self.fly_speed,
-                flying: self.flying,
-                inventory,
-                motion: vec![0f64, 0f64, 0f64],
-                on_ground: self.on_ground,
-                position: vec![self.x, self.y, self.z],
-                rotation: vec![self.pitch, self.yaw],
-                selected_item_slot: self.selected_slot as i32,
-                walk_speed: self.walk_speed,
-            },
-            None,
-        )
-        .unwrap();
+        let data = bincode::serialize(&PlayerData {
+            fly_speed: self.fly_speed,
+            flying: self.flying,
+            inventory,
+            motion: vec![0f64, 0f64, 0f64],
+            on_ground: self.on_ground,
+            position: vec![self.x, self.y, self.z],
+            rotation: vec![self.pitch, self.yaw],
+            selected_item_slot: self.selected_slot as i32,
+            walk_speed: self.walk_speed,
+        }).unwrap();
+        file.write_all(&data).unwrap();
     }
 
     pub fn update(&mut self) {
