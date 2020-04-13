@@ -198,6 +198,15 @@ impl PacketDecoder {
         self.buffer.read_to_end(&mut data)?;
         Ok(data)
     }
+
+    fn read_position(&mut self) -> DecodeResult<(i32, i32, i32)> {
+        let val: i64 = self.read_long()?;
+        let x = val >> 38;
+        let mut y = val & 0xFFF;
+        if y >= 0x800 { y -= 0x1000 }
+        let z = val << 26 >> 38;
+        Ok((x as i32, y as i32, z as i32))
+    }
 }
 
 pub trait PacketEncoderExt: Write {

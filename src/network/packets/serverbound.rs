@@ -184,6 +184,28 @@ impl ServerBoundPacket for S14PlayerMovement {
     }
 }
 
+pub struct S1APlayerDigging {
+    pub status: i32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub face: i8
+}
+
+impl ServerBoundPacket for S1APlayerDigging {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        let status = decoder.read_varint()?;
+        let location = decoder.read_position()?;
+        let face = decoder.read_byte()?;
+        Ok(S1APlayerDigging {
+            x: location.0,
+            y: location.1,
+            z: location.2,
+            status, face
+        })
+    }
+}
+
 pub struct S1BEntityAction {
     pub entity_id: i32,
     pub action_id: i32,
@@ -208,6 +230,40 @@ impl ServerBoundPacket for S2AAnimation {
     fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
         Ok(S2AAnimation {
             hand: decoder.read_varint()?,
+        })
+    }
+}
+
+pub struct S2CPlayerBlockPlacemnt {
+    pub hand: i32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub face: i32,
+    pub cursor_x: f32,
+    pub cursor_y: f32,
+    pub cursor_z: f32,
+    pub inside_block: bool,
+}
+
+impl ServerBoundPacket for S2CPlayerBlockPlacemnt {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        let hand = decoder.read_varint()?;
+        let location = decoder.read_position()?;
+        let face = decoder.read_varint()?;
+        let cursor_x = decoder.read_float()?;
+        let cursor_y = decoder.read_float()?;
+        let cursor_z = decoder.read_float()?;
+        let inside_block = decoder.read_bool()?;
+        Ok(S2CPlayerBlockPlacemnt {
+            x: location.0,
+            y: location.1,
+            z: location.2,
+            hand, face,
+            cursor_x,
+            cursor_y,
+            cursor_z,
+            inside_block
         })
     }
 }
