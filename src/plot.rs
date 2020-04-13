@@ -271,7 +271,7 @@ impl Plot {
                     } else {
                         let player = &self.players[player];
                         let broadcast_message = Message::Chat(
-                            json!({ "text": format!("{}: {}", player.username, message) })
+                            json!({ "text": format!("<{}> {}", player.username, message) })
                                 .to_string(),
                         );
                         self.message_sender.send(broadcast_message).unwrap();
