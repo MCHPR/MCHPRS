@@ -16,6 +16,7 @@ use serde_json::json;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
+use std::fs;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicated when a player joins, leaves, or moves into another plot,
@@ -74,6 +75,8 @@ pub struct MinecraftServer {
 impl MinecraftServer {
     pub fn run() {
         println!("Starting server...");
+        fs::create_dir_all("./world/players").unwrap();
+        fs::create_dir_all("./world/plots").unwrap();
         let mut config = config::Config::default();
         config
             .merge(config::File::with_name("Config"))
