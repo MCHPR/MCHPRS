@@ -21,6 +21,7 @@ pub struct InventoryEntry {
     slot: i8,
     count: i8,
     damage: i16,
+    nbt: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -54,6 +55,7 @@ pub struct Item {
     id: String,
     count: u8,
     damage: u16,
+    nbt: Option<nbt::Blob>,
 }
 
 pub struct Player {
@@ -125,10 +127,14 @@ impl Player {
             let mut inventory: Vec<Option<Item>> = vec![];
             inventory.resize_with(46, || None);
             for entry in player_data.inventory {
+                let nbt = entry.nbt.map(|data| {
+                    nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap()
+                });
                 inventory[entry.slot as usize] = Some(Item {
                     id: entry.id,
                     count: entry.count as u8,
                     damage: entry.damage as u16,
+                    nbt
                 });
             }
             Player {
@@ -202,11 +208,17 @@ impl Player {
         let mut inventory: Vec<InventoryEntry> = Vec::new();
         for (slot, item_option) in self.inventory.iter().enumerate() {
             if let Some(item) = item_option {
+                let nbt = item.nbt.clone().map(|blob| {
+                    let mut data = Vec::new();
+                    blob.to_writer(&mut data).unwrap();
+                    data
+                });
                 inventory.push(InventoryEntry {
                     count: item.count as i8,
                     id: item.id.clone(),
                     damage: item.damage as i16,
                     slot: slot as i8,
+                    nbt
                 })
             }
         }
@@ -293,7 +305,7 @@ impl Player {
         self.send_raw_chat(json!({ "text": message }).to_string());
     }
 
-    pub fn send_system_message(&mut self, message: String) {
+    pub fn send_system_message(&mut self, message: &str) {
         self.send_raw_system_message(
             json!({
                 "text": message,
