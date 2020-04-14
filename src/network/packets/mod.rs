@@ -2,10 +2,16 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use std::io::{self, Cursor, Read, Write};
+use std::io::{self, Cursor, Read, Write, Seek, SeekFrom};
 
 pub mod clientbound;
 pub mod serverbound;
+
+pub struct SlotData {
+    item_id: i32,
+    item_count: i8,
+    nbt: Option<nbt::Blob>,
+}
 
 pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
 pub type EncodeResult<T> = std::result::Result<T, PacketEncodeError>;
@@ -14,6 +20,13 @@ pub type EncodeResult<T> = std::result::Result<T, PacketEncodeError>;
 pub enum PacketDecodeError {
     IoError(io::Error),
     FromUtf8Error(std::string::FromUtf8Error),
+    NbtError(nbt::Error),
+}
+
+impl From<nbt::Error> for PacketDecodeError {
+    fn from(err: nbt::Error) -> PacketDecodeError {
+        PacketDecodeError::NbtError(err)
+    }
 }
 
 impl From<io::Error> for PacketDecodeError {
@@ -206,6 +219,14 @@ impl PacketDecoder {
         if y >= 0x800 { y -= 0x1000 }
         let z = val << 26 >> 38;
         Ok((x as i32, y as i32, z as i32))
+    }
+
+    fn read_nbt_blob(&mut self) -> DecodeResult<Option<nbt::Blob>> {
+        if self.buffer.read_u8()? == 0x00 {
+            return Ok(None);
+        }
+        self.buffer.seek(SeekFrom::Current(-1))?;
+        Ok(Some(nbt::Blob::from_reader(&mut self.buffer)?))
     }
 }
 
