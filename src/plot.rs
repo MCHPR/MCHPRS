@@ -77,21 +77,21 @@ impl Plot {
         if let Some(pos) = player.first_position {
             first_pos = pos;
         } else {
-            player.send_system_message("First position is not set!".to_string());
+            player.send_system_message("First position is not set!");
             return None;
         }
         if let Some(pos) = player.second_position {
             second_pos = pos;
         } else {
-            player.send_system_message("Second position is not set!".to_string());
+            player.send_system_message("Second position is not set!");
             return None;
         }
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
-            player.send_system_message("First position is outside plot bounds!".to_string());
+            player.send_system_message("First position is outside plot bounds!");
             return None;
         }
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
-            player.send_system_message("Second position is outside plot bounds!".to_string());
+            player.send_system_message("Second position is outside plot bounds!");
             return None;
         }
         Some((first_pos, second_pos))
@@ -177,7 +177,7 @@ impl Plot {
             }.encode();
             player.client.send_packet(&other_metadata);
         }
-        player.send_system_message(format!("Entering plot ({}, {})", self.x, self.z));
+        player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
     }
 
@@ -212,7 +212,7 @@ impl Plot {
                     self.worldedit_set(player, block);
                 } else {
                     self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported.".to_string(),
+                        "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
@@ -225,34 +225,34 @@ impl Plot {
                         x = x_arg;
                     } else {
                         self.players[player]
-                            .send_system_message("Unable to parse x coordinate!".to_string());
+                            .send_system_message("Unable to parse x coordinate!");
                         return;
                     }
                     if let Ok(y_arg) = args[1].parse::<f64>() {
                         y = y_arg;
                     } else {
                         self.players[player]
-                            .send_system_message("Unable to parse y coordinate!".to_string());
+                            .send_system_message("Unable to parse y coordinate!");
                         return;
                     }
                     if let Ok(z_arg) = args[2].parse::<f64>() {
                         z = z_arg;
                     } else {
                         self.players[player]
-                            .send_system_message("Unable to parse z coordinate!".to_string());
+                            .send_system_message("Unable to parse z coordinate!");
                         return;
                     }
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     self.players[player]
-                        .send_system_message("TODO: teleport to player".to_string());
+                        .send_system_message("TODO: teleport to player");
                 } else {
                     self.players[player].send_system_message(
-                        "Wrong number of arguments for teleport command!".to_string(),
+                        "Wrong number of arguments for teleport command!",
                     );
                 }
             }
-            _ => self.players[player].send_system_message("Command not found!".to_string()),
+            _ => self.players[player].send_system_message("Command not found!"),
         }
     }
 
@@ -428,7 +428,7 @@ impl Plot {
                     }
                 }
                 0x1A => {
-                    self.players[player].send_system_message("TODO: Player digging".to_string());
+                    self.players[player].send_system_message("TODO: Player digging");
                 }
                 0x1B => {
                     let entity_action = S1BEntityAction::decode(packet).unwrap();
@@ -479,7 +479,7 @@ impl Plot {
                     }
                 }
                 0x2C => {
-                    self.players[player].send_system_message("TODO: Player block placement".to_string());
+                    self.players[player].send_system_message("TODO: Player block placement");
                 }
                 id => {
                     println!("Unhandled packet: {:02X}", id);
@@ -723,7 +723,9 @@ impl Drop for Plot {
         if !self.players.is_empty() {
             // TODO: send all players to spawn and send them message along the lines of:
             // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
-            for _player in &self.players {}
+            for player in &mut self.players {
+                player.send_system_message("The plot you were previously in has crashed!");
+            }
         }
         self.save();
         self.message_sender
