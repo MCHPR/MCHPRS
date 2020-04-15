@@ -424,13 +424,27 @@ impl Plot {
                     }.encode();
                     for other_player in 0..self.players.len() {
                         if player == other_player { continue };
-                        self.players[player].client.send_packet(&packet);
+                        self.players[other_player].client.send_packet(&packet);
                     }
                 }
                 0x1A => {
                     let player_digging = S1APlayerDigging::decode(packet).unwrap();
                     if player_digging.status == 0 {
+                        let other_block = self.get_block(player_digging.x, player_digging.y as u32, player_digging.z);
                         self.set_block(player_digging.x, player_digging.y as u32, player_digging.z, Block::Air);
+
+                        let effect = C23Effect {
+                            effect_id: 2001,
+                            x: player_digging.x,
+                            y: player_digging.y,
+                            z: player_digging.z,
+                            data: other_block.get_id() as i32,
+                            disable_relative_volume: false,
+                        }.encode();
+                        for other_player in 0..self.players.len() {
+                            if player == other_player { continue };
+                            self.players[other_player].client.send_packet(&effect);
+                        }
                     }
                 }
                 0x1B => {

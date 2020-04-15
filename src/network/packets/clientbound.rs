@@ -262,6 +262,26 @@ impl ClientBoundPacket for C22ChunkData {
     }
 }
 
+pub struct C23Effect {
+    pub effect_id: i32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub data: i32,
+    pub disable_relative_volume: bool,
+}
+
+impl ClientBoundPacket for C23Effect {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_int(self.effect_id);
+        buf.write_position(self.x, self.y, self.z);
+        buf.write_int(self.data);
+        buf.write_bool(self.disable_relative_volume);
+        PacketEncoder::new(buf, 0x23)
+    }
+}
+
 pub struct C26JoinGame {
     pub entity_id: i32,
     pub gamemode: u8,
