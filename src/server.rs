@@ -1,7 +1,6 @@
 use crate::network::packets::clientbound::{
-    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression,
+    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C15WindowItems,
     C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
-    C15WindowItems,
     C36PlayerPositionAndLook, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
@@ -10,14 +9,14 @@ use crate::network::packets::serverbound::{
 use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
-use crate::player::{Player, Item};
+use crate::player::{Item, Player};
 use crate::plot::Plot;
 use bus::{Bus, BusReader};
 use serde_json::json;
+use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::time::Duration;
-use std::fs;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicate when a player joins, leaves, or moves into another plot,
@@ -395,19 +394,23 @@ impl MinecraftServer {
                             let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
                             player.client.send_packet(&player_info);
 
-                            let slot_data: Vec<Option<SlotData>> = player.inventory.iter().map(|op| op.as_ref().map(|item| {
-                                SlotData {
-                                    item_count: item.count as i8,
-                                    item_id: item.id as i32,
-                                    nbt: item.nbt.clone(),
-                                }
-                            })).collect();
+                            let slot_data: Vec<Option<SlotData>> = player
+                                .inventory
+                                .iter()
+                                .map(|op| {
+                                    op.as_ref().map(|item| SlotData {
+                                        item_count: item.count as i8,
+                                        item_id: item.id as i32,
+                                        nbt: item.nbt.clone(),
+                                    })
+                                })
+                                .collect();
                             let window_items = C15WindowItems {
                                 window_id: 0,
-                                slot_data
-                            }.encode();
+                                slot_data,
+                            }
+                            .encode();
                             player.client.send_packet(&window_items);
-
 
                             self.plot_sender
                                 .send(Message::PlayerJoined(Arc::new(player)))

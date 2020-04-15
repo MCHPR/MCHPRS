@@ -2,7 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use std::io::{self, Cursor, Read, Write, Seek, SeekFrom};
+use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 
 pub mod clientbound;
 pub mod serverbound;
@@ -43,7 +43,7 @@ impl From<std::string::FromUtf8Error> for PacketDecodeError {
 }
 
 #[derive(Debug)]
-enum PacketEncodeError {}
+pub enum PacketEncodeError {}
 
 pub struct PacketDecoder {
     buffer: Cursor<Vec<u8>>,
@@ -217,7 +217,9 @@ impl PacketDecoder {
         let val: i64 = self.read_long()?;
         let x = val >> 38;
         let mut y = val & 0xFFF;
-        if y >= 0x800 { y -= 0x1000 }
+        if y >= 0x800 {
+            y -= 0x1000
+        }
         let z = val << 26 >> 38;
         Ok((x as i32, y as i32, z as i32))
     }

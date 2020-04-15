@@ -189,7 +189,7 @@ pub struct S1APlayerDigging {
     pub x: i32,
     pub y: i32,
     pub z: i32,
-    pub face: i8
+    pub face: i8,
 }
 
 impl ServerBoundPacket for S1APlayerDigging {
@@ -201,7 +201,8 @@ impl ServerBoundPacket for S1APlayerDigging {
             x: location.0,
             y: location.1,
             z: location.2,
-            status, face
+            status,
+            face,
         })
     }
 }
@@ -259,11 +260,12 @@ impl ServerBoundPacket for S2CPlayerBlockPlacemnt {
             x: location.0,
             y: location.1,
             z: location.2,
-            hand, face,
+            hand,
+            face,
             cursor_x,
             cursor_y,
             cursor_z,
-            inside_block
+            inside_block,
         })
     }
 }
@@ -275,14 +277,14 @@ pub struct S23HeldItemChange {
 impl ServerBoundPacket for S23HeldItemChange {
     fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
         Ok(S23HeldItemChange {
-            slot: decoder.read_short()?
+            slot: decoder.read_short()?,
         })
     }
 }
 
 pub struct S26CreativeInventoryAction {
     pub slot: i16,
-    pub clicked_item: Option<SlotData>
+    pub clicked_item: Option<SlotData>,
 }
 
 impl ServerBoundPacket for S26CreativeInventoryAction {
@@ -294,9 +296,9 @@ impl ServerBoundPacket for S26CreativeInventoryAction {
                 item_count: decoder.read_byte()?,
                 nbt: decoder.read_nbt_blob()?,
             })
-        } else { None };
-        Ok(S26CreativeInventoryAction {
-            slot, clicked_item
-        })
+        } else {
+            None
+        };
+        Ok(S26CreativeInventoryAction { slot, clicked_item })
     }
 }

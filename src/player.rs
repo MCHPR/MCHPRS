@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
 use std::fs::{self, OpenOptions};
-use std::io::{Write, Cursor};
+use std::io::{Cursor, Write};
 use std::time::{Instant, SystemTime};
 
 pub struct SlotData {
@@ -127,14 +127,14 @@ impl Player {
             let mut inventory: Vec<Option<Item>> = vec![];
             inventory.resize_with(46, || None);
             for entry in player_data.inventory {
-                let nbt = entry.nbt.map(|data| {
-                    nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap()
-                });
+                let nbt = entry
+                    .nbt
+                    .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
                 inventory[entry.slot as usize] = Some(Item {
                     id: entry.id,
                     count: entry.count as u8,
                     damage: entry.damage as u16,
-                    nbt
+                    nbt,
                 });
             }
             Player {
@@ -218,7 +218,7 @@ impl Player {
                     id: item.id.clone(),
                     damage: item.damage as i16,
                     slot: slot as i8,
-                    nbt
+                    nbt,
                 })
             }
         }
@@ -232,7 +232,8 @@ impl Player {
             rotation: vec![self.pitch, self.yaw],
             selected_item_slot: self.selected_slot as i32,
             walk_speed: self.walk_speed,
-        }).unwrap();
+        })
+        .unwrap();
         file.write_all(&data).unwrap();
     }
 

@@ -19,7 +19,7 @@ impl From<u32> for RedstoneWireSide {
 }
 
 impl RedstoneWireSide {
-    fn get_id(&self) -> u32 {
+    fn get_id(self) -> u32 {
         match self {
             RedstoneWireSide::Up => 0,
             RedstoneWireSide::Side => 1,
@@ -59,7 +59,8 @@ impl RedstoneWire {
 pub enum Block {
     Air,
     RedstoneWire(RedstoneWire),
-    Unknown(u32),
+    Solid(u32),
+    Transparent(u32),
 }
 
 impl Block {
@@ -79,11 +80,11 @@ impl Block {
                 let east = RedstoneWireSide::from(id / 432);
                 Block::RedstoneWire(RedstoneWire::new(north, south, east, west, power as u8))
             }
-            _ => Block::Unknown(id),
+            _ => Block::Solid(id),
         }
     }
 
-    pub fn get_id(&self) -> u32 {
+    pub fn get_id(self) -> u32 {
         match self {
             Block::Air => 0,
             Block::RedstoneWire(wire) => {
@@ -93,14 +94,16 @@ impl Block {
                     + wire.south.get_id() * 3
                     + wire.west.get_id()
             }
-            Block::Unknown(id) => *id,
+            Block::Solid(id) => id,
+            Block::Transparent(id) => id,
         }
     }
 
     pub fn from_name(name: &str) -> Option<Block> {
         match name {
             "air" => Some(Block::Air),
-            "sandstone" => Some(Block::Unknown(245)),
+            "glass" => Some(Block::Transparent(230)),
+            "sandstone" => Some(Block::Solid(245)),
             _ => None,
         }
     }
