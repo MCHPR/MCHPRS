@@ -428,7 +428,10 @@ impl Plot {
                     }
                 }
                 0x1A => {
-                    self.players[player].send_system_message("TODO: Player digging");
+                    let player_digging = S1APlayerDigging::decode(packet).unwrap();
+                    if player_digging.status == 0 {
+                        self.set_block(player_digging.x, player_digging.y as u32, player_digging.z, Block::Air);
+                    }
                 }
                 0x1B => {
                     let entity_action = S1BEntityAction::decode(packet).unwrap();
