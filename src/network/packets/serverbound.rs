@@ -1,4 +1,4 @@
-use super::{DecodeResult, PacketDecoder};
+use super::{DecodeResult, PacketDecoder, SlotData};
 
 pub trait ServerBoundPacket {
     fn decode(decoder: PacketDecoder) -> DecodeResult<Self>
@@ -264,6 +264,39 @@ impl ServerBoundPacket for S2CPlayerBlockPlacemnt {
             cursor_y,
             cursor_z,
             inside_block
+        })
+    }
+}
+
+pub struct S23HeldItemChange {
+    pub slot: i16,
+}
+
+impl ServerBoundPacket for S23HeldItemChange {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        Ok(S23HeldItemChange {
+            slot: decoder.read_short()?
+        })
+    }
+}
+
+pub struct S26CreativeInventoryAction {
+    pub slot: i16,
+    pub clicked_item: Option<SlotData>
+}
+
+impl ServerBoundPacket for S26CreativeInventoryAction {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        let slot = decoder.read_short()?;
+        let clicked_item = if decoder.read_bool()? {
+            Some(SlotData {
+                item_id: decoder.read_varint()?,
+                item_count: decoder.read_byte()?,
+                nbt: decoder.read_nbt_blob()?,
+            })
+        } else { None };
+        Ok(S26CreativeInventoryAction {
+            slot, clicked_item
         })
     }
 }

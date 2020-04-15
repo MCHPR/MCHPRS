@@ -2,7 +2,7 @@ use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::{PacketDecoder, PacketEncoder};
-use crate::player::{Player, SkinParts};
+use crate::player::{Player, SkinParts, Item};
 use crate::server::{Message, PrivMessage};
 use bus::BusReader;
 use serde::{Deserialize, Serialize};
@@ -77,21 +77,21 @@ impl Plot {
         if let Some(pos) = player.first_position {
             first_pos = pos;
         } else {
-            player.send_system_message("First position is not set!".to_string());
+            player.send_system_message("First position is not set!");
             return None;
         }
         if let Some(pos) = player.second_position {
             second_pos = pos;
         } else {
-            player.send_system_message("Second position is not set!".to_string());
+            player.send_system_message("Second position is not set!");
             return None;
         }
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
-            player.send_system_message("First position is outside plot bounds!".to_string());
+            player.send_system_message("First position is outside plot bounds!");
             return None;
         }
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
-            player.send_system_message("Second position is outside plot bounds!".to_string());
+            player.send_system_message("Second position is outside plot bounds!");
             return None;
         }
         Some((first_pos, second_pos))
@@ -177,7 +177,7 @@ impl Plot {
             }.encode();
             player.client.send_packet(&other_metadata);
         }
-        player.send_system_message(format!("Entering plot ({}, {})", self.x, self.z));
+        player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
     }
 
@@ -212,7 +212,7 @@ impl Plot {
                     self.worldedit_set(player, block);
                 } else {
                     self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported.".to_string(),
+                        "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
@@ -225,34 +225,34 @@ impl Plot {
                         x = x_arg;
                     } else {
                         self.players[player]
-                            .send_system_message("Unable to parse x coordinate!".to_string());
+                            .send_system_message("Unable to parse x coordinate!");
                         return;
                     }
                     if let Ok(y_arg) = args[1].parse::<f64>() {
                         y = y_arg;
                     } else {
                         self.players[player]
-                            .send_system_message("Unable to parse y coordinate!".to_string());
+                            .send_system_message("Unable to parse y coordinate!");
                         return;
                     }
                     if let Ok(z_arg) = args[2].parse::<f64>() {
                         z = z_arg;
                     } else {
                         self.players[player]
-                            .send_system_message("Unable to parse z coordinate!".to_string());
+                            .send_system_message("Unable to parse z coordinate!");
                         return;
                     }
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     self.players[player]
-                        .send_system_message("TODO: teleport to player".to_string());
+                        .send_system_message("TODO: teleport to player");
                 } else {
                     self.players[player].send_system_message(
-                        "Wrong number of arguments for teleport command!".to_string(),
+                        "Wrong number of arguments for teleport command!",
                     );
                 }
             }
-            _ => self.players[player].send_system_message("Command not found!".to_string()),
+            _ => self.players[player].send_system_message("Command not found!"),
         }
     }
 
@@ -260,6 +260,7 @@ impl Plot {
         let packets: Vec<PacketDecoder> = self.players[player].client.packets.drain(..).collect();
         for packet in packets {
             match packet.packet_id {
+                // Chat Message
                 0x03 => {
                     //let player = &mut self.players[player];
                     let chat_message = S03ChatMessage::decode(packet).unwrap();
@@ -277,6 +278,7 @@ impl Plot {
                         self.message_sender.send(broadcast_message).unwrap();
                     }
                 }
+                // Client Settings
                 0x05 => {
                     let player = &mut self.players[player];
                     let client_settings = S05ClientSettings::decode(packet).unwrap();
@@ -296,11 +298,14 @@ impl Plot {
                         player.client.send_packet(&entity_metadata);
                     }
                 }
+                // Click Window Button
                 0x0B => {
                     let plugin_message = S0BPluginMessage::decode(packet).unwrap();
                     dbg!(plugin_message.channel);
                 }
+                // Keep Alive
                 0x0F => self.players[player].last_keep_alive_received = Instant::now(),
+                // Player Position
                 0x11 => {
                     let player_position = S11PlayerPosition::decode(packet).unwrap();
                     let old_x = self.players[player].x;
@@ -343,6 +348,7 @@ impl Plot {
                         self.players[other_player].client.send_packet(&packet);
                     }
                 }
+                // Player Position And Rotation
                 0x12 => {
                     let player_position_and_rotation =
                         S12PlayerPositionAndRotation::decode(packet).unwrap();
@@ -395,6 +401,7 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_head_look);
                     }
                 }
+                // Player Rotation
                 0x13 => {
                     let player_rotation = S13PlayerRotation::decode(packet).unwrap();
                     self.players[player].yaw = player_rotation.yaw;
@@ -416,6 +423,7 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_head_look);
                     }
                 }
+                // Player Movement
                 0x14 => {
                     let player_movement = S14PlayerMovement::decode(packet).unwrap();
                     self.players[player].on_ground = player_movement.on_ground;
@@ -424,12 +432,31 @@ impl Plot {
                     }.encode();
                     for other_player in 0..self.players.len() {
                         if player == other_player { continue };
-                        self.players[player].client.send_packet(&packet);
+                        self.players[other_player].client.send_packet(&packet);
                     }
                 }
+                // Player Digging
                 0x1A => {
-                    self.players[player].send_system_message("TODO: Player digging".to_string());
+                    let player_digging = S1APlayerDigging::decode(packet).unwrap();
+                    if player_digging.status == 0 {
+                        let other_block = self.get_block(player_digging.x, player_digging.y as u32, player_digging.z);
+                        self.set_block(player_digging.x, player_digging.y as u32, player_digging.z, Block::Air);
+
+                        let effect = C23Effect {
+                            effect_id: 2001,
+                            x: player_digging.x,
+                            y: player_digging.y,
+                            z: player_digging.z,
+                            data: other_block.get_id() as i32,
+                            disable_relative_volume: false,
+                        }.encode();
+                        for other_player in 0..self.players.len() {
+                            if player == other_player { continue };
+                            self.players[other_player].client.send_packet(&effect);
+                        }
+                    }
                 }
+                // Entity Action
                 0x1B => {
                     let entity_action = S1BEntityAction::decode(packet).unwrap();
                     match entity_action.action_id {
@@ -462,6 +489,28 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_metadata);
                     }
                 }
+                // Held Item Change
+                0x23 => {
+                    let held_item_change = S23HeldItemChange::decode(packet).unwrap();
+                    self.players[player].selected_slot = held_item_change.slot as u32;
+                }
+                // Creative Inventory Action
+                0x26 => {
+                    let creative_inventory_action = S26CreativeInventoryAction::decode(packet).unwrap();
+                    if let Some(slot_data) = creative_inventory_action.clicked_item {
+                        let item = Item {
+                            count: slot_data.item_count as u8,
+                            damage: 0,
+                            id: slot_data.item_id as u32,
+                            nbt: slot_data.nbt,
+                        };
+                        self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
+                    } else {
+                        self.players[player].inventory[creative_inventory_action.slot as usize] = None;
+                    }
+                    //println!("{:?}", creative_inventory_action.clicked_item);
+                }
+                // Animation
                 0x2A => {
                     let animation = S2AAnimation::decode(packet).unwrap();
                     let animation_id = match animation.hand {
@@ -478,8 +527,29 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_animation);
                     }
                 }
+                // Player Block Placement
                 0x2C => {
-                    self.players[player].send_system_message("TODO: Player block placement".to_string());
+                    let mut player_block_placment = S2CPlayerBlockPlacemnt::decode(packet).unwrap();
+                    
+                    if player_block_placment.hand == 0 {
+                        match player_block_placment.face {
+                            // Bottom
+                            0 => { player_block_placment.y -= 1 }
+                            // Top
+                            1 => { player_block_placment.y += 1 }
+                            // North
+                            2 => { player_block_placment.z -= 1 }
+                            // South
+                            3 => { player_block_placment.z += 1 }
+                            // West
+                            4 => { player_block_placment.x -= 1 }
+                            // East
+                            5 => { player_block_placment.x += 1 }
+                            _ => { return }
+                        }
+
+                        self.set_block(player_block_placment.x, player_block_placment.y as u32, player_block_placment.z, Block::Unknown(245));
+                    }
                 }
                 id => {
                     println!("Unhandled packet: {:02X}", id);
@@ -675,7 +745,7 @@ impl Plot {
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
-            .open(format!("./world/plots/p{}:{}", self.x, self.z))
+            .open(format!("./world/plots/p{},{}", self.x, self.z))
             .unwrap();
         let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
@@ -710,7 +780,7 @@ impl Plot {
     ) {
         let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
         thread::Builder::new()
-            .name(format!("p{}:{}", x, z))
+            .name(format!("p{},{}", x, z))
             .spawn(move || {
                 plot.run(initial_player);
             })
@@ -723,7 +793,9 @@ impl Drop for Plot {
         if !self.players.is_empty() {
             // TODO: send all players to spawn and send them message along the lines of:
             // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
-            for _player in &self.players {}
+            for player in &mut self.players {
+                player.send_system_message("The plot you were previously in has crashed!");
+            }
         }
         self.save();
         self.message_sender

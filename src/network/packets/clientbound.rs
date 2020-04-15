@@ -1,4 +1,4 @@
-use super::{PacketEncoder, PacketEncoderExt};
+use super::{PacketEncoder, PacketEncoderExt, SlotData};
 use crate::player::Player;
 
 pub trait ClientBoundPacket {
@@ -14,7 +14,7 @@ pub struct C00Response {
 impl ClientBoundPacket for C00Response {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(32767, self.json_response);
+        buf.write_string(32767, &self.json_response);
         PacketEncoder::new(buf, 0x00)
     }
 }
@@ -28,7 +28,7 @@ pub struct C00DisconnectLogin {
 impl ClientBoundPacket for C00DisconnectLogin {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(32767, self.reason);
+        buf.write_string(32767, &self.reason);
         PacketEncoder::new(buf, 0x00)
     }
 }
@@ -53,8 +53,8 @@ pub struct C02LoginSuccess {
 impl ClientBoundPacket for C02LoginSuccess {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(36, Player::uuid_with_hyphens(self.uuid));
-        buf.write_string(16, self.username);
+        buf.write_string(36, &Player::uuid_with_hyphens(self.uuid));
+        buf.write_string(16, &self.username);
         PacketEncoder::new(buf, 0x02)
     }
 }
@@ -136,9 +136,37 @@ pub struct C0FChatMessage {
 impl ClientBoundPacket for C0FChatMessage {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(32767, self.message);
+        buf.write_string(32767, &self.message);
         buf.write_byte(self.position);
         PacketEncoder::new(buf, 0x0F)
+    }
+}
+
+pub struct C15WindowItems {
+    pub window_id: u8,
+    pub slot_data: Vec<Option<SlotData>>,
+}
+
+impl ClientBoundPacket for C15WindowItems {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_unsigned_byte(self.window_id);
+        buf.write_short(self.slot_data.len() as i16);
+        for slot_data in self.slot_data {
+            if let Some(slot) = slot_data {
+                buf.write_bool(true);
+                buf.write_varint(slot.item_id);
+                buf.write_byte(slot.item_count);
+                if let Some(nbt) = slot.nbt {
+                    buf.write_nbt_blob(nbt);
+                } else {
+                    buf.write_byte(0); // End tag
+                }
+            } else {
+                buf.write_bool(false);
+            }
+        }
+        PacketEncoder::new(buf, 0x15)
     }
 }
 
@@ -149,8 +177,8 @@ pub struct C19PluginMessageBrand {
 impl ClientBoundPacket for C19PluginMessageBrand {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(32767, "minecraft:brand".to_string());
-        buf.write_string(32767, self.brand);
+        buf.write_string(32767, "minecraft:brand");
+        buf.write_string(32767, &self.brand);
         PacketEncoder::new(buf, 0x19)
     }
 }
@@ -162,7 +190,7 @@ pub struct C1BDisconnect {
 impl ClientBoundPacket for C1BDisconnect {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(32767, self.reason);
+        buf.write_string(32767, &self.reason);
         PacketEncoder::new(buf, 0x1B)
     }
 }
@@ -234,6 +262,26 @@ impl ClientBoundPacket for C22ChunkData {
     }
 }
 
+pub struct C23Effect {
+    pub effect_id: i32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub data: i32,
+    pub disable_relative_volume: bool,
+}
+
+impl ClientBoundPacket for C23Effect {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_int(self.effect_id);
+        buf.write_position(self.x, self.y, self.z);
+        buf.write_int(self.data);
+        buf.write_bool(self.disable_relative_volume);
+        PacketEncoder::new(buf, 0x23)
+    }
+}
+
 pub struct C26JoinGame {
     pub entity_id: i32,
     pub gamemode: u8,
@@ -254,7 +302,7 @@ impl ClientBoundPacket for C26JoinGame {
         buf.write_int(self.dimention);
         buf.write_long(self.hash_seed);
         buf.write_unsigned_byte(self.max_players);
-        buf.write_string(16, self.level_type);
+        buf.write_string(16, &self.level_type);
         buf.write_varint(self.view_distance);
         buf.write_boolean(self.reduced_debug_info);
         buf.write_boolean(self.enable_respawn_screen);
@@ -365,21 +413,21 @@ impl ClientBoundPacket for C34PlayerInfo {
                 buf.write_varint(ps.len() as i32);
                 for p in ps {
                     buf.write_uuid(p.uuid);
-                    buf.write_string(16, p.name);
+                    buf.write_string(16, &p.name);
                     buf.write_varint(p.properties.len() as i32);
                     for prop in p.properties {
-                        buf.write_string(32767, prop.name);
-                        buf.write_string(32767, prop.value);
+                        buf.write_string(32767, &prop.name);
+                        buf.write_string(32767, &prop.value);
                         buf.write_boolean(prop.signature.is_some());
                         if let Some(signature) = prop.signature {
-                            buf.write_string(32767, signature);
+                            buf.write_string(32767, &signature);
                         }
                     }
                     buf.write_varint(p.gamemode);
                     buf.write_varint(p.ping);
                     buf.write_boolean(p.display_name.is_some());
                     if let Some(display_name) = p.display_name {
-                        buf.write_string(32767, display_name);
+                        buf.write_string(32767, &display_name);
                     }
                 }
             }
