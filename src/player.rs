@@ -8,13 +8,6 @@ use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Write};
 use std::time::{Instant, SystemTime};
 
-pub struct SlotData {
-    pub present: bool,
-    pub item_id: Option<i32>,
-    pub item_count: Option<u8>,
-    pub nbt: nbt::Blob,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
     id: u32,
