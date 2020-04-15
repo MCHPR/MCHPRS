@@ -2,7 +2,7 @@ use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::{PacketDecoder, PacketEncoder};
-use crate::player::{Player, SkinParts};
+use crate::player::{Player, SkinParts, Item};
 use crate::server::{Message, PrivMessage};
 use bus::BusReader;
 use serde::{Deserialize, Serialize};
@@ -461,6 +461,25 @@ impl Plot {
                         if player == other_player { continue };
                         self.players[other_player].client.send_packet(&entity_metadata);
                     }
+                }
+                0x23 => {
+                    let held_item_change = S23HeldItemChange::decode(packet).unwrap();
+                    self.players[player].selected_slot = held_item_change.slot as u32;
+                }
+                0x26 => {
+                    let creative_inventory_action = S26CreativeInventoryAction::decode(packet).unwrap();
+                    if let Some(slot_data) = creative_inventory_action.clicked_item {
+                        let item = Item {
+                            count: slot_data.item_count as u8,
+                            damage: 0,
+                            id: slot_data.item_id as u32,
+                            nbt: slot_data.nbt,
+                        };
+                        self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
+                    } else {
+                        self.players[player].inventory[creative_inventory_action.slot as usize] = None;
+                    }
+                    //println!("{:?}", creative_inventory_action.clicked_item);
                 }
                 0x2A => {
                     let animation = S2AAnimation::decode(packet).unwrap();

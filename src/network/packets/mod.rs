@@ -7,10 +7,11 @@ use std::io::{self, Cursor, Read, Write, Seek, SeekFrom};
 pub mod clientbound;
 pub mod serverbound;
 
+#[derive(Debug)]
 pub struct SlotData {
-    item_id: i32,
-    item_count: i8,
-    nbt: Option<nbt::Blob>,
+    pub item_id: i32,
+    pub item_count: i8,
+    pub nbt: Option<nbt::Blob>,
 }
 
 pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
@@ -283,7 +284,7 @@ pub trait PacketEncoderExt: Write {
         self.write_f32::<BigEndian>(val).unwrap()
     }
 
-    fn write_string(&mut self, n: usize, val: String) {
+    fn write_string(&mut self, n: usize, val: &str) {
         if val.len() > n * 4 + 3 {
             panic!("Tried to write string longer than the max length!");
         }

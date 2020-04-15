@@ -17,7 +17,7 @@ pub struct SlotData {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
-    id: String,
+    id: u32,
     slot: i8,
     count: i8,
     damage: i16,
@@ -50,12 +50,12 @@ bitflags! {
     }
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Item {
-    id: String,
-    count: u8,
-    damage: u16,
-    nbt: Option<nbt::Blob>,
+    pub id: u32,
+    pub count: u8,
+    pub damage: u16,
+    pub nbt: Option<nbt::Blob>,
 }
 
 pub struct Player {
