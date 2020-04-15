@@ -213,7 +213,7 @@ pub trait PacketEncoderExt: Write {
     fn write_boolean(&mut self, val: bool) {
         self.write_all(&[val as u8]).unwrap();
     }
-    fn write_bytes(&mut self, val: &Vec<u8>) {
+    fn write_bytes(&mut self, val: Vec<u8>) {
         self.write_all(&val).unwrap();
     }
     fn write_varint(&mut self, val: i32) {

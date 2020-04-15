@@ -205,7 +205,7 @@ impl ClientBoundPacket for C22ChunkData {
         buf.write_varint(self.primary_bit_mask);
         let mut heightmaps = Vec::new();
         self.heightmaps.to_writer(&mut heightmaps).unwrap();
-        buf.write_bytes(&heightmaps);
+        buf.write_bytes(heightmaps);
         if let Some(biomes) = self.biomes {
             for biome in biomes {
                 buf.write_int(biome);
@@ -227,7 +227,7 @@ impl ClientBoundPacket for C22ChunkData {
             }
         }
         buf.write_varint(data.len() as i32);
-        buf.write_bytes(&data);
+        buf.write_bytes(data);
         // Number of block entities
         buf.write_varint(0);
         PacketEncoder::new(buf, 0x22)
@@ -465,7 +465,7 @@ impl ClientBoundPacket for C44EntityMetadata {
         for entry in self.metadata {
             buf.write_unsigned_byte(entry.index);
             buf.write_varint(entry.metadata_type);
-            buf.write_bytes(&entry.value);
+            buf.write_bytes(entry.value);
         }
         buf.write_byte(-1); // 0xFF
         PacketEncoder::new(buf, 0x44)
