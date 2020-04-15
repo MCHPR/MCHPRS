@@ -260,6 +260,7 @@ impl Plot {
         let packets: Vec<PacketDecoder> = self.players[player].client.packets.drain(..).collect();
         for packet in packets {
             match packet.packet_id {
+                // Chat Message
                 0x03 => {
                     //let player = &mut self.players[player];
                     let chat_message = S03ChatMessage::decode(packet).unwrap();
@@ -277,6 +278,7 @@ impl Plot {
                         self.message_sender.send(broadcast_message).unwrap();
                     }
                 }
+                // Client Settings
                 0x05 => {
                     let player = &mut self.players[player];
                     let client_settings = S05ClientSettings::decode(packet).unwrap();
@@ -296,11 +298,14 @@ impl Plot {
                         player.client.send_packet(&entity_metadata);
                     }
                 }
+                // Click Window Button
                 0x0B => {
                     let plugin_message = S0BPluginMessage::decode(packet).unwrap();
                     dbg!(plugin_message.channel);
                 }
+                // Keep Alive
                 0x0F => self.players[player].last_keep_alive_received = Instant::now(),
+                // Player Position
                 0x11 => {
                     let player_position = S11PlayerPosition::decode(packet).unwrap();
                     let old_x = self.players[player].x;
@@ -343,6 +348,7 @@ impl Plot {
                         self.players[other_player].client.send_packet(&packet);
                     }
                 }
+                // Player Position And Rotation
                 0x12 => {
                     let player_position_and_rotation =
                         S12PlayerPositionAndRotation::decode(packet).unwrap();
@@ -395,6 +401,7 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_head_look);
                     }
                 }
+                // Player Rotation
                 0x13 => {
                     let player_rotation = S13PlayerRotation::decode(packet).unwrap();
                     self.players[player].yaw = player_rotation.yaw;
@@ -416,6 +423,7 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_head_look);
                     }
                 }
+                // Player Movement
                 0x14 => {
                     let player_movement = S14PlayerMovement::decode(packet).unwrap();
                     self.players[player].on_ground = player_movement.on_ground;
@@ -427,6 +435,7 @@ impl Plot {
                         self.players[other_player].client.send_packet(&packet);
                     }
                 }
+                // Player Digging
                 0x1A => {
                     let player_digging = S1APlayerDigging::decode(packet).unwrap();
                     if player_digging.status == 0 {
@@ -447,6 +456,7 @@ impl Plot {
                         }
                     }
                 }
+                // Entity Action
                 0x1B => {
                     let entity_action = S1BEntityAction::decode(packet).unwrap();
                     match entity_action.action_id {
@@ -479,10 +489,12 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_metadata);
                     }
                 }
+                // Held Item Change
                 0x23 => {
                     let held_item_change = S23HeldItemChange::decode(packet).unwrap();
                     self.players[player].selected_slot = held_item_change.slot as u32;
                 }
+                // Creative Inventory Action
                 0x26 => {
                     let creative_inventory_action = S26CreativeInventoryAction::decode(packet).unwrap();
                     if let Some(slot_data) = creative_inventory_action.clicked_item {
@@ -498,6 +510,7 @@ impl Plot {
                     }
                     //println!("{:?}", creative_inventory_action.clicked_item);
                 }
+                // Animation
                 0x2A => {
                     let animation = S2AAnimation::decode(packet).unwrap();
                     let animation_id = match animation.hand {
@@ -514,8 +527,29 @@ impl Plot {
                         self.players[other_player].client.send_packet(&entity_animation);
                     }
                 }
+                // Player Block Placement
                 0x2C => {
-                    self.players[player].send_system_message("TODO: Player block placement");
+                    let mut player_block_placment = S2CPlayerBlockPlacemnt::decode(packet).unwrap();
+                    
+                    if player_block_placment.hand == 0 {
+                        match player_block_placment.face {
+                            // Bottom
+                            0 => { player_block_placment.y -= 1 }
+                            // Top
+                            1 => { player_block_placment.y += 1 }
+                            // North
+                            2 => { player_block_placment.z -= 1 }
+                            // South
+                            3 => { player_block_placment.z += 1 }
+                            // West
+                            4 => { player_block_placment.x -= 1 }
+                            // East
+                            5 => { player_block_placment.x += 1 }
+                            _ => { return }
+                        }
+
+                        self.set_block(player_block_placment.x, player_block_placment.y as u32, player_block_placment.z, Block::Unknown(245));
+                    }
                 }
                 id => {
                     println!("Unhandled packet: {:02X}", id);
