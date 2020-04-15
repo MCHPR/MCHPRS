@@ -215,7 +215,7 @@ impl Player {
                 });
                 inventory.push(InventoryEntry {
                     count: item.count as i8,
-                    id: item.id.clone(),
+                    id: item.id,
                     damage: item.damage as i16,
                     slot: slot as i8,
                     nbt,
@@ -252,7 +252,11 @@ impl Player {
         }
         self.last_chunk_x = chunk_x;
         self.last_chunk_z = chunk_z;
-        self.client.update();
+        if let Err(err) = self.client.update() {
+            self.kick(json!({
+                "text": format!("There was an error reading a packet header: {:?}", err)
+            }).to_string());
+        }
     }
 
     pub fn send_keep_alive(&mut self) {
