@@ -64,8 +64,8 @@ pub enum Block {
 }
 
 impl Block {
-    pub fn compare_variant(&self, other: &Block) -> bool {
-        mem::discriminant(self) == mem::discriminant(other)
+    pub fn compare_variant(self, other: Block) -> bool {
+        mem::discriminant(&self) == mem::discriminant(&other)
     }
 
     pub fn from_block_state(id: u32) -> Block {

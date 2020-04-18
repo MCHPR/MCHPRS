@@ -43,7 +43,22 @@ impl From<std::string::FromUtf8Error> for PacketDecodeError {
 }
 
 #[derive(Debug)]
-pub enum PacketEncodeError {}
+pub enum PacketEncodeError {
+    IoError(io::Error),
+    NbtError(nbt::Error),
+}
+
+impl From<io::Error> for PacketEncodeError {
+    fn from(err: io::Error) -> PacketEncodeError {
+        PacketEncodeError::IoError(err)
+    }
+}
+
+impl From<nbt::Error> for PacketEncodeError {
+    fn from(err: nbt::Error) -> PacketEncodeError {
+        PacketEncodeError::NbtError(err)
+    }
+}
 
 pub struct PacketDecoder {
     buffer: Cursor<Vec<u8>>,
@@ -65,8 +80,7 @@ impl PacketDecoder {
                     let mut data = Vec::new();
                     // Decompress data
                     ZlibDecoder::new(&buf[i..i + (length.0 - data_length.1) as usize])
-                        .read_to_end(&mut data)
-                        .unwrap();
+                        .read_to_end(&mut data)?;
                     i += (length.0 - data_length.1) as usize;
                     let packet_id = PacketDecoder::read_varint_from_buffer(0, &data)?;
                     decoders.push(PacketDecoder {
@@ -142,7 +156,7 @@ impl PacketDecoder {
         Ok(self.buffer.read_u8()? == 1)
     }
 
-    fn read_varint_from_buffer(offset: usize, buf: &Vec<u8>) -> DecodeResult<(i32, i32)> {
+    fn read_varint_from_buffer(offset: usize, buf: &[u8]) -> DecodeResult<(i32, i32)> {
         let mut num_read = 0;
         let mut result = 0i32;
         let mut read;
@@ -234,96 +248,97 @@ impl PacketDecoder {
 }
 
 pub trait PacketEncoderExt: Write {
-    fn write_boolean(&mut self, val: bool) {
-        self.write_all(&[val as u8]).unwrap();
+    fn write_boolean(&mut self, val: bool) -> EncodeResult<()> {
+        Ok(self.write_all(&[val as u8])?)
     }
-    fn write_bytes(&mut self, val: Vec<u8>) {
-        self.write_all(&val).unwrap();
+    fn write_bytes(&mut self, val: Vec<u8>) -> EncodeResult<()> {
+        Ok(self.write_all(&val)?)
     }
-    fn write_varint(&mut self, val: i32) {
-        self.write_all(&PacketEncoder::varint(val));
+    fn write_varint(&mut self, val: i32) -> EncodeResult<()> {
+        Ok(self.write_all(&PacketEncoder::varint(val))?)
     }
 
-    fn write_varlong(&mut self, mut val: i64) {
+    fn write_varlong(&mut self, mut val: i64) -> EncodeResult<()> {
         loop {
             let mut temp = (val & 0b1111_1111) as u8;
             val = val >> 7;
             if val != 0 {
                 temp |= 0b1000_0000;
             }
-            self.write_all(&[temp]).unwrap();
+            self.write_all(&[temp])?;
             if val == 0 {
                 break;
             }
         }
+        Ok(())
     }
 
-    fn write_byte(&mut self, val: i8) {
-        self.write_all(&[val as u8]).unwrap();
+    fn write_byte(&mut self, val: i8) -> EncodeResult<()> {
+        Ok(self.write_all(&[val as u8])?)
     }
 
-    fn write_unsigned_byte(&mut self, val: u8) {
-        self.write_all(&[val]).unwrap();
+    fn write_unsigned_byte(&mut self, val: u8) -> EncodeResult<()> {
+        Ok(self.write_all(&[val])?)
     }
 
-    fn write_short(&mut self, val: i16) {
-        self.write_i16::<BigEndian>(val).unwrap()
+    fn write_short(&mut self, val: i16) -> EncodeResult<()> {
+        Ok(self.write_i16::<BigEndian>(val)?)
     }
 
-    fn write_unsigned_short(&mut self, val: u16) {
-        self.write_u16::<BigEndian>(val).unwrap()
+    fn write_unsigned_short(&mut self, val: u16) -> EncodeResult<()> {
+        Ok(self.write_u16::<BigEndian>(val)?)
     }
 
-    fn write_int(&mut self, val: i32) {
-        self.write_i32::<BigEndian>(val).unwrap()
+    fn write_int(&mut self, val: i32) -> EncodeResult<()> {
+        Ok(self.write_i32::<BigEndian>(val)?)
     }
 
-    fn write_double(&mut self, val: f64) {
-        self.write_f64::<BigEndian>(val).unwrap()
+    fn write_double(&mut self, val: f64) -> EncodeResult<()> {
+        Ok(self.write_f64::<BigEndian>(val)?)
     }
 
-    fn write_float(&mut self, val: f32) {
-        self.write_f32::<BigEndian>(val).unwrap()
+    fn write_float(&mut self, val: f32) -> EncodeResult<()> {
+        Ok(self.write_f32::<BigEndian>(val)?)
     }
 
-    fn write_string(&mut self, n: usize, val: &str) {
+    fn write_string(&mut self, n: usize, val: &str) -> EncodeResult<()> {
         if val.len() > n * 4 + 3 {
             panic!("Tried to write string longer than the max length!");
         }
         self.write_varint(val.len() as i32);
-        self.write_all(val.as_bytes()).unwrap();
+        Ok(self.write_all(val.as_bytes())?)
     }
 
-    fn write_uuid(&mut self, val: u128) {
-        self.write_u128::<BigEndian>(val).unwrap();
+    fn write_uuid(&mut self, val: u128) -> EncodeResult<()> {
+        Ok(self.write_u128::<BigEndian>(val)?)
     }
 
-    fn write_long(&mut self, val: i64) {
-        self.write_i64::<BigEndian>(val).unwrap()
+    fn write_long(&mut self, val: i64) -> EncodeResult<()> {
+        Ok(self.write_i64::<BigEndian>(val)?)
     }
 
-    fn write_position(&mut self, x: i32, y: i32, z: i32) {
+    fn write_position(&mut self, x: i32, y: i32, z: i32) -> EncodeResult<()> {
         let long =
             ((x as i64 & 0x3FF_FFFF) << 38) | ((z as i64 & 0x3FF_FFFF) << 12) | (y as i64 & 0xFFF);
-        self.write_long(long);
+        self.write_long(long)
     }
 
-    fn write_bool(&mut self, val: bool) {
-        self.write_u8(val as u8).unwrap();
+    fn write_bool(&mut self, val: bool) -> EncodeResult<()> {
+        Ok(self.write_u8(val as u8)?)
     }
 
-    fn write_nbt_blob(&mut self, blob: nbt::Blob);
+    fn write_nbt_blob(&mut self, blob: nbt::Blob) -> EncodeResult<()>;
 }
 
 impl PacketEncoderExt for Vec<u8> {
-    fn write_nbt_blob(&mut self, blob: nbt::Blob) {
-        blob.to_writer(self).unwrap();
+    fn write_nbt_blob(&mut self, blob: nbt::Blob) -> EncodeResult<()> {
+        Ok(blob.to_writer(self)?)
     }
 }
 
 pub struct PacketEncoder {
     buffer: Vec<u8>,
-    packet_id: u32,
+    pub packet_id: u32,
 }
 
 impl PacketEncoder {
@@ -348,22 +363,22 @@ impl PacketEncoder {
         }
     }
 
-    pub fn compressed(&self) -> Vec<u8> {
+    pub fn compressed(&self) -> EncodeResult<Vec<u8>> {
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
         let data = [&packet_id[..], &self.buffer[..]].concat();
         if self.buffer.len() < 500 {
             let data_length = PacketEncoder::varint(0);
             let packet_length = PacketEncoder::varint((data_length.len() + data.len()) as i32);
-            [&packet_length[..], &data_length[..], &data[..]].concat()
+            Ok([&packet_length[..], &data_length[..], &data[..]].concat())
         } else {
             let data_length = PacketEncoder::varint(data.len() as i32);
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-            encoder.write_all(&data).unwrap();
-            let compressed = encoder.finish().unwrap();
+            encoder.write_all(&data)?;
+            let compressed = encoder.finish()?;
             let packet_length =
                 PacketEncoder::varint((data_length.len() + compressed.len()) as i32);
 
-            [&packet_length[..], &data_length[..], &compressed[..]].concat()
+            Ok([&packet_length[..], &data_length[..], &compressed[..]].concat())
         }
     }
 

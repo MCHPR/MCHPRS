@@ -1,4 +1,5 @@
 use crate::network::packets::clientbound::*;
+use crate::network::packets::PacketEncoder;
 use crate::network::NetworkClient;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
@@ -240,8 +241,8 @@ impl Player {
         let chunk_x = self.x as i32 >> 4;
         let chunk_z = self.z as i32 >> 4;
         if chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z {
-            let update_view = C41UpdateViewPosition { chunk_x, chunk_z }.encode();
-            self.client.send_packet(&update_view);
+            let update_view = C41UpdateViewPosition { chunk_x, chunk_z };;
+            self.send_packet(&update_view);
         }
         self.last_chunk_x = chunk_x;
         self.last_chunk_z = chunk_z;
@@ -252,15 +253,22 @@ impl Player {
         }
     }
 
+    pub fn send_packet(&mut self, packet: &dyn ClientBoundPacket) {
+        if let Err(err) = self.client.send_packet(packet) {
+            self.kick(json!({
+                "text": format!("There was an error encoding packet: {:?}", err)
+            }).to_string());
+        }
+    }
+
     pub fn send_keep_alive(&mut self) {
         let keep_alive = C21KeepAlive {
             id: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_secs() as i64,
-        }
-        .encode();
-        self.client.send_packet(&keep_alive);
+        };
+        self.send_packet(&keep_alive);
         self.last_keep_alive_sent = Instant::now();
     }
 
@@ -273,30 +281,27 @@ impl Player {
             pitch: 0f32,
             flags: 0x08 | 0x10, // pitch and yaw are relative
             teleport_id: 0,
-        }
-        .encode();
+        };
         self.x = x;
         self.y = y;
         self.z = z;
-        self.client.send_packet(&player_position_and_look);
+        self.send_packet(&player_position_and_look);
     }
 
     pub fn send_raw_chat(&mut self, message: String) {
         let chat_message = C0FChatMessage {
             message,
             position: 0,
-        }
-        .encode();
-        self.client.send_packet(&chat_message);
+        };
+        self.send_packet(&chat_message);
     }
 
     pub fn send_raw_system_message(&mut self, message: String) {
         let chat_message = C0FChatMessage {
             message,
             position: 1,
-        }
-        .encode();
-        self.client.send_packet(&chat_message);
+        };
+        self.send_packet(&chat_message);
     }
 
     pub fn send_chat_message(&mut self, message: String) {
@@ -335,6 +340,6 @@ impl Player {
 
     pub fn kick(&mut self, reason: String) {
         let disconnect = C1BDisconnect { reason }.encode();
-        self.client.send_packet(&disconnect);
+        self.send_packet(&disconnect);
     }
 }
