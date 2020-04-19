@@ -11,7 +11,7 @@ repository = "https://github.com/StackDoubleFlow/MCHPRS"
 homepage = "https://github.com/StackDoubleFlow/MCHPRS"
 
 [badges]
-circle-ci = { repository = "StackDoubleFlow/MCHPRS" }
+travis-ci = { repository = "StackDoubleFlow/MCHPRS" }
 
 [dependencies]
 flate2 = "1.0.14"
