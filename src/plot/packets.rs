@@ -7,6 +7,7 @@ use crate::player::{Item, SkinParts};
 use crate::server::Message;
 use serde_json::json;
 use std::time::Instant;
+use log::debug;
 
 impl Plot {
 
@@ -39,7 +40,7 @@ impl Plot {
             0x2A => self.handle_animation(player, S2AAnimation::decode(packet)?),
             0x2C => self.handle_player_block_placement(player, S2CPlayerBlockPlacemnt::decode(packet)?),
             id => {
-                println!("Unhandled packet: {:02X}", id);
+                debug!("Unhandled packet: {:02X}", id);
             }
         }
         Ok(())
@@ -143,7 +144,7 @@ impl Plot {
     }
 
     fn handle_plugin_message(&mut self, _player: usize, plugin_message: S0BPluginMessage) {
-        dbg!(plugin_message.channel);
+        debug!("Client initiated plugin channel: {:?}", plugin_message.channel);
     }
 
     fn handle_player_position(&mut self, player: usize, player_position: S11PlayerPosition) {

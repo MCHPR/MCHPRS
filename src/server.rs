@@ -9,7 +9,7 @@ use crate::network::packets::serverbound::{
 use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
-use crate::player::{Item, Player};
+use crate::player::Player;
 use crate::plot::Plot;
 use bus::{Bus, BusReader};
 use serde_json::json;
@@ -17,6 +17,8 @@ use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use log::{info, debug, warn};
+use fern::colors::{Color, ColoredLevelConfig};
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicate when a player joins, leaves, or moves into another plot,
@@ -75,7 +77,29 @@ pub struct MinecraftServer {
 
 impl MinecraftServer {
     pub fn run() {
-        println!("Starting server...");
+        // Setup logging
+        let colors_level = ColoredLevelConfig::new()
+            .info(Color::Green)
+            .error(Color::Red)
+            .warn(Color::Yellow);
+        fern::Dispatch::new()
+            .format(move |out, message, record| {
+                out.finish(format_args!(
+                    "[\x1B[32m{date}\x1B[0m][{target}][{level}] {message}\x1B[0m",
+                    date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                    target = record.target(),
+                    level = colors_level.color(record.level()),
+                    message = message,
+                ))
+            })
+            .level(log::LevelFilter::Debug)
+            .chain(std::io::stdout())
+            .chain(fern::log_file("output.log").unwrap())
+            .apply().unwrap();
+        
+
+        info!("Starting server...");
+        warn!("Test warning");
         let start_time = Instant::now();
         
         // Create world folders if they don't exist yet
@@ -135,7 +159,7 @@ impl MinecraftServer {
             priv_message_sender: spawn_tx,
         });
 
-        println!("Done! Start took {:?}", start_time.elapsed());
+        info!("Done! Start took {:?}", start_time.elapsed());
 
         loop {
             server.update();
@@ -162,7 +186,7 @@ impl MinecraftServer {
     }
 
     fn graceful_shutdown(&mut self) {
-        println!("Commencing graceful shutdown...");
+        info!("Commencing graceful shutdown...");
         self.broadcaster.broadcast(Message::Shutdown);
         // Wait for all plots to save and unload
         while !self.running_plots.is_empty() {
@@ -178,10 +202,10 @@ impl MinecraftServer {
 
     fn update(&mut self) {
         while let Ok(message) = self.debug_plot_receiver.try_recv() {
-            println!("Main thread broadcasted message: {:#?}", message);
+            debug!("Main thread broadcasted message: {:#?}", message);
         }
         while let Ok(message) = self.receiver.try_recv() {
-            println!("Main thread received message: {:#?}", message);
+            debug!("Main thread received message: {:#?}", message);
             match message {
                 Message::PlayerJoined(player_arc) => {
                     let player = Arc::try_unwrap(player_arc).unwrap();
@@ -310,6 +334,7 @@ impl MinecraftServer {
                             if client.state == NetworkState::Login
                                 && handshake.protocol_version != 578
                             {
+                                warn!("A player tried to connect using the wrong version");
                                 let disconnect = C00DisconnectLogin {
                                     reason: json!({
                                         "text": "Version mismatch, I'm on 1.15.2!"

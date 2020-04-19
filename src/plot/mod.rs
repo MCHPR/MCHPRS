@@ -15,6 +15,7 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
 use serde_json::json;
+use log::debug;
 
 pub struct Plot {
     players: Vec<Player>,
@@ -81,9 +82,9 @@ impl Plot {
             on_ground: player.on_ground,
             pitch: player.pitch,
             yaw: player.yaw,
-            x: dbg!(player.x),
-            y: dbg!(player.y),
-            z: dbg!(player.z),
+            x: player.x,
+            y: player.y,
+            z: player.z,
         }
         .encode();
         let mut metadata_entries = Vec::new();
@@ -398,7 +399,7 @@ impl Plot {
     }
 
     fn save(&self) {
-        println!("Saving plot");
+        debug!("Saving plot");
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -416,7 +417,7 @@ impl Plot {
     }
 
     fn run(&mut self, initial_player: Option<Player>) {
-        println!("Running new plot!");
+        debug!("Running new plot!");
         if let Some(player) = initial_player {
             self.enter_plot(player);
         }
