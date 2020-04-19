@@ -99,7 +99,6 @@ impl MinecraftServer {
         
 
         info!("Starting server...");
-        warn!("Test warning");
         let start_time = Instant::now();
         
         // Create world folders if they don't exist yet
