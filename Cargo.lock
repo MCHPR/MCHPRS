@@ -274,7 +274,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "mchprs"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "arc-swap 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "bincode 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
