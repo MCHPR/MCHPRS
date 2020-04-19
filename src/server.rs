@@ -17,7 +17,7 @@ use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use log::{info, debug, warn};
+use log::{info, debug, warn, error};
 use fern::colors::{Color, ColoredLevelConfig};
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
@@ -96,6 +96,10 @@ impl MinecraftServer {
             .chain(std::io::stdout())
             .chain(fern::log_file("output.log").unwrap())
             .apply().unwrap();
+            
+        std::panic::set_hook(Box::new(|panic_info| {
+            error!("{}", panic_info.to_string());
+        }));
         
 
         info!("Starting server...");
