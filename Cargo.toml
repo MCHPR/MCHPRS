@@ -3,8 +3,15 @@ name = "mchprs"
 version = "0.1.0"
 authors = ["StackDoubleFlow <ojaslandge@gmail.com>"]
 edition = "2018"
+description = "A multithreaded minecraft server built for redstone."
+readme = "README.md"
+license = "MIT"
+keywords = ["minecraft", "server"]
+repository = "https://github.com/StackDoubleFlow/MCHPRS"
+homepage = "https://github.com/StackDoubleFlow/MCHPRS"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+circle-ci = { repository = "StackDoubleFlow/MCHPRS" }
 
 [dependencies]
 flate2 = "1.0.14"
