@@ -12,7 +12,7 @@ If the Rust compiler is not already installed, you can find out how [on their of
 
 ```shell
 git clone https://github.com/StackDoubleFlow/MCHPRS.git
-cd rjvm
+cd MCHPRS
 cargo build --release
 ```
 
