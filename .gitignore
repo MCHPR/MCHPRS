@@ -1,5 +1,5 @@
-/target
-test_proxy/logs/*
-world/*
+target
+test_proxy
+world
 generators/reports
 output.log
