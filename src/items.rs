@@ -6,7 +6,7 @@ enum Item {
     Unknown(u32),
 }
 
-impl From<u32> for Item {
+impl Item {
     fn from(id: u32) -> Item {
         match id {
 
