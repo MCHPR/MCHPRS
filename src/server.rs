@@ -30,6 +30,7 @@ pub enum Message {
     PlayerLeavePlot(Arc<Player>),
     PlayerTeleportOther(Arc<Player>, String),
     PlotUnload(i32, i32),
+    Shutdown,
 }
 
 #[derive(Debug)]
@@ -76,8 +77,12 @@ impl MinecraftServer {
     pub fn run() {
         println!("Starting server...");
         let start_time = Instant::now();
+        
+        // Create world folders if they don't exist yet
         fs::create_dir_all("./world/players").unwrap();
         fs::create_dir_all("./world/plots").unwrap();
+
+        // Load config
         let mut config = config::Config::default();
         config
             .merge(config::File::with_name("Config"))
@@ -85,10 +90,21 @@ impl MinecraftServer {
         let bind_addr = config
             .get_str("bind_address")
             .expect("Bind address not found in config file!");
+
+
         //let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
+        // Create thread messaging structs
         let (plot_tx, server_rx) = mpsc::channel();
         let mut bus = Bus::new(100);
         let debug_plot_receiver = bus.add_rx();
+        let ctrl_handler_sender = plot_tx.clone();
+
+        
+        ctrlc::set_handler(move || {
+            ctrl_handler_sender.send(Message::Shutdown).unwrap();
+        }).expect("There was an error setting the ctrlc handler");
+
+        // Create server struct
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
             config,
@@ -100,6 +116,7 @@ impl MinecraftServer {
             online_players: Vec::new(),
             running_plots: Vec::new(),
         };
+
         // Load the spawn area plot on server start
         // This plot should be always active
         let (spawn_tx, spawn_rx) = mpsc::channel();
@@ -117,7 +134,9 @@ impl MinecraftServer {
             plot_z: 0,
             priv_message_sender: spawn_tx,
         });
+
         println!("Done! Start took {:?}", start_time.elapsed());
+
         loop {
             server.update();
             std::thread::sleep(Duration::from_millis(2));
@@ -130,6 +149,31 @@ impl MinecraftServer {
             player.plot_x = plot_x;
             player.plot_z = plot_z;
         }
+    }
+
+    fn handle_plot_unload(&mut self, plot_x: i32, plot_z: i32) {
+        let index = self
+            .running_plots
+            .iter()
+            .position(|p| p.plot_x == plot_x && p.plot_z == plot_z);
+        if let Some(index) = index {
+            self.running_plots.remove(index);
+        }
+    }
+
+    fn graceful_shutdown(&mut self) {
+        println!("Commencing graceful shutdown...");
+        self.broadcaster.broadcast(Message::Shutdown);
+        // Wait for all plots to save and unload
+        while !self.running_plots.is_empty() {
+            while let Ok(message) = self.receiver.try_recv() {
+                if let Message::PlotUnload(plot_x, plot_z) = message {
+                    self.handle_plot_unload(plot_x, plot_z);
+                }
+                std::thread::sleep(Duration::from_millis(2));
+            }
+        }
+        std::process::exit(0);
     }
 
     fn update(&mut self) {
@@ -201,13 +245,7 @@ impl MinecraftServer {
                     self.broadcaster.broadcast(message);
                 }
                 Message::PlotUnload(plot_x, plot_z) => {
-                    let index = self
-                        .running_plots
-                        .iter()
-                        .position(|p| p.plot_x == plot_x && p.plot_z == plot_z);
-                    if let Some(index) = index {
-                        self.running_plots.remove(index);
-                    }
+                    
                 }
                 Message::Chat(chat) => {
                     self.broadcaster.broadcast(Message::Chat(chat));
@@ -247,6 +285,9 @@ impl MinecraftServer {
                             .priv_message_sender
                             .send(PrivMessage::PlayerEnterPlot(player));
                     }
+                }
+                Message::Shutdown => {
+                    self.graceful_shutdown();
                 }
                 _ => {}
             }

@@ -14,6 +14,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
+use serde_json::json;
 
 pub struct Plot {
     players: Vec<Player>,
@@ -196,6 +197,9 @@ impl Plot {
                         .send_system_message("Wrong number of arguments for teleport command!");
                 }
             }
+            "/stop" => {
+                self.message_sender.send(Message::Shutdown);
+            }
             _ => self.players[player].send_system_message("Command not found!"),
         }
     }
@@ -238,6 +242,16 @@ impl Plot {
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
+                }
+                Message::Shutdown => {
+                    let mut players: Vec<Player> = self.players.drain(..).collect();
+                    for player in players.iter_mut() {
+                        player.kick(json!({
+                            "text": "Server closed"
+                        }).to_string());
+                    }
+                    self.running = false;
+                    return;
                 }
                 _ => {}
             }
