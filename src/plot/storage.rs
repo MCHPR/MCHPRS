@@ -1,4 +1,5 @@
 use crate::network::packets::clientbound::{C22ChunkData, C22ChunkDataSection, ClientBoundPacket};
+use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
 use std::mem;
 
@@ -241,7 +242,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn encode_packet(&self) -> &dyn ClientBoundPacket {
+    pub fn encode_packet(&self) -> PacketEncoder {
         let mut heightmap_buffer = BitBuffer::create(9, 256);
         for x in 0..16 {
             for z in 0..16 {
@@ -265,7 +266,7 @@ impl Chunk {
         heightmaps
             .insert("MOTION_BLOCKING", heightmap_longs)
             .unwrap();
-        &C22ChunkData {
+        C22ChunkData {
             biomes: Some(vec![0; 1024]),
             chunk_sections,
             chunk_x: self.x,
@@ -274,6 +275,7 @@ impl Chunk {
             heightmaps,
             primary_bit_mask: bitmask as i32,
         }
+        .encode()
     }
 
     fn get_top_most_block(&self, x: u32, z: u32) -> u32 {

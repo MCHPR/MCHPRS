@@ -69,13 +69,14 @@ impl Plot {
         let entity_animation = C06EntityAnimation {
             entity_id: self.players[player].entity_id as i32,
             animation: animation_id,
-        };
+        }
+        .encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
             };
             self.players[other_player]
-                
+                .client
                 .send_packet(&entity_animation);
         }
     }
@@ -134,9 +135,10 @@ impl Plot {
         let entity_metadata = C44EntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: vec![metadata_entry],
-        };
+        }
+        .encode();
         for player in &mut self.players {
-            player.send_packet(&entity_metadata);
+            player.client.send_packet(&entity_metadata);
         }
     }
 
@@ -155,11 +157,11 @@ impl Plot {
         self.players[player].y = player_position.y;
         self.players[player].z = player_position.z;
         self.players[player].on_ground = player_position.on_ground;
-        let packet: &dyn ClientBoundPacket = if (new_x - old_x).abs() > 8.0
+        let packet = if (new_x - old_x).abs() > 8.0
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
         {
-            &C57EntityTeleport {
+            C57EntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
                 x: new_x,
                 y: new_y,
@@ -168,23 +170,25 @@ impl Plot {
                 pitch: self.players[player].pitch,
                 on_ground: player_position.on_ground,
             }
+            .encode()
         } else {
             let delta_x = ((player_position.x * 32.0 - old_x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            &C29EntityPosition {
+            C29EntityPosition {
                 delta_x,
                 delta_y,
                 delta_z,
                 entity_id: self.players[player].entity_id as i32,
                 on_ground: player_position.on_ground,
             }
+            .encode()
         };
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
             };
-            self.players[other_player].send_packet(packet);
+            self.players[other_player].client.send_packet(&packet);
         }
     }
 
@@ -201,11 +205,11 @@ impl Plot {
         self.players[player].yaw = player_position_and_rotation.yaw;
         self.players[player].pitch = player_position_and_rotation.pitch;
         self.players[player].on_ground = player_position_and_rotation.on_ground;
-        let packet: &dyn ClientBoundPacket = if (new_x - old_x).abs() > 8.0
+        let packet = if (new_x - old_x).abs() > 8.0
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
         {
-            &C57EntityTeleport {
+            C57EntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
                 x: new_x,
                 y: new_y,
@@ -214,6 +218,7 @@ impl Plot {
                 pitch: self.players[player].pitch,
                 on_ground: player_position_and_rotation.on_ground,
             }
+            .encode()
         } else {
             let delta_x =
                 ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
@@ -221,7 +226,7 @@ impl Plot {
                 ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z =
                 ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            &C2AEntityPositionAndRotation {
+            C2AEntityPositionAndRotation {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -230,18 +235,20 @@ impl Plot {
                 entity_id: self.players[player].entity_id as i32,
                 on_ground: player_position_and_rotation.on_ground,
             }
+            .encode()
         };
         let entity_head_look = C3CEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_position_and_rotation.yaw,
-        };
+        }
+        .encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
             };
-            self.players[other_player].send_packet(packet);
+            self.players[other_player].client.send_packet(&packet);
             self.players[other_player]
-                
+                .client
                 .send_packet(&entity_head_look);
         }
     }
@@ -255,18 +262,22 @@ impl Plot {
             yaw: player_rotation.yaw,
             pitch: player_rotation.pitch,
             on_ground: player_rotation.on_ground,
-        };
+        }
+        .encode();
         let entity_head_look = C3CEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
-        };
+        }
+        .encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
             };
             self.players[other_player]
+                .client
                 .send_packet(&rotation_packet);
             self.players[other_player]
+                .client
                 .send_packet(&entity_head_look);
         }
     }
@@ -275,12 +286,13 @@ impl Plot {
         self.players[player].on_ground = player_movement.on_ground;
         let packet = C2CEntityMovement {
             entity_id: self.players[player].entity_id as i32,
-        };
+        }
+        .encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
             };
-            self.players[other_player].send_packet(&packet);
+            self.players[other_player].client.send_packet(&packet);
         }
     }
 
@@ -302,12 +314,13 @@ impl Plot {
                 z: player_digging.z,
                 data: other_block.get_id() as i32,
                 disable_relative_volume: false,
-            };
+            }
+            .encode();
             for other_player in 0..self.players.len() {
                 if player == other_player {
                     continue;
                 };
-                self.players[other_player].send_packet(&effect);
+                self.players[other_player].client.send_packet(&effect);
             }
         }
     }
@@ -341,12 +354,14 @@ impl Plot {
         let entity_metadata = C44EntityMetadata {
             entity_id: self.players[player].entity_id as i32,
             metadata: metadata_entries,
-        };
+        }
+        .encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
             };
             self.players[other_player]
+                .client
                 .send_packet(&entity_metadata);
         }
     }

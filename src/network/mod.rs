@@ -1,6 +1,6 @@
 pub mod packets;
 
-use packets::{DecodeResult, EncodeResult, PacketDecoder, clientbound::ClientBoundPacket};
+use packets::{DecodeResult, PacketDecoder, PacketEncoder};
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::mpsc;
@@ -58,13 +58,12 @@ impl NetworkClient {
         Ok(())
     }
 
-    pub fn send_packet(&mut self, packet: &dyn ClientBoundPacket) -> EncodeResult<()> {
+    pub fn send_packet(&mut self, data: &PacketEncoder) {
         if self.compressed {
-            self.stream.write_all(&packet.encode()?.compressed()?);
+            self.stream.write_all(&data.compressed());
         } else {
-            self.stream.write_all(&packet.encode()?.uncompressed());
+            self.stream.write_all(&data.uncompressed());
         }
-        Ok(())
     }
 
     pub fn close_connection(&mut self) {
@@ -124,10 +123,7 @@ impl NetworkServer {
             }
         }
         for client in self.handshaking_clients.iter_mut() {
-            if let Err(_) = client.update() {
-                client.alive = false;
-            }
+            client.update();
         }
-        self.handshaking_clients.retain(|client| client.alive);
     }
 }

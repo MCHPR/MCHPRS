@@ -1,8 +1,8 @@
-use super::{PacketEncoder, PacketEncoderExt, SlotData, EncodeResult};
+use super::{PacketEncoder, PacketEncoderExt, SlotData};
 use crate::player::Player;
 
 pub trait ClientBoundPacket {
-    fn encode(self) -> EncodeResult<PacketEncoder>;
+    fn encode(self) -> PacketEncoder;
 }
 
 // Server List Ping Packets
@@ -12,10 +12,10 @@ pub struct C00Response {
 }
 
 impl ClientBoundPacket for C00Response {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.json_response);
-        Ok(PacketEncoder::new(buf, 0x00))
+        PacketEncoder::new(buf, 0x00)
     }
 }
 
@@ -26,10 +26,10 @@ pub struct C00DisconnectLogin {
 }
 
 impl ClientBoundPacket for C00DisconnectLogin {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.reason);
-        Ok(PacketEncoder::new(buf, 0x00))
+        PacketEncoder::new(buf, 0x00)
     }
 }
 
@@ -38,10 +38,10 @@ pub struct C01Pong {
 }
 
 impl ClientBoundPacket for C01Pong {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_long(self.payload);
-        Ok(PacketEncoder::new(buf, 0x01))
+        PacketEncoder::new(buf, 0x01)
     }
 }
 
@@ -51,11 +51,11 @@ pub struct C02LoginSuccess {
 }
 
 impl ClientBoundPacket for C02LoginSuccess {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(36, &Player::uuid_with_hyphens(self.uuid));
         buf.write_string(16, &self.username);
-        Ok(PacketEncoder::new(buf, 0x02))
+        PacketEncoder::new(buf, 0x02)
     }
 }
 
@@ -64,10 +64,10 @@ pub struct C03SetCompression {
 }
 
 impl ClientBoundPacket for C03SetCompression {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.threshold);
-        Ok(PacketEncoder::new(buf, 0x03))
+        PacketEncoder::new(buf, 0x03)
     }
 }
 
@@ -83,7 +83,7 @@ pub struct C05SpawnPlayer {
 }
 
 impl ClientBoundPacket for C05SpawnPlayer {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_uuid(self.uuid);
@@ -92,7 +92,7 @@ impl ClientBoundPacket for C05SpawnPlayer {
         buf.write_double(self.z);
         buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
         buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
-        Ok(PacketEncoder::new(buf, 0x05))
+        PacketEncoder::new(buf, 0x05)
     }
 }
 
@@ -104,11 +104,11 @@ pub struct C06EntityAnimation {
 }
 
 impl ClientBoundPacket for C06EntityAnimation {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_unsigned_byte(self.animation);
-        Ok(PacketEncoder::new(buf, 0x06))
+        PacketEncoder::new(buf, 0x06)
     }
 }
 
@@ -120,11 +120,11 @@ pub struct C0CBlockChange {
 }
 
 impl ClientBoundPacket for C0CBlockChange {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_position(self.x, self.y, self.z);
         buf.write_varint(self.block_id);
-        Ok(PacketEncoder::new(buf, 0x0C))
+        PacketEncoder::new(buf, 0x0C)
     }
 }
 
@@ -134,11 +134,11 @@ pub struct C0FChatMessage {
 }
 
 impl ClientBoundPacket for C0FChatMessage {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.message);
         buf.write_byte(self.position);
-        Ok(PacketEncoder::new(buf, 0x0F))
+        PacketEncoder::new(buf, 0x0F)
     }
 }
 
@@ -148,7 +148,7 @@ pub struct C15WindowItems {
 }
 
 impl ClientBoundPacket for C15WindowItems {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_unsigned_byte(self.window_id);
         buf.write_short(self.slot_data.len() as i16);
@@ -166,7 +166,7 @@ impl ClientBoundPacket for C15WindowItems {
                 buf.write_bool(false);
             }
         }
-        Ok(PacketEncoder::new(buf, 0x15))
+        PacketEncoder::new(buf, 0x15)
     }
 }
 
@@ -175,11 +175,11 @@ pub struct C19PluginMessageBrand {
 }
 
 impl ClientBoundPacket for C19PluginMessageBrand {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, "minecraft:brand");
         buf.write_string(32767, &self.brand);
-        Ok(PacketEncoder::new(buf, 0x19))
+        PacketEncoder::new(buf, 0x19)
     }
 }
 
@@ -188,10 +188,10 @@ pub struct C1BDisconnect {
 }
 
 impl ClientBoundPacket for C1BDisconnect {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.reason);
-        Ok(PacketEncoder::new(buf, 0x1B))
+        PacketEncoder::new(buf, 0x1B)
     }
 }
 
@@ -200,10 +200,10 @@ pub struct C21KeepAlive {
 }
 
 impl ClientBoundPacket for C21KeepAlive {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_long(self.id);
-        Ok(PacketEncoder::new(buf, 0x21))
+        PacketEncoder::new(buf, 0x21)
     }
 }
 
@@ -225,7 +225,7 @@ pub struct C22ChunkData {
 }
 
 impl ClientBoundPacket for C22ChunkData {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_int(self.chunk_x);
         buf.write_int(self.chunk_z);
@@ -258,7 +258,7 @@ impl ClientBoundPacket for C22ChunkData {
         buf.write_bytes(data);
         // Number of block entities
         buf.write_varint(0);
-        Ok(PacketEncoder::new(buf, 0x22))
+        PacketEncoder::new(buf, 0x22)
     }
 }
 
@@ -272,13 +272,13 @@ pub struct C23Effect {
 }
 
 impl ClientBoundPacket for C23Effect {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_int(self.effect_id);
         buf.write_position(self.x, self.y, self.z);
         buf.write_int(self.data);
         buf.write_bool(self.disable_relative_volume);
-        Ok(PacketEncoder::new(buf, 0x23))
+        PacketEncoder::new(buf, 0x23)
     }
 }
 
@@ -295,7 +295,7 @@ pub struct C26JoinGame {
 }
 
 impl ClientBoundPacket for C26JoinGame {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_int(self.entity_id);
         buf.write_unsigned_byte(self.gamemode);
@@ -306,7 +306,7 @@ impl ClientBoundPacket for C26JoinGame {
         buf.write_varint(self.view_distance);
         buf.write_boolean(self.reduced_debug_info);
         buf.write_boolean(self.enable_respawn_screen);
-        Ok(PacketEncoder::new(buf, 0x26))
+        PacketEncoder::new(buf, 0x26)
     }
 }
 
@@ -319,14 +319,14 @@ pub struct C29EntityPosition {
 }
 
 impl ClientBoundPacket for C29EntityPosition {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_short(self.delta_x);
         buf.write_short(self.delta_y);
         buf.write_short(self.delta_z);
         buf.write_bool(self.on_ground);
-        Ok(PacketEncoder::new(buf, 0x29))
+        PacketEncoder::new(buf, 0x29)
     }
 }
 
@@ -341,7 +341,7 @@ pub struct C2AEntityPositionAndRotation {
 }
 
 impl ClientBoundPacket for C2AEntityPositionAndRotation {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_short(self.delta_x);
@@ -350,7 +350,7 @@ impl ClientBoundPacket for C2AEntityPositionAndRotation {
         buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
         buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
         buf.write_bool(self.on_ground);
-        Ok(PacketEncoder::new(buf, 0x2A))
+        PacketEncoder::new(buf, 0x2A)
     }
 }
 
@@ -362,13 +362,13 @@ pub struct C2BEntityRotation {
 }
 
 impl ClientBoundPacket for C2BEntityRotation {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
         buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
         buf.write_bool(self.on_ground);
-        Ok(PacketEncoder::new(buf, 0x2B))
+        PacketEncoder::new(buf, 0x2B)
     }
 }
 
@@ -377,10 +377,10 @@ pub struct C2CEntityMovement {
 }
 
 impl ClientBoundPacket for C2CEntityMovement {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
-        Ok(PacketEncoder::new(buf, 0x2C))
+        PacketEncoder::new(buf, 0x2C)
     }
 }
 
@@ -405,7 +405,7 @@ pub enum C34PlayerInfo {
 }
 
 impl ClientBoundPacket for C34PlayerInfo {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         match self {
             C34PlayerInfo::AddPlayer(ps) => {
@@ -439,7 +439,7 @@ impl ClientBoundPacket for C34PlayerInfo {
                 }
             }
         }
-        Ok(PacketEncoder::new(buf, 0x34))
+        PacketEncoder::new(buf, 0x34)
     }
 }
 
@@ -454,7 +454,7 @@ pub struct C36PlayerPositionAndLook {
 }
 
 impl ClientBoundPacket for C36PlayerPositionAndLook {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_double(self.x);
         buf.write_double(self.y);
@@ -463,7 +463,7 @@ impl ClientBoundPacket for C36PlayerPositionAndLook {
         buf.write_float(self.pitch);
         buf.write_unsigned_byte(self.flags);
         buf.write_varint(self.teleport_id);
-        Ok(PacketEncoder::new(buf, 0x36))
+        PacketEncoder::new(buf, 0x36)
     }
 }
 
@@ -473,11 +473,11 @@ pub struct C3CEntityHeadLook {
 }
 
 impl ClientBoundPacket for C3CEntityHeadLook {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
-        Ok(PacketEncoder::new(buf, 0x3C))
+        PacketEncoder::new(buf, 0x3C)
     }
 }
 
@@ -487,11 +487,11 @@ pub struct C41UpdateViewPosition {
 }
 
 impl ClientBoundPacket for C41UpdateViewPosition {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.chunk_x);
         buf.write_varint(self.chunk_z);
-        Ok(PacketEncoder::new(buf, 0x41))
+        PacketEncoder::new(buf, 0x41)
     }
 }
 
@@ -507,7 +507,7 @@ pub struct C44EntityMetadata {
 }
 
 impl ClientBoundPacket for C44EntityMetadata {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         for entry in self.metadata {
@@ -516,7 +516,7 @@ impl ClientBoundPacket for C44EntityMetadata {
             buf.write_bytes(entry.value);
         }
         buf.write_byte(-1); // 0xFF
-        Ok(PacketEncoder::new(buf, 0x44))
+        PacketEncoder::new(buf, 0x44)
     }
 }
 
@@ -531,7 +531,7 @@ pub struct C57EntityTeleport {
 }
 
 impl ClientBoundPacket for C57EntityTeleport {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_double(self.x);
@@ -540,7 +540,7 @@ impl ClientBoundPacket for C57EntityTeleport {
         buf.write_byte((self.yaw % 360f32 / 360f32 * 256f32) as i8);
         buf.write_byte((self.pitch % 360f32 / 360f32 * 256f32) as i8);
         buf.write_bool(self.on_ground);
-        Ok(PacketEncoder::new(buf, 0x57))
+        PacketEncoder::new(buf, 0x57)
     }
 }
 
@@ -549,12 +549,12 @@ pub struct C38DestroyEntities {
 }
 
 impl ClientBoundPacket for C38DestroyEntities {
-    fn encode(self) -> EncodeResult<PacketEncoder> {
+    fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_ids.len() as i32);
         for entity_id in self.entity_ids {
             buf.write_varint(entity_id);
         }
-        Ok(PacketEncoder::new(buf, 0x38))
+        PacketEncoder::new(buf, 0x38)
     }
 }

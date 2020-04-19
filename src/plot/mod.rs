@@ -53,9 +53,10 @@ impl Plot {
                 x,
                 y: y as i32,
                 z,
-            };
+            }
+            .encode();
             for player in &mut self.players {
-                player.send_packet(&block_change);
+                player.client.send_packet(&block_change);
             }
         }
         changed
@@ -71,7 +72,7 @@ impl Plot {
     fn enter_plot(&mut self, mut player: Player) {
         self.save();
         for chunk in &self.chunks {
-            player.send_packet(chunk.encode_packet());
+            player.client.send_packet(&chunk.encode_packet());
         }
         let spawn_player = C05SpawnPlayer {
             entity_id: player.entity_id as i32,
@@ -82,7 +83,8 @@ impl Plot {
             x: dbg!(player.x),
             y: dbg!(player.y),
             z: dbg!(player.z),
-        };
+        }
+        .encode();
         let mut metadata_entries = Vec::new();
         metadata_entries.push(C44EntityMetadataEntry {
             index: 16,
@@ -92,10 +94,11 @@ impl Plot {
         let metadata = C44EntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: metadata_entries,
-        };
+        }
+        .encode();
         for other_player in &mut self.players {
-            other_player.send_packet(&spawn_player);
-            other_player.send_packet(&metadata);
+            other_player.client.send_packet(&spawn_player);
+            other_player.client.send_packet(&metadata);
 
             let spawn_other_player = C05SpawnPlayer {
                 entity_id: other_player.entity_id as i32,
@@ -106,8 +109,9 @@ impl Plot {
                 x: other_player.x,
                 y: other_player.y,
                 z: other_player.z,
-            };
-            player.send_packet(&spawn_other_player);
+            }
+            .encode();
+            player.client.send_packet(&spawn_other_player);
 
             let mut other_metadata_entries = Vec::new();
             other_metadata_entries.push(C44EntityMetadataEntry {
@@ -118,8 +122,9 @@ impl Plot {
             let other_metadata = C44EntityMetadata {
                 entity_id: other_player.entity_id as i32,
                 metadata: other_metadata_entries,
-            };
-            player.send_packet(&other_metadata);
+            }
+            .encode();
+            player.client.send_packet(&other_metadata);
         }
         player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
@@ -222,15 +227,16 @@ impl Plot {
                         ping: 0,
                         uuid: player_join_info.uuid,
                         display_name: None,
-                    }]);
+                    }])
+                    .encode();
                     for player in &mut self.players {
-                        player.send_packet(&player_info);
+                        player.client.send_packet(&player_info);
                     }
                 }
                 Message::PlayerLeft(uuid) => {
-                    let player_info = C34PlayerInfo::RemovePlayer(vec![uuid]);
+                    let player_info = C34PlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
-                        player.send_packet(&player_info);
+                        player.client.send_packet(&player_info);
                     }
                 }
                 _ => {}
@@ -301,9 +307,10 @@ impl Plot {
         if !dead_entity_ids.is_empty() {
             let destroy_entities = C38DestroyEntities {
                 entity_ids: dead_entity_ids,
-            };
+            }
+            .encode();
             for player in &mut self.players {
-                player.send_packet(&destroy_entities);
+                player.client.send_packet(&destroy_entities);
             }
         }
     }
