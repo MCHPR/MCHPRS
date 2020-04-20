@@ -340,7 +340,7 @@ impl Plot {
     ) -> Plot {
         let chunk_x_offset = x << 3;
         let chunk_z_offset = z << 3;
-        if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
+        if let Ok(data) = fs::read(format!("./world/plots/p{},{}", x, z)) {
             // Load plot from file
             // TODO: Handle format error
             let plot_data: PlotData = bincode::deserialize(&data).unwrap();
@@ -356,6 +356,7 @@ impl Plot {
                     )
                 })
                 .collect();
+            dbg!(&chunks);
             Plot {
                 last_player_time: SystemTime::now(),
                 message_receiver: rx,
@@ -371,6 +372,7 @@ impl Plot {
                 chunks,
             }
         } else {
+            debug!("Plot {},{} does not exist yet, generating now.", x, z);
             // Create a new plot with empty chunks
             let mut chunks = Vec::new();
             for chunk_x in 0..8 {
@@ -399,7 +401,7 @@ impl Plot {
     }
 
     fn save(&self) {
-        debug!("Saving plot");
+        debug!("Saving plot {},{}", self.x, self.z);
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
