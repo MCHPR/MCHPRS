@@ -341,6 +341,30 @@ impl Chunk {
             z,
         }
     }
+
+    pub fn plot(layers: i32, x: i32, z: i32) -> Chunk {
+        let mut chunk = Chunk {
+            sections: Vec::new(),
+            x,
+            z,
+        };
+
+        for ry in 0..layers {
+            for rx in 0..16 {
+                for rz in 0..16 {
+                    let block_x = (x << 4) | rx;
+                    let block_z = (z << 4) | rz;
+                    
+                    if block_x % 128 == 0 || block_z % 128 == 0 || (block_x + 1) % 128 == 0 || (block_z + 1) % 128 == 0 {
+                        chunk.set_block(rx as u32, ry as u32, rz as u32, 7878); // Smooth stone
+                    } else {
+                        chunk.set_block(rx as u32, ry as u32, rz as u32, 245); // Sandstone
+                    }
+                }
+            }
+        }
+        chunk
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]

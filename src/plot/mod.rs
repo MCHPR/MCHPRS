@@ -151,11 +151,63 @@ impl Plot {
         match command {
             "//1" | "//pos1" => {
                 let player = &mut self.players[player];
-                player.set_first_position(player.x as i32, player.y as i32, player.z as i32);
+
+                let mut x = player.x as i32;
+                let mut y = player.y as i32;
+                let mut z = player.z as i32;
+
+                if args.len() >= 3 {
+                    if let Ok(x_arg) = args[0].parse::<i32>() {
+                        x = x_arg;
+                    } else {
+                        player.send_system_message("Unable to parse x coordinate!");
+                        return;
+                    }
+                    if let Ok(y_arg) = args[1].parse::<i32>() {
+                        y = y_arg;
+                    } else {
+                        player.send_system_message("Unable to parse y coordinate!");
+                        return;
+                    }
+                    if let Ok(z_arg) = args[2].parse::<i32>() {
+                        z = z_arg;
+                    } else {
+                        player.send_system_message("Unable to parse z coordinate!");
+                        return;
+                    }
+                }
+
+                player.worldedit_set_first_position(x, y, z);
             }
             "//2" | "//pos2" => {
                 let player = &mut self.players[player];
-                player.set_second_position(player.x as i32, player.y as i32, player.z as i32);
+
+                let mut x = player.x as i32;
+                let mut y = player.y as i32;
+                let mut z = player.z as i32;
+
+                if args.len() >= 3 {
+                    if let Ok(x_arg) = args[0].parse::<i32>() {
+                        x = x_arg;
+                    } else {
+                        player.send_system_message("Unable to parse x coordinate!");
+                        return;
+                    }
+                    if let Ok(y_arg) = args[1].parse::<i32>() {
+                        y = y_arg;
+                    } else {
+                        player.send_system_message("Unable to parse y coordinate!");
+                        return;
+                    }
+                    if let Ok(z_arg) = args[2].parse::<i32>() {
+                        z = z_arg;
+                    } else {
+                        player.send_system_message("Unable to parse z coordinate!");
+                        return;
+                    }
+                }
+                
+                player.worldedit_set_second_position(x, y, z);
             }
             "//set" => {
                 let block = Block::from_name(&args[0]);
@@ -375,7 +427,8 @@ impl Plot {
             let mut chunks = Vec::new();
             for chunk_x in 0..8 {
                 for chunk_z in 0..8 {
-                    chunks.push(Chunk::empty(
+                    chunks.push(Chunk::plot(
+                        8,
                         chunk_x + chunk_x_offset,
                         chunk_z + chunk_z_offset,
                     ));

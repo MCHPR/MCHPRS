@@ -142,6 +142,37 @@ impl ClientBoundPacket for C0FChatMessage {
     }
 }
 
+pub struct C10MultiBlockChangeRecord {
+    pub x: i8,
+    pub y: i8,
+    pub z: i8,
+    pub block_id: i32
+}
+
+pub struct C10MultiBlockChange {
+    pub chunk_x: i32,
+    pub chunk_z: i32,
+    pub records: Vec<C10MultiBlockChangeRecord> 
+}
+
+impl ClientBoundPacket for C10MultiBlockChange {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+
+        buf.write_int(self.chunk_x);
+        buf.write_int(self.chunk_z);
+        buf.write_varint(self.records.len() as i32); // Length of record array
+
+        for record in self.records {
+            buf.write_byte((record.x << 4) | (record.z & 0x0F)); // 0bXXXXZZZZ
+            buf.write_byte(record.y);
+            buf.write_varint(record.block_id);
+        }
+        
+        PacketEncoder::new(buf, 0x10)
+    }
+}
+
 pub struct C15WindowItems {
     pub window_id: u8,
     pub slot_data: Vec<Option<SlotData>>,
