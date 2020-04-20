@@ -1,7 +1,7 @@
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C15WindowItems,
     C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
-    C36PlayerPositionAndLook, ClientBoundPacket,
+    C36PlayerPositionAndLook, ClientBoundPacket, C41UpdateViewPosition
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
@@ -442,6 +442,8 @@ impl MinecraftServer {
                             }
                             .encode();
                             player.client.send_packet(&player_pos_and_look);
+
+                            player.update_view_pos();
 
                             let mut add_player_list = Vec::new();
                             for player in &self.online_players {
