@@ -320,7 +320,7 @@ impl Plot {
             let mut chunks = Vec::new();
             for chunk_x in 0..8 {
                 for chunk_z in 0..8 {
-                    chunks.push(Chunk::plot(
+                    chunks.push(Chunk::generate(
                         8,
                         chunk_x + chunk_x_offset,
                         chunk_z + chunk_z_offset,

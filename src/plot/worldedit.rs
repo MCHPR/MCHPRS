@@ -16,26 +16,20 @@ impl Plot {
         for record in records {
             let chunk_index = Plot::get_chunk_index(record.x, record.z);
 
-            if packets.get(&chunk_index).is_none() {
-                packets.insert(chunk_index, C10MultiBlockChange {
-                    chunk_x: record.x >> 4,
-                    chunk_z: record.z >> 4,
-                    records: Vec::new()
-                });
-            }
-
-            packets.get_mut(&chunk_index).unwrap().records.push(C10MultiBlockChangeRecord {
+            packets.entry(chunk_index).or_insert(C10MultiBlockChange {
+                chunk_x: record.x >> 4,
+                chunk_z: record.z >> 4,
+                records: Vec::new()
+            }).records.push(C10MultiBlockChangeRecord {
                 block_id: record.block_id as i32,
                 x: (record.x % 16) as i8,
-                y: (record.y % 16) as i8,
+                y: record.y as u8,
                 z: (record.z % 16) as i8,
             });
         }
 
-        // println!("{} {}", records.len(), packets.len());
-
-        for packet in packets {
-            let multi_block_change = packet.1.encode();
+        for (_, packet) in packets {
+            let multi_block_change = packet.encode();
 
             for player in &mut self.players {
                 player.client.send_packet(&multi_block_change);
@@ -85,6 +79,8 @@ impl Plot {
             let z_start = std::cmp::min(first_pos.2, second_pos.2);
             let z_end = std::cmp::max(first_pos.2, second_pos.2);
 
+            let block_id = block.get_id();
+
             for x in x_start..=x_end {
                 for y in y_start..=y_end {
                     for z in z_start..=z_end {
@@ -92,11 +88,11 @@ impl Plot {
                             x,
                             y,
                             z,
-                            block_id: block.get_id()
+                            block_id
                         });
-                        // if self.set_block(x, y as u32, z, block) {
-                        // }
-                        blocks_updated += 1;
+                        if self.set_block_raw(x, y as u32, z, block_id) {
+                            blocks_updated += 1;
+                        }
                     }
                 }
             }

@@ -346,7 +346,7 @@ impl Chunk {
         }
     }
 
-    pub fn plot(layers: i32, x: i32, z: i32) -> Chunk {
+    pub fn generate(layers: i32, x: i32, z: i32) -> Chunk {
         let mut chunk = Chunk {
             sections: Vec::new(),
             x,
@@ -360,7 +360,7 @@ impl Chunk {
                     let block_z = (z << 4) | rz;
                     
                     if block_x % 128 == 0 || block_z % 128 == 0 || (block_x + 1) % 128 == 0 || (block_z + 1) % 128 == 0 {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 7878); // Smooth stone
+                        chunk.set_block(rx as u32, ry as u32, rz as u32, 4481); // Stone Bricks
                     } else {
                         chunk.set_block(rx as u32, ry as u32, rz as u32, 245); // Sandstone
                     }

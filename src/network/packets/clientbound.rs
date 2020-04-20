@@ -144,7 +144,7 @@ impl ClientBoundPacket for C0FChatMessage {
 
 pub struct C10MultiBlockChangeRecord {
     pub x: i8,
-    pub y: i8,
+    pub y: u8,
     pub z: i8,
     pub block_id: i32
 }
@@ -165,7 +165,7 @@ impl ClientBoundPacket for C10MultiBlockChange {
 
         for record in self.records {
             buf.write_byte((record.x << 4) | (record.z & 0x0F)); // 0bXXXXZZZZ
-            buf.write_byte(record.y);
+            buf.write_unsigned_byte(record.y);
             buf.write_varint(record.block_id);
         }
         
