@@ -1,6 +1,6 @@
 use std::mem;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum BlockFacing {
     North,
     South,
@@ -28,7 +28,7 @@ impl BlockFacing {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum RedstoneWireSide {
     Up,
     Side,
@@ -53,7 +53,7 @@ impl RedstoneWireSide {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneWire {
     north: RedstoneWireSide,
     south: RedstoneWireSide,
@@ -80,7 +80,7 @@ impl RedstoneWire {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneRepeater {
     delay: u8,
     facing: BlockFacing,
@@ -105,7 +105,7 @@ impl RedstoneRepeater {
 }
 
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ComparatorMode {
     Compare,
     Subtract,
@@ -127,7 +127,7 @@ impl ComparatorMode {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneComparator {
     facing: BlockFacing,
     mode: ComparatorMode,
@@ -148,7 +148,7 @@ impl RedstoneComparator {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Block {
     Air,
     RedstoneWire(RedstoneWire),
@@ -181,17 +181,17 @@ impl Block {
             3886 => Block::RedstoneTorch(false),
             4017..=4080 => {
                 let id = id - 4017;
-                let powered = (id & 1) == 1;
-                let locked = ((id >> 1) & 1) == 1;
+                let powered = (id & 1) == 0;
+                let locked = ((id >> 1) & 1) == 0;
                 let facing = BlockFacing::from_id((id >> 2) & 3);
-                let delay = (id >> 4) as u8;
+                let delay = (id >> 4) as u8 + 1;
                 Block::RedstoneRepeater(RedstoneRepeater::new(delay, facing, locked, powered))
             }
             5140 => Block::RedstoneLamp(true),
             5141 => Block::RedstoneLamp(false),
             6142..=6157 => {
                 let id = id - 6142;
-                let powered = (id & 1) == 1;
+                let powered = (id & 1) == 0;
                 let mode = ComparatorMode::from_id((id >> 1) & 1);
                 let facing = BlockFacing::from_id(id >> 2);
                 Block::RedstoneComparator(RedstoneComparator::new(facing, mode, powered))
@@ -214,10 +214,10 @@ impl Block {
             Block::RedstoneTorch(true) => 3885,
             Block::RedstoneTorch(false) => 3886,
             Block::RedstoneRepeater(repeater) => {
-                repeater.delay as u32 * 16
+                (repeater.delay as u32 - 1) * 16
                     + repeater.facing.get_id() * 4
-                    + repeater.locked as u32 * 2
-                    + repeater.powered as u32
+                    + !repeater.locked as u32 * 2
+                    + !repeater.powered as u32
                     + 4017
             }
             Block::RedstoneLamp(true) => 5140,
@@ -225,7 +225,7 @@ impl Block {
             Block::RedstoneComparator(comparator) => {
                 comparator.facing.get_id() * 4
                     + comparator.mode.get_id() * 2
-                    + comparator.powered as u32
+                    + !comparator.powered as u32
                     + 6142
             }
             Block::Solid(id) => id,
@@ -241,4 +241,22 @@ impl Block {
             _ => None,
         }
     }
+}
+
+#[test]
+fn repeater_id_test() {
+    let original = Block::RedstoneRepeater(RedstoneRepeater::new(3, BlockFacing::West, true, false));
+    let id = original.get_id();
+    assert_eq!(id, 4058);
+    let new = Block::from_block_state(id);
+    assert_eq!(new, original);
+}
+
+#[test]
+fn comparator_id_test() {
+    let original = Block::RedstoneComparator(RedstoneComparator::new(BlockFacing::West, ComparatorMode::Subtract, false));
+    let id = original.get_id();
+    assert_eq!(id, 6153);
+    let new = Block::from_block_state(id);
+    assert_eq!(new, original);
 }
