@@ -1,6 +1,6 @@
 # Minecraft High Performance Redstone Server
 
-[![Build Status](https://travis-ci.com/StackDoubleFlow/MCHPRS.svg?token=w2Qd2PZXZDMXJBYfVgvu&branch=master)](https://travis-ci.com/StackDoubleFlow/MCHPRS) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![Crates.io](https://img.shields.io/crates/v/mchprs)
+[![Build Status](https://travis-ci.com/StackDoubleFlow/MCHPRS.svg?token=w2Qd2PZXZDMXJBYfVgvu&branch=master)](https://travis-ci.com/StackDoubleFlow/MCHPRS) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) ![Crates.io](https://img.shields.io/crates/v/mchprs?colorB=319e8c)
 
 A minecraft creative server built for redstone. Each 128x128 plot runs on its own thread, allowing for less lag and more concurrency.
 
