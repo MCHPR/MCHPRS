@@ -9,6 +9,7 @@ use crate::player::Player;
 use crate::server::{Message, PrivMessage};
 use bus::BusReader;
 use std::fs::{self, OpenOptions};
+use std::path::Path;
 use std::io::Write;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
@@ -274,6 +275,44 @@ impl Plot {
         }
     }
 
+    fn load_from_file(data: Vec<u8>,
+        x: i32,
+        z: i32,
+        rx: BusReader<Message>,
+        tx: Sender<Message>,
+        priv_rx: Receiver<PrivMessage>,
+        always_running: bool,) -> Plot {
+        let chunk_x_offset = x << 3;
+        let chunk_z_offset = z << 3;
+        let plot_data: PlotData = bincode::deserialize(&data).unwrap();
+        let chunks: Vec<Chunk> = plot_data
+            .chunk_data
+            .into_iter()
+            .enumerate()
+            .map(|(i, c)| {
+                Chunk::load(
+                    chunk_x_offset + i as i32 / 8,
+                    chunk_z_offset + i as i32 % 8,
+                    c,
+                )
+            })
+            .collect();
+        Plot {
+            last_player_time: SystemTime::now(),
+            message_receiver: rx,
+            message_sender: tx,
+            priv_message_receiver: priv_rx,
+            players: Vec::new(),
+            running: true,
+            show_redstone: plot_data.show_redstone,
+            tps: plot_data.tps as u32,
+            x,
+            z,
+            always_running,
+            chunks,
+        }
+    }
+
     fn load(
         x: i32,
         z: i32,
@@ -282,41 +321,15 @@ impl Plot {
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
     ) -> Plot {
-        let chunk_x_offset = x << 3;
-        let chunk_z_offset = z << 3;
         if let Ok(data) = fs::read(format!("./world/plots/p{},{}", x, z)) {
-            // Load plot from file
-            // TODO: Handle format error
-            let plot_data: PlotData = bincode::deserialize(&data).unwrap();
-            let chunks: Vec<Chunk> = plot_data
-                .chunk_data
-                .into_iter()
-                .enumerate()
-                .map(|(i, c)| {
-                    Chunk::load(
-                        chunk_x_offset + i as i32 / 8,
-                        chunk_z_offset + i as i32 % 8,
-                        c,
-                    )
-                })
-                .collect();
-            Plot {
-                last_player_time: SystemTime::now(),
-                message_receiver: rx,
-                message_sender: tx,
-                priv_message_receiver: priv_rx,
-                players: Vec::new(),
-                running: true,
-                show_redstone: plot_data.show_redstone,
-                tps: plot_data.tps as u32,
-                x,
-                z,
-                always_running,
-                chunks,
-            }
+            Plot::load_from_file(data, x, z, rx, tx, priv_rx, always_running)
+        } else if Path::new("./world/plots/pTEMPLATE").exists() {
+            let data = fs::read("./world/plots/pTEMPLATE").unwrap();
+            Plot::load_from_file(data, x, z, rx, tx, priv_rx, always_running)
         } else {
             debug!("Plot {},{} does not exist yet, generating now.", x, z);
-            // Create a new plot with empty chunks
+            let chunk_x_offset = x << 3;
+            let chunk_z_offset = z << 3;
             let mut chunks = Vec::new();
             for chunk_x in 0..8 {
                 for chunk_z in 0..8 {
@@ -403,9 +416,10 @@ impl Drop for Plot {
             }
         }
         self.save();
+        debug!("Plot {},{} unloaded", self.x, self.z);
         self.message_sender
-            .send(Message::PlotUnload(self.x, self.z))
-            .unwrap();
+        .send(Message::PlotUnload(self.x, self.z))
+        .unwrap();
     }
 }
 

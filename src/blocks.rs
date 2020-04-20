@@ -238,6 +238,7 @@ impl Block {
             "air" => Some(Block::Air),
             "glass" => Some(Block::Transparent(230)),
             "sandstone" => Some(Block::Solid(245)),
+            "stone_bricks" => Some(Block::Solid(4481)),
             _ => None,
         }
     }
