@@ -1,6 +1,7 @@
 mod packets;
 mod storage;
 mod worldedit;
+mod commands;
 
 use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
@@ -72,6 +73,7 @@ impl Plot {
     fn tick(&mut self) {}
 
     fn enter_plot(&mut self, mut player: Player) {
+        debug!("Player enter plot!");
         self.save();
         for chunk in &self.chunks {
             player.client.send_packet(&chunk.encode_packet());
@@ -145,116 +147,6 @@ impl Plot {
 
     fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
         x >= plot_x * 128 && x < (plot_x + 1) * 128 && z >= plot_z * 128 && z < (plot_z + 1) * 128
-    }
-
-    fn handle_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
-        match command {
-            "//1" | "//pos1" => {
-                let player = &mut self.players[player];
-
-                let mut x = player.x as i32;
-                let mut y = player.y as i32;
-                let mut z = player.z as i32;
-
-                if args.len() >= 3 {
-                    if let Ok(x_arg) = args[0].parse::<i32>() {
-                        x = x_arg;
-                    } else {
-                        player.send_system_message("Unable to parse x coordinate!");
-                        return;
-                    }
-                    if let Ok(y_arg) = args[1].parse::<i32>() {
-                        y = y_arg;
-                    } else {
-                        player.send_system_message("Unable to parse y coordinate!");
-                        return;
-                    }
-                    if let Ok(z_arg) = args[2].parse::<i32>() {
-                        z = z_arg;
-                    } else {
-                        player.send_system_message("Unable to parse z coordinate!");
-                        return;
-                    }
-                }
-
-                player.worldedit_set_first_position(x, y, z);
-            }
-            "//2" | "//pos2" => {
-                let player = &mut self.players[player];
-
-                let mut x = player.x as i32;
-                let mut y = player.y as i32;
-                let mut z = player.z as i32;
-
-                if args.len() >= 3 {
-                    if let Ok(x_arg) = args[0].parse::<i32>() {
-                        x = x_arg;
-                    } else {
-                        player.send_system_message("Unable to parse x coordinate!");
-                        return;
-                    }
-                    if let Ok(y_arg) = args[1].parse::<i32>() {
-                        y = y_arg;
-                    } else {
-                        player.send_system_message("Unable to parse y coordinate!");
-                        return;
-                    }
-                    if let Ok(z_arg) = args[2].parse::<i32>() {
-                        z = z_arg;
-                    } else {
-                        player.send_system_message("Unable to parse z coordinate!");
-                        return;
-                    }
-                }
-                
-                player.worldedit_set_second_position(x, y, z);
-            }
-            "//set" => {
-                let block = Block::from_name(&args[0]);
-                if let Some(block) = block {
-                    self.worldedit_set(player, block);
-                } else {
-                    self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
-            }
-            "/tp" => {
-                if args.len() == 3 {
-                    let x;
-                    let y;
-                    let z;
-                    if let Ok(x_arg) = args[0].parse::<f64>() {
-                        x = x_arg;
-                    } else {
-                        self.players[player].send_system_message("Unable to parse x coordinate!");
-                        return;
-                    }
-                    if let Ok(y_arg) = args[1].parse::<f64>() {
-                        y = y_arg;
-                    } else {
-                        self.players[player].send_system_message("Unable to parse y coordinate!");
-                        return;
-                    }
-                    if let Ok(z_arg) = args[2].parse::<f64>() {
-                        z = z_arg;
-                    } else {
-                        self.players[player].send_system_message("Unable to parse z coordinate!");
-                        return;
-                    }
-                    self.players[player].teleport(x, y, z);
-                } else if args.len() == 1 {
-                    self.players[player].send_system_message("TODO: teleport to player");
-                } else {
-                    self.players[player]
-                        .send_system_message("Wrong number of arguments for teleport command!");
-                }
-            }
-            "/stop" => {
-                self.message_sender.send(Message::Shutdown);
-            }
-            _ => self.players[player].send_system_message("Command not found!"),
-        }
     }
 
     fn update(&mut self) {
@@ -392,7 +284,7 @@ impl Plot {
     ) -> Plot {
         let chunk_x_offset = x << 3;
         let chunk_z_offset = z << 3;
-        if let Ok(data) = fs::read(format!("./world/plots/p{}:{}", x, z)) {
+        if let Ok(data) = fs::read(format!("./world/plots/p{},{}", x, z)) {
             // Load plot from file
             // TODO: Handle format error
             let plot_data: PlotData = bincode::deserialize(&data).unwrap();
@@ -423,6 +315,7 @@ impl Plot {
                 chunks,
             }
         } else {
+            debug!("Plot {},{} does not exist yet, generating now.", x, z);
             // Create a new plot with empty chunks
             let mut chunks = Vec::new();
             for chunk_x in 0..8 {
@@ -452,7 +345,7 @@ impl Plot {
     }
 
     fn save(&self) {
-        debug!("Saving plot");
+        debug!("Saving plot {},{}", self.x, self.z);
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -472,6 +365,7 @@ impl Plot {
     fn run(&mut self, initial_player: Option<Player>) {
         debug!("Running new plot!");
         if let Some(player) = initial_player {
+            debug!("Sending initial player into plot!");
             self.enter_plot(player);
         }
         while self.running {

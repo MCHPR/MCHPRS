@@ -230,13 +230,7 @@ impl Player {
         file.write_all(&data).unwrap();
     }
 
-    pub fn update(&mut self) {
-        if self.last_keep_alive_received.elapsed().as_secs() > 30 {
-            self.kick("Timed out".to_string());
-        }
-        if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
-            self.send_keep_alive();
-        }
+    pub fn update_view_pos(&mut self) {
         let chunk_x = self.x as i32 >> 4;
         let chunk_z = self.z as i32 >> 4;
         if chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z {
@@ -245,6 +239,16 @@ impl Player {
         }
         self.last_chunk_x = chunk_x;
         self.last_chunk_z = chunk_z;
+    }
+
+    pub fn update(&mut self) {
+        if self.last_keep_alive_received.elapsed().as_secs() > 30 {
+            self.kick("Timed out".to_string());
+        }
+        if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
+            self.send_keep_alive();
+        }
+        self.update_view_pos();
         if let Err(err) = self.client.update() {
             self.kick(json!({
                 "text": format!("There was an error reading a packet header: {:?}", err)
@@ -279,6 +283,7 @@ impl Player {
         self.y = y;
         self.z = z;
         self.client.send_packet(&player_position_and_look);
+        self.update_view_pos();
     }
 
     pub fn send_raw_chat(&mut self, message: String) {

@@ -10,6 +10,7 @@ pub struct PlotData {
     pub chunk_data: Vec<ChunkData>,
 }
 
+#[derive(Debug)]
 struct BitBuffer {
     bits_per_entry: u8,
     entries: usize,
@@ -67,6 +68,7 @@ impl BitBuffer {
     }
 }
 
+#[derive(Debug)]
 struct PalettedBitBuffer {
     data: BitBuffer,
     palatte: Vec<u32>,
@@ -141,6 +143,7 @@ impl PalettedBitBuffer {
     }
 }
 
+#[derive(Debug)]
 struct ChunkSection {
     y: u8,
     buffer: PalettedBitBuffer,
@@ -235,6 +238,7 @@ impl ChunkSection {
     }
 }
 
+#[derive(Debug)]
 pub struct Chunk {
     sections: Vec<ChunkSection>,
     x: i32,
