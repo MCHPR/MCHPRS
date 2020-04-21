@@ -25,6 +25,7 @@ use std::time::{Duration, Instant};
 /// as well as to communicate chat messages.
 #[derive(Debug, Clone)]
 pub enum Message {
+    ChatInfo(String, String),
     Chat(String),
     PlayerJoinedInfo(PlayerJoinInfo),
     PlayerJoined(Arc<Player>),
@@ -271,8 +272,14 @@ impl MinecraftServer {
                     self.broadcaster.broadcast(message);
                 }
                 Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
-                Message::Chat(chat) => {
-                    self.broadcaster.broadcast(Message::Chat(chat));
+                Message::ChatInfo(username, message) => {
+                    self.broadcaster.broadcast(Message::Chat(
+                        json!({
+                            "text": self.config.get_str("chat_format").unwrap_or("<{username}> {message}".to_owned())
+                                        .replace("{username}", &username)
+                                        .replace("{message}", &message)
+                        }).to_string()
+                    ));
                 }
                 Message::PlayerLeavePlot(player_arc) => {
                     let player = Arc::try_unwrap(player_arc).unwrap();
@@ -358,7 +365,7 @@ impl MinecraftServer {
                                             "protocol": 578
                                         },
                                         "players": {
-                                            "max": 9999,
+                                            "max": self.config.get_int("max_players").unwrap_or_default(),
                                             "online": self.online_players.len(),
                                             "sample": []
                                         },
