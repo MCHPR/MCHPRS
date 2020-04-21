@@ -241,12 +241,12 @@ impl ChunkSection {
 #[derive(Debug)]
 pub struct Chunk {
     sections: Vec<ChunkSection>,
-    x: i32,
-    z: i32,
+    pub x: i32,
+    pub z: i32,
 }
 
 impl Chunk {
-    pub fn encode_packet(&self) -> PacketEncoder {
+    pub fn encode_packet(&self, full_chunk: bool) -> PacketEncoder {
         let mut heightmap_buffer = BitBuffer::create(9, 256);
         for x in 0..16 {
             for z in 0..16 {
@@ -271,11 +271,13 @@ impl Chunk {
             .insert("MOTION_BLOCKING", heightmap_longs)
             .unwrap();
         C22ChunkData {
-            biomes: Some(vec![0; 1024]),
+            // Use `bool_to_option` feature when stabalized
+            // Tracking issue: https://github.com/rust-lang/rust/issues/64260
+            biomes: if full_chunk { Some(vec![0; 1024]) } else { None },
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,
-            full_chunk: true,
+            full_chunk,
             heightmaps,
             primary_bit_mask: bitmask as i32,
         }

@@ -35,15 +35,23 @@ pub struct Plot {
 }
 
 impl Plot {
-    fn get_chunk_index(block_x: i32, block_z: i32) -> usize {
-        let chunk_x = block_x >> 4;
-        let chunk_z = block_z >> 4;
+
+    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
+        let local_x = chunk_x - self.x * 8;
+        let local_z = chunk_z - self.z * 8;
+        (local_x * 8 + local_z).abs() as usize
+    }
+
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+        let chunk_x = (block_x - self.x * 128) >> 4;
+        let chunk_z = (block_z - self.z * 128) >> 4;
         (chunk_x * 8 + chunk_z).abs() as usize
     }
 
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, x: i32, y: u32, z: i32, block: u32) -> bool {
-        let chunk = &mut self.chunks[Plot::get_chunk_index(x, z)];
+        let chunk_index = self.get_chunk_index_for_block(x, z);
+        let chunk = &mut self.chunks[chunk_index];
         chunk.set_block((x & 0xF) as u32, y, (z & 0xF) as u32, block)
     }
 
@@ -67,7 +75,8 @@ impl Plot {
     }
 
     fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
-        let chunk = &self.chunks[Plot::get_chunk_index(x, z)];
+        let chunk_index = self.get_chunk_index_for_block(x, z);
+        let chunk = &self.chunks[chunk_index];
         Block::from_block_state(chunk.get_block((x & 0xF) as u32, y, (z & 0xF) as u32))
     }
 
@@ -77,7 +86,7 @@ impl Plot {
         debug!("Player enter plot!");
         self.save();
         for chunk in &self.chunks {
-            player.client.send_packet(&chunk.encode_packet());
+            player.client.send_packet(&chunk.encode_packet(true));
         }
         let spawn_player = C05SpawnPlayer {
             entity_id: player.entity_id as i32,
