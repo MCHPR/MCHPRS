@@ -138,9 +138,7 @@ impl Plot {
             self.handle_command(player, command, args);
         } else {
             let player = &self.players[player];
-            let broadcast_message = Message::Chat(
-                json!({ "text": format!("<{}> {}", player.username, message) }).to_string(),
-            );
+            let broadcast_message = Message::ChatInfo(player.username.to_owned(), message);
             self.message_sender.send(broadcast_message).unwrap();
         }
     }
