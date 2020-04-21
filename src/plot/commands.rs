@@ -74,15 +74,18 @@ impl Plot {
                 player.worldedit_set_second_position(x, y, z);
             }
             "//set" => {
-                let pattern = WorldEditPattern::from_str(&args[0]);
-
-                self.worldedit_set(player, pattern);
+                if let Err(_) = self.worldedit_set(player, &args[0]) {
+                    self.players[player].send_system_message(
+                        "Invalid block. Note that not all blocks are supported."
+                    );
+                }
             }
             "//replace" => {
-                let filter = WorldEditPattern::from_str(&args[0]);
-                let pattern = WorldEditPattern::from_str(&args[1]);
-
-                self.worldedit_replace(player, filter, pattern);
+                if let Err(_) = self.worldedit_replace(player, &args[0], &args[1]) {
+                    self.players[player].send_system_message(
+                        "Invalid block. Note that not all blocks are supported."
+                    );
+                }
             }
             "/tp" => {
                 if args.len() == 3 {

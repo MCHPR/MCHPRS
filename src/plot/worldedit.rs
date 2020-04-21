@@ -16,31 +16,30 @@ pub struct WorldEditPatternPart {
     pub block_id: u32,
 }
 
+pub enum PatternParseError {
+    UnknownBlock(String)
+}
+
+pub type PatternParseResult<T> = std::result::Result<T, PatternParseError>;
+
 pub struct WorldEditPattern {
     pub parts: Vec<WorldEditPatternPart>,
 }
 
 impl WorldEditPattern {
-    pub fn from_str(pattern_str: &str) -> WorldEditPattern {
+    pub fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
 
         for part in pattern_str.split(",") {
-            let block = Block::from_name(part);
+            let block = Block::from_name(part).ok_or(PatternParseError::UnknownBlock(part.to_owned()))?;
 
-            if let Some(block) = block {
-                pattern.parts.push(WorldEditPatternPart {
-                    weight: 1.0,
-                    block_id: block.get_id(),
-                });
-            } else {
-                pattern.parts.push(WorldEditPatternPart {
-                    weight: 1.0,
-                    block_id: 0,
-                });
-            }
+            pattern.parts.push(WorldEditPatternPart {
+                weight: 1.0,
+                block_id: block.get_id(),
+            });
         }
 
-        pattern
+        Ok(pattern)
     }
 
     pub fn matches(&self, block: Block) -> bool {
@@ -135,7 +134,8 @@ impl Plot {
         Some((first_pos, second_pos))
     }
 
-    pub(super) fn worldedit_set(&mut self, player: usize, pattern: WorldEditPattern) {
+    pub(super) fn worldedit_set(&mut self, player: usize, pattern_str: &str) -> PatternParseResult<()> {
+        let pattern = WorldEditPattern::from_str(pattern_str)?;
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
             let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
@@ -164,14 +164,18 @@ impl Plot {
                 blocks_updated
             ));
         }
+        Ok(())
     }
 
     pub(super) fn worldedit_replace(
         &mut self,
         player: usize,
-        filter: WorldEditPattern,
-        pattern: WorldEditPattern,
-    ) {
+        filter_str: &str,
+        pattern_str: &str,
+    ) -> PatternParseResult<()> {
+        let filter = WorldEditPattern::from_str(filter_str)?;
+        let pattern = WorldEditPattern::from_str(pattern_str)?;
+
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
             let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
@@ -203,5 +207,6 @@ impl Plot {
                 blocks_updated
             ));
         }
+        Ok(())
     }
 }
