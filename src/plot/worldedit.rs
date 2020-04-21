@@ -108,17 +108,17 @@ impl Plot {
         player: usize,
     ) -> Option<
         std::iter::Zip<
-            std::iter::Zip<std::ops::RangeInclusive<i32>, std::ops::RangeInclusive<i32>>,
+            std::iter::Zip<std::ops::RangeInclusive<i32>, std::ops::RangeInclusive<u32>>,
             std::ops::RangeInclusive<i32>,
         >,
     > {
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
-            let x_start = std::cmp::min(first_pos.0, second_pos.0);
-            let x_end = std::cmp::max(first_pos.0, second_pos.0);
-            let y_start = std::cmp::min(first_pos.1, second_pos.1);
-            let y_end = std::cmp::max(first_pos.1, second_pos.1);
-            let z_start = std::cmp::min(first_pos.2, second_pos.2);
-            let z_end = std::cmp::max(first_pos.2, second_pos.2);
+            let x_start = std::cmp::min(first_pos.x, second_pos.x);
+            let x_end = std::cmp::max(first_pos.x, second_pos.x);
+            let y_start = std::cmp::min(first_pos.y, second_pos.y);
+            let y_end = std::cmp::max(first_pos.y, second_pos.y);
+            let z_start = std::cmp::min(first_pos.z, second_pos.z);
+            let z_end = std::cmp::max(first_pos.z, second_pos.z);
 
             return Some((x_start..=x_end).zip(y_start..=y_end).zip(z_start..=z_end));
         }
@@ -293,7 +293,8 @@ impl Plot {
             let mut blocks_counted = 0;
 
             for ((x, y), z) in region {
-                if filter.matches(self.get_block(x, y as u32, z)) {
+                let block_pos = BlockPos::new(x, y as u32, z);
+                if filter.matches(self.get_block(&block_pos)) {
                     blocks_counted += 1;
                 }
             }
