@@ -17,7 +17,7 @@ impl Plot {
                 let player = &mut self.players[player];
 
                 let mut x = player.x as i32;
-                let mut y = player.y as i32;
+                let mut y = player.y as u32;
                 let mut z = player.z as i32;
 
                 if args.len() >= 3 {
@@ -27,7 +27,7 @@ impl Plot {
                         player.send_system_message("Unable to parse x coordinate!");
                         return;
                     }
-                    if let Ok(y_arg) = args[1].parse::<i32>() {
+                    if let Ok(y_arg) = args[1].parse::<u32>() {
                         y = y_arg;
                     } else {
                         player.send_system_message("Unable to parse y coordinate!");
@@ -47,7 +47,7 @@ impl Plot {
                 let player = &mut self.players[player];
 
                 let mut x = player.x as i32;
-                let mut y = player.y as i32;
+                let mut y = player.y as u32;
                 let mut z = player.z as i32;
 
                 if args.len() >= 3 {
@@ -57,7 +57,7 @@ impl Plot {
                         player.send_system_message("Unable to parse x coordinate!");
                         return;
                     }
-                    if let Ok(y_arg) = args[1].parse::<i32>() {
+                    if let Ok(y_arg) = args[1].parse::<u32>() {
                         y = y_arg;
                     } else {
                         player.send_system_message("Unable to parse y coordinate!");
