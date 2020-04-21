@@ -2,7 +2,7 @@ use super::Plot;
 use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
 use rand::Rng;
-use regex::{Regex,Captures};
+use regex::Regex;
 use std::collections::HashMap;
 
 pub struct MultiBlockChangeRecord {
@@ -18,7 +18,8 @@ pub struct WorldEditPatternPart {
 }
 
 pub enum PatternParseError {
-    UnknownBlock(String)
+    UnknownBlock(String),
+    InvalidPattern(String),
 }
 
 pub type PatternParseResult<T> = std::result::Result<T, PatternParseError>;
@@ -28,40 +29,43 @@ pub struct WorldEditPattern {
 }
 
 impl WorldEditPattern {
-    pub fn from_str(pattern_str: &str) -> Option<WorldEditPattern> {
-        let mut pattern = WorldEditPattern {
-            parts: Vec::new()
-        };
-        
+    pub fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
+        let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(",") {
             let re = Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap();
-            let pattern_match = re.captures(part);
-            
-            
-            if let Some(pattern_match) = pattern_match {
-                let block: Block;
+            let pattern_match = re
+                .captures(part)
+                .ok_or(PatternParseError::InvalidPattern(part.to_owned()))?;
 
-                if pattern_match.get(4).is_some() {
-                    block = Block::from_block_state(
-                        pattern_match
-                            .get(5)
-                            .map_or("0", |m| m.as_str())
-                            .parse::<u32>()
-                            .unwrap()
-                    );
-                } else {
-                    let block_name = pattern_match.get(5).unwrap().as_str();
-                    block  = Block::from_name(part).ok_or(PatternParseError::UnknownBlock(part.to_owned()));
-                }
+            let block: Block;
 
-                let weight = pattern_match.get(2).map_or("100", |m| m.as_str()).parse::<f32>().unwrap() / 100.0;
-
-                pattern.parts.push(WorldEditPatternPart {
-                    weight,
-                    block_id: block.get_id()
-                });
+            if pattern_match.get(4).is_some() {
+                block = Block::from_block_state(
+                    pattern_match
+                        .get(5)
+                        .map_or("0", |m| m.as_str())
+                        .parse::<u32>()
+                        .unwrap(),
+                );
+            } else {
+                let block_name = pattern_match.get(5).unwrap().as_str();
+                block = Block::from_name(part)
+                    .ok_or(PatternParseError::UnknownBlock(part.to_owned()))?;
             }
+
+            let weight = pattern_match
+                .get(2)
+                .map_or("100", |m| m.as_str())
+                .parse::<f32>()
+                .unwrap()
+                / 100.0;
+
+            pattern.parts.push(WorldEditPatternPart {
+                weight,
+                block_id: block.get_id(),
+            });
         }
+        
         Ok(pattern)
     }
 
@@ -167,7 +171,11 @@ impl Plot {
         Some((first_pos, second_pos))
     }
 
-    pub(super) fn worldedit_set(&mut self, player: usize, pattern_str: &str) -> PatternParseResult<()> {
+    pub(super) fn worldedit_set(
+        &mut self,
+        player: usize,
+        pattern_str: &str,
+    ) -> PatternParseResult<()> {
         let pattern = WorldEditPattern::from_str(pattern_str)?;
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
