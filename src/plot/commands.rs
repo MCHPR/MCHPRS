@@ -76,14 +76,14 @@ impl Plot {
             "//set" => {
                 if let Err(_) = self.worldedit_set(player, &args[0]) {
                     self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported."
+                        "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
             "//replace" => {
                 if let Err(_) = self.worldedit_replace(player, &args[0], &args[1]) {
                     self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported."
+                        "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }

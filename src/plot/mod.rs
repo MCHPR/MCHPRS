@@ -35,7 +35,6 @@ pub struct Plot {
 }
 
 impl Plot {
-
     fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
         let local_x = chunk_x - self.x * 8;
         let local_z = chunk_z - self.z * 8;
