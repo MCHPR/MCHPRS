@@ -1,13 +1,83 @@
 use super::Plot;
 use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
-use std::collections::HashMap; 
+use std::collections::HashMap;
+use rand::Rng;
 
 pub struct MultiBlockChangeRecord {
     pub x: i32,
     pub y: i32,
     pub z: i32,
     pub block_id: u32
+}
+
+pub struct WorldEditPatternPart {
+    pub weight: f32,
+    pub block_id: u32
+}
+
+pub struct WorldEditPattern {
+    pub parts: Vec<WorldEditPatternPart>
+}
+
+impl WorldEditPattern {
+    pub fn from_str(pattern_str: &str) -> WorldEditPattern {
+        let mut pattern = WorldEditPattern {
+            parts: Vec::new()
+        };
+
+        for part in pattern_str.split(",") {
+            let block = Block::from_name(part);
+
+            if let Some(block) = block {
+                pattern.parts.push(WorldEditPatternPart {
+                    weight: 1.0,
+                    block_id: block.get_id()
+                });
+            } else {
+                pattern.parts.push(WorldEditPatternPart {
+                    weight: 1.0,
+                    block_id: 0
+                });
+            }
+        }
+
+        pattern
+    }
+
+    pub fn matches(&self, block: Block) -> bool {
+        for part in &self.parts {
+            if block.get_id() == part.block_id {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn pick(&self) -> Block {
+        let mut weight_sum = 0.0;
+        for part in &self.parts {
+            weight_sum += part.weight;
+        }
+        
+        let mut rng = rand::thread_rng();
+        let mut random = rng.gen_range(0.0, weight_sum);
+        
+        let mut selected = &WorldEditPatternPart {
+            block_id: 0,
+            weight: 0.0
+        };
+
+        for part in &self.parts {
+            random -= part.weight;
+            if random <= 0.0 {
+                selected = part;
+                break;
+            }
+        }
+
+        Block::from_block_state(selected.block_id)
+    }
 }
 
 impl Plot {
@@ -67,7 +137,7 @@ impl Plot {
         Some((first_pos, second_pos))
     }
 
-    pub(super) fn worldedit_set(&mut self, player: usize, block: Block) {
+    pub(super) fn worldedit_set(&mut self, player: usize, pattern: WorldEditPattern) {
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
             let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
@@ -79,11 +149,10 @@ impl Plot {
             let z_start = std::cmp::min(first_pos.2, second_pos.2);
             let z_end = std::cmp::max(first_pos.2, second_pos.2);
 
-            let block_id = block.get_id();
-
             for x in x_start..=x_end {
                 for y in y_start..=y_end {
                     for z in z_start..=z_end {
+                        let block_id = pattern.pick().get_id();
                         records.push(MultiBlockChangeRecord {
                             x,
                             y,
@@ -92,6 +161,45 @@ impl Plot {
                         });
                         if self.set_block_raw(x, y as u32, z, block_id) {
                             blocks_updated += 1;
+                        }
+                    }
+                }
+            }
+            self.worldedit_multi_block_change(&records);
+            self.players[player].worldedit_send_message(format!(
+                "Operation completed: {} block(s) affected",
+                blocks_updated
+            ));
+        }
+    }
+
+    pub(super) fn worldedit_replace(&mut self, player: usize, filter: WorldEditPattern, pattern: WorldEditPattern) {
+        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
+            let mut blocks_updated = 0;
+            let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
+
+            let x_start = std::cmp::min(first_pos.0, second_pos.0);
+            let x_end = std::cmp::max(first_pos.0, second_pos.0);
+            let y_start = std::cmp::min(first_pos.1, second_pos.1);
+            let y_end = std::cmp::max(first_pos.1, second_pos.1);
+            let z_start = std::cmp::min(first_pos.2, second_pos.2);
+            let z_end = std::cmp::max(first_pos.2, second_pos.2);
+
+            for x in x_start..=x_end {
+                for y in y_start..=y_end {
+                    for z in z_start..=z_end {
+                        if filter.matches(self.get_block(x, y as u32, z)) {
+                            let block_id = pattern.pick().get_id();
+
+                            records.push(MultiBlockChangeRecord {
+                                x,
+                                y,
+                                z,
+                                block_id
+                            });
+                            if self.set_block_raw(x, y as u32, z, block_id) {
+                                blocks_updated += 1;
+                            }
                         }
                     }
                 }

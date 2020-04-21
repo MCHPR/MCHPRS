@@ -1,6 +1,7 @@
 use super::Plot;
 use crate::blocks::Block;
 use crate::server::Message;
+use crate::plot::worldedit::WorldEditPattern;
 use log::info;
 
 impl Plot {
@@ -68,14 +69,15 @@ impl Plot {
                 player.worldedit_set_second_position(x, y, z);
             }
             "//set" => {
-                let block = Block::from_name(&args[0]);
-                if let Some(block) = block {
-                    self.worldedit_set(player, block);
-                } else {
-                    self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
+                let pattern = WorldEditPattern::from_str(&args[0]);
+
+                self.worldedit_set(player, pattern);
+            }
+            "//replace" => {
+                let filter = WorldEditPattern::from_str(&args[0]);
+                let pattern = WorldEditPattern::from_str(&args[1]);
+
+                self.worldedit_replace(player, filter, pattern);
             }
             "/tp" => {
                 if args.len() == 3 {
