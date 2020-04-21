@@ -1,24 +1,28 @@
 use super::Plot;
-use crate::blocks::*;
+use crate::blocks::{Block, BlockFace, BlockPos};
+use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::{DecodeResult, PacketDecoder};
-use crate::player::{Item, SkinParts};
+use crate::player::SkinParts;
 use crate::server::Message;
+use log::debug;
 use serde_json::json;
 use std::time::Instant;
-use log::debug;
 
 impl Plot {
-
     pub(super) fn handle_packets_for_player(&mut self, player: usize) {
         let packets: Vec<PacketDecoder> = self.players[player].client.packets.drain(..).collect();
         for packet in packets {
             let id = packet.packet_id;
             if let Err(err) = self.handle_packet(player, packet) {
-                self.players[player].kick(json!({
-                    "text": format!("There was an error handling packet 0x{:02X}: {:?}", id, err)
-                }).to_string());
+                self.players[player].kick(
+                    json!({
+                        "text":
+                            format!("There was an error handling packet 0x{:02X}: {:?}", id, err)
+                    })
+                    .to_string(),
+                );
             }
         }
     }
@@ -30,15 +34,23 @@ impl Plot {
             0x0B => self.handle_plugin_message(player, S0BPluginMessage::decode(packet)?),
             0x0F => self.players[player].last_keep_alive_received = Instant::now(), // Keep Alive
             0x11 => self.handle_player_position(player, S11PlayerPosition::decode(packet)?),
-            0x12 => self.handle_player_position_and_rotation(player, S12PlayerPositionAndRotation::decode(packet)?),
+            0x12 => self.handle_player_position_and_rotation(
+                player,
+                S12PlayerPositionAndRotation::decode(packet)?,
+            ),
             0x13 => self.handle_player_rotation(player, S13PlayerRotation::decode(packet)?),
             0x14 => self.handle_player_movement(player, S14PlayerMovement::decode(packet)?),
             0x1A => self.handle_player_digging(player, S1APlayerDigging::decode(packet)?),
             0x1B => self.handle_entity_action(player, S1BEntityAction::decode(packet)?),
             0x23 => self.handle_held_item_change(player, S23HeldItemChange::decode(packet)?),
-            0x26 => self.handle_creative_inventory_action(player, S26CreativeInventoryAction::decode(packet)?),
+            0x26 => self.handle_creative_inventory_action(
+                player,
+                S26CreativeInventoryAction::decode(packet)?,
+            ),
             0x2A => self.handle_animation(player, S2AAnimation::decode(packet)?),
-            0x2C => self.handle_player_block_placement(player, S2CPlayerBlockPlacemnt::decode(packet)?),
+            0x2C => {
+                self.handle_player_block_placement(player, S2CPlayerBlockPlacemnt::decode(packet)?)
+            }
             id => {
                 debug!("Unhandled packet: {:02X}", id);
             }
@@ -46,16 +58,19 @@ impl Plot {
         Ok(())
     }
 
-    fn handle_creative_inventory_action(&mut self, player: usize, creative_inventory_action: S26CreativeInventoryAction) {
+    fn handle_creative_inventory_action(
+        &mut self,
+        player: usize,
+        creative_inventory_action: S26CreativeInventoryAction,
+    ) {
         if let Some(slot_data) = creative_inventory_action.clicked_item {
-            let item = Item {
+            let item = ItemStack {
                 count: slot_data.item_count as u8,
                 damage: 0,
-                id: slot_data.item_id as u32,
+                item_type: Item::from_id(slot_data.item_id as u32),
                 nbt: slot_data.nbt,
             };
-            self.players[player].inventory[creative_inventory_action.slot as usize] =
-                Some(item);
+            self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
         } else {
             self.players[player].inventory[creative_inventory_action.slot as usize] = None;
         }
@@ -82,54 +97,36 @@ impl Plot {
         }
     }
 
-    fn handle_player_block_placement(&mut self, player: usize, mut player_block_placement: S2CPlayerBlockPlacemnt) {
-        let player = &self.players[player];
+    fn handle_player_block_placement(
+        &mut self,
+        player: usize,
+        player_block_placement: S2CPlayerBlockPlacemnt,
+    ) {
+        let block_face = BlockFace::from_id(player_block_placement.face as u32);
 
-        if player_block_placement.hand == 0 {
-            match player_block_placement.face {
-                // Bottom
-                0 => player_block_placement.y -= 1,
-                // Top
-                1 => player_block_placement.y += 1,
-                // North
-                2 => player_block_placement.z -= 1,
-                // South
-                3 => player_block_placement.z += 1,
-                // West
-                4 => player_block_placement.x -= 1,
-                // East
-                5 => player_block_placement.x += 1,
-                _ => return,
-            }
+        let selected_slot = self.players[player].selected_slot as usize;
+        let item_in_hand = if player_block_placement.hand == 0 {
+            self.players[player].inventory[selected_slot + 36].clone()
+        } else {
+            self.players[player].inventory[45].clone()
+        };
 
-            let item = &player.inventory[player.selected_slot as usize];
+        let block_pos = BlockPos::new(
+            player_block_placement.x,
+            player_block_placement.y as u32,
+            player_block_placement.z,
+        );
 
-            if let Some(item) = item {
-                let block = match item.id {
-                    64 => Block::Transparent(230),
-                    68 => Block::Solid(245),
-                    173 => Block::RedstoneTorch(false),
-                    205 => Block::Solid(4481),
-                    234 => Block::RedstoneLamp(false),
-                    513 => Block::from_block_state(4017),
-                    514 => Block::from_block_state(6142),
-                    600 => Block::from_block_state(2056),
-                    _ => Block::Air
-                };
-                
-                if self.get_block(
-                    player_block_placement.x,
-                    player_block_placement.y as u32,
-                    player_block_placement.z
-                ) == Block::Air {
-                    self.set_block(
-                        player_block_placement.x,
-                        player_block_placement.y as u32,
-                        player_block_placement.z,
-                        block
-                    );
-                }
-            }
+        if let Some(item) = item_in_hand {
+            item.use_on_block(
+                self,
+                UseOnBlockContext {
+                    block_face,
+                    block_pos,
+                    player_crouching: self.players[player].crouching,
+                    player_direction: self.players[player].get_direction(),
+                },
+            );
         }
     }
 
@@ -168,7 +165,10 @@ impl Plot {
     }
 
     fn handle_plugin_message(&mut self, _player: usize, plugin_message: S0BPluginMessage) {
-        debug!("Client initiated plugin channel: {:?}", plugin_message.channel);
+        debug!(
+            "Client initiated plugin channel: {:?}",
+            plugin_message.channel
+        );
     }
 
     fn handle_player_position(&mut self, player: usize, player_position: S11PlayerPosition) {
@@ -217,7 +217,11 @@ impl Plot {
         }
     }
 
-    fn handle_player_position_and_rotation(&mut self, player: usize, player_position_and_rotation: S12PlayerPositionAndRotation) {
+    fn handle_player_position_and_rotation(
+        &mut self,
+        player: usize,
+        player_position_and_rotation: S12PlayerPositionAndRotation,
+    ) {
         let old_x = self.players[player].x;
         let old_y = self.players[player].y;
         let old_z = self.players[player].z;
@@ -245,12 +249,9 @@ impl Plot {
             }
             .encode()
         } else {
-            let delta_x =
-                ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
-            let delta_y =
-                ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
-            let delta_z =
-                ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
+            let delta_x = ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
+            let delta_y = ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
+            let delta_z = ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
             C2AEntityPositionAndRotation {
                 delta_x,
                 delta_y,
@@ -323,14 +324,10 @@ impl Plot {
 
     fn handle_player_digging(&mut self, player: usize, player_digging: S1APlayerDigging) {
         if player_digging.status == 0 {
-            let other_block =
-                self.get_block(player_digging.x, player_digging.y as u32, player_digging.z);
-            self.set_block(
-                player_digging.x,
-                player_digging.y as u32,
-                player_digging.z,
-                Block::Air,
-            );
+            let block_pos =
+                BlockPos::new(player_digging.x, player_digging.y as u32, player_digging.z);
+            let other_block = self.get_block(&block_pos);
+            self.set_block(&block_pos, Block::Air);
 
             let effect = C23Effect {
                 effect_id: 2001,
@@ -394,6 +391,4 @@ impl Plot {
     fn handle_held_item_change(&mut self, player: usize, held_item_change: S23HeldItemChange) {
         self.players[player].selected_slot = held_item_change.slot as u32;
     }
-
-    
 }

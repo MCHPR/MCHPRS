@@ -1,29 +1,78 @@
+use crate::items::ActionResult;
+use crate::plot::Plot;
 use std::mem;
 
+#[derive(PartialEq, Eq, Clone)]
+pub struct BlockPos {
+    pub x: i32,
+    pub y: u32,
+    pub z: i32,
+}
+
+impl BlockPos {
+    pub fn new(x: i32, y: u32, z: i32) -> BlockPos {
+        BlockPos { x, y, z }
+    }
+
+    pub fn offset(&self, face: BlockFace) -> BlockPos {
+        match face {
+            BlockFace::Bottom => BlockPos::new(self.x, self.y - 1, self.z),
+            BlockFace::Top => BlockPos::new(self.x, self.y + 1, self.z),
+            BlockFace::North => BlockPos::new(self.x, self.y, self.z - 1),
+            BlockFace::South => BlockPos::new(self.x, self.y, self.z + 1),
+            BlockFace::West => BlockPos::new(self.x - 1, self.y, self.z),
+            BlockFace::East => BlockPos::new(self.x + 1, self.y, self.z),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum BlockFacing {
+pub enum BlockDirection {
     North,
     South,
     East,
     West,
 }
 
-impl BlockFacing {
-    fn from_id(id: u32) -> BlockFacing {
+pub enum BlockFace {
+    Bottom,
+    Top,
+    North,
+    South,
+    West,
+    East,
+}
+
+impl BlockFace {
+    pub fn from_id(id: u32) -> BlockFace {
         match id {
-            0 => BlockFacing::North,
-            1 => BlockFacing::South,
-            2 => BlockFacing::West,
-            3 => BlockFacing::East,
-            _ => panic!("Invalid BlockFacing"),
+            0 => BlockFace::Bottom,
+            1 => BlockFace::Top,
+            2 => BlockFace::North,
+            3 => BlockFace::South,
+            4 => BlockFace::West,
+            5 => BlockFace::East,
+            _ => panic!("Invalid BlockFace"),
+        }
+    }
+}
+
+impl BlockDirection {
+    fn from_id(id: u32) -> BlockDirection {
+        match id {
+            0 => BlockDirection::North,
+            1 => BlockDirection::South,
+            2 => BlockDirection::West,
+            3 => BlockDirection::East,
+            _ => panic!("Invalid BlockDirection"),
         }
     }
     fn get_id(self) -> u32 {
         match self {
-            BlockFacing::North => 0,
-            BlockFacing::South => 1,
-            BlockFacing::West => 2,
-            BlockFacing::East => 3,
+            BlockDirection::North => 0,
+            BlockDirection::South => 1,
+            BlockDirection::West => 2,
+            BlockDirection::East => 3,
         }
     }
 }
@@ -83,13 +132,13 @@ impl RedstoneWire {
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneRepeater {
     delay: u8,
-    facing: BlockFacing,
+    facing: BlockDirection,
     locked: bool,
     powered: bool,
 }
 
 impl RedstoneRepeater {
-    fn new(delay: u8, facing: BlockFacing, locked: bool, powered: bool) -> RedstoneRepeater {
+    fn new(delay: u8, facing: BlockDirection, locked: bool, powered: bool) -> RedstoneRepeater {
         RedstoneRepeater {
             delay,
             facing,
@@ -123,13 +172,13 @@ impl ComparatorMode {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneComparator {
-    facing: BlockFacing,
+    facing: BlockDirection,
     mode: ComparatorMode,
     powered: bool,
 }
 
 impl RedstoneComparator {
-    fn new(facing: BlockFacing, mode: ComparatorMode, powered: bool) -> RedstoneComparator {
+    fn new(facing: BlockDirection, mode: ComparatorMode, powered: bool) -> RedstoneComparator {
         RedstoneComparator {
             facing,
             mode,
@@ -173,7 +222,7 @@ impl Block {
                 let id = id - 4017;
                 let powered = (id & 1) == 0;
                 let locked = ((id >> 1) & 1) == 0;
-                let facing = BlockFacing::from_id((id >> 2) & 3);
+                let facing = BlockDirection::from_id((id >> 2) & 3);
                 let delay = (id >> 4) as u8 + 1;
                 Block::RedstoneRepeater(RedstoneRepeater::new(delay, facing, locked, powered))
             }
@@ -183,7 +232,7 @@ impl Block {
                 let id = id - 6142;
                 let powered = (id & 1) == 0;
                 let mode = ComparatorMode::from_id((id >> 1) & 1);
-                let facing = BlockFacing::from_id(id >> 2);
+                let facing = BlockDirection::from_id(id >> 2);
                 Block::RedstoneComparator(RedstoneComparator::new(facing, mode, powered))
             }
             _ => Block::Solid(id),
@@ -232,12 +281,44 @@ impl Block {
             _ => None,
         }
     }
+
+    pub fn on_use(&self, plot: &mut Plot, pos: &BlockPos) -> ActionResult {
+        match self {
+            Block::RedstoneRepeater(repeater) => {
+                let mut repeater = repeater.clone();
+                repeater.delay += 1;
+                if repeater.delay > 4 {
+                    repeater.delay -= 4;
+                }
+                plot.set_block(&pos, Block::RedstoneRepeater(repeater));
+                ActionResult::Success
+            }
+            _ => ActionResult::Pass,
+        }
+    }
+
+    pub fn place_in_plot(self, plot: &mut Plot, pos: &BlockPos, direction: BlockDirection) {
+        match self {
+            Block::RedstoneRepeater(_) => {
+                let repeater = RedstoneRepeater {
+                    delay: 1,
+                    facing: direction,
+                    locked: false,
+                    powered: false,
+                };
+                plot.set_block(pos, Block::RedstoneRepeater(repeater));
+            }
+            _ => {
+                plot.set_block(pos, self);
+            }
+        }
+    }
 }
 
 #[test]
 fn repeater_id_test() {
     let original =
-        Block::RedstoneRepeater(RedstoneRepeater::new(3, BlockFacing::West, true, false));
+        Block::RedstoneRepeater(RedstoneRepeater::new(3, BlockDirection::West, true, false));
     let id = original.get_id();
     assert_eq!(id, 4058);
     let new = Block::from_block_state(id);
@@ -247,7 +328,7 @@ fn repeater_id_test() {
 #[test]
 fn comparator_id_test() {
     let original = Block::RedstoneComparator(RedstoneComparator::new(
-        BlockFacing::West,
+        BlockDirection::West,
         ComparatorMode::Subtract,
         false,
     ));

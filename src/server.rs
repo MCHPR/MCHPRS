@@ -470,7 +470,7 @@ impl MinecraftServer {
                                 .map(|op| {
                                     op.as_ref().map(|item| SlotData {
                                         item_count: item.count as i8,
-                                        item_id: item.id as i32,
+                                        item_id: item.item_type.get_id() as i32,
                                         nbt: item.nbt.clone(),
                                     })
                                 })

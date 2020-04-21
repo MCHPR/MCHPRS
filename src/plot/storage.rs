@@ -273,7 +273,11 @@ impl Chunk {
         C22ChunkData {
             // Use `bool_to_option` feature when stabalized
             // Tracking issue: https://github.com/rust-lang/rust/issues/64260
-            biomes: if full_chunk { Some(vec![0; 1024]) } else { None },
+            biomes: if full_chunk {
+                Some(vec![0; 1024])
+            } else {
+                None
+            },
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,

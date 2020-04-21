@@ -1,5 +1,5 @@
 use super::Plot;
-use crate::blocks::Block;
+use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
 use rand::Rng;
 use regex::Regex;
@@ -129,7 +129,6 @@ impl Plot {
                 let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
                 let chunk = &self.chunks[chunk_index];
                 let chunk_data = chunk.encode_packet(false);
-                dbg!(chunk_index);
                 for player in &mut self.players {
                     player.client.send_packet(&chunk_data);
                 }
@@ -195,7 +194,7 @@ impl Plot {
                     for z in z_start..=z_end {
                         let block_id = pattern.pick().get_id();
                         records.push(MultiBlockChangeRecord { x, y, z, block_id });
-                        if self.set_block_raw(x, y as u32, z, block_id) {
+                        if self.set_block_raw(&BlockPos::new(x, y as u32, z), block_id) {
                             blocks_updated += 1;
                         }
                     }
@@ -233,11 +232,12 @@ impl Plot {
             for x in x_start..=x_end {
                 for y in y_start..=y_end {
                     for z in z_start..=z_end {
-                        if filter.matches(self.get_block(x, y as u32, z)) {
+                        let block_pos = BlockPos::new(x, y as u32, z);
+                        if filter.matches(self.get_block(&block_pos)) {
                             let block_id = pattern.pick().get_id();
 
                             records.push(MultiBlockChangeRecord { x, y, z, block_id });
-                            if self.set_block_raw(x, y as u32, z, block_id) {
+                            if self.set_block_raw(&block_pos, block_id) {
                                 blocks_updated += 1;
                             }
                         }
