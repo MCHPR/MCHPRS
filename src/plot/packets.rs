@@ -1,5 +1,5 @@
 use super::Plot;
-use crate::blocks::Block;
+use crate::blocks::*;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::{DecodeResult, PacketDecoder};
@@ -82,7 +82,9 @@ impl Plot {
         }
     }
 
-    fn handle_player_block_placement(&mut self, _player: usize, mut player_block_placement: S2CPlayerBlockPlacemnt) {
+    fn handle_player_block_placement(&mut self, player: usize, mut player_block_placement: S2CPlayerBlockPlacemnt) {
+        let player = &self.players[player];
+
         if player_block_placement.hand == 0 {
             match player_block_placement.face {
                 // Bottom
@@ -100,12 +102,36 @@ impl Plot {
                 _ => return,
             }
 
-            self.set_block(
-                player_block_placement.x,
-                player_block_placement.y as u32,
-                player_block_placement.z,
-                Block::Solid(245),
-            );
+            let item = &player.inventory[player.selected_slot as usize];
+
+            println!("Place")
+            if let Some(item) = item {
+                println!(item.id)
+                let block = match item.id {
+                    64 => Block::Transparent(230),
+                    68 => Block::Solid(245),
+                    173 => Block::RedstoneTorch(false),
+                    205 => Block::Solid(4481),
+                    234 => Block::RedstoneLamp(false),
+                    513 => Block::from_block_state(4017),
+                    514 => Block::from_block_state(6142),
+                    600 => Block::from_block_state(2056),
+                    _ => Block::Air
+                };
+                
+                if self.get_block(
+                    player_block_placement.x,
+                    player_block_placement.y as u32,
+                    player_block_placement.z
+                ) == Block::Air {
+                    self.set_block(
+                        player_block_placement.x,
+                        player_block_placement.y as u32,
+                        player_block_placement.z,
+                        block
+                    );
+                }
+            }
         }
     }
 

@@ -66,7 +66,7 @@ impl Plot {
         changed
     }
 
-    fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
+    fn get_block(&self, x: i32, y: u32, z: i32) -> Block {
         let chunk = &self.chunks[Plot::get_chunk_index(x, z)];
         Block::from_block_state(chunk.get_block((x & 0xF) as u32, y, (z & 0xF) as u32))
     }

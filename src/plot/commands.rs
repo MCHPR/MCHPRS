@@ -71,13 +71,31 @@ impl Plot {
             "//set" => {
                 let pattern = WorldEditPattern::from_str(&args[0]);
 
-                self.worldedit_set(player, pattern);
+                if let Some(pattern) = pattern {
+                    self.worldedit_set(player, pattern);
+                } else {
+                    self.players[player].send_system_message(
+                        "Invalid pattern. Note that not all blocks are supported.",
+                    );
+                }
             }
             "//replace" => {
                 let filter = WorldEditPattern::from_str(&args[0]);
                 let pattern = WorldEditPattern::from_str(&args[1]);
-
-                self.worldedit_replace(player, filter, pattern);
+                
+                if let Some(filter) = filter {
+                    if let Some(pattern) = pattern {
+                        self.worldedit_replace(player, filter, pattern);
+                    } else {
+                        self.players[player].send_system_message(
+                            "Invalid pattern. Note that not all blocks are supported.",
+                        );
+                    }
+                } else {
+                    self.players[player].send_system_message(
+                        "Invalid filter. Note that not all blocks are supported.",
+                    );
+                }
             }
             "/tp" => {
                 if args.len() == 3 {

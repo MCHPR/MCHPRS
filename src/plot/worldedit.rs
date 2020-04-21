@@ -3,6 +3,7 @@ use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
 use std::collections::HashMap;
 use rand::Rng;
+use regex::{Regex,Captures};
 
 pub struct MultiBlockChangeRecord {
     pub x: i32,
@@ -21,28 +22,45 @@ pub struct WorldEditPattern {
 }
 
 impl WorldEditPattern {
-    pub fn from_str(pattern_str: &str) -> WorldEditPattern {
+    pub fn from_str(pattern_str: &str) -> Option<WorldEditPattern> {
         let mut pattern = WorldEditPattern {
             parts: Vec::new()
         };
-
+        
         for part in pattern_str.split(",") {
-            let block = Block::from_name(part);
+            let re = Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap();
+            let pattern_match = re.captures(part);
+            
+            
+            if let Some(pattern_match) = pattern_match {
+                let block: Option<Block>;
 
-            if let Some(block) = block {
-                pattern.parts.push(WorldEditPatternPart {
-                    weight: 1.0,
-                    block_id: block.get_id()
-                });
-            } else {
-                pattern.parts.push(WorldEditPatternPart {
-                    weight: 1.0,
-                    block_id: 0
-                });
+                if pattern_match.get(4).is_some() {
+                    block = Some(Block::from_block_state(
+                        pattern_match
+                            .get(5)
+                            .map_or("0", |m| m.as_str())
+                            .parse::<u32>()
+                            .unwrap()
+                    ));
+                } else {
+                    let block_name = pattern_match.get(5).unwrap().as_str();
+                    block = Block::from_name(block_name)
+                }
+
+                let weight = pattern_match.get(2).map_or("100", |m| m.as_str()).parse::<f32>().unwrap() / 100.0;
+
+                if let Some(block) = block {
+                    pattern.parts.push(WorldEditPatternPart {
+                        weight,
+                        block_id: block.get_id()
+                    });
+                } else {
+                    return None;
+                }
             }
         }
-
-        pattern
+        Some(pattern)
     }
 
     pub fn matches(&self, block: Block) -> bool {
