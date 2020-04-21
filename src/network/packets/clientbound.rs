@@ -146,13 +146,13 @@ pub struct C10MultiBlockChangeRecord {
     pub x: i8,
     pub y: u8,
     pub z: i8,
-    pub block_id: i32
+    pub block_id: i32,
 }
 
 pub struct C10MultiBlockChange {
     pub chunk_x: i32,
     pub chunk_z: i32,
-    pub records: Vec<C10MultiBlockChangeRecord> 
+    pub records: Vec<C10MultiBlockChangeRecord>,
 }
 
 impl ClientBoundPacket for C10MultiBlockChange {
@@ -168,7 +168,7 @@ impl ClientBoundPacket for C10MultiBlockChange {
             buf.write_unsigned_byte(record.y);
             buf.write_varint(record.block_id);
         }
-        
+
         PacketEncoder::new(buf, 0x10)
     }
 }

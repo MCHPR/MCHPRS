@@ -1,23 +1,23 @@
+mod commands;
 mod packets;
 mod storage;
 mod worldedit;
-mod commands;
 
 use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
 use crate::player::Player;
 use crate::server::{Message, PrivMessage};
 use bus::BusReader;
+use log::debug;
+use serde_json::json;
 use std::fs::{self, OpenOptions};
-use std::path::Path;
 use std::io::Write;
+use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
-use serde_json::json;
-use log::debug;
 
 pub struct Plot {
     players: Vec<Player>,
@@ -35,15 +35,23 @@ pub struct Plot {
 }
 
 impl Plot {
-    fn get_chunk_index(block_x: i32, block_z: i32) -> usize {
-        let chunk_x = block_x >> 4;
-        let chunk_z = block_z >> 4;
+
+    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
+        let local_x = chunk_x - self.x * 8;
+        let local_z = chunk_z - self.z * 8;
+        (local_x * 8 + local_z).abs() as usize
+    }
+
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+        let chunk_x = (block_x - self.x * 128) >> 4;
+        let chunk_z = (block_z - self.z * 128) >> 4;
         (chunk_x * 8 + chunk_z).abs() as usize
     }
 
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, x: i32, y: u32, z: i32, block: u32) -> bool {
-        let chunk = &mut self.chunks[Plot::get_chunk_index(x, z)];
+        let chunk_index = self.get_chunk_index_for_block(x, z);
+        let chunk = &mut self.chunks[chunk_index];
         chunk.set_block((x & 0xF) as u32, y, (z & 0xF) as u32, block)
     }
 
@@ -66,8 +74,9 @@ impl Plot {
         changed
     }
 
-    fn get_block(&self, x: i32, y: u32, z: i32) -> Block {
-        let chunk = &self.chunks[Plot::get_chunk_index(x, z)];
+    fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
+        let chunk_index = self.get_chunk_index_for_block(x, z);
+        let chunk = &self.chunks[chunk_index];
         Block::from_block_state(chunk.get_block((x & 0xF) as u32, y, (z & 0xF) as u32))
     }
 
@@ -77,7 +86,7 @@ impl Plot {
         debug!("Player enter plot!");
         self.save();
         for chunk in &self.chunks {
-            player.client.send_packet(&chunk.encode_packet());
+            player.client.send_packet(&chunk.encode_packet(true));
         }
         let spawn_player = C05SpawnPlayer {
             entity_id: player.entity_id as i32,
@@ -192,10 +201,14 @@ impl Plot {
                 Message::Shutdown => {
                     let mut players: Vec<Player> = self.players.drain(..).collect();
                     for player in players.iter_mut() {
-                        player.kick(json!({
-                            "text": "Server closed"
-                        }).to_string());
+                        player.kick(
+                            json!({
+                                "text": "Server closed"
+                            })
+                            .to_string(),
+                        );
                     }
+                    self.always_running = false;
                     self.running = false;
                     return;
                 }
@@ -275,13 +288,15 @@ impl Plot {
         }
     }
 
-    fn load_from_file(data: Vec<u8>,
+    fn load_from_file(
+        data: Vec<u8>,
         x: i32,
         z: i32,
         rx: BusReader<Message>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
-        always_running: bool,) -> Plot {
+        always_running: bool,
+    ) -> Plot {
         let chunk_x_offset = x << 3;
         let chunk_z_offset = z << 3;
         let plot_data: PlotData = bincode::deserialize(&data).unwrap();
@@ -418,8 +433,8 @@ impl Drop for Plot {
         self.save();
         debug!("Plot {},{} unloaded", self.x, self.z);
         self.message_sender
-        .send(Message::PlotUnload(self.x, self.z))
-        .unwrap();
+            .send(Message::PlotUnload(self.x, self.z))
+            .unwrap();
     }
 }
 

@@ -1,12 +1,17 @@
 use super::Plot;
 use crate::blocks::Block;
-use crate::server::Message;
 use crate::plot::worldedit::WorldEditPattern;
+use crate::server::Message;
 use log::info;
 
 impl Plot {
     pub(super) fn handle_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
-        info!("{} issued command: {} {}", self.players[player].username, command, args.join(" "));
+        info!(
+            "{} issued command: {} {}",
+            self.players[player].username,
+            command,
+            args.join(" ")
+        );
         match command {
             "//1" | "//pos1" => {
                 let player = &mut self.players[player];
@@ -69,31 +74,16 @@ impl Plot {
                 player.worldedit_set_second_position(x, y, z);
             }
             "//set" => {
-                let pattern = WorldEditPattern::from_str(&args[0]);
-
-                if let Some(pattern) = pattern {
-                    self.worldedit_set(player, pattern);
-                } else {
+                if let Err(_) = self.worldedit_set(player, &args[0]) {
                     self.players[player].send_system_message(
-                        "Invalid pattern. Note that not all blocks are supported.",
+                        "Invalid block. Note that not all blocks are supported."
                     );
                 }
             }
             "//replace" => {
-                let filter = WorldEditPattern::from_str(&args[0]);
-                let pattern = WorldEditPattern::from_str(&args[1]);
-                
-                if let Some(filter) = filter {
-                    if let Some(pattern) = pattern {
-                        self.worldedit_replace(player, filter, pattern);
-                    } else {
-                        self.players[player].send_system_message(
-                            "Invalid pattern. Note that not all blocks are supported.",
-                        );
-                    }
-                } else {
+                if let Err(_) = self.worldedit_replace(player, &args[0], &args[1]) {
                     self.players[player].send_system_message(
-                        "Invalid filter. Note that not all blocks are supported.",
+                        "Invalid block. Note that not all blocks are supported."
                     );
                 }
             }

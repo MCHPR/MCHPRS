@@ -89,12 +89,7 @@ pub struct RedstoneRepeater {
 }
 
 impl RedstoneRepeater {
-    fn new(
-        delay: u8,
-        facing: BlockFacing,
-        locked: bool,
-        powered: bool
-    ) -> RedstoneRepeater {
+    fn new(delay: u8, facing: BlockFacing, locked: bool, powered: bool) -> RedstoneRepeater {
         RedstoneRepeater {
             delay,
             facing,
@@ -103,7 +98,6 @@ impl RedstoneRepeater {
         }
     }
 }
-
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ComparatorMode {
@@ -135,11 +129,7 @@ pub struct RedstoneComparator {
 }
 
 impl RedstoneComparator {
-    fn new(
-        facing: BlockFacing,
-        mode: ComparatorMode,
-        powered: bool,
-    ) -> RedstoneComparator {
+    fn new(facing: BlockFacing, mode: ComparatorMode, powered: bool) -> RedstoneComparator {
         RedstoneComparator {
             facing,
             mode,
@@ -246,7 +236,8 @@ impl Block {
 
 #[test]
 fn repeater_id_test() {
-    let original = Block::RedstoneRepeater(RedstoneRepeater::new(3, BlockFacing::West, true, false));
+    let original =
+        Block::RedstoneRepeater(RedstoneRepeater::new(3, BlockFacing::West, true, false));
     let id = original.get_id();
     assert_eq!(id, 4058);
     let new = Block::from_block_state(id);
@@ -255,7 +246,11 @@ fn repeater_id_test() {
 
 #[test]
 fn comparator_id_test() {
-    let original = Block::RedstoneComparator(RedstoneComparator::new(BlockFacing::West, ComparatorMode::Subtract, false));
+    let original = Block::RedstoneComparator(RedstoneComparator::new(
+        BlockFacing::West,
+        ComparatorMode::Subtract,
+        false,
+    ));
     let id = original.get_id();
     assert_eq!(id, 6153);
     let new = Block::from_block_state(id);

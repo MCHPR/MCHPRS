@@ -1,7 +1,7 @@
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C15WindowItems,
     C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
-    C36PlayerPositionAndLook, ClientBoundPacket, C41UpdateViewPosition
+    C36PlayerPositionAndLook, C41UpdateViewPosition, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
@@ -12,13 +12,13 @@ use crate::network::{NetworkServer, NetworkState};
 use crate::player::Player;
 use crate::plot::Plot;
 use bus::{Bus, BusReader};
+use fern::colors::{Color, ColoredLevelConfig};
+use log::{debug, error, info, warn};
 use serde_json::json;
 use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use log::{info, debug, warn, error};
-use fern::colors::{Color, ColoredLevelConfig};
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicate when a player joins, leaves, or moves into another plot,
@@ -95,16 +95,16 @@ impl MinecraftServer {
             .level(log::LevelFilter::Debug)
             .chain(std::io::stdout())
             .chain(fern::log_file("output.log").unwrap())
-            .apply().unwrap();
-            
+            .apply()
+            .unwrap();
+
         std::panic::set_hook(Box::new(|panic_info| {
             error!("{}", panic_info.to_string());
         }));
-        
 
         info!("Starting server...");
         let start_time = Instant::now();
-        
+
         // Create world folders if they don't exist yet
         fs::create_dir_all("./world/players").unwrap();
         fs::create_dir_all("./world/plots").unwrap();
@@ -118,7 +118,6 @@ impl MinecraftServer {
             .get_str("bind_address")
             .expect("Bind address not found in config file!");
 
-
         //let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
         // Create thread messaging structs
         let (plot_tx, server_rx) = mpsc::channel();
@@ -126,10 +125,10 @@ impl MinecraftServer {
         let debug_plot_receiver = bus.add_rx();
         let ctrl_handler_sender = plot_tx.clone();
 
-        
         ctrlc::set_handler(move || {
             ctrl_handler_sender.send(Message::Shutdown).unwrap();
-        }).expect("There was an error setting the ctrlc handler");
+        })
+        .expect("There was an error setting the ctrlc handler");
 
         // Create server struct
         let mut server = MinecraftServer {
@@ -271,9 +270,7 @@ impl MinecraftServer {
                     }
                     self.broadcaster.broadcast(message);
                 }
-                Message::PlotUnload(plot_x, plot_z) => {
-                    
-                }
+                Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
                 Message::Chat(chat) => {
                     self.broadcaster.broadcast(Message::Chat(chat));
                 }
