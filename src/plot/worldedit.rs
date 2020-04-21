@@ -49,7 +49,7 @@ impl WorldEditPattern {
                 );
             } else {
                 let block_name = pattern_match.get(5).unwrap().as_str();
-                block = Block::from_name(part)
+                block = Block::from_name(block_name)
                     .ok_or(PatternParseError::UnknownBlock(part.to_owned()))?;
             }
 
@@ -65,7 +65,7 @@ impl WorldEditPattern {
                 block_id: block.get_id(),
             });
         }
-        
+
         Ok(pattern)
     }
 

@@ -104,9 +104,7 @@ impl Plot {
 
             let item = &player.inventory[player.selected_slot as usize];
 
-            println!("Place")
             if let Some(item) = item {
-                println!(item.id)
                 let block = match item.id {
                     64 => Block::Transparent(230),
                     68 => Block::Solid(245),
