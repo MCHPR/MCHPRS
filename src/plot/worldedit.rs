@@ -142,13 +142,10 @@ impl Plot {
         }
     }
 
-    fn worldedit_verify_positions(
-        &mut self,
-        player: usize,
-    ) -> Option<(BlockPos, BlockPos)> {
+    fn worldedit_verify_positions(&mut self, player: usize) -> Option<(BlockPos, BlockPos)> {
         let player = &mut self.players[player];
         let first_pos;
-        let second_pos ;
+        let second_pos;
         if let Some(pos) = player.first_position.clone() {
             first_pos = pos;
         } else {
@@ -193,7 +190,12 @@ impl Plot {
                 for y in y_start..=y_end {
                     for z in z_start..=z_end {
                         let block_id = pattern.pick().get_id();
-                        records.push(MultiBlockChangeRecord { x, y: y as i32, z, block_id });
+                        records.push(MultiBlockChangeRecord {
+                            x,
+                            y: y as i32,
+                            z,
+                            block_id,
+                        });
                         if self.set_block_raw(&BlockPos::new(x, y, z), block_id) {
                             blocks_updated += 1;
                         }
@@ -236,7 +238,12 @@ impl Plot {
                         if filter.matches(self.get_block(&block_pos)) {
                             let block_id = pattern.pick().get_id();
 
-                            records.push(MultiBlockChangeRecord { x, y: y as i32, z, block_id });
+                            records.push(MultiBlockChangeRecord {
+                                x,
+                                y: y as i32,
+                                z,
+                                block_id,
+                            });
                             if self.set_block_raw(&block_pos, block_id) {
                                 blocks_updated += 1;
                             }
