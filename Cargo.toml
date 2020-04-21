@@ -30,3 +30,4 @@ log = "0.4.8"
 fern = { version = "0.6.0", features = ["colored"] }
 chrono = "0.4"
 rand = "0.7.3"
+regex = "1.3.7"

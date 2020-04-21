@@ -1,5 +1,6 @@
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
+use crate::blocks::*;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;

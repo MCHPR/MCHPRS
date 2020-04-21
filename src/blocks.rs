@@ -1,7 +1,7 @@
 use std::mem;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-enum BlockFacing {
+pub enum BlockFacing {
     North,
     South,
     East,
@@ -29,7 +29,7 @@ impl BlockFacing {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-enum RedstoneWireSide {
+pub enum RedstoneWireSide {
     Up,
     Side,
     None,
