@@ -97,17 +97,14 @@ impl Plot {
 
         for (_, packet) in packets {
             if packet.records.len() >= 8192 {
-                dbg!("Large");
                 let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
                 let chunk = &self.chunks[chunk_index];
                 let chunk_data = chunk.encode_packet(false);
                 dbg!(chunk_index);
-                println!("{},{} {},{}", chunk.x, chunk.z, packet.chunk_x, packet.chunk_z);
                 for player in &mut self.players {
                     player.client.send_packet(&chunk_data);
                 }
             } else {
-                dbg!("small");
                 let multi_block_change = packet.encode();
 
                 for player in &mut self.players {
