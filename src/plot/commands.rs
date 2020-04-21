@@ -87,6 +87,13 @@ impl Plot {
                     );
                 }
             }
+            "//count" => {
+                if let Err(_) = self.worldedit_count(player, &args[0]) {
+                    self.players[player].send_system_message(
+                        "Invalid block. Note that not all blocks are supported.",
+                    );
+                }
+            }
             "/tp" => {
                 if args.len() == 3 {
                     let x;
