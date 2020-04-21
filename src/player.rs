@@ -1,4 +1,4 @@
-use crate::blocks::BlockDirection;
+use crate::blocks::{BlockDirection, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
@@ -70,8 +70,8 @@ pub struct Player {
     pub last_keep_alive_received: Instant,
     last_keep_alive_sent: Instant,
     // Worldedit
-    pub first_position: Option<(i32, i32, i32)>,
-    pub second_position: Option<(i32, i32, i32)>,
+    pub first_position: Option<BlockPos>,
+    pub second_position: Option<BlockPos>,
 }
 
 impl fmt::Debug for Player {
@@ -327,14 +327,14 @@ impl Player {
         );
     }
 
-    pub fn worldedit_set_first_position(&mut self, x: i32, y: i32, z: i32) {
+    pub fn worldedit_set_first_position(&mut self, x: i32, y: u32, z: i32) {
         self.worldedit_send_message(format!("First position set to ({}, {}, {})", x, y, z));
-        self.first_position = Some((x, y, z));
+        self.first_position = Some(BlockPos::new(x, y, z));
     }
 
-    pub fn worldedit_set_second_position(&mut self, x: i32, y: i32, z: i32) {
+    pub fn worldedit_set_second_position(&mut self, x: i32, y: u32, z: i32) {
         self.worldedit_send_message(format!("Second position set to ({}, {}, {})", x, y, z));
-        self.second_position = Some((x, y, z));
+        self.second_position = Some(BlockPos::new(x, y, z));
     }
 
     pub fn kick(&mut self, reason: String) {

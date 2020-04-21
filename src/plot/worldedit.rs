@@ -164,30 +164,27 @@ impl Plot {
         }
     }
 
-    fn worldedit_verify_positions(
-        &mut self,
-        player: usize,
-    ) -> Option<((i32, i32, i32), (i32, i32, i32))> {
+    fn worldedit_verify_positions(&mut self, player: usize) -> Option<(BlockPos, BlockPos)> {
         let player = &mut self.players[player];
         let first_pos;
         let second_pos;
-        if let Some(pos) = player.first_position {
+        if let Some(pos) = player.first_position.clone() {
             first_pos = pos;
         } else {
             player.send_system_message("First position is not set!");
             return None;
         }
-        if let Some(pos) = player.second_position {
+        if let Some(pos) = player.second_position.clone() {
             second_pos = pos;
         } else {
             player.send_system_message("Second position is not set!");
             return None;
         }
-        if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
+        if !Plot::in_plot_bounds(self.x, self.z, first_pos.x, first_pos.z) {
             player.send_system_message("First position is outside plot bounds!");
             return None;
         }
-        if !Plot::in_plot_bounds(self.x, self.z, first_pos.0, first_pos.2) {
+        if !Plot::in_plot_bounds(self.x, self.z, first_pos.x, first_pos.z) {
             player.send_system_message("Second position is outside plot bounds!");
             return None;
         }
@@ -200,16 +197,31 @@ impl Plot {
         pattern_str: &str,
     ) -> PatternParseResult<()> {
         let pattern = WorldEditPattern::from_str(pattern_str)?;
-
-        if let Some(region) = self.worldedit_player_region(player) {
+        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
             let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
 
-            for ((x, y), z) in region {
-                let block_id = pattern.pick().get_id();
-                records.push(MultiBlockChangeRecord { x, y, z, block_id });
-                if self.set_block_raw(&BlockPos::new(x, y as u32, z), block_id) {
-                    blocks_updated += 1;
+            let x_start = std::cmp::min(first_pos.x, second_pos.x);
+            let x_end = std::cmp::max(first_pos.x, second_pos.x);
+            let y_start = std::cmp::min(first_pos.y, second_pos.y);
+            let y_end = std::cmp::max(first_pos.y, second_pos.y);
+            let z_start = std::cmp::min(first_pos.z, second_pos.z);
+            let z_end = std::cmp::max(first_pos.z, second_pos.z);
+
+            for x in x_start..=x_end {
+                for y in y_start..=y_end {
+                    for z in z_start..=z_end {
+                        let block_id = pattern.pick().get_id();
+                        records.push(MultiBlockChangeRecord {
+                            x,
+                            y: y as i32,
+                            z,
+                            block_id,
+                        });
+                        if self.set_block_raw(&BlockPos::new(x, y, z), block_id) {
+                            blocks_updated += 1;
+                        }
+                    }
                 }
             }
             self.worldedit_multi_block_change(&records);
@@ -230,22 +242,37 @@ impl Plot {
         let filter = WorldEditPattern::from_str(filter_str)?;
         let pattern = WorldEditPattern::from_str(pattern_str)?;
 
-        if let Some(region) = self.worldedit_player_region(player) {
+        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
             let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
 
-            for ((x, y), z) in region {
-                let block_pos = BlockPos::new(x, y as u32, z);
-                if filter.matches(self.get_block(&block_pos)) {
-                    let block_id = pattern.pick().get_id();
+            let x_start = std::cmp::min(first_pos.x, second_pos.x);
+            let x_end = std::cmp::max(first_pos.x, second_pos.x);
+            let y_start = std::cmp::min(first_pos.y, second_pos.y);
+            let y_end = std::cmp::max(first_pos.y, second_pos.y);
+            let z_start = std::cmp::min(first_pos.z, second_pos.z);
+            let z_end = std::cmp::max(first_pos.z, second_pos.z);
 
-                    records.push(MultiBlockChangeRecord { x, y, z, block_id });
-                    if self.set_block_raw(&block_pos, block_id) {
-                        blocks_updated += 1;
+            for x in x_start..=x_end {
+                for y in y_start..=y_end {
+                    for z in z_start..=z_end {
+                        let block_pos = BlockPos::new(x, y as u32, z);
+                        if filter.matches(self.get_block(&block_pos)) {
+                            let block_id = pattern.pick().get_id();
+
+                            records.push(MultiBlockChangeRecord {
+                                x,
+                                y: y as i32,
+                                z,
+                                block_id,
+                            });
+                            if self.set_block_raw(&block_pos, block_id) {
+                                blocks_updated += 1;
+                            }
+                        }
                     }
                 }
             }
-
             self.worldedit_multi_block_change(&records);
             self.players[player].worldedit_send_message(format!(
                 "Operation completed: {} block(s) affected",
