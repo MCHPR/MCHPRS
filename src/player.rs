@@ -1,4 +1,5 @@
-use crate::blocks::*;
+use crate::blocks::BlockDirection;
+use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
 use byteorder::{BigEndian, ReadBytesExt};
@@ -44,19 +45,11 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Item {
-    pub id: u32,
-    pub count: u8,
-    pub damage: u16,
-    pub nbt: Option<nbt::Blob>,
-}
-
 pub struct Player {
     pub uuid: u128,
     pub username: String,
     pub skin_parts: SkinParts,
-    pub inventory: Vec<Option<Item>>,
+    pub inventory: Vec<Option<ItemStack>>,
     pub selected_slot: u32,
     pub x: f64,
     pub y: f64,
@@ -118,14 +111,14 @@ impl Player {
             // TODO: Handle format error
             let player_data: PlayerData = bincode::deserialize(&data).unwrap();
 
-            let mut inventory: Vec<Option<Item>> = vec![];
+            let mut inventory: Vec<Option<ItemStack>> = vec![];
             inventory.resize_with(46, || None);
             for entry in player_data.inventory {
                 let nbt = entry
                     .nbt
                     .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
-                inventory[entry.slot as usize] = Some(Item {
-                    id: entry.id,
+                inventory[entry.slot as usize] = Some(ItemStack {
+                    item_type: Item::from_id(entry.id),
                     count: entry.count as u8,
                     damage: entry.damage as u16,
                     nbt,
@@ -163,7 +156,7 @@ impl Player {
     }
 
     fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
-        let mut inventory: Vec<Option<Item>> = vec![];
+        let mut inventory: Vec<Option<ItemStack>> = vec![];
         inventory.resize_with(46, || None);
         Player {
             uuid,
@@ -209,7 +202,7 @@ impl Player {
                 });
                 inventory.push(InventoryEntry {
                     count: item.count as i8,
-                    id: item.id,
+                    id: item.item_type.get_id(),
                     damage: item.damage as i16,
                     slot: slot as i8,
                     nbt,
@@ -268,6 +261,10 @@ impl Player {
         .encode();
         self.client.send_packet(&keep_alive);
         self.last_keep_alive_sent = Instant::now();
+    }
+
+    pub fn get_direction(&self) -> BlockDirection {
+        BlockDirection::West
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {

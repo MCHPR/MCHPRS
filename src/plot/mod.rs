@@ -3,7 +3,7 @@ mod packets;
 mod storage;
 mod worldedit;
 
-use crate::blocks::Block;
+use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
 use crate::player::Player;
 use crate::server::{Message, PrivMessage};
@@ -48,35 +48,39 @@ impl Plot {
     }
 
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
-    fn set_block_raw(&mut self, x: i32, y: u32, z: i32, block: u32) -> bool {
-        let chunk_index = self.get_chunk_index_for_block(x, z);
+    fn set_block_raw(&mut self, pos: &BlockPos, block: u32) -> bool {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         let chunk = &mut self.chunks[chunk_index];
-        chunk.set_block((x & 0xF) as u32, y, (z & 0xF) as u32, block)
+        chunk.set_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32, block)
     }
 
     /// Returns true if a block was changed
-    fn set_block(&mut self, x: i32, y: u32, z: i32, block: Block) -> bool {
+    pub fn set_block(&mut self, pos: &BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
-        let changed = self.set_block_raw(x, y, z, block_id);
+        let changed = self.set_block_raw(pos, block_id);
         if changed {
-            let block_change = C0CBlockChange {
-                block_id: block_id as i32,
-                x,
-                y: y as i32,
-                z,
-            }
-            .encode();
-            for player in &mut self.players {
-                player.client.send_packet(&block_change);
-            }
+            self.send_block_change(pos, block_id);
         }
         changed
     }
 
-    fn get_block(&mut self, x: i32, y: u32, z: i32) -> Block {
-        let chunk_index = self.get_chunk_index_for_block(x, z);
+    pub fn get_block(&mut self, pos: &BlockPos) -> Block {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         let chunk = &self.chunks[chunk_index];
-        Block::from_block_state(chunk.get_block((x & 0xF) as u32, y, (z & 0xF) as u32))
+        Block::from_block_state(chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32))
+    }
+
+    pub fn send_block_change(&mut self, pos: &BlockPos, id: u32) {
+        let block_change = C0CBlockChange {
+            block_id: id as i32,
+            x: pos.x,
+            y: pos.y as i32,
+            z: pos.z,
+        }
+        .encode();
+        for player in &mut self.players {
+            player.client.send_packet(&block_change);
+        }
     }
 
     fn tick(&mut self) {}
