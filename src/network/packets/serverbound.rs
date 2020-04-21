@@ -184,6 +184,31 @@ impl ServerBoundPacket for S14PlayerMovement {
     }
 }
 
+bitflags! {
+    pub struct S19PlayerAbilitiesFlags: u32 {
+        const GOD_MODE = 0x08;
+        const CAN_FLY = 0x04;
+        const IS_FLYING = 0x02;
+        const CREATIVE = 0x01;
+    }
+}
+
+pub struct S19PlayerAbilities {
+    pub flags: S19PlayerAbilitiesFlags,
+    pub flying_speed: f32,
+    pub walking_speed: f32,
+}
+
+impl ServerBoundPacket for S19PlayerAbilities {
+    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+        Ok(S19PlayerAbilities {
+            flags: S19PlayerAbilitiesFlags::from_bits_truncate(decoder.read_byte()? as u32),
+            flying_speed: decoder.read_float()?,
+            walking_speed: decoder.read_float()?,
+        })
+    }
+}
+
 pub struct S1APlayerDigging {
     pub status: i32,
     pub x: i32,

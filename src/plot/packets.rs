@@ -40,6 +40,7 @@ impl Plot {
             ),
             0x13 => self.handle_player_rotation(player, S13PlayerRotation::decode(packet)?),
             0x14 => self.handle_player_movement(player, S14PlayerMovement::decode(packet)?),
+            0x19 => self.handle_player_abilities(player, S19PlayerAbilities::decode(packet)?),
             0x1A => self.handle_player_digging(player, S1APlayerDigging::decode(packet)?),
             0x1B => self.handle_entity_action(player, S1BEntityAction::decode(packet)?),
             0x23 => self.handle_held_item_change(player, S23HeldItemChange::decode(packet)?),
@@ -74,6 +75,10 @@ impl Plot {
         } else {
             self.players[player].inventory[creative_inventory_action.slot as usize] = None;
         }
+    }
+
+    fn handle_player_abilities(&mut self, player: usize, player_abilities: S19PlayerAbilities) {
+        self.players[player].flying = player_abilities.flags.contains(S19PlayerAbilitiesFlags::IS_FLYING);
     }
 
     fn handle_animation(&mut self, player: usize, animation: S2AAnimation) {
