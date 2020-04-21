@@ -250,9 +250,10 @@ impl Player {
         }
         self.update_view_pos();
         if let Err(err) = self.client.update() {
-            self.kick(json!({
-                "text": format!("There was an error reading a packet header: {:?}", err)
-            }).to_string());
+            self.kick(
+                json!({ "text": format!("There was an error reading a packet header: {:?}", err) })
+                    .to_string(),
+            );
         }
     }
 

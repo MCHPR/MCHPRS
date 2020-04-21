@@ -1,12 +1,17 @@
 use super::Plot;
 use crate::blocks::Block;
-use crate::server::Message;
 use crate::plot::worldedit::WorldEditPattern;
+use crate::server::Message;
 use log::info;
 
 impl Plot {
     pub(super) fn handle_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
-        info!("{} issued command: {} {}", self.players[player].username, command, args.join(" "));
+        info!(
+            "{} issued command: {} {}",
+            self.players[player].username,
+            command,
+            args.join(" ")
+        );
         match command {
             "//1" | "//pos1" => {
                 let player = &mut self.players[player];

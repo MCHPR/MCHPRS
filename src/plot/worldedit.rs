@@ -1,30 +1,28 @@
 use super::Plot;
 use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
-use std::collections::HashMap;
 use rand::Rng;
+use std::collections::HashMap;
 
 pub struct MultiBlockChangeRecord {
     pub x: i32,
     pub y: i32,
     pub z: i32,
-    pub block_id: u32
+    pub block_id: u32,
 }
 
 pub struct WorldEditPatternPart {
     pub weight: f32,
-    pub block_id: u32
+    pub block_id: u32,
 }
 
 pub struct WorldEditPattern {
-    pub parts: Vec<WorldEditPatternPart>
+    pub parts: Vec<WorldEditPatternPart>,
 }
 
 impl WorldEditPattern {
     pub fn from_str(pattern_str: &str) -> WorldEditPattern {
-        let mut pattern = WorldEditPattern {
-            parts: Vec::new()
-        };
+        let mut pattern = WorldEditPattern { parts: Vec::new() };
 
         for part in pattern_str.split(",") {
             let block = Block::from_name(part);
@@ -32,12 +30,12 @@ impl WorldEditPattern {
             if let Some(block) = block {
                 pattern.parts.push(WorldEditPatternPart {
                     weight: 1.0,
-                    block_id: block.get_id()
+                    block_id: block.get_id(),
                 });
             } else {
                 pattern.parts.push(WorldEditPatternPart {
                     weight: 1.0,
-                    block_id: 0
+                    block_id: 0,
                 });
             }
         }
@@ -46,12 +44,8 @@ impl WorldEditPattern {
     }
 
     pub fn matches(&self, block: Block) -> bool {
-        for part in &self.parts {
-            if block.get_id() == part.block_id {
-                return true;
-            }
-        }
-        false
+        let block_id = block.get_id();
+        self.parts.iter().any(|part| part.block_id == block_id)
     }
 
     pub fn pick(&self) -> Block {
@@ -59,13 +53,13 @@ impl WorldEditPattern {
         for part in &self.parts {
             weight_sum += part.weight;
         }
-        
+
         let mut rng = rand::thread_rng();
         let mut random = rng.gen_range(0.0, weight_sum);
-        
+
         let mut selected = &WorldEditPatternPart {
             block_id: 0,
-            weight: 0.0
+            weight: 0.0,
         };
 
         for part in &self.parts {
@@ -86,16 +80,20 @@ impl Plot {
         for record in records {
             let chunk_index = Plot::get_chunk_index(record.x, record.z);
 
-            packets.entry(chunk_index).or_insert(C10MultiBlockChange {
-                chunk_x: record.x >> 4,
-                chunk_z: record.z >> 4,
-                records: Vec::new()
-            }).records.push(C10MultiBlockChangeRecord {
-                block_id: record.block_id as i32,
-                x: (record.x % 16) as i8,
-                y: record.y as u8,
-                z: (record.z % 16) as i8,
-            });
+            packets
+                .entry(chunk_index)
+                .or_insert(C10MultiBlockChange {
+                    chunk_x: record.x >> 4,
+                    chunk_z: record.z >> 4,
+                    records: Vec::new(),
+                })
+                .records
+                .push(C10MultiBlockChangeRecord {
+                    block_id: record.block_id as i32,
+                    x: (record.x % 16) as i8,
+                    y: record.y as u8,
+                    z: (record.z % 16) as i8,
+                });
         }
 
         for (_, packet) in packets {
@@ -153,12 +151,7 @@ impl Plot {
                 for y in y_start..=y_end {
                     for z in z_start..=z_end {
                         let block_id = pattern.pick().get_id();
-                        records.push(MultiBlockChangeRecord {
-                            x,
-                            y,
-                            z,
-                            block_id
-                        });
+                        records.push(MultiBlockChangeRecord { x, y, z, block_id });
                         if self.set_block_raw(x, y as u32, z, block_id) {
                             blocks_updated += 1;
                         }
@@ -173,7 +166,12 @@ impl Plot {
         }
     }
 
-    pub(super) fn worldedit_replace(&mut self, player: usize, filter: WorldEditPattern, pattern: WorldEditPattern) {
+    pub(super) fn worldedit_replace(
+        &mut self,
+        player: usize,
+        filter: WorldEditPattern,
+        pattern: WorldEditPattern,
+    ) {
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
             let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
@@ -191,12 +189,7 @@ impl Plot {
                         if filter.matches(self.get_block(x, y as u32, z)) {
                             let block_id = pattern.pick().get_id();
 
-                            records.push(MultiBlockChangeRecord {
-                                x,
-                                y,
-                                z,
-                                block_id
-                            });
+                            records.push(MultiBlockChangeRecord { x, y, z, block_id });
                             if self.set_block_raw(x, y as u32, z, block_id) {
                                 blocks_updated += 1;
                             }

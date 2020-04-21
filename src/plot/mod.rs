@@ -1,23 +1,23 @@
+mod commands;
 mod packets;
 mod storage;
 mod worldedit;
-mod commands;
 
 use crate::blocks::Block;
 use crate::network::packets::clientbound::*;
 use crate::player::Player;
 use crate::server::{Message, PrivMessage};
 use bus::BusReader;
+use log::debug;
+use serde_json::json;
 use std::fs::{self, OpenOptions};
-use std::path::Path;
 use std::io::Write;
+use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
-use serde_json::json;
-use log::debug;
 
 pub struct Plot {
     players: Vec<Player>,
@@ -192,9 +192,12 @@ impl Plot {
                 Message::Shutdown => {
                     let mut players: Vec<Player> = self.players.drain(..).collect();
                     for player in players.iter_mut() {
-                        player.kick(json!({
-                            "text": "Server closed"
-                        }).to_string());
+                        player.kick(
+                            json!({
+                                "text": "Server closed"
+                            })
+                            .to_string(),
+                        );
                     }
                     self.running = false;
                     return;
@@ -275,13 +278,15 @@ impl Plot {
         }
     }
 
-    fn load_from_file(data: Vec<u8>,
+    fn load_from_file(
+        data: Vec<u8>,
         x: i32,
         z: i32,
         rx: BusReader<Message>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
-        always_running: bool,) -> Plot {
+        always_running: bool,
+    ) -> Plot {
         let chunk_x_offset = x << 3;
         let chunk_z_offset = z << 3;
         let plot_data: PlotData = bincode::deserialize(&data).unwrap();
@@ -418,8 +423,8 @@ impl Drop for Plot {
         self.save();
         debug!("Plot {},{} unloaded", self.x, self.z);
         self.message_sender
-        .send(Message::PlotUnload(self.x, self.z))
-        .unwrap();
+            .send(Message::PlotUnload(self.x, self.z))
+            .unwrap();
     }
 }
 
