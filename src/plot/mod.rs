@@ -199,6 +199,7 @@ impl Plot {
                             .to_string(),
                         );
                     }
+                    self.always_running = false;
                     self.running = false;
                     return;
                 }

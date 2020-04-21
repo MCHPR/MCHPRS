@@ -270,7 +270,7 @@ impl MinecraftServer {
                     }
                     self.broadcaster.broadcast(message);
                 }
-                Message::PlotUnload(plot_x, plot_z) => {}
+                Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
                 Message::Chat(chat) => {
                     self.broadcaster.broadcast(Message::Chat(chat));
                 }
