@@ -418,7 +418,7 @@ impl MinecraftServer {
                                 gamemode: 1,
                                 dimention: 0,
                                 hash_seed: 0,
-                                max_players: u8::MAX,
+                                max_players: 0,
                                 level_type: "flat".to_string(),
                                 view_distance: 8,
                                 reduced_debug_info: false,
