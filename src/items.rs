@@ -65,7 +65,6 @@ pub enum Item {
 
 impl Item {
     pub fn from_id(id: u32) -> Item {
-        dbg!(id);
         match id {
             64 => Item::BlockItem(id), 
             68 => Item::BlockItem(id),

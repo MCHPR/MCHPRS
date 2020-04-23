@@ -65,6 +65,9 @@ impl Plot {
         creative_inventory_action: S26CreativeInventoryAction,
     ) {
         if let Some(slot_data) = creative_inventory_action.clicked_item {
+            if creative_inventory_action.slot < 0 || creative_inventory_action.slot >= 46 {
+                return;
+            }
             let item = ItemStack {
                 count: slot_data.item_count as u8,
                 damage: 0,

@@ -31,7 +31,7 @@ pub struct WorldEditPattern {
 impl WorldEditPattern {
     pub fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
-        for part in pattern_str.split(",") {
+        for part in pattern_str.split(',') {
             lazy_static! {
                 static ref RE: Regex = Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap();
             }
@@ -125,7 +125,7 @@ impl Plot {
         None
     }
 
-    fn worldedit_multi_block_change(&mut self, records: &Vec<MultiBlockChangeRecord>) {
+    fn worldedit_multi_block_change(&mut self, records: Vec<MultiBlockChangeRecord>) {
         let mut packets: HashMap<usize, C10MultiBlockChange> = HashMap::new();
         for record in records {
             let chunk_index = self.get_chunk_index_for_block(record.x, record.z);
@@ -224,7 +224,7 @@ impl Plot {
                     }
                 }
             }
-            self.worldedit_multi_block_change(&records);
+            self.worldedit_multi_block_change(records);
             self.players[player].worldedit_send_message(format!(
                 "Operation completed: {} block(s) affected",
                 blocks_updated
@@ -273,7 +273,7 @@ impl Plot {
                     }
                 }
             }
-            self.worldedit_multi_block_change(&records);
+            self.worldedit_multi_block_change(records);
             self.players[player].worldedit_send_message(format!(
                 "Operation completed: {} block(s) affected",
                 blocks_updated
