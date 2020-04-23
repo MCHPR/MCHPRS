@@ -196,6 +196,7 @@ pub enum Block {
     RedstoneRepeater(RedstoneRepeater),
     RedstoneComparator(RedstoneComparator),
     RedstoneTorch(bool),
+    RedstoneWallTorch(bool, BlockDirection),
     RedstoneLamp(bool),
     Solid(u32),
     Transparent(u32),
@@ -222,6 +223,13 @@ impl Block {
             // Redstone Torch
             3885 => Block::RedstoneTorch(true),
             3886 => Block::RedstoneTorch(false),
+            // Redstone Wall Torch
+            3887..=3894 => {
+                let id = id - 3887;
+                let lit = (id & 1) == 0;
+                let facing = BlockDirection::from_id(id >> 1);
+                Block::RedstoneWallTorch(lit, facing) 
+            }
             // Redstone Repeater
             4017..=4080 => {
                 let id = id - 4017;
@@ -259,6 +267,11 @@ impl Block {
             }
             Block::RedstoneTorch(true) => 3885,
             Block::RedstoneTorch(false) => 3886,
+            Block::RedstoneWallTorch(lit, facing) => {
+                (facing.get_id() << 1)
+                    + (!lit as u32)
+                    + 3887
+            }
             Block::RedstoneRepeater(repeater) => {
                 (repeater.delay as u32 - 1) * 16
                     + repeater.facing.get_id() * 4
@@ -312,6 +325,16 @@ impl Block {
             68 => Block::Solid(245),
             // Wool
             82..=97 => Block::Solid(item_id + 1301),
+            173 => match context.block_face {
+                BlockFace::Top => Block::RedstoneTorch(true),
+                BlockFace::Bottom => Block::Air,
+                BlockFace::North => Block::RedstoneWallTorch(true, BlockDirection::North),
+                BlockFace::South => Block::RedstoneWallTorch(true, BlockDirection::South),
+                BlockFace::East => Block::RedstoneWallTorch(true, BlockDirection::East),
+                BlockFace::West => Block::RedstoneWallTorch(true, BlockDirection::West),
+            },
+            // Concrete
+            413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
             513 => Block::RedstoneRepeater(RedstoneRepeater {
                 delay: 1,

@@ -65,11 +65,15 @@ pub enum Item {
 
 impl Item {
     pub fn from_id(id: u32) -> Item {
+        dbg!(id);
         match id {
             64 => Item::BlockItem(id), 
             68 => Item::BlockItem(id),
             82..=97 => Item::BlockItem(id),
+            173 => Item::BlockItem(id),
+            413..=428 => Item::BlockItem(id),
             513 => Item::BlockItem(id),
+            
             _ => Item::Unknown(id),
         }
     }

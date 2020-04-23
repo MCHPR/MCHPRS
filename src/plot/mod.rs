@@ -235,6 +235,7 @@ impl Plot {
                 Message::Shutdown => {
                     let mut players: Vec<Player> = self.players.drain(..).collect();
                     for player in players.iter_mut() {
+                        player.save();
                         player.kick(
                             json!({
                                 "text": "Server closed"
