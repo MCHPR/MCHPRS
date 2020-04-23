@@ -171,17 +171,6 @@ impl Plot {
         player
     }
 
-    /// Blocks the thread until the arc has no other strong references,
-    /// this will then return the player.
-    fn receive_player(player_arc: Arc<Player>) -> Player {
-        // Maybe we could store a list of players waiting to be received instead of
-        // blocking the thread. Just maybe...
-        while Arc::strong_count(&player_arc) > 1 {
-            thread::sleep(Duration::from_millis(10))
-        }
-        Arc::try_unwrap(player_arc).unwrap()
-    }
-
     fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
         x >= plot_x * 128 && x < (plot_x + 1) * 128 && z >= plot_z * 128 && z < (plot_z + 1) * 128
     }
@@ -190,16 +179,6 @@ impl Plot {
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
-                Message::PlayerTeleportOther(player, other_player) => {
-                    for p in self.players.iter() {
-                        if p.username == other_player {
-                            let mut player = Plot::receive_player(player);
-                            player.teleport(p.x, p.y, p.z);
-                            self.enter_plot(player);
-                            break;
-                        }
-                    }
-                }
                 Message::Chat(message) => {
                     for player in &mut self.players {
                         player.send_raw_chat(message.clone());
