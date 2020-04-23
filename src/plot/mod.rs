@@ -147,6 +147,30 @@ impl Plot {
         self.players.push(player);
     }
 
+    fn destroy_entity(&mut self, entity_id: u32) {
+        let destroy_entities = C38DestroyEntities {
+            entity_ids: vec![entity_id as i32],
+        }
+        .encode();
+        for player in &mut self.players {
+            player.client.send_packet(&destroy_entities);
+        }
+    }
+
+    fn leave_plot(&mut self, player_index: usize) -> Player {
+        let mut player = self.players.remove(player_index);
+        let mut entity_ids = Vec::new();
+        for player in &self.players {
+            entity_ids.push(player.entity_id as i32);
+        }
+        let destroy_other_entities = C38DestroyEntities {
+            entity_ids,
+        }.encode();
+        player.client.send_packet(&destroy_other_entities);
+        self.destroy_entity(player.entity_id);
+        player
+    }
+
     /// Blocks the thread until the arc has no other strong references,
     /// this will then return the player.
     fn receive_player(player_arc: Arc<Player>) -> Player {
@@ -224,6 +248,12 @@ impl Plot {
                 PrivMessage::PlayerEnterPlot(player) => {
                     self.enter_plot(player);
                 }
+                PrivMessage::PlayerTeleportOther(mut player, username) => {
+                    if let Some(other) = self.players.iter().find(|p| p.username == username) {
+                        player.teleport(other.x, other.y, other.z);
+                    }
+                    self.enter_plot(player);
+                }
             }
         }
         // Only tick if there are players in the plot
@@ -246,22 +276,26 @@ impl Plot {
         }
 
         let message_sender = &mut self.message_sender;
-        let mut dead_entity_ids = Vec::new();
 
-        // Check if connection to player is still active
+        // Remove disconnected players
+        let mut disconnected_players = Vec::new();
         self.players.retain(|player| {
             let alive = player.client.alive;
             if !alive {
                 player.save();
-                dead_entity_ids.push(player.entity_id as i32);
                 message_sender
                     .send(Message::PlayerLeft(player.uuid))
                     .unwrap();
+                disconnected_players.push(player.entity_id);
             }
             alive
         });
-        // Check if a player has left the plot
-        let mut out_of_bounds_players = Vec::new();
+        for entity_id in disconnected_players {
+            self.destroy_entity(entity_id);
+        }
+
+        // Remove players outside of the plot
+        let mut outside_players = Vec::new();
         for player in 0..self.players.len() {
             if !Plot::in_plot_bounds(
                 self.x,
@@ -269,33 +303,13 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
-                out_of_bounds_players.push(player);
+                outside_players.push(player);
             }
         }
-        // Remove players outside of the plot
-        for player_index in out_of_bounds_players {
-            let mut player = self.players.remove(player_index);
-            dead_entity_ids.push(player.entity_id as i32);
-            let mut entity_ids = Vec::new();
-            for player in &self.players {
-                entity_ids.push(player.entity_id as i32);
-            }
-            let destroy_entities = C38DestroyEntities {
-                entity_ids,
-            }.encode();
-            player.client.send_packet(&destroy_entities);
+        for player_index in outside_players {
+            let player = self.leave_plot(player_index);
             let player_leave_plot = Message::PlayerLeavePlot(Arc::from(player));
             self.message_sender.send(player_leave_plot).unwrap();
-        }
-
-        if !dead_entity_ids.is_empty() {
-            let destroy_entities = C38DestroyEntities {
-                entity_ids: dead_entity_ids,
-            }
-            .encode();
-            for player in &mut self.players {
-                player.client.send_packet(&destroy_entities);
-            }
         }
     }
 
