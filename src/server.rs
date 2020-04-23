@@ -11,6 +11,7 @@ use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
 use crate::player::Player;
 use crate::plot::Plot;
+use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{debug, error, info, warn};
@@ -19,7 +20,6 @@ use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use backtrace::Backtrace;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicate when a player joins, leaves, or moves into another plot,
@@ -259,7 +259,6 @@ impl MinecraftServer {
                 .priv_message_sender
                 .send(PrivMessage::PlayerEnterPlot(player));
         }
-
     }
 
     fn update(&mut self) {
@@ -307,7 +306,11 @@ impl MinecraftServer {
                 }
                 Message::PlayerTeleportOther(player_arc, other_username) => {
                     let mut player = Arc::try_unwrap(player_arc).unwrap();
-                    if let Some(other_player) = self.online_players.iter().find(|p| p.username == other_username) {
+                    if let Some(other_player) = self
+                        .online_players
+                        .iter()
+                        .find(|p| p.username == other_username)
+                    {
                         let plot_x = other_player.plot_x;
                         let plot_z = other_player.plot_z;
 
@@ -316,7 +319,9 @@ impl MinecraftServer {
                             .iter()
                             .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
                         if !plot_loaded {
-                            player.send_system_message("Their plot wasn't loaded. How did this happen??");
+                            player.send_system_message(
+                                "Their plot wasn't loaded. How did this happen??",
+                            );
                             self.send_player_to_plot(player, false);
                         } else {
                             self.update_player_entry(player.uuid, plot_x, plot_z);

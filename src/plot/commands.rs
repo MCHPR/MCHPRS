@@ -1,7 +1,7 @@
 use super::Plot;
-use std::sync::Arc;
 use crate::server::Message;
 use log::info;
+use std::sync::Arc;
 
 impl Plot {
     pub(super) fn handle_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
@@ -119,7 +119,10 @@ impl Plot {
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     let player = self.leave_plot(player);
-                    self.message_sender.send(Message::PlayerTeleportOther(Arc::new(player), args[0].to_string()));
+                    self.message_sender.send(Message::PlayerTeleportOther(
+                        Arc::new(player),
+                        args[0].to_string(),
+                    ));
                 } else {
                     self.players[player]
                         .send_system_message("Wrong number of arguments for teleport command!");

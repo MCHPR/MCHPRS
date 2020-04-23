@@ -5,6 +5,7 @@ mod worldedit;
 
 use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
+use crate::network::packets::SlotData;
 use crate::player::Player;
 use crate::server::{Message, PrivMessage};
 use bus::BusReader;
@@ -130,6 +131,19 @@ impl Plot {
             .encode();
             player.client.send_packet(&spawn_other_player);
 
+            if let Some(item) = &other_player.inventory[other_player.selected_slot as usize + 36] {
+                let other_entity_equipment = C47EntityEquipment {
+                    entity_id: other_player.entity_id as i32,
+                    slot: 0, // Main hand
+                    item: Some(SlotData {
+                        item_count: item.count as i8,
+                        item_id: item.item_type.get_id() as i32,
+                        nbt: item.nbt.clone(),
+                    }),
+                }.encode();
+                player.client.send_packet(&other_entity_equipment);
+            }
+
             let mut other_metadata_entries = Vec::new();
             other_metadata_entries.push(C44EntityMetadataEntry {
                 index: 16,
@@ -143,6 +157,22 @@ impl Plot {
             .encode();
             player.client.send_packet(&other_metadata);
         }
+
+        if let Some(item) = &player.inventory[player.selected_slot as usize + 36] {
+            let entity_equipment = C47EntityEquipment {
+                entity_id: player.entity_id as i32,
+                slot: 0, // Main hand
+                item: Some(SlotData {
+                    item_count: item.count as i8,
+                    item_id: item.item_type.get_id() as i32,
+                    nbt: item.nbt.clone(),
+                }),
+            }.encode();
+            for other_player in &mut self.players {
+                other_player.client.send_packet(&entity_equipment);
+            }
+        }
+
         player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
     }
@@ -163,9 +193,7 @@ impl Plot {
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
         }
-        let destroy_other_entities = C38DestroyEntities {
-            entity_ids,
-        }.encode();
+        let destroy_other_entities = C38DestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
         self.destroy_entity(player.entity_id);
         player

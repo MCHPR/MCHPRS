@@ -551,6 +551,33 @@ impl ClientBoundPacket for C44EntityMetadata {
     }
 }
 
+pub struct C47EntityEquipment {
+    pub entity_id: i32,
+    pub slot: i32,
+    pub item: Option<SlotData>,
+}
+
+impl ClientBoundPacket for C47EntityEquipment {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_varint(self.slot);
+        if let Some(slot) = self.item {
+            buf.write_bool(true);
+            buf.write_varint(slot.item_id);
+            buf.write_byte(slot.item_count);
+            if let Some(nbt) = slot.nbt {
+                buf.write_nbt_blob(nbt);
+            } else {
+                buf.write_byte(0); // End tag
+            }
+        } else {
+            buf.write_bool(false);
+        }
+        PacketEncoder::new(buf, 0x47)
+    }
+}
+
 pub struct C57EntityTeleport {
     pub entity_id: i32,
     pub x: f64,
