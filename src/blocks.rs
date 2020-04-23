@@ -1,6 +1,7 @@
-use crate::items::ActionResult;
+use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::Plot;
 use std::mem;
+use log::error;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct BlockPos {
@@ -34,6 +35,7 @@ pub enum BlockDirection {
     West,
 }
 
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockFace {
     Bottom,
     Top,
@@ -207,6 +209,7 @@ impl Block {
     pub fn from_block_state(id: u32) -> Block {
         match id {
             0 => Block::Air,
+            // Redstone Wire
             2056..=3351 => {
                 let id = id - 2056;
                 let west = RedstoneWireSide::from_id(id % 3);
@@ -216,8 +219,10 @@ impl Block {
                 let east = RedstoneWireSide::from_id(id / 432);
                 Block::RedstoneWire(RedstoneWire::new(north, south, east, west, power as u8))
             }
+            // Redstone Torch
             3885 => Block::RedstoneTorch(true),
             3886 => Block::RedstoneTorch(false),
+            // Redstone Repeater
             4017..=4080 => {
                 let id = id - 4017;
                 let powered = (id & 1) == 0;
@@ -226,8 +231,10 @@ impl Block {
                 let delay = (id >> 4) as u8 + 1;
                 Block::RedstoneRepeater(RedstoneRepeater::new(delay, facing, locked, powered))
             }
+            // Redstone Lamp
             5140 => Block::RedstoneLamp(true),
             5141 => Block::RedstoneLamp(false),
+            // Redstone Comparator
             6142..=6157 => {
                 let id = id - 6142;
                 let powered = (id & 1) == 0;
@@ -297,16 +304,33 @@ impl Block {
         }
     }
 
-    pub fn place_in_plot(self, plot: &mut Plot, pos: &BlockPos, direction: BlockDirection) {
+    pub fn get_block_for_placement(item_id: u32, context: &UseOnBlockContext) -> Block {
+        match item_id {
+            // Glass
+            64 => Block::Transparent(230),
+            // Sandstone
+            68 => Block::Solid(245),
+            // Wool
+            82..=97 => Block::Solid(item_id + 1301),
+            // Redstone Repeater
+            513 => Block::RedstoneRepeater(RedstoneRepeater {
+                delay: 1,
+                facing: context.player_direction,
+                locked: false,
+                powered: false,
+            }),
+            _ => {
+                error!("Tried to place block which wasnt a block!");
+                Block::Solid(245)
+            }
+        }
+    }
+
+    pub fn place_in_plot(self, plot: &mut Plot, pos: &BlockPos) {
         match self {
             Block::RedstoneRepeater(_) => {
-                let repeater = RedstoneRepeater {
-                    delay: 1,
-                    facing: direction,
-                    locked: false,
-                    powered: false,
-                };
-                plot.set_block(pos, Block::RedstoneRepeater(repeater));
+                // TODO: Queue repeater tick
+                plot.set_block(pos, self);
             }
             _ => {
                 plot.set_block(pos, self);
