@@ -35,6 +35,18 @@ pub enum BlockDirection {
     West,
 }
 
+impl BlockDirection {
+    fn opposite(self) -> BlockDirection {
+        use BlockDirection::*;
+        match self {
+            North => South,
+            South => North,
+            East => West,
+            West => East,
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockFace {
     Bottom,
@@ -60,7 +72,7 @@ impl BlockFace {
 }
 
 impl BlockDirection {
-    fn from_id(id: u32) -> BlockDirection {
+    pub fn from_id(id: u32) -> BlockDirection {
         match id {
             0 => BlockDirection::North,
             1 => BlockDirection::South,
@@ -164,10 +176,18 @@ impl ComparatorMode {
             _ => panic!("Invalid ComparatorMode"),
         }
     }
+
     fn get_id(self) -> u32 {
         match self {
             ComparatorMode::Compare => 0,
             ComparatorMode::Subtract => 1,
+        }
+    }
+
+    fn flip(self) -> ComparatorMode {
+        match self {
+            ComparatorMode::Subtract => ComparatorMode::Compare,
+            ComparatorMode::Compare => ComparatorMode::Subtract,
         }
     }
 }
@@ -313,6 +333,12 @@ impl Block {
                 plot.set_block(&pos, Block::RedstoneRepeater(repeater));
                 ActionResult::Success
             }
+            Block::RedstoneComparator(comparator) => {
+                let mut comparator = comparator.clone();
+                comparator.mode = comparator.mode.flip();
+                plot.set_block(&pos, Block::RedstoneComparator(comparator));
+                ActionResult::Success
+            }
             _ => ActionResult::Pass,
         }
     }
@@ -327,7 +353,7 @@ impl Block {
             82..=97 => Block::Solid(item_id + 1301),
             173 => match context.block_face {
                 BlockFace::Top => Block::RedstoneTorch(true),
-                BlockFace::Bottom => Block::Air,
+                BlockFace::Bottom => Block::RedstoneTorch(true),
                 BlockFace::North => Block::RedstoneWallTorch(true, BlockDirection::North),
                 BlockFace::South => Block::RedstoneWallTorch(true, BlockDirection::South),
                 BlockFace::East => Block::RedstoneWallTorch(true, BlockDirection::East),
@@ -338,8 +364,14 @@ impl Block {
             // Redstone Repeater
             513 => Block::RedstoneRepeater(RedstoneRepeater {
                 delay: 1,
-                facing: context.player_direction,
+                facing: dbg!(context.player_direction).opposite(),
                 locked: false,
+                powered: false,
+            }),
+            // Redstone Comparator
+            514 => Block::RedstoneComparator(RedstoneComparator {
+                mode: ComparatorMode::Compare,
+                facing: context.player_direction.opposite(),
                 powered: false,
             }),
             _ => {

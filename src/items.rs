@@ -71,7 +71,7 @@ impl Item {
             82..=97 => Item::BlockItem(id),
             173 => Item::BlockItem(id),
             413..=428 => Item::BlockItem(id),
-            513 => Item::BlockItem(id),
+            513..=514 => Item::BlockItem(id),
             
             _ => Item::Unknown(id),
         }
