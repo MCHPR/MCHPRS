@@ -18,22 +18,29 @@ use log::{debug, error, info, warn};
 use serde_json::json;
 use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicate when a player joins, leaves, or moves into another plot,
 /// as well as to communicate chat messages.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Message {
     ChatInfo(String, String),
     Chat(String),
     PlayerJoinedInfo(PlayerJoinInfo),
-    PlayerJoined(Arc<Player>),
+    PlayerJoined(Player),
     PlayerLeft(u128),
-    PlayerLeavePlot(Arc<Player>),
-    PlayerTeleportOther(Arc<Player>, String),
+    PlayerLeavePlot(Player),
+    PlayerTeleportOther(Player, String),
     PlotUnload(i32, i32),
+    Shutdown,
+}
+
+#[derive(Debug, Clone)]
+pub enum BroadcastMessage {
+    Chat(String),
+    PlayerJoinedInfo(PlayerJoinInfo),
+    PlayerLeft(u128),
     Shutdown,
 }
 
@@ -69,8 +76,8 @@ struct PlotListEntry {
 pub struct MinecraftServer {
     network: NetworkServer,
     config: config::Config,
-    broadcaster: Bus<Message>,
-    debug_plot_receiver: BusReader<Message>,
+    broadcaster: Bus<BroadcastMessage>,
+    debug_plot_receiver: BusReader<BroadcastMessage>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
     //permissions: Arc<Mutex<Permissions>>,
@@ -199,7 +206,7 @@ impl MinecraftServer {
 
     fn graceful_shutdown(&mut self) {
         info!("Commencing graceful shutdown...");
-        self.broadcaster.broadcast(Message::Shutdown);
+        self.broadcaster.broadcast(BroadcastMessage::Shutdown);
         // Wait for all plots to save and unload
         while !self.running_plots.is_empty() {
             while let Ok(message) = self.receiver.try_recv() {
@@ -268,8 +275,7 @@ impl MinecraftServer {
         while let Ok(message) = self.receiver.try_recv() {
             debug!("Main thread received message: {:#?}", message);
             match message {
-                Message::PlayerJoined(player_arc) => {
-                    let player = Arc::try_unwrap(player_arc).unwrap();
+                Message::PlayerJoined(player) => {
                     // Send player info to plots
                     let player_join_info = PlayerJoinInfo {
                         username: player.username.clone(),
@@ -277,7 +283,7 @@ impl MinecraftServer {
                         skin: None,
                     };
                     self.broadcaster
-                        .broadcast(Message::PlayerJoinedInfo(player_join_info));
+                        .broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
                     self.send_player_to_plot(player, true);
                 }
                 Message::PlayerLeft(uuid) => {
@@ -285,11 +291,11 @@ impl MinecraftServer {
                     if let Some(index) = index {
                         self.online_players.remove(index);
                     }
-                    self.broadcaster.broadcast(message);
+                    self.broadcaster.broadcast(BroadcastMessage::PlayerLeft(uuid));
                 }
                 Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
                 Message::ChatInfo(username, message) => {
-                    self.broadcaster.broadcast(Message::Chat(
+                    self.broadcaster.broadcast(BroadcastMessage::Chat(
                         json!({
                             "text": self.config.get_str("chat_format").unwrap_or("<{username}> {message}".to_owned())
                                         .replace("{username}", &username)
@@ -297,15 +303,13 @@ impl MinecraftServer {
                         }).to_string()
                     ));
                 }
-                Message::PlayerLeavePlot(player_arc) => {
-                    let player = Arc::try_unwrap(player_arc).unwrap();
+                Message::PlayerLeavePlot(player) => {
                     self.send_player_to_plot(player, false);
                 }
                 Message::Shutdown => {
                     self.graceful_shutdown();
                 }
-                Message::PlayerTeleportOther(player_arc, other_username) => {
-                    let mut player = Arc::try_unwrap(player_arc).unwrap();
+                Message::PlayerTeleportOther(mut player, other_username) => {
                     if let Some(other_player) = self
                         .online_players
                         .iter()
@@ -509,7 +513,7 @@ impl MinecraftServer {
                             player.client.send_packet(&window_items);
 
                             self.plot_sender
-                                .send(Message::PlayerJoined(Arc::new(player)))
+                                .send(Message::PlayerJoined(player))
                                 .unwrap();
                         }
                     }

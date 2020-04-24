@@ -7,7 +7,7 @@ use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::Player;
-use crate::server::{Message, PrivMessage};
+use crate::server::{Message, BroadcastMessage, PrivMessage};
 use bus::BusReader;
 use log::debug;
 use serde_json::json;
@@ -15,7 +15,6 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
@@ -23,7 +22,7 @@ use storage::{Chunk, ChunkData, PlotData};
 pub struct Plot {
     players: Vec<Player>,
     tps: u32,
-    message_receiver: BusReader<Message>,
+    message_receiver: BusReader<BroadcastMessage>,
     message_sender: Sender<Message>,
     priv_message_receiver: Receiver<PrivMessage>,
     last_player_time: SystemTime,
@@ -207,12 +206,12 @@ impl Plot {
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
-                Message::Chat(message) => {
+                BroadcastMessage::Chat(message) => {
                     for player in &mut self.players {
                         player.send_raw_chat(message.clone());
                     }
                 }
-                Message::PlayerJoinedInfo(player_join_info) => {
+                BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
                     let player_info = C34PlayerInfo::AddPlayer(vec![C34PlayerInfoAddPlayer {
                         name: player_join_info.username,
                         properties: Vec::new(),
@@ -226,13 +225,13 @@ impl Plot {
                         player.client.send_packet(&player_info);
                     }
                 }
-                Message::PlayerLeft(uuid) => {
+                BroadcastMessage::PlayerLeft(uuid) => {
                     let player_info = C34PlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
                 }
-                Message::Shutdown => {
+                BroadcastMessage::Shutdown => {
                     let mut players: Vec<Player> = self.players.drain(..).collect();
                     for player in players.iter_mut() {
                         player.save();
@@ -316,7 +315,7 @@ impl Plot {
         }
         for player_index in outside_players {
             let player = self.leave_plot(player_index);
-            let player_leave_plot = Message::PlayerLeavePlot(Arc::from(player));
+            let player_leave_plot = Message::PlayerLeavePlot(player);
             self.message_sender.send(player_leave_plot).unwrap();
         }
     }
@@ -325,7 +324,7 @@ impl Plot {
         data: Vec<u8>,
         x: i32,
         z: i32,
-        rx: BusReader<Message>,
+        rx: BusReader<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
@@ -364,7 +363,7 @@ impl Plot {
     fn load(
         x: i32,
         z: i32,
-        rx: BusReader<Message>,
+        rx: BusReader<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
@@ -438,7 +437,7 @@ impl Plot {
     pub fn load_and_run(
         x: i32,
         z: i32,
-        rx: BusReader<Message>,
+        rx: BusReader<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
