@@ -26,8 +26,6 @@ use std::time::{Duration, Instant};
 #[derive(Debug)]
 pub enum Message {
     ChatInfo(String, String),
-    Chat(String),
-    PlayerJoinedInfo(PlayerJoinInfo),
     PlayerJoined(Player),
     PlayerLeft(u128),
     PlayerLeavePlot(Player),
