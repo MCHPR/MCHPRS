@@ -23,7 +23,6 @@ serde = "1.0.106"
 md5 = "0.7.0"
 bus = "2.2.3"
 serde_json = "1.0.51"
-arc-swap = "0.4.5"
 bincode = "1.2.1"
 ctrlc = { version = "3.1.4", features = ["termination"] }
 log = "0.4.8"
