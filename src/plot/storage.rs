@@ -241,8 +241,8 @@ impl ChunkSection {
 #[derive(Debug)]
 pub struct Chunk {
     sections: Vec<ChunkSection>,
-    x: i32,
-    z: i32,
+    pub x: i32,
+    pub z: i32,
 }
 
 impl Chunk {
