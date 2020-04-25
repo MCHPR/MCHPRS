@@ -4,6 +4,7 @@ use crate::network::packets::clientbound::*;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
+use std::time::Instant;
 
 pub struct MultiBlockChangeRecord {
     pub x: i32,
@@ -196,6 +197,8 @@ impl Plot {
         player: usize,
         pattern_str: &str,
     ) -> PatternParseResult<()> {
+        let start_time = Instant::now();
+
         let pattern = WorldEditPattern::from_str(pattern_str)?;
         if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_updated = 0;
@@ -226,8 +229,8 @@ impl Plot {
             }
             self.worldedit_multi_block_change(&records);
             self.players[player].worldedit_send_message(format!(
-                "Operation completed: {} block(s) affected",
-                blocks_updated
+                "Operation completed: {} block(s) affected ({:?})",
+                blocks_updated, start_time.elapsed()
             ));
         }
         Ok(())
@@ -239,6 +242,8 @@ impl Plot {
         filter_str: &str,
         pattern_str: &str,
     ) -> PatternParseResult<()> {
+        let start_time = Instant::now();
+
         let filter = WorldEditPattern::from_str(filter_str)?;
         let pattern = WorldEditPattern::from_str(pattern_str)?;
 
@@ -275,8 +280,8 @@ impl Plot {
             }
             self.worldedit_multi_block_change(&records);
             self.players[player].worldedit_send_message(format!(
-                "Operation completed: {} block(s) affected",
-                blocks_updated
+                "Operation completed: {} block(s) affected ({:?})",
+                blocks_updated, start_time.elapsed()
             ));
         }
         Ok(())
@@ -287,6 +292,8 @@ impl Plot {
         player: usize,
         filter_str: &str,
     ) -> PatternParseResult<()> {
+        let start_time = Instant::now();
+
         let filter = WorldEditPattern::from_str(filter_str)?;
 
         if let Some(region) = self.worldedit_player_region(player) {
@@ -300,7 +307,7 @@ impl Plot {
             }
 
             self.players[player]
-                .worldedit_send_message(format!("Counted {} block(s)", blocks_counted));
+                .worldedit_send_message(format!("Counted {} block(s) ({:?})", blocks_counted, start_time.elapsed()));
         }
         Ok(())
     }
