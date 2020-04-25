@@ -83,6 +83,17 @@ impl Plot {
         }
     }
 
+    pub fn broadcast_chat_message(&mut self, message: String) {
+        let broadcast_message = Message::ChatInfo(format!("Plot {}-{}", self.x, self.z), message);
+        self.message_sender.send(broadcast_message).unwrap();
+    }
+
+    pub fn broadcast_plot_chat_message(&mut self, message: String) {
+        for player in &mut self.players {
+            player.send_chat_message(message.clone());
+        }
+    }
+
     fn tick(&mut self) {}
 
     fn enter_plot(&mut self, mut player: Player) {
