@@ -3,7 +3,7 @@ use crate::blocks::{Block, BlockFace, BlockPos};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
-use crate::network::packets::{DecodeResult, PacketDecoder};
+use crate::network::packets::{DecodeResult, PacketDecoder, SlotData};
 use crate::player::SkinParts;
 use crate::server::Message;
 use log::debug;
@@ -65,6 +65,9 @@ impl Plot {
         creative_inventory_action: S26CreativeInventoryAction,
     ) {
         if let Some(slot_data) = creative_inventory_action.clicked_item {
+            if creative_inventory_action.slot < 0 || creative_inventory_action.slot >= 46 {
+                return;
+            }
             let item = ItemStack {
                 count: slot_data.item_count as u8,
                 damage: 0,
@@ -72,13 +75,35 @@ impl Plot {
                 nbt: slot_data.nbt,
             };
             self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
+            if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
+                let entity_equipment = C47EntityEquipment {
+                    entity_id: self.players[player].entity_id as i32,
+                    slot: 0, // Main hand
+                    item: self.players[player].inventory[creative_inventory_action.slot as usize]
+                        .as_ref()
+                        .map(|item| SlotData {
+                            item_count: item.count as i8,
+                            item_id: item.item_type.get_id() as i32,
+                            nbt: item.nbt.clone(),
+                        }),
+                }
+                .encode();
+                for other_player in 0..self.players.len() {
+                    if player == other_player {
+                        continue;
+                    };
+                    self.players[other_player].client.send_packet(&entity_equipment);
+                }
+            }
         } else {
             self.players[player].inventory[creative_inventory_action.slot as usize] = None;
         }
     }
 
     fn handle_player_abilities(&mut self, player: usize, player_abilities: S19PlayerAbilities) {
-        self.players[player].flying = player_abilities.flags.contains(S19PlayerAbilitiesFlags::IS_FLYING);
+        self.players[player].flying = player_abilities
+            .flags
+            .contains(S19PlayerAbilitiesFlags::IS_FLYING);
     }
 
     fn handle_animation(&mut self, player: usize, animation: S2AAnimation) {
@@ -405,6 +430,24 @@ impl Plot {
     }
 
     fn handle_held_item_change(&mut self, player: usize, held_item_change: S23HeldItemChange) {
+        let entity_equipment = C47EntityEquipment {
+            entity_id: self.players[player].entity_id as i32,
+            slot: 0, // Main hand
+            item: self.players[player].inventory[held_item_change.slot as usize + 36]
+                .as_ref()
+                .map(|item| SlotData {
+                    item_count: item.count as i8,
+                    item_id: item.item_type.get_id() as i32,
+                    nbt: item.nbt.clone(),
+                }),
+        }
+        .encode();
+        for other_player in 0..self.players.len() {
+            if player == other_player {
+                continue;
+            };
+            self.players[other_player].client.send_packet(&entity_equipment);
+        }
         self.players[player].selected_slot = held_item_change.slot as u32;
     }
 }

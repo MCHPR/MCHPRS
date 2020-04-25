@@ -5,8 +5,9 @@ mod worldedit;
 
 use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
+use crate::network::packets::SlotData;
 use crate::player::Player;
-use crate::server::{Message, PrivMessage};
+use crate::server::{Message, BroadcastMessage, PrivMessage};
 use bus::BusReader;
 use log::debug;
 use serde_json::json;
@@ -14,7 +15,6 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
-use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
@@ -22,7 +22,7 @@ use storage::{Chunk, ChunkData, PlotData};
 pub struct Plot {
     players: Vec<Player>,
     tps: u32,
-    message_receiver: BusReader<Message>,
+    message_receiver: BusReader<BroadcastMessage>,
     message_sender: Sender<Message>,
     priv_message_receiver: Receiver<PrivMessage>,
     last_player_time: SystemTime,
@@ -130,6 +130,19 @@ impl Plot {
             .encode();
             player.client.send_packet(&spawn_other_player);
 
+            if let Some(item) = &other_player.inventory[other_player.selected_slot as usize + 36] {
+                let other_entity_equipment = C47EntityEquipment {
+                    entity_id: other_player.entity_id as i32,
+                    slot: 0, // Main hand
+                    item: Some(SlotData {
+                        item_count: item.count as i8,
+                        item_id: item.item_type.get_id() as i32,
+                        nbt: item.nbt.clone(),
+                    }),
+                }.encode();
+                player.client.send_packet(&other_entity_equipment);
+            }
+
             let mut other_metadata_entries = Vec::new();
             other_metadata_entries.push(C44EntityMetadataEntry {
                 index: 16,
@@ -143,19 +156,46 @@ impl Plot {
             .encode();
             player.client.send_packet(&other_metadata);
         }
+
+        if let Some(item) = &player.inventory[player.selected_slot as usize + 36] {
+            let entity_equipment = C47EntityEquipment {
+                entity_id: player.entity_id as i32,
+                slot: 0, // Main hand
+                item: Some(SlotData {
+                    item_count: item.count as i8,
+                    item_id: item.item_type.get_id() as i32,
+                    nbt: item.nbt.clone(),
+                }),
+            }.encode();
+            for other_player in &mut self.players {
+                other_player.client.send_packet(&entity_equipment);
+            }
+        }
+
         player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
     }
 
-    /// Blocks the thread until the arc has no other strong references,
-    /// this will then return the player.
-    fn receive_player(player_arc: Arc<Player>) -> Player {
-        // Maybe we could store a list of players waiting to be received instead of
-        // blocking the thread. Just maybe...
-        while Arc::strong_count(&player_arc) > 1 {
-            thread::sleep(Duration::from_millis(10))
+    fn destroy_entity(&mut self, entity_id: u32) {
+        let destroy_entities = C38DestroyEntities {
+            entity_ids: vec![entity_id as i32],
         }
-        Arc::try_unwrap(player_arc).unwrap()
+        .encode();
+        for player in &mut self.players {
+            player.client.send_packet(&destroy_entities);
+        }
+    }
+
+    fn leave_plot(&mut self, player_index: usize) -> Player {
+        let mut player = self.players.remove(player_index);
+        let mut entity_ids = Vec::new();
+        for player in &self.players {
+            entity_ids.push(player.entity_id as i32);
+        }
+        let destroy_other_entities = C38DestroyEntities { entity_ids }.encode();
+        player.client.send_packet(&destroy_other_entities);
+        self.destroy_entity(player.entity_id);
+        player
     }
 
     fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
@@ -166,22 +206,12 @@ impl Plot {
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
-                Message::PlayerTeleportOther(player, other_player) => {
-                    for p in self.players.iter() {
-                        if p.username == other_player {
-                            let mut player = Plot::receive_player(player);
-                            player.teleport(p.x, p.y, p.z);
-                            self.enter_plot(player);
-                            break;
-                        }
-                    }
-                }
-                Message::Chat(message) => {
+                BroadcastMessage::Chat(message) => {
                     for player in &mut self.players {
                         player.send_raw_chat(message.clone());
                     }
                 }
-                Message::PlayerJoinedInfo(player_join_info) => {
+                BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
                     let player_info = C34PlayerInfo::AddPlayer(vec![C34PlayerInfoAddPlayer {
                         name: player_join_info.username,
                         properties: Vec::new(),
@@ -195,15 +225,16 @@ impl Plot {
                         player.client.send_packet(&player_info);
                     }
                 }
-                Message::PlayerLeft(uuid) => {
+                BroadcastMessage::PlayerLeft(uuid) => {
                     let player_info = C34PlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
                 }
-                Message::Shutdown => {
+                BroadcastMessage::Shutdown => {
                     let mut players: Vec<Player> = self.players.drain(..).collect();
                     for player in players.iter_mut() {
+                        player.save();
                         player.kick(
                             json!({
                                 "text": "Server closed"
@@ -222,6 +253,12 @@ impl Plot {
         while let Ok(message) = self.priv_message_receiver.try_recv() {
             match message {
                 PrivMessage::PlayerEnterPlot(player) => {
+                    self.enter_plot(player);
+                }
+                PrivMessage::PlayerTeleportOther(mut player, username) => {
+                    if let Some(other) = self.players.iter().find(|p| p.username == username) {
+                        player.teleport(other.x, other.y, other.z);
+                    }
                     self.enter_plot(player);
                 }
             }
@@ -246,22 +283,26 @@ impl Plot {
         }
 
         let message_sender = &mut self.message_sender;
-        let mut dead_entity_ids = Vec::new();
 
-        // Check if connection to player is still active
+        // Remove disconnected players
+        let mut disconnected_players = Vec::new();
         self.players.retain(|player| {
             let alive = player.client.alive;
             if !alive {
                 player.save();
-                dead_entity_ids.push(player.entity_id as i32);
                 message_sender
                     .send(Message::PlayerLeft(player.uuid))
                     .unwrap();
+                disconnected_players.push(player.entity_id);
             }
             alive
         });
-        // Check if a player has left the plot
-        let mut out_of_bounds_players = Vec::new();
+        for entity_id in disconnected_players {
+            self.destroy_entity(entity_id);
+        }
+
+        // Remove players outside of the plot
+        let mut outside_players = Vec::new();
         for player in 0..self.players.len() {
             if !Plot::in_plot_bounds(
                 self.x,
@@ -269,33 +310,13 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
-                out_of_bounds_players.push(player);
+                outside_players.push(player);
             }
         }
-        // Remove players outside of the plot
-        for player_index in out_of_bounds_players {
-            let mut player = self.players.remove(player_index);
-            dead_entity_ids.push(player.entity_id as i32);
-            let mut entity_ids = Vec::new();
-            for player in &self.players {
-                entity_ids.push(player.entity_id as i32);
-            }
-            let destroy_entities = C38DestroyEntities {
-                entity_ids,
-            }.encode();
-            player.client.send_packet(&destroy_entities);
-            let player_leave_plot = Message::PlayerLeavePlot(Arc::from(player));
+        for player_index in outside_players {
+            let player = self.leave_plot(player_index);
+            let player_leave_plot = Message::PlayerLeavePlot(player);
             self.message_sender.send(player_leave_plot).unwrap();
-        }
-
-        if !dead_entity_ids.is_empty() {
-            let destroy_entities = C38DestroyEntities {
-                entity_ids: dead_entity_ids,
-            }
-            .encode();
-            for player in &mut self.players {
-                player.client.send_packet(&destroy_entities);
-            }
         }
     }
 
@@ -303,7 +324,7 @@ impl Plot {
         data: Vec<u8>,
         x: i32,
         z: i32,
-        rx: BusReader<Message>,
+        rx: BusReader<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
@@ -342,7 +363,7 @@ impl Plot {
     fn load(
         x: i32,
         z: i32,
-        rx: BusReader<Message>,
+        rx: BusReader<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
@@ -416,7 +437,7 @@ impl Plot {
     pub fn load_and_run(
         x: i32,
         z: i32,
-        rx: BusReader<Message>,
+        rx: BusReader<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,

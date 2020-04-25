@@ -1,6 +1,4 @@
 use super::Plot;
-use crate::blocks::Block;
-use crate::plot::worldedit::WorldEditPattern;
 use crate::server::Message;
 use log::info;
 
@@ -160,7 +158,11 @@ impl Plot {
                     }
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
-                    self.players[player].send_system_message("TODO: teleport to player");
+                    let player = self.leave_plot(player);
+                    self.message_sender.send(Message::PlayerTeleportOther(
+                        player,
+                        args[0].to_string(),
+                    ));
                 } else {
                     self.players[player]
                         .send_system_message("Wrong number of arguments for teleport command!");

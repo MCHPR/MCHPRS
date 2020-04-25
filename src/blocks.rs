@@ -1,6 +1,7 @@
-use crate::items::ActionResult;
+use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::Plot;
 use std::mem;
+use log::error;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct BlockPos {
@@ -34,6 +35,19 @@ pub enum BlockDirection {
     West,
 }
 
+impl BlockDirection {
+    fn opposite(self) -> BlockDirection {
+        use BlockDirection::*;
+        match self {
+            North => South,
+            South => North,
+            East => West,
+            West => East,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockFace {
     Bottom,
     Top,
@@ -58,7 +72,7 @@ impl BlockFace {
 }
 
 impl BlockDirection {
-    fn from_id(id: u32) -> BlockDirection {
+    pub fn from_id(id: u32) -> BlockDirection {
         match id {
             0 => BlockDirection::North,
             1 => BlockDirection::South,
@@ -162,10 +176,18 @@ impl ComparatorMode {
             _ => panic!("Invalid ComparatorMode"),
         }
     }
+
     fn get_id(self) -> u32 {
         match self {
             ComparatorMode::Compare => 0,
             ComparatorMode::Subtract => 1,
+        }
+    }
+
+    fn flip(self) -> ComparatorMode {
+        match self {
+            ComparatorMode::Subtract => ComparatorMode::Compare,
+            ComparatorMode::Compare => ComparatorMode::Subtract,
         }
     }
 }
@@ -194,6 +216,7 @@ pub enum Block {
     RedstoneRepeater(RedstoneRepeater),
     RedstoneComparator(RedstoneComparator),
     RedstoneTorch(bool),
+    RedstoneWallTorch(bool, BlockDirection),
     RedstoneLamp(bool),
     Solid(u32),
     Transparent(u32)
@@ -224,6 +247,7 @@ impl Block {
     pub fn from_block_state(id: u32) -> Block {
         match id {
             0 => Block::Air,
+            // Redstone Wire
             2056..=3351 => {
                 let id = id - 2056;
                 let west = RedstoneWireSide::from_id(id % 3);
@@ -233,8 +257,17 @@ impl Block {
                 let east = RedstoneWireSide::from_id(id / 432);
                 Block::RedstoneWire(RedstoneWire::new(north, south, east, west, power as u8))
             }
+            // Redstone Torch
             3885 => Block::RedstoneTorch(true),
             3886 => Block::RedstoneTorch(false),
+            // Redstone Wall Torch
+            3887..=3894 => {
+                let id = id - 3887;
+                let lit = (id & 1) == 0;
+                let facing = BlockDirection::from_id(id >> 1);
+                Block::RedstoneWallTorch(lit, facing) 
+            }
+            // Redstone Repeater
             4017..=4080 => {
                 let id = id - 4017;
                 let powered = (id & 1) == 0;
@@ -243,8 +276,10 @@ impl Block {
                 let delay = (id >> 4) as u8 + 1;
                 Block::RedstoneRepeater(RedstoneRepeater::new(delay, facing, locked, powered))
             }
+            // Redstone Lamp
             5140 => Block::RedstoneLamp(true),
             5141 => Block::RedstoneLamp(false),
+            // Redstone Comparator
             6142..=6157 => {
                 let id = id - 6142;
                 let powered = (id & 1) == 0;
@@ -269,6 +304,11 @@ impl Block {
             }
             Block::RedstoneTorch(true) => 3885,
             Block::RedstoneTorch(false) => 3886,
+            Block::RedstoneWallTorch(lit, facing) => {
+                (facing.get_id() << 1)
+                    + (!lit as u32)
+                    + 3887
+            }
             Block::RedstoneRepeater(repeater) => {
                 (repeater.delay as u32 - 1) * 16
                     + repeater.facing.get_id() * 4
@@ -310,20 +350,59 @@ impl Block {
                 plot.set_block(&pos, Block::RedstoneRepeater(repeater));
                 ActionResult::Success
             }
+            Block::RedstoneComparator(comparator) => {
+                let mut comparator = comparator.clone();
+                comparator.mode = comparator.mode.flip();
+                plot.set_block(&pos, Block::RedstoneComparator(comparator));
+                ActionResult::Success
+            }
             _ => ActionResult::Pass,
         }
     }
 
-    pub fn place_in_plot(self, plot: &mut Plot, pos: &BlockPos, direction: BlockDirection) {
+    pub fn get_block_for_placement(item_id: u32, context: &UseOnBlockContext) -> Block {
+        match item_id {
+            // Glass
+            64 => Block::Transparent(230),
+            // Sandstone
+            68 => Block::Solid(245),
+            // Wool
+            82..=97 => Block::Solid(item_id + 1301),
+            173 => match context.block_face {
+                BlockFace::Top => Block::RedstoneTorch(true),
+                BlockFace::Bottom => Block::RedstoneTorch(true),
+                BlockFace::North => Block::RedstoneWallTorch(true, BlockDirection::North),
+                BlockFace::South => Block::RedstoneWallTorch(true, BlockDirection::South),
+                BlockFace::East => Block::RedstoneWallTorch(true, BlockDirection::East),
+                BlockFace::West => Block::RedstoneWallTorch(true, BlockDirection::West),
+            },
+            // Concrete
+            413..=428 => Block::Solid(item_id + 8489),
+            // Redstone Repeater
+            513 => Block::RedstoneRepeater(RedstoneRepeater {
+                delay: 1,
+                facing: dbg!(context.player_direction).opposite(),
+                locked: false,
+                powered: false,
+            }),
+            // Redstone Comparator
+            514 => Block::RedstoneComparator(RedstoneComparator {
+                mode: ComparatorMode::Compare,
+                facing: context.player_direction.opposite(),
+                powered: false,
+            }),
+            _ => {
+                error!("Tried to place block which wasnt a block!");
+                Block::Solid(245)
+            }
+        }
+    }
+
+    pub fn place_in_plot(self, plot: &mut Plot, pos: &BlockPos) {
         match self {
             Block::RedstoneRepeater(_) => {
-                let repeater = RedstoneRepeater {
-                    delay: 1,
-                    facing: direction,
-                    locked: false,
-                    powered: false,
-                };
-                plot.set_block(pos, Block::RedstoneRepeater(repeater));
+                // TODO: Queue repeater tick
+                plot.set_block(pos, self);
             }
             _ => {
                 plot.set_block(pos, self);

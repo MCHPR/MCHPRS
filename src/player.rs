@@ -264,7 +264,13 @@ impl Player {
     }
 
     pub fn get_direction(&self) -> BlockDirection {
-        BlockDirection::West
+        match ((self.yaw / 90.0 + 0.5).floor() as i32 & 3).abs() as u32 {
+            0 => BlockDirection::South,
+            1 => BlockDirection::West,
+            2 => BlockDirection::North,
+            3 => BlockDirection::East,
+            _ => BlockDirection::South
+        }
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
