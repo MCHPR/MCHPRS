@@ -4,6 +4,8 @@ use crate::plot::worldedit::WorldEditPattern;
 use crate::server::Message;
 use log::info;
 
+use std::time::Instant;
+
 impl Plot {
     pub(super) fn handle_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         info!(
@@ -13,6 +15,45 @@ impl Plot {
             args.join(" ")
         );
         match command {
+            "//test_op" => {
+                let start_time = Instant::now();
+
+                self.players[player].send_system_message("Setting Positions");
+
+                self.players[player].worldedit_set_first_position(0, 0, 0);
+                self.players[player].worldedit_set_second_position(127, 8, 127);
+
+                self.players[player].send_system_message("Teleporting Player");
+
+                self.players[player].teleport(63.0, 150.0, 63.0);
+
+                self.players[player].send_system_message("Running: //set =10");
+
+                if let Err(_) = self.worldedit_set(player, "=10") {
+                    self.players[player].send_system_message(
+                        "Invalid block. Note that not all blocks are supported.",
+                    );
+                }
+
+                self.players[player].send_system_message("Running: //set sandstone");
+
+                if let Err(_) = self.worldedit_set(player, "sandstone") {
+                    self.players[player].send_system_message(
+                        "Invalid block. Note that not all blocks are supported.",
+                    );
+                }
+
+                self.players[player].send_system_message("Running: //count sandstone");
+
+                if let Err(_) = self.worldedit_count(player, "sandstone") {
+                    self.players[player].send_system_message(
+                        "Invalid block. Note that not all blocks are supported.",
+                    );
+                }
+
+                self.players[player]
+                    .send_chat_message(format!("Opperation took {:?}", start_time.elapsed()));
+            }
             "//1" | "//pos1" => {
                 let player = &mut self.players[player];
 
