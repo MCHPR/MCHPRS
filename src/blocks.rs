@@ -196,12 +196,29 @@ pub enum Block {
     RedstoneTorch(bool),
     RedstoneLamp(bool),
     Solid(u32),
-    Transparent(u32),
+    Transparent(u32)
 }
 
 impl Block {
     pub fn compare_variant(&self, other: &Block) -> bool {
         mem::discriminant(self) == mem::discriminant(other)
+    }
+
+    pub fn can_place_block_in(block: Block) -> bool {
+        match block.get_id() {
+            0 => true, // Air
+            9129..=9130 => true, // Void and Cave air
+            34..=49 => true, // Water
+            50..=65 => true, // Lava
+            1341 => true, // Grass
+            1342 => true, // Fern
+            1343 => true, // Dead bush
+            1344 => true, // Seagrass
+            1345..=1346 => true, // Tall Seagrass
+            7357..=7358 => true, // Tall Grass
+            7359..=7360 => true, // Tall Fern
+            _ => false
+        }
     }
 
     pub fn from_block_state(id: u32) -> Block {
