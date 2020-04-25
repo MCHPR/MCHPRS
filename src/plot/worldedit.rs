@@ -104,7 +104,7 @@ impl WorldEditPattern {
 }
 
 impl Plot {
-    fn worldedit_player_region(
+    fn _worldedit_player_region(
         &mut self,
         player: usize,
     ) -> Option<
@@ -141,9 +141,9 @@ impl Plot {
                 .records
                 .push(C10MultiBlockChangeRecord {
                     block_id: record.block_id as i32,
-                    x: (record.x % 16) as i8,
+                    x: (record.x & 0xF) as i8,
                     y: record.y as u8,
-                    z: (record.z % 16) as i8,
+                    z: (record.z & 0xF) as i8,
                 });
         }
 
@@ -227,7 +227,9 @@ impl Plot {
                     }
                 }
             }
+
             self.worldedit_multi_block_change(&records);
+            
             self.players[player].worldedit_send_message(format!(
                 "Operation completed: {} block(s) affected ({:?})",
                 blocks_updated, start_time.elapsed()
@@ -261,6 +263,7 @@ impl Plot {
             for x in x_start..=x_end {
                 for y in y_start..=y_end {
                     for z in z_start..=z_end {
+
                         let block_pos = BlockPos::new(x, y as u32, z);
                         if filter.matches(self.get_block(&block_pos)) {
                             let block_id = pattern.pick().get_id();
@@ -278,6 +281,7 @@ impl Plot {
                     }
                 }
             }
+
             self.worldedit_multi_block_change(&records);
             self.players[player].worldedit_send_message(format!(
                 "Operation completed: {} block(s) affected ({:?})",
@@ -296,13 +300,24 @@ impl Plot {
 
         let filter = WorldEditPattern::from_str(filter_str)?;
 
-        if let Some(region) = self.worldedit_player_region(player) {
+        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
             let mut blocks_counted = 0;
 
-            for ((x, y), z) in region {
-                let block_pos = BlockPos::new(x, y as u32, z);
-                if filter.matches(self.get_block(&block_pos)) {
-                    blocks_counted += 1;
+            let x_start = std::cmp::min(first_pos.x, second_pos.x);
+            let x_end = std::cmp::max(first_pos.x, second_pos.x);
+            let y_start = std::cmp::min(first_pos.y, second_pos.y);
+            let y_end = std::cmp::max(first_pos.y, second_pos.y);
+            let z_start = std::cmp::min(first_pos.z, second_pos.z);
+            let z_end = std::cmp::max(first_pos.z, second_pos.z);
+
+            for x in x_start..=x_end {
+                for y in y_start..=y_end {
+                    for z in z_start..=z_end {
+                        let block_pos = BlockPos::new(x, y as u32, z);
+                        if filter.matches(self.get_block(&block_pos)) {
+                            blocks_counted += 1;
+                        }
+                    }
                 }
             }
 
