@@ -122,6 +122,12 @@ impl Plot {
             player_block_placement.z,
         );
 
+        if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
+            self.players[player].send_system_message("Can't interact with blocks outside of plot");
+            self.send_block_change(&block_pos.offset(block_face), 0);
+            return;
+        }
+
         if let Some(item) = item_in_hand {
             item.use_on_block(
                 self,
@@ -329,6 +335,13 @@ impl Plot {
         if player_digging.status == 0 {
             let block_pos =
                 BlockPos::new(player_digging.x, player_digging.y as u32, player_digging.z);
+
+            
+            if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
+                self.players[player].send_system_message("Can't break blocks outside of plot");
+                return;
+            }
+
             let other_block = self.get_block(&block_pos);
             self.set_block(&block_pos, Block::Air);
 
