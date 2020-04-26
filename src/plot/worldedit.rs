@@ -3,7 +3,7 @@ use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
 use rand::Rng;
 use regex::Regex;
-use std::collections::HashMap;
+use std::ops::RangeInclusive;
 use std::time::Instant;
 
 pub struct MultiBlockChangeRecord {
@@ -103,69 +103,106 @@ impl WorldEditPattern {
     }
 }
 
-impl Plot {
-    fn _worldedit_player_region(
-        &mut self,
-        player: usize,
-    ) -> Option<
-        std::iter::Zip<
-            std::iter::Zip<std::ops::RangeInclusive<i32>, std::ops::RangeInclusive<u32>>,
-            std::ops::RangeInclusive<i32>,
-        >,
-    > {
-        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
-            let x_start = std::cmp::min(first_pos.x, second_pos.x);
-            let x_end = std::cmp::max(first_pos.x, second_pos.x);
-            let y_start = std::cmp::min(first_pos.y, second_pos.y);
-            let y_end = std::cmp::max(first_pos.y, second_pos.y);
-            let z_start = std::cmp::min(first_pos.z, second_pos.z);
-            let z_end = std::cmp::max(first_pos.z, second_pos.z);
+struct WorldEditOperation {
+    pub records: Vec<C10MultiBlockChange>,
+    x_range: RangeInclusive<i32>,
+    y_range: RangeInclusive<u32>,
+    z_range: RangeInclusive<i32>
+}
 
-            return Some((x_start..=x_end).zip(y_start..=y_end).zip(z_start..=z_end));
+impl WorldEditOperation {
+    fn new(first_pos: &BlockPos, second_pos: &BlockPos) -> WorldEditOperation {
+        let x_start = std::cmp::min(first_pos.x, second_pos.x);
+        let x_end = std::cmp::max(first_pos.x, second_pos.x);
+
+        let y_start = std::cmp::min(first_pos.y, second_pos.y);
+        let y_end = std::cmp::max(first_pos.y, second_pos.y);
+
+        let z_start = std::cmp::min(first_pos.z, second_pos.z);
+        let z_end = std::cmp::max(first_pos.z, second_pos.z);
+
+        let mut records: Vec<C10MultiBlockChange> = Vec::new();
+        
+        for chunk_x in (x_start >> 4)..=(x_end >> 4) {
+            for chunk_z in (z_start >> 4)..=(z_end >> 4) {
+                records.push(C10MultiBlockChange {
+                    chunk_x,
+                    chunk_z,
+                    records: Vec::new(),
+                });
+            }
         }
-        None
+
+        let x_range = x_start..=x_end;
+        let y_range = (y_start as u32)..=(y_end as u32);
+        let z_range = z_start..=z_end;
+        WorldEditOperation {
+            records,
+            x_range,
+            y_range,
+            z_range
+        }
     }
 
-    fn worldedit_multi_block_change(&mut self, records: Vec<MultiBlockChangeRecord>) {
-        let mut packets: HashMap<usize, C10MultiBlockChange> = HashMap::new();
-        for record in records {
-            let chunk_index = self.get_chunk_index_for_block(record.x, record.z);
+    fn update_block(&mut self, block_pos: &BlockPos, block_id: u32) {
+        let chunk_x = block_pos.x >> 4;
+        let chunk_z = block_pos.z >> 4;
 
-            packets
-                .entry(chunk_index)
-                .or_insert(C10MultiBlockChange {
-                    chunk_x: record.x >> 4,
-                    chunk_z: record.z >> 4,
-                    records: Vec::new(),
-                })
-                .records
-                .push(C10MultiBlockChangeRecord {
-                    block_id: record.block_id as i32,
-                    x: (record.x & 0xF) as i8,
-                    y: record.y as u8,
-                    z: (record.z & 0xF) as i8,
-                });
+        if let Some(packet) = self.records.iter_mut().find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z) {
+            packet.records.push(C10MultiBlockChangeRecord {
+                x: (block_pos.x >> 4) as i8,
+                y: (block_pos.y >> 4) as u8,
+                z: (block_pos.z >> 4) as i8,
+                block_id: block_id as i32,
+            })
+        }
+    }
+
+    fn blocks_updated(&self) -> usize {
+        let mut blocks_updated = 0;
+
+        for record in &self.records {
+            blocks_updated += record.records.len()
         }
 
-        for (_, packet) in packets {
-            if packet.records.len() >= 8192 {
+        blocks_updated
+    }
+
+    fn x_range(&self) -> RangeInclusive<i32> {
+        (&self.x_range).to_owned()
+    }
+    fn y_range(&self) -> RangeInclusive<u32> {
+        (&self.y_range).to_owned()
+    }
+    fn z_range(&self) -> RangeInclusive<i32> {
+        (&self.z_range).to_owned()
+    }
+}
+
+impl Plot {
+    fn worldedit_send_operation(&mut self, operation: WorldEditOperation) {
+        for packet in operation.records {
+            dbg!(packet.records.len());
+
+            // if packet.records.len() >= 8192 {
                 let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
+                dbg!(packet.chunk_x, packet.chunk_z);
                 let chunk = &self.chunks[chunk_index];
                 let chunk_data = chunk.encode_packet(false);
                 for player in &mut self.players {
                     player.client.send_packet(&chunk_data);
                 }
-            } else {
-                let multi_block_change = packet.encode();
+            // } else {
+            //     let multi_block_change = &packet.encode();
 
-                for player in &mut self.players {
-                    player.client.send_packet(&multi_block_change);
-                }
-            }
+            //     for player in &mut self.players {
+            //         player.client.send_packet(&multi_block_change);
+            //     }
+            // }
         }
     }
 
-    fn worldedit_verify_positions(&mut self, player: usize) -> Option<(BlockPos, BlockPos)> {
+    fn worldedit_start_operation(&mut self, player: usize) -> Option<WorldEditOperation> {
         let player = &mut self.players[player];
         let first_pos;
         let second_pos;
@@ -189,7 +226,8 @@ impl Plot {
             player.send_system_message("Second position is outside plot bounds!");
             return None;
         }
-        Some((first_pos, second_pos))
+
+        Some(WorldEditOperation::new(&first_pos, &second_pos))
     }
 
     pub(super) fn worldedit_set(
@@ -198,39 +236,29 @@ impl Plot {
         pattern_str: &str,
     ) -> PatternParseResult<()> {
         let start_time = Instant::now();
-
         let pattern = WorldEditPattern::from_str(pattern_str)?;
-        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
-            let mut blocks_updated = 0;
-            let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
 
-            let x_start = std::cmp::min(first_pos.x, second_pos.x);
-            let x_end = std::cmp::max(first_pos.x, second_pos.x);
-            let y_start = std::cmp::min(first_pos.y, second_pos.y);
-            let y_end = std::cmp::max(first_pos.y, second_pos.y);
-            let z_start = std::cmp::min(first_pos.z, second_pos.z);
-            let z_end = std::cmp::max(first_pos.z, second_pos.z);
-
-            for x in x_start..=x_end {
-                for y in y_start..=y_end {
-                    for z in z_start..=z_end {
+        if let Some(mut operation) = self.worldedit_start_operation(player) {
+            for x in operation.x_range() {
+                for y in operation.y_range() {
+                    for z in operation.z_range() {
+                        let block_pos = BlockPos::new(x, y as u32, z);
                         let block_id = pattern.pick().get_id();
-                        records.push(MultiBlockChangeRecord {
-                            x,
-                            y: y as i32,
-                            z,
-                            block_id,
-                        });
-                        if self.set_block_raw(&BlockPos::new(x, y, z), block_id) {
-                            blocks_updated += 1;
+
+                        if self.set_block_raw(&block_pos, block_id) {
+                            operation.update_block(&block_pos, block_id);
                         }
                     }
                 }
             }
-            self.worldedit_multi_block_change(records);
+
+            let blocks_updated = operation.blocks_updated();
+            self.worldedit_send_operation(operation);
+
             self.players[player].worldedit_send_message(format!(
                 "Operation completed: {} block(s) affected ({:?})",
-                blocks_updated, start_time.elapsed()
+                blocks_updated,
+                start_time.elapsed()
             ));
         }
         Ok(())
@@ -247,42 +275,30 @@ impl Plot {
         let filter = WorldEditPattern::from_str(filter_str)?;
         let pattern = WorldEditPattern::from_str(pattern_str)?;
 
-        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
-            let mut blocks_updated = 0;
-            let mut records: Vec<MultiBlockChangeRecord> = Vec::new();
-
-            let x_start = std::cmp::min(first_pos.x, second_pos.x);
-            let x_end = std::cmp::max(first_pos.x, second_pos.x);
-            let y_start = std::cmp::min(first_pos.y, second_pos.y);
-            let y_end = std::cmp::max(first_pos.y, second_pos.y);
-            let z_start = std::cmp::min(first_pos.z, second_pos.z);
-            let z_end = std::cmp::max(first_pos.z, second_pos.z);
-
-            for x in x_start..=x_end {
-                for y in y_start..=y_end {
-                    for z in z_start..=z_end {
-
+        if let Some(mut operation) = self.worldedit_start_operation(player) {
+            for x in operation.x_range() {
+                for y in operation.y_range() {
+                    for z in operation.z_range() {
                         let block_pos = BlockPos::new(x, y as u32, z);
+
                         if filter.matches(self.get_block(&block_pos)) {
                             let block_id = pattern.pick().get_id();
 
-                            records.push(MultiBlockChangeRecord {
-                                x,
-                                y: y as i32,
-                                z,
-                                block_id,
-                            });
                             if self.set_block_raw(&block_pos, block_id) {
-                                blocks_updated += 1;
+                                operation.update_block(&block_pos, block_id);
                             }
                         }
                     }
                 }
             }
-            self.worldedit_multi_block_change(records);
+
+            let blocks_updated = operation.blocks_updated();
+            self.worldedit_send_operation(operation);
+
             self.players[player].worldedit_send_message(format!(
                 "Operation completed: {} block(s) affected ({:?})",
-                blocks_updated, start_time.elapsed()
+                blocks_updated,
+                start_time.elapsed()
             ));
         }
         Ok(())
@@ -297,19 +313,12 @@ impl Plot {
 
         let filter = WorldEditPattern::from_str(filter_str)?;
 
-        if let Some((first_pos, second_pos)) = self.worldedit_verify_positions(player) {
+        if let Some(operation) = self.worldedit_start_operation(player) {
             let mut blocks_counted = 0;
 
-            let x_start = std::cmp::min(first_pos.x, second_pos.x);
-            let x_end = std::cmp::max(first_pos.x, second_pos.x);
-            let y_start = std::cmp::min(first_pos.y, second_pos.y);
-            let y_end = std::cmp::max(first_pos.y, second_pos.y);
-            let z_start = std::cmp::min(first_pos.z, second_pos.z);
-            let z_end = std::cmp::max(first_pos.z, second_pos.z);
-
-            for x in x_start..=x_end {
-                for y in y_start..=y_end {
-                    for z in z_start..=z_end {
+            for x in operation.x_range() {
+                for y in operation.y_range() {
+                    for z in operation.z_range() {
                         let block_pos = BlockPos::new(x, y as u32, z);
                         if filter.matches(self.get_block(&block_pos)) {
                             blocks_counted += 1;
@@ -318,8 +327,11 @@ impl Plot {
                 }
             }
 
-            self.players[player]
-                .worldedit_send_message(format!("Counted {} block(s) ({:?})", blocks_counted, start_time.elapsed()));
+            self.players[player].worldedit_send_message(format!(
+                "Counted {} block(s) ({:?})",
+                blocks_counted,
+                start_time.elapsed()
+            ));
         }
         Ok(())
     }
