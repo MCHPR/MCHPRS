@@ -10,7 +10,7 @@ use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
 use crate::player::Player;
-use crate::plot::Plot;
+use crate::plot::{Plot, self};
 use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};
@@ -123,6 +123,8 @@ impl MinecraftServer {
         // Create world folders if they don't exist yet
         fs::create_dir_all("./world/players").unwrap();
         fs::create_dir_all("./world/plots").unwrap();
+
+        plot::database::init();
 
         // Load config
         let mut config = config::Config::default();

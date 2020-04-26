@@ -1,11 +1,37 @@
-use super::Plot;
+use super::{Plot, database};
 use crate::server::Message;
 use log::info;
 
 use std::time::Instant;
 
 impl Plot {
-    pub(super) fn handle_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+
+    fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+        let plot_x = self.players[player].x as i32 >> 7;
+        let plot_z = self.players[player].z as i32 >> 7;
+        match command {
+            "claim" | "c" => {
+                if database::get_plot_owner(plot_x, plot_z).is_some() {
+                    self.players[player].send_system_message("Plot is already claimed!");
+                } else {
+                    let uuid = format!("{}", self.players[player].uuid);
+                    database::claim_plot(plot_x, plot_z, &uuid);
+                    self.players[player].send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
+                }
+                
+            }
+            "info" | "i" => {
+                if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
+                    self.players[player].send_system_message(&format!("Plot owner is: {:032x}", owner));
+                } else {
+                    self.players[player].send_system_message("Plot is not owned by anyone.");
+                }
+            }
+            _ => self.players[player].send_system_message("Wrong argument for /plot")
+        }
+    }
+
+    pub(super) fn handle_command(&mut self, player: usize, command: &str, mut args: Vec<&str>) {
         info!(
             "{} issued command: {} {}",
             self.players[player].username,
@@ -170,6 +196,14 @@ impl Plot {
             }
             "/stop" => {
                 self.message_sender.send(Message::Shutdown);
+            }
+            "/plot" | "/p" => {
+                if args.len() < 1 {
+                    self.players[player].send_system_message("Wrong number of arguments!");
+                    return;
+                }
+                let command = args.remove(0);
+                self.handle_plot_command(player, command, args);
             }
             _ => self.players[player].send_system_message("Command not found!"),
         }
