@@ -1,3 +1,4 @@
+pub mod database;
 mod commands;
 mod packets;
 mod storage;
