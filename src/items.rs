@@ -41,6 +41,7 @@ impl ItemStack {
             if plot.get_block(&block_pos) == Block::Air {
                 let block = Block::get_block_for_placement(item_id, &context);
                 block.place_in_plot(plot, &block_pos);
+                block.update(plot, &block_pos, true);
             }
         } else {
             // This is to make sure the client doesn't place a block
@@ -57,7 +58,7 @@ impl ItemStack {
 
 #[derive(Clone, Debug)]
 pub enum Item {
-    /// BlockItem represents an item that can be placed down. The u32 is the id of the item, 
+    /// BlockItem represents an item that can be placed down. The u32 is the id of the item,
     /// it is NOT a block state id.
     BlockItem(u32),
     Unknown(u32),
@@ -66,13 +67,13 @@ pub enum Item {
 impl Item {
     pub fn from_id(id: u32) -> Item {
         match id {
-            64 => Item::BlockItem(id), 
+            64 => Item::BlockItem(id),
             68 => Item::BlockItem(id),
             82..=97 => Item::BlockItem(id),
             173 => Item::BlockItem(id),
             413..=428 => Item::BlockItem(id),
             513..=514 => Item::BlockItem(id),
-            
+
             _ => Item::Unknown(id),
         }
     }

@@ -107,7 +107,7 @@ struct WorldEditOperation {
     pub records: Vec<C10MultiBlockChange>,
     x_range: RangeInclusive<i32>,
     y_range: RangeInclusive<u32>,
-    z_range: RangeInclusive<i32>
+    z_range: RangeInclusive<i32>,
 }
 
 impl WorldEditOperation {
@@ -122,7 +122,7 @@ impl WorldEditOperation {
         let z_end = std::cmp::max(first_pos.z, second_pos.z);
 
         let mut records: Vec<C10MultiBlockChange> = Vec::new();
-        
+
         for chunk_x in (x_start >> 4)..=(x_end >> 4) {
             for chunk_z in (z_start >> 4)..=(z_end >> 4) {
                 records.push(C10MultiBlockChange {
@@ -140,7 +140,7 @@ impl WorldEditOperation {
             records,
             x_range,
             y_range,
-            z_range
+            z_range,
         }
     }
 
@@ -148,7 +148,11 @@ impl WorldEditOperation {
         let chunk_x = block_pos.x >> 4;
         let chunk_z = block_pos.z >> 4;
 
-        if let Some(packet) = self.records.iter_mut().find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z) {
+        if let Some(packet) = self
+            .records
+            .iter_mut()
+            .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z)
+        {
             packet.records.push(C10MultiBlockChangeRecord {
                 x: (block_pos.x >> 4) as i8,
                 y: (block_pos.y >> 4) as u8,
@@ -185,13 +189,13 @@ impl Plot {
             dbg!(packet.records.len());
 
             // if packet.records.len() >= 8192 {
-                let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
-                dbg!(packet.chunk_x, packet.chunk_z);
-                let chunk = &self.chunks[chunk_index];
-                let chunk_data = chunk.encode_packet(false);
-                for player in &mut self.players {
-                    player.client.send_packet(&chunk_data);
-                }
+            let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
+            dbg!(packet.chunk_x, packet.chunk_z);
+            let chunk = &self.chunks[chunk_index];
+            let chunk_data = chunk.encode_packet(false);
+            for player in &mut self.players {
+                player.client.send_packet(&chunk_data);
+            }
             // } else {
             //     let multi_block_change = &packet.encode();
 

@@ -10,7 +10,7 @@ use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
 use crate::player::Player;
-use crate::plot::{Plot, self};
+use crate::plot::{self, Plot};
 use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};
@@ -291,7 +291,8 @@ impl MinecraftServer {
                     if let Some(index) = index {
                         self.online_players.remove(index);
                     }
-                    self.broadcaster.broadcast(BroadcastMessage::PlayerLeft(uuid));
+                    self.broadcaster
+                        .broadcast(BroadcastMessage::PlayerLeft(uuid));
                 }
                 Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
                 Message::ChatInfo(username, message) => {

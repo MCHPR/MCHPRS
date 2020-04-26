@@ -269,7 +269,7 @@ impl Player {
             1 => BlockDirection::West,
             2 => BlockDirection::North,
             3 => BlockDirection::East,
-            _ => BlockDirection::South
+            _ => BlockDirection::South,
         }
     }
 

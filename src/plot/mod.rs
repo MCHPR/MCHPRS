@@ -1,5 +1,5 @@
-pub mod database;
 mod commands;
+pub mod database;
 mod packets;
 mod storage;
 mod worldedit;
@@ -8,7 +8,7 @@ use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::Player;
-use crate::server::{Message, BroadcastMessage, PrivMessage};
+use crate::server::{BroadcastMessage, Message, PrivMessage};
 use bus::BusReader;
 use log::debug;
 use serde_json::json;
@@ -151,7 +151,8 @@ impl Plot {
                         item_id: item.item_type.get_id() as i32,
                         nbt: item.nbt.clone(),
                     }),
-                }.encode();
+                }
+                .encode();
                 player.client.send_packet(&other_entity_equipment);
             }
 
@@ -178,7 +179,8 @@ impl Plot {
                     item_id: item.item_type.get_id() as i32,
                     nbt: item.nbt.clone(),
                 }),
-            }.encode();
+            }
+            .encode();
             for other_player in &mut self.players {
                 other_player.client.send_packet(&entity_equipment);
             }

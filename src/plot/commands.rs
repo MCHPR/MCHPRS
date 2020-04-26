@@ -1,11 +1,10 @@
-use super::{Plot, database};
+use super::{database, Plot};
 use crate::server::Message;
 use log::info;
 
 use std::time::Instant;
 
 impl Plot {
-
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 7;
         let plot_z = self.players[player].z as i32 >> 7;
@@ -16,18 +15,19 @@ impl Plot {
                 } else {
                     let uuid = format!("{}", self.players[player].uuid);
                     database::claim_plot(plot_x, plot_z, &uuid);
-                    self.players[player].send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
+                    self.players[player]
+                        .send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
                 }
-                
             }
             "info" | "i" => {
                 if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
-                    self.players[player].send_system_message(&format!("Plot owner is: {:032x}", owner));
+                    self.players[player]
+                        .send_system_message(&format!("Plot owner is: {:032x}", owner));
                 } else {
                     self.players[player].send_system_message("Plot is not owned by anyone.");
                 }
             }
-            _ => self.players[player].send_system_message("Wrong argument for /plot")
+            _ => self.players[player].send_system_message("Wrong argument for /plot"),
         }
     }
 
@@ -185,10 +185,8 @@ impl Plot {
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     let player = self.leave_plot(player);
-                    self.message_sender.send(Message::PlayerTeleportOther(
-                        player,
-                        args[0].to_string(),
-                    ));
+                    self.message_sender
+                        .send(Message::PlayerTeleportOther(player, args[0].to_string()));
                 } else {
                     self.players[player]
                         .send_system_message("Wrong number of arguments for teleport command!");

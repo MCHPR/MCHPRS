@@ -92,7 +92,9 @@ impl Plot {
                     if player == other_player {
                         continue;
                     };
-                    self.players[other_player].client.send_packet(&entity_equipment);
+                    self.players[other_player]
+                        .client
+                        .send_packet(&entity_equipment);
                 }
             }
         } else {
@@ -361,7 +363,6 @@ impl Plot {
             let block_pos =
                 BlockPos::new(player_digging.x, player_digging.y as u32, player_digging.z);
 
-            
             if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
                 self.players[player].send_system_message("Can't break blocks outside of plot");
                 return;
@@ -446,7 +447,9 @@ impl Plot {
             if player == other_player {
                 continue;
             };
-            self.players[other_player].client.send_packet(&entity_equipment);
+            self.players[other_player]
+                .client
+                .send_packet(&entity_equipment);
         }
         self.players[player].selected_slot = held_item_change.slot as u32;
     }

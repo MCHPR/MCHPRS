@@ -1,7 +1,7 @@
 use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::Plot;
-use std::mem;
 use log::error;
+use std::mem;
 
 #[derive(PartialEq, Eq, Clone)]
 pub struct BlockPos {
@@ -43,6 +43,16 @@ impl BlockDirection {
             South => North,
             East => West,
             West => East,
+        }
+    }
+
+    fn block_face(self) -> BlockFace {
+        use BlockDirection::*;
+        match self {
+            North => BlockFace::South,
+            South => BlockFace::North,
+            East => BlockFace::West,
+            West => BlockFace::East,
         }
     }
 }
@@ -141,6 +151,18 @@ impl RedstoneWire {
             power,
         }
     }
+
+    fn is_powering(self, face: BlockFace) -> bool {
+        let is_facing = match face {
+            BlockFace::North => self.north != RedstoneWireSide::None,
+            BlockFace::South => self.south != RedstoneWireSide::None,
+            BlockFace::East => self.east != RedstoneWireSide::None,
+            BlockFace::West => self.west != RedstoneWireSide::None,
+            _ => false,
+        };
+
+        is_facing && self.power > 0
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -219,7 +241,7 @@ pub enum Block {
     RedstoneWallTorch(bool, BlockDirection),
     RedstoneLamp(bool),
     Solid(u32),
-    Transparent(u32)
+    Transparent(u32),
 }
 
 impl Block {
@@ -229,18 +251,18 @@ impl Block {
 
     pub fn can_place_block_in(block: Block) -> bool {
         match block.get_id() {
-            0 => true, // Air
+            0 => true,           // Air
             9129..=9130 => true, // Void and Cave air
-            34..=49 => true, // Water
-            50..=65 => true, // Lava
-            1341 => true, // Grass
-            1342 => true, // Fern
-            1343 => true, // Dead bush
-            1344 => true, // Seagrass
+            34..=49 => true,     // Water
+            50..=65 => true,     // Lava
+            1341 => true,        // Grass
+            1342 => true,        // Fern
+            1343 => true,        // Dead bush
+            1344 => true,        // Seagrass
             1345..=1346 => true, // Tall Seagrass
             7357..=7358 => true, // Tall Grass
             7359..=7360 => true, // Tall Fern
-            _ => false
+            _ => false,
         }
     }
 
@@ -265,7 +287,7 @@ impl Block {
                 let id = id - 3887;
                 let lit = (id & 1) == 0;
                 let facing = BlockDirection::from_id(id >> 1);
-                Block::RedstoneWallTorch(lit, facing) 
+                Block::RedstoneWallTorch(lit, facing)
             }
             // Redstone Repeater
             4017..=4080 => {
@@ -304,11 +326,7 @@ impl Block {
             }
             Block::RedstoneTorch(true) => 3885,
             Block::RedstoneTorch(false) => 3886,
-            Block::RedstoneWallTorch(lit, facing) => {
-                (facing.get_id() << 1)
-                    + (!lit as u32)
-                    + 3887
-            }
+            Block::RedstoneWallTorch(lit, facing) => (facing.get_id() << 1) + (!lit as u32) + 3887,
             Block::RedstoneRepeater(repeater) => {
                 (repeater.delay as u32 - 1) * 16
                     + repeater.facing.get_id() * 4
@@ -395,6 +413,100 @@ impl Block {
                 error!("Tried to place block which wasnt a block!");
                 Block::Solid(245)
             }
+        }
+    }
+
+    pub fn is_powering(self, plot: &mut Plot, pos: &BlockPos, face: BlockFace) -> bool {
+        let block = plot.get_block(&pos);
+        match face {
+            BlockFace::North | BlockFace::South | BlockFace::East | BlockFace::West => {
+                match block {
+                    Block::RedstoneTorch(torch) => torch,
+                    Block::RedstoneWallTorch(torch, direction) => {
+                        torch && direction.block_face() != face
+                    }
+                    Block::RedstoneRepeater(repeater) => {
+                        repeater.powered && repeater.facing.block_face() == face
+                    }
+                    Block::RedstoneWire(wire) => wire.is_powering(face),
+                    Block::RedstoneComparator(comparator) => {
+                        comparator.powered && comparator.facing.block_face() == face
+                    }
+                    _ => false,
+                }
+            }
+            BlockFace::Top => false,
+            BlockFace::Bottom => false,
+        }
+    }
+
+    pub fn is_powered(self, plot: &mut Plot, pos: &BlockPos) -> bool {
+        let north = &pos.offset(BlockFace::North);
+        let south = &pos.offset(BlockFace::South);
+        let east = &pos.offset(BlockFace::East);
+        let west = &pos.offset(BlockFace::West);
+        let top = &pos.offset(BlockFace::Top);
+        let bottom = &pos.offset(BlockFace::Bottom);
+
+        match self {
+            Block::Solid(_) | Block::RedstoneLamp(_) => {
+                plot.get_block(&north).is_powered(plot, &north)
+                    || plot.get_block(&south).is_powered(plot, &south)
+                    || plot.get_block(&east).is_powered(plot, &east)
+                    || plot.get_block(&west).is_powered(plot, &west)
+                    || plot.get_block(&top).is_powered(plot, &top)
+                    || plot.get_block(&bottom).is_powered(plot, &bottom)
+            }
+            _ => false,
+        }
+    }
+
+    pub fn update(self, plot: &mut Plot, pos: &BlockPos, force_updates: bool) {
+        dbg!(pos.x, pos.y, pos.z);
+        let block = plot.get_block(pos);
+
+        let new_block = match block {
+            Block::RedstoneRepeater(repeater) => {
+                let mut repeater = repeater.clone();
+                let input_face = match repeater.facing {
+                    BlockDirection::North => BlockFace::South,
+                    BlockDirection::South => BlockFace::North,
+                    BlockDirection::East => BlockFace::West,
+                    BlockDirection::West => BlockFace::East,
+                };
+
+                let input_block_pos = &pos.offset(input_face);
+                let input_block = plot.get_block(input_block_pos);
+
+                repeater.powered = input_block.is_powered(plot, input_block_pos)
+                    || input_block.is_powering(plot, input_block_pos, repeater.facing.block_face());
+
+                Block::RedstoneRepeater(repeater)
+            }
+            Block::RedstoneWire(wire) => {
+                let mut wire = wire.clone();
+
+                Block::RedstoneWire(wire)
+            }
+            _ => block,
+        };
+
+        dbg!(new_block);
+
+        if plot.set_block(&pos, new_block) || force_updates {
+            let north = &pos.offset(BlockFace::North);
+            let south = &pos.offset(BlockFace::South);
+            let east = &pos.offset(BlockFace::East);
+            let west = &pos.offset(BlockFace::West);
+            let top = &pos.offset(BlockFace::Top);
+            let bottom = &pos.offset(BlockFace::Bottom);
+
+            plot.get_block(north).update(plot, north, false);
+            plot.get_block(south).update(plot, south, false);
+            plot.get_block(east).update(plot, east, false);
+            plot.get_block(west).update(plot, west, false);
+            plot.get_block(top).update(plot, top, false);
+            plot.get_block(bottom).update(plot, bottom, false);
         }
     }
 
