@@ -251,7 +251,7 @@ impl Block {
 
     pub fn can_place_block_in(&self) -> bool {
         match self.get_id() {
-            0 => true, // Air
+            0 => true,           // Air
             9129..=9130 => true, // Void and Cave air
             34..=49 => true,     // Water
             50..=65 => true,     // Lava
