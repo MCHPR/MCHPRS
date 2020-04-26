@@ -4,6 +4,8 @@
 
 A minecraft creative server built for redstone. Each 128x128 plot runs on its own thread, allowing for less lag and more concurrency.
 
+Thanks to [@AL1L](https://github.com/AL1L) for his amazing contibutions!
+
 ## Installation
 
 As there are currently no releases, you must build from source.
