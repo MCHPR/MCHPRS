@@ -38,7 +38,7 @@ impl ItemStack {
 
         let block_pos = context.block_pos.offset(context.block_face);
         if let Item::BlockItem(item_id) = self.item_type {
-            if plot.get_block(&block_pos) == Block::Air {
+            if plot.get_block(&block_pos).can_place_block_in() {
                 let block = Block::get_block_for_placement(item_id, &context);
                 block.place_in_plot(plot, &block_pos);
             }
