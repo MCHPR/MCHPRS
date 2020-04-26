@@ -421,12 +421,11 @@ impl Block {
         match face {
             BlockFace::North | BlockFace::South | BlockFace::East | BlockFace::West => {
                 match block {
-                    Block::RedstoneTorch(torch) => torch,
                     Block::RedstoneWallTorch(torch, direction) => {
                         torch && direction.block_face() != face
                     }
                     Block::RedstoneRepeater(repeater) => {
-                        repeater.powered && repeater.facing.block_face() == face
+                        repeater.powered && repeater.facing.opposite().block_face() == face
                     }
                     Block::RedstoneWire(wire) => wire.is_powering(face),
                     Block::RedstoneComparator(comparator) => {
@@ -450,36 +449,41 @@ impl Block {
 
         match self {
             Block::Solid(_) | Block::RedstoneLamp(_) => {
-                plot.get_block(&north).is_powered(plot, &north)
-                    || plot.get_block(&south).is_powered(plot, &south)
-                    || plot.get_block(&east).is_powered(plot, &east)
-                    || plot.get_block(&west).is_powered(plot, &west)
-                    || plot.get_block(&top).is_powered(plot, &top)
-                    || plot.get_block(&bottom).is_powered(plot, &bottom)
+                plot.get_block(&north).is_powering(plot, &north, BlockFace::North)
+                    || plot.get_block(&south).is_powering(plot, &south, BlockFace::South)
+                    || plot.get_block(&east).is_powering(plot, &east, BlockFace::East)
+                    || plot.get_block(&west).is_powering(plot, &west, BlockFace::West)
+                    || plot.get_block(&top).is_powering(plot, &top, BlockFace::Top)
+                    || plot.get_block(&bottom).is_powering(plot, &bottom, BlockFace::Bottom)
             }
             _ => false,
         }
     }
 
     pub fn update(self, plot: &mut Plot, pos: &BlockPos, force_updates: bool) {
-        dbg!(pos.x, pos.y, pos.z);
         let block = plot.get_block(pos);
+        let mut force_recursive_updates = false;
 
         let new_block = match block {
             Block::RedstoneRepeater(repeater) => {
                 let mut repeater = repeater.clone();
                 let input_face = match repeater.facing {
-                    BlockDirection::North => BlockFace::South,
-                    BlockDirection::South => BlockFace::North,
-                    BlockDirection::East => BlockFace::West,
-                    BlockDirection::West => BlockFace::East,
+                    BlockDirection::North => BlockFace::North,
+                    BlockDirection::South => BlockFace::South,
+                    BlockDirection::East => BlockFace::East,
+                    BlockDirection::West => BlockFace::West,
                 };
 
                 let input_block_pos = &pos.offset(input_face);
-                let input_block = plot.get_block(input_block_pos);
+                let input_block = dbg!(plot.get_block(input_block_pos));
 
-                repeater.powered = input_block.is_powered(plot, input_block_pos)
-                    || input_block.is_powering(plot, input_block_pos, repeater.facing.block_face());
+                repeater.powered = dbg!(match input_block {
+                    Block::RedstoneTorch(powered) => powered,
+                    Block::RedstoneWallTorch(powered, direction) => powered && direction.block_face() != input_face,
+                    _ => false
+                }) || input_block.is_powered(plot, input_block_pos);
+
+                force_recursive_updates = true;
 
                 Block::RedstoneRepeater(repeater)
             }
@@ -501,12 +505,12 @@ impl Block {
             let top = &pos.offset(BlockFace::Top);
             let bottom = &pos.offset(BlockFace::Bottom);
 
-            plot.get_block(north).update(plot, north, false);
-            plot.get_block(south).update(plot, south, false);
-            plot.get_block(east).update(plot, east, false);
-            plot.get_block(west).update(plot, west, false);
-            plot.get_block(top).update(plot, top, false);
-            plot.get_block(bottom).update(plot, bottom, false);
+            plot.get_block(north).update(plot, north, force_recursive_updates);
+            plot.get_block(south).update(plot, south, force_recursive_updates);
+            plot.get_block(east).update(plot, east, force_recursive_updates);
+            plot.get_block(west).update(plot, west, force_recursive_updates);
+            plot.get_block(top).update(plot, top, force_recursive_updates);
+            plot.get_block(bottom).update(plot, bottom, force_recursive_updates);
         }
     }
 

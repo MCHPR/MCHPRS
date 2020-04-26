@@ -369,7 +369,9 @@ impl Plot {
             }
 
             let other_block = self.get_block(&block_pos);
-            self.set_block(&block_pos, Block::Air);
+            if self.set_block(&block_pos, Block::Air) {
+                Block::Air.update(self, &block_pos, true);
+            }
 
             let effect = C23Effect {
                 effect_id: 2001,
