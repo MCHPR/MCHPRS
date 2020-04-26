@@ -249,9 +249,9 @@ impl Block {
         mem::discriminant(self) == mem::discriminant(other)
     }
 
-    pub fn can_place_block_in(block: Block) -> bool {
-        match block.get_id() {
-            0 => true,           // Air
+    pub fn can_place_block_in(&self) -> bool {
+        match self.get_id() {
+            0 => true, // Air
             9129..=9130 => true, // Void and Cave air
             34..=49 => true,     // Water
             50..=65 => true,     // Lava
@@ -399,7 +399,7 @@ impl Block {
             // Redstone Repeater
             513 => Block::RedstoneRepeater(RedstoneRepeater {
                 delay: 1,
-                facing: dbg!(context.player_direction).opposite(),
+                facing: context.player_direction.opposite(),
                 locked: false,
                 powered: false,
             }),
