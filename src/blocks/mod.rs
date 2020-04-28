@@ -280,13 +280,14 @@ impl Block {
         item_id: u32,
         context: &UseOnBlockContext,
     ) -> Block {
-        match item_id {
+        let block = match item_id {
             // Glass
             64 => Block::Transparent(230),
             // Sandstone
             68 => Block::Solid(245),
             // Wool
             82..=97 => Block::Solid(item_id + 1301),
+            // Redstone Torch
             173 => match context.block_face {
                 BlockFace::Top => Block::RedstoneTorch(true),
                 BlockFace::Bottom => Block::RedstoneTorch(true),
@@ -298,42 +299,29 @@ impl Block {
             // Concrete
             413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
-            513 => {
-                let repeater = Block::RedstoneRepeater(RedstoneRepeater {
-                    delay: 1,
-                    facing: context.player_direction.opposite(),
-                    locked: false,
-                    powered: false,
-                });
-                if !repeater.is_valid_position(plot, pos) {
-                    return Block::Air;
-                }
-                repeater
-            },
+            513 => Block::RedstoneRepeater(RedstoneRepeater {
+                delay: 1,
+                facing: context.player_direction.opposite(),
+                locked: false,
+                powered: false,
+            }),
             // Redstone Comparator
-            514 => {
-                let comparator = Block::RedstoneComparator(RedstoneComparator {
-                    mode: ComparatorMode::Compare,
-                    facing: context.player_direction.opposite(),
-                    powered: false,
-                });
-                if !comparator.is_valid_position(plot, pos) {
-                    return Block::Air;
-                }
-                comparator
-            },
+            514 => Block::RedstoneComparator(RedstoneComparator {
+                mode: ComparatorMode::Compare,
+                facing: context.player_direction.opposite(),
+                powered: false,
+            }),
             // Redstone Wire
-            600 => {
-                let wire = Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos));
-                if !wire.is_valid_position(plot, pos) {
-                    return Block::Air;
-                }
-                wire
-            }
+            600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos)),
             _ => {
                 error!("Tried to place block which wasnt a block!");
                 Block::Solid(245)
             }
+        };
+        if block.is_valid_position(plot, pos) {
+            block
+        } else {
+            Block::Air
         }
     }
 
@@ -376,6 +364,10 @@ impl Block {
                 let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
                 bottom_block.is_solid() || bottom_block.is_transparent()
             }
+            Block::RedstoneWallTorch(_, direction) => {
+                let parent_block = plot.get_block(&pos.offset(direction.opposite().block_face()));
+                parent_block.is_solid() || parent_block.is_transparent()
+            }
             _ => true,
         }
     }
@@ -384,7 +376,7 @@ impl Block {
         if !self.is_valid_position(plot, pos) {
             self.destroy(plot, pos);
             return;
-        } 
+        }
         match self {
             Block::RedstoneWire(wire) => {
                 let new_state = wire.on_neighbor_changed(plot, pos, direction);

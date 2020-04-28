@@ -4,13 +4,13 @@ use crate::plot::Plot;
 impl Block {
     fn get_weak_power(self, plot: &Plot, pos: &BlockPos) -> u8 {
         match self {
-            _ => 0
+            _ => 0,
         }
     }
 
     fn get_strong_power(self, plot: &Plot, pos: &BlockPos) -> u8 {
         match self {
-            _ => 0
+            _ => 0,
         }
     }
 }
@@ -107,7 +107,7 @@ impl RedstoneWire {
     pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: &BlockPos) -> RedstoneWire {
         self
     }
-    
+
     fn can_connect_to(block: &Block, side: BlockDirection) -> bool {
         match block {
             Block::RedstoneWire(_)
