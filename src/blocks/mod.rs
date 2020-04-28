@@ -112,6 +112,14 @@ impl BlockFace {
         use BlockFace::*;
         [Top, Bottom, North, South, East, West]
     }
+
+    fn is_horizontal(self) -> bool {
+        use BlockFace::*;
+        match self {
+            North | South | East | West => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -131,6 +139,14 @@ pub enum Block {
 impl Block {
     fn is_transparent(&self) -> bool {
         if let Block::Transparent(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn is_air(&self) -> bool {
+        if let Block::Air = self {
             true
         } else {
             false
@@ -164,6 +180,8 @@ impl Block {
     pub fn from_block_state(id: u32) -> Block {
         match id {
             0 => Block::Air,
+            // Glass 
+            230 => Block::Transparent(id),
             // Redstone Wire
             2056..=3351 => {
                 let id = id - 2056;
@@ -398,6 +416,14 @@ impl Block {
             let neighbor_pos = &pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
             block.update(plot, neighbor_pos);
+
+            let up_pos = &neighbor_pos.offset(BlockFace::Top);
+            let up_block = plot.get_block(&up_pos);
+            up_block.update(plot, up_pos);
+
+            let down_pos = &neighbor_pos.offset(BlockFace::Bottom);
+            let down_block = plot.get_block(&down_pos);
+            down_block.update(plot, down_pos);
         }
     }
 

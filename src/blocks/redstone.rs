@@ -109,7 +109,7 @@ impl RedstoneWire {
 
     pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: &BlockPos) {
         let new_power = RedstoneWire::calculate_power(plot, pos);
-        
+
         if self.power != new_power {
             self.power = new_power;
             plot.set_block(pos, Block::RedstoneWire(self));
@@ -130,7 +130,7 @@ impl RedstoneWire {
         }
     }
 
-    fn can_connect_up_to(block: &Block, side: BlockDirection) -> bool {
+    fn can_connect_diagonal_to(block: &Block) -> bool {
         match block {
             Block::RedstoneWire(_) => true,
             _ => false,
@@ -140,7 +140,6 @@ impl RedstoneWire {
     fn get_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> RedstoneWireSide {
         let neighbor_pos = &pos.offset(side.block_face());
         let neighbor = plot.get_block(neighbor_pos);
-        // debug!("{:?} is {:?} at {:?}", side, neighbor, &pos.offset(side.block_face()));
 
         if RedstoneWire::can_connect_to(&neighbor, side) {
             return RedstoneWireSide::Side;
@@ -148,17 +147,16 @@ impl RedstoneWire {
 
         let up_pos = pos.offset(BlockFace::Top);
         let up = plot.get_block(&up_pos);
+
         if !up.is_solid()
-            && RedstoneWire::can_connect_up_to(
-                &plot.get_block(&up_pos.offset(side.block_face())),
-                side,
+            && RedstoneWire::can_connect_diagonal_to(
+                &plot.get_block(&neighbor_pos.offset(BlockFace::Top)),
             )
         {
             RedstoneWireSide::Up
         } else if !neighbor.is_solid()
-            && RedstoneWire::can_connect_up_to(
+            && RedstoneWire::can_connect_diagonal_to(
                 &plot.get_block(&neighbor_pos.offset(BlockFace::Bottom)),
-                side,
             )
         {
             RedstoneWireSide::Side
@@ -181,7 +179,7 @@ impl RedstoneWire {
         let mut wire_power = 0;
 
         let up_pos = &pos.offset(BlockFace::Top);
-        let up_block = plot.get_block(pos);
+        let up_block = plot.get_block(up_pos);
 
         for side in &BlockFace::values() {
             let neighbor_pos = &pos.offset(*side);
@@ -192,13 +190,22 @@ impl RedstoneWire {
             } else {
                 block_power = block_power.max(neighbor.get_weak_power(plot, neighbor_pos, side));
             }
+            if side.is_horizontal() {
+                if !up_block.is_solid() && !neighbor.is_transparent() {
+                    wire_power = RedstoneWire::max_wire_power(
+                        wire_power,
+                        plot,
+                        &neighbor_pos.offset(BlockFace::Top),
+                    );
+                }
 
-            if !up_block.is_solid() && !neighbor.is_transparent() {
-                wire_power = RedstoneWire::max_wire_power(wire_power, plot, &up_pos.offset(*side));
-            }
-
-            if neighbor.is_transparent() {
-                wire_power = RedstoneWire::max_wire_power(wire_power, plot, &neighbor_pos.offset(BlockFace::Bottom));
+                if !neighbor.is_solid() {
+                    wire_power = RedstoneWire::max_wire_power(
+                        wire_power,
+                        plot,
+                        &neighbor_pos.offset(BlockFace::Bottom),
+                    );
+                }
             }
         }
 
