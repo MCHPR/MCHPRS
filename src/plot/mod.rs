@@ -65,7 +65,7 @@ impl Plot {
         changed
     }
 
-    pub fn get_block(&mut self, pos: &BlockPos) -> Block {
+    pub fn get_block(&self, pos: &BlockPos) -> Block {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         let chunk = &self.chunks[chunk_index];
         Block::from_block_state(chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32))

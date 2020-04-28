@@ -1,9 +1,12 @@
+mod redstone;
+
 use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::Plot;
 use log::error;
+use redstone::*;
 use std::mem;
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct BlockPos {
     pub x: i32,
     pub y: u32,
@@ -46,13 +49,37 @@ impl BlockDirection {
         }
     }
 
-    fn block_face(self) -> BlockFace {
+    pub fn block_face(self) -> BlockFace {
         use BlockDirection::*;
         match self {
-            North => BlockFace::South,
-            South => BlockFace::North,
-            East => BlockFace::West,
-            West => BlockFace::East,
+            North => BlockFace::North,
+            South => BlockFace::South,
+            East => BlockFace::East,
+            West => BlockFace::West,
+        }
+    }
+
+    fn values() -> [BlockDirection; 4] {
+        use BlockDirection::*;
+        [North, South, East, West]
+    }
+
+    pub fn from_id(id: u32) -> BlockDirection {
+        match id {
+            0 => BlockDirection::North,
+            1 => BlockDirection::South,
+            2 => BlockDirection::West,
+            3 => BlockDirection::East,
+            _ => panic!("Invalid BlockDirection"),
+        }
+    }
+
+    fn get_id(self) -> u32 {
+        match self {
+            BlockDirection::North => 0,
+            BlockDirection::South => 1,
+            BlockDirection::West => 2,
+            BlockDirection::East => 3,
         }
     }
 }
@@ -81,153 +108,10 @@ impl BlockFace {
     }
 }
 
-impl BlockDirection {
-    pub fn from_id(id: u32) -> BlockDirection {
-        match id {
-            0 => BlockDirection::North,
-            1 => BlockDirection::South,
-            2 => BlockDirection::West,
-            3 => BlockDirection::East,
-            _ => panic!("Invalid BlockDirection"),
-        }
-    }
-    fn get_id(self) -> u32 {
-        match self {
-            BlockDirection::North => 0,
-            BlockDirection::South => 1,
-            BlockDirection::West => 2,
-            BlockDirection::East => 3,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum RedstoneWireSide {
-    Up,
-    Side,
-    None,
-}
-
-impl RedstoneWireSide {
-    fn from_id(id: u32) -> RedstoneWireSide {
-        match id {
-            0 => RedstoneWireSide::Up,
-            1 => RedstoneWireSide::Side,
-            2 => RedstoneWireSide::None,
-            _ => panic!("Invalid RedstoneWireSide"),
-        }
-    }
-    fn get_id(self) -> u32 {
-        match self {
-            RedstoneWireSide::Up => 0,
-            RedstoneWireSide::Side => 1,
-            RedstoneWireSide::None => 2,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct RedstoneWire {
-    north: RedstoneWireSide,
-    south: RedstoneWireSide,
-    east: RedstoneWireSide,
-    west: RedstoneWireSide,
-    power: u8,
-}
-
-impl RedstoneWire {
-    fn new(
-        north: RedstoneWireSide,
-        south: RedstoneWireSide,
-        east: RedstoneWireSide,
-        west: RedstoneWireSide,
-        power: u8,
-    ) -> RedstoneWire {
-        RedstoneWire {
-            north,
-            south,
-            east,
-            west,
-            power,
-        }
-    }
-
-    fn is_powering(self, face: BlockFace) -> bool {
-        let is_facing = match face {
-            BlockFace::North => self.north != RedstoneWireSide::None,
-            BlockFace::South => self.south != RedstoneWireSide::None,
-            BlockFace::East => self.east != RedstoneWireSide::None,
-            BlockFace::West => self.west != RedstoneWireSide::None,
-            _ => false,
-        };
-
-        is_facing && self.power > 0
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct RedstoneRepeater {
-    delay: u8,
-    facing: BlockDirection,
-    locked: bool,
-    powered: bool,
-}
-
-impl RedstoneRepeater {
-    fn new(delay: u8, facing: BlockDirection, locked: bool, powered: bool) -> RedstoneRepeater {
-        RedstoneRepeater {
-            delay,
-            facing,
-            locked,
-            powered,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum ComparatorMode {
-    Compare,
-    Subtract,
-}
-
-impl ComparatorMode {
-    fn from_id(id: u32) -> ComparatorMode {
-        match id {
-            0 => ComparatorMode::Compare,
-            1 => ComparatorMode::Subtract,
-            _ => panic!("Invalid ComparatorMode"),
-        }
-    }
-
-    fn get_id(self) -> u32 {
-        match self {
-            ComparatorMode::Compare => 0,
-            ComparatorMode::Subtract => 1,
-        }
-    }
-
-    fn flip(self) -> ComparatorMode {
-        match self {
-            ComparatorMode::Subtract => ComparatorMode::Compare,
-            ComparatorMode::Compare => ComparatorMode::Subtract,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct RedstoneComparator {
-    facing: BlockDirection,
-    mode: ComparatorMode,
-    powered: bool,
-}
-
-impl RedstoneComparator {
-    fn new(facing: BlockDirection, mode: ComparatorMode, powered: bool) -> RedstoneComparator {
-        RedstoneComparator {
-            facing,
-            mode,
-            powered,
-        }
+impl BlockFace {
+    pub fn values() -> [BlockFace; 6] {
+        use BlockFace::*;
+        [Top, Bottom, North, South, East, West]
     }
 }
 
@@ -245,8 +129,20 @@ pub enum Block {
 }
 
 impl Block {
-    pub fn compare_variant(&self, other: &Block) -> bool {
-        mem::discriminant(self) == mem::discriminant(other)
+    fn is_transparent(&self) -> bool {
+        if let Block::Transparent(_) = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    fn is_solid(&self) -> bool {
+        match self {
+            Block::RedstoneLamp(_) => true,
+            Block::Solid(_) => true,
+            _ => false,
+        }
     }
 
     pub fn can_place_block_in(&self) -> bool {
@@ -378,7 +274,12 @@ impl Block {
         }
     }
 
-    pub fn get_block_for_placement(item_id: u32, context: &UseOnBlockContext) -> Block {
+    pub fn get_state_for_placement(
+        plot: &Plot,
+        pos: &BlockPos,
+        item_id: u32,
+        context: &UseOnBlockContext,
+    ) -> Block {
         match item_id {
             // Glass
             64 => Block::Transparent(230),
@@ -397,120 +298,42 @@ impl Block {
             // Concrete
             413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
-            513 => Block::RedstoneRepeater(RedstoneRepeater {
-                delay: 1,
-                facing: context.player_direction.opposite(),
-                locked: false,
-                powered: false,
-            }),
+            513 => {
+                let repeater = Block::RedstoneRepeater(RedstoneRepeater {
+                    delay: 1,
+                    facing: context.player_direction.opposite(),
+                    locked: false,
+                    powered: false,
+                });
+                if !repeater.is_valid_position(plot, pos) {
+                    return Block::Air;
+                }
+                repeater
+            },
             // Redstone Comparator
-            514 => Block::RedstoneComparator(RedstoneComparator {
-                mode: ComparatorMode::Compare,
-                facing: context.player_direction.opposite(),
-                powered: false,
-            }),
+            514 => {
+                let comparator = Block::RedstoneComparator(RedstoneComparator {
+                    mode: ComparatorMode::Compare,
+                    facing: context.player_direction.opposite(),
+                    powered: false,
+                });
+                if !comparator.is_valid_position(plot, pos) {
+                    return Block::Air;
+                }
+                comparator
+            },
+            // Redstone Wire
+            600 => {
+                let wire = Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos));
+                if !wire.is_valid_position(plot, pos) {
+                    return Block::Air;
+                }
+                wire
+            }
             _ => {
                 error!("Tried to place block which wasnt a block!");
                 Block::Solid(245)
             }
-        }
-    }
-
-    pub fn is_powering(self, plot: &mut Plot, pos: &BlockPos, face: BlockFace) -> bool {
-        let block = plot.get_block(&pos);
-        match face {
-            BlockFace::North | BlockFace::South | BlockFace::East | BlockFace::West => {
-                match block {
-                    Block::RedstoneWallTorch(torch, direction) => {
-                        torch && direction.block_face() != face
-                    }
-                    Block::RedstoneRepeater(repeater) => {
-                        repeater.powered && repeater.facing.opposite().block_face() == face
-                    }
-                    Block::RedstoneWire(wire) => wire.is_powering(face),
-                    Block::RedstoneComparator(comparator) => {
-                        comparator.powered && comparator.facing.block_face() == face
-                    }
-                    _ => false,
-                }
-            }
-            BlockFace::Top => false,
-            BlockFace::Bottom => false,
-        }
-    }
-
-    pub fn is_powered(self, plot: &mut Plot, pos: &BlockPos) -> bool {
-        let north = &pos.offset(BlockFace::North);
-        let south = &pos.offset(BlockFace::South);
-        let east = &pos.offset(BlockFace::East);
-        let west = &pos.offset(BlockFace::West);
-        let top = &pos.offset(BlockFace::Top);
-        let bottom = &pos.offset(BlockFace::Bottom);
-
-        match self {
-            Block::Solid(_) | Block::RedstoneLamp(_) => {
-                plot.get_block(&north).is_powering(plot, &north, BlockFace::North)
-                    || plot.get_block(&south).is_powering(plot, &south, BlockFace::South)
-                    || plot.get_block(&east).is_powering(plot, &east, BlockFace::East)
-                    || plot.get_block(&west).is_powering(plot, &west, BlockFace::West)
-                    || plot.get_block(&top).is_powering(plot, &top, BlockFace::Top)
-                    || plot.get_block(&bottom).is_powering(plot, &bottom, BlockFace::Bottom)
-            }
-            _ => false,
-        }
-    }
-
-    pub fn update(self, plot: &mut Plot, pos: &BlockPos, force_updates: bool) {
-        let block = plot.get_block(pos);
-        let mut force_recursive_updates = false;
-
-        let new_block = match block {
-            Block::RedstoneRepeater(repeater) => {
-                let mut repeater = repeater.clone();
-                let input_face = match repeater.facing {
-                    BlockDirection::North => BlockFace::North,
-                    BlockDirection::South => BlockFace::South,
-                    BlockDirection::East => BlockFace::East,
-                    BlockDirection::West => BlockFace::West,
-                };
-
-                let input_block_pos = &pos.offset(input_face);
-                let input_block = dbg!(plot.get_block(input_block_pos));
-
-                repeater.powered = dbg!(match input_block {
-                    Block::RedstoneTorch(powered) => powered,
-                    Block::RedstoneWallTorch(powered, direction) => powered && direction.block_face() != input_face,
-                    _ => false
-                }) || input_block.is_powered(plot, input_block_pos);
-
-                force_recursive_updates = true;
-
-                Block::RedstoneRepeater(repeater)
-            }
-            Block::RedstoneWire(wire) => {
-                let mut wire = wire.clone();
-
-                Block::RedstoneWire(wire)
-            }
-            _ => block,
-        };
-
-        dbg!(new_block);
-
-        if plot.set_block(&pos, new_block) || force_updates {
-            let north = &pos.offset(BlockFace::North);
-            let south = &pos.offset(BlockFace::South);
-            let east = &pos.offset(BlockFace::East);
-            let west = &pos.offset(BlockFace::West);
-            let top = &pos.offset(BlockFace::Top);
-            let bottom = &pos.offset(BlockFace::Bottom);
-
-            plot.get_block(north).update(plot, north, force_recursive_updates);
-            plot.get_block(south).update(plot, south, force_recursive_updates);
-            plot.get_block(east).update(plot, east, force_recursive_updates);
-            plot.get_block(west).update(plot, west, force_recursive_updates);
-            plot.get_block(top).update(plot, top, force_recursive_updates);
-            plot.get_block(bottom).update(plot, bottom, force_recursive_updates);
         }
     }
 
@@ -523,6 +346,77 @@ impl Block {
             _ => {
                 plot.set_block(pos, self);
             }
+        }
+        Block::change_surrounding_blocks(plot, pos);
+        Block::update_surrounding_blocks(plot, pos);
+    }
+
+    pub fn destroy(self, plot: &mut Plot, pos: &BlockPos) {
+        plot.set_block(&pos, Block::Air);
+        Block::change_surrounding_blocks(plot, pos);
+        Block::update_surrounding_blocks(plot, pos);
+    }
+
+    fn update(self, plot: &mut Plot, pos: &BlockPos) {
+        match self {
+            Block::RedstoneWire(wire) => {
+                let new_state = wire.on_neighbor_updated(plot, pos);
+                plot.set_block(pos, Block::RedstoneWire(new_state));
+            }
+            _ => {}
+        }
+    }
+
+    pub fn is_valid_position(self, plot: &Plot, pos: &BlockPos) -> bool {
+        match self {
+            Block::RedstoneWire(_)
+            | Block::RedstoneComparator(_)
+            | Block::RedstoneRepeater(_)
+            | Block::RedstoneTorch(_) => {
+                let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
+                bottom_block.is_solid() || bottom_block.is_transparent()
+            }
+            _ => true,
+        }
+    }
+
+    fn change(self, plot: &mut Plot, pos: &BlockPos, direction: &BlockFace) {
+        if !self.is_valid_position(plot, pos) {
+            self.destroy(plot, pos);
+            return;
+        } 
+        match self {
+            Block::RedstoneWire(wire) => {
+                let new_state = wire.on_neighbor_changed(plot, pos, direction);
+                plot.set_block(pos, Block::RedstoneWire(new_state));
+            }
+            _ => {}
+        }
+    }
+
+    fn update_surrounding_blocks(plot: &mut Plot, pos: &BlockPos) {
+        for direction in &BlockFace::values() {
+            let neighbor_pos = &pos.offset(*direction);
+            let block = plot.get_block(neighbor_pos);
+            block.update(plot, neighbor_pos);
+        }
+    }
+
+    fn change_surrounding_blocks(plot: &mut Plot, pos: &BlockPos) {
+        for direction in &BlockFace::values() {
+            let neighbor_pos = &pos.offset(*direction);
+            let block = plot.get_block(neighbor_pos);
+            block.change(plot, neighbor_pos, direction);
+
+            // Also change diagonal blocks
+
+            let up_pos = &neighbor_pos.offset(BlockFace::Top);
+            let up_block = plot.get_block(&up_pos);
+            up_block.change(plot, up_pos, direction);
+
+            let down_pos = &neighbor_pos.offset(BlockFace::Bottom);
+            let down_block = plot.get_block(&down_pos);
+            down_block.change(plot, down_pos, direction);
         }
     }
 }

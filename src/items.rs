@@ -39,9 +39,8 @@ impl ItemStack {
         let block_pos = context.block_pos.offset(context.block_face);
         if let Item::BlockItem(item_id) = self.item_type {
             if plot.get_block(&block_pos).can_place_block_in() {
-                let block = Block::get_block_for_placement(item_id, &context);
+                let block = Block::get_state_for_placement(plot, &block_pos, item_id, &context);
                 block.place_in_plot(plot, &block_pos);
-                block.update(plot, &block_pos, true);
             }
         } else {
             // This is to make sure the client doesn't place a block
@@ -73,7 +72,7 @@ impl Item {
             173 => Item::BlockItem(id),
             413..=428 => Item::BlockItem(id),
             513..=514 => Item::BlockItem(id),
-
+            600 => Item::BlockItem(id),
             _ => Item::Unknown(id),
         }
     }
