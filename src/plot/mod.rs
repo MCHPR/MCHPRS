@@ -11,6 +11,7 @@ use crate::player::Player;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use bus::BusReader;
 use log::debug;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
@@ -19,6 +20,21 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum TickPriority {
+    Normal,
+    High,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TickEntry {
+    ticks_left: u32,
+    tick_priority: TickPriority,
+    x: i32,
+    y: u32,
+    z: i32,
+}
 
 pub struct Plot {
     players: Vec<Player>,
@@ -33,6 +49,7 @@ pub struct Plot {
     show_redstone: bool,
     always_running: bool,
     chunks: Vec<Chunk>,
+    to_be_ticked: Vec<TickEntry>,
 }
 
 impl Plot {
@@ -371,6 +388,7 @@ impl Plot {
             z,
             always_running,
             chunks,
+            to_be_ticked: plot_data.pending_ticks,
         }
     }
 
@@ -414,6 +432,7 @@ impl Plot {
                 z,
                 always_running,
                 chunks,
+                to_be_ticked: Vec::new(),
             }
         }
     }
@@ -430,6 +449,7 @@ impl Plot {
             tps: self.tps as i32,
             show_redstone: self.show_redstone,
             chunk_data,
+            pending_ticks: self.to_be_ticked.clone(),
         })
         .unwrap();
         file.write_all(&encoded).unwrap();

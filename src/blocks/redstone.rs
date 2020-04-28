@@ -2,8 +2,11 @@ use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
 
 impl Block {
-    fn get_weak_power(self, plot: &Plot, pos: &BlockPos) -> u8 {
+    fn get_weak_power(self, plot: &Plot, pos: &BlockPos, side: &BlockFace) -> u8 {
         match self {
+            Block::RedstoneTorch(true) => 15,
+            Block::RedstoneWallTorch(true, _) => 15,
+            Block::RedstoneBlock => 15,
             _ => 0,
         }
     }
@@ -69,7 +72,7 @@ impl RedstoneWire {
 
     pub fn get_state_for_placement(plot: &Plot, pos: &BlockPos) -> RedstoneWire {
         RedstoneWire {
-            power: 0,
+            power: RedstoneWire::calculate_power(plot, pos),
             north: RedstoneWire::get_side(plot, &pos, BlockDirection::North),
             south: RedstoneWire::get_side(plot, &pos, BlockDirection::South),
             east: RedstoneWire::get_side(plot, &pos, BlockDirection::East),
@@ -104,8 +107,14 @@ impl RedstoneWire {
         self
     }
 
-    pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: &BlockPos) -> RedstoneWire {
-        self
+    pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: &BlockPos) {
+        let new_power = RedstoneWire::calculate_power(plot, pos);
+        
+        if self.power != new_power {
+            self.power = new_power;
+            plot.set_block(pos, Block::RedstoneWire(self));
+            Block::update_surrounding_blocks(plot, pos);
+        }
     }
 
     fn can_connect_to(block: &Block, side: BlockDirection) -> bool {
@@ -156,6 +165,44 @@ impl RedstoneWire {
         } else {
             RedstoneWireSide::None
         }
+    }
+
+    fn max_wire_power(wire_power: u8, plot: &Plot, pos: &BlockPos) -> u8 {
+        let block = plot.get_block(pos);
+        if let Block::RedstoneWire(wire) = block {
+            wire_power.max(wire.power)
+        } else {
+            wire_power
+        }
+    }
+
+    fn calculate_power(plot: &Plot, pos: &BlockPos) -> u8 {
+        let mut block_power = 0;
+        let mut wire_power = 0;
+
+        let up_pos = &pos.offset(BlockFace::Top);
+        let up_block = plot.get_block(pos);
+
+        for side in &BlockFace::values() {
+            let neighbor_pos = &pos.offset(*side);
+            wire_power = RedstoneWire::max_wire_power(wire_power, plot, neighbor_pos);
+            let neighbor = plot.get_block(neighbor_pos);
+            if neighbor.is_solid() || neighbor.is_transparent() {
+                block_power = block_power.max(neighbor.get_strong_power(plot, neighbor_pos));
+            } else {
+                block_power = block_power.max(neighbor.get_weak_power(plot, neighbor_pos, side));
+            }
+
+            if !up_block.is_solid() && !neighbor.is_transparent() {
+                wire_power = RedstoneWire::max_wire_power(wire_power, plot, &up_pos.offset(*side));
+            }
+
+            if neighbor.is_transparent() {
+                wire_power = RedstoneWire::max_wire_power(wire_power, plot, &neighbor_pos.offset(BlockFace::Bottom));
+            }
+        }
+
+        block_power.max(wire_power.saturating_sub(1))
     }
 }
 

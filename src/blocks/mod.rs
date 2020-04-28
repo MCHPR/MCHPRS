@@ -4,7 +4,6 @@ use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::Plot;
 use log::error;
 use redstone::*;
-use std::mem;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct BlockPos {
@@ -20,7 +19,7 @@ impl BlockPos {
 
     pub fn offset(&self, face: BlockFace) -> BlockPos {
         match face {
-            BlockFace::Bottom => BlockPos::new(self.x, self.y - 1, self.z),
+            BlockFace::Bottom => BlockPos::new(self.x, self.y.saturating_sub(1), self.z),
             BlockFace::Top => BlockPos::new(self.x, self.y + 1, self.z),
             BlockFace::North => BlockPos::new(self.x, self.y, self.z - 1),
             BlockFace::South => BlockPos::new(self.x, self.y, self.z + 1),
@@ -124,6 +123,7 @@ pub enum Block {
     RedstoneTorch(bool),
     RedstoneWallTorch(bool, BlockDirection),
     RedstoneLamp(bool),
+    RedstoneBlock,
     Solid(u32),
     Transparent(u32),
 }
@@ -139,8 +139,7 @@ impl Block {
 
     fn is_solid(&self) -> bool {
         match self {
-            Block::RedstoneLamp(_) => true,
-            Block::Solid(_) => true,
+            Block::RedstoneLamp(_) | Block::RedstoneBlock | Block::Solid(_) => true,
             _ => false,
         }
     }
@@ -205,6 +204,7 @@ impl Block {
                 let facing = BlockDirection::from_id(id >> 2);
                 Block::RedstoneComparator(RedstoneComparator::new(facing, mode, powered))
             }
+            6190 => Block::RedstoneBlock,
             _ => Block::Solid(id),
         }
     }
@@ -238,6 +238,7 @@ impl Block {
                     + !comparator.powered as u32
                     + 6142
             }
+            Block::RedstoneBlock => 6190,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
         }
@@ -348,10 +349,16 @@ impl Block {
     fn update(self, plot: &mut Plot, pos: &BlockPos) {
         match self {
             Block::RedstoneWire(wire) => {
-                let new_state = wire.on_neighbor_updated(plot, pos);
-                plot.set_block(pos, Block::RedstoneWire(new_state));
+                wire.on_neighbor_updated(plot, pos);
             }
             _ => {}
+        }
+    }
+
+    pub fn is_cube(self) -> bool {
+        match self {
+            Block::Solid(_) | Block::Transparent(_) | Block::RedstoneBlock => true,
+            _ => false,
         }
     }
 
@@ -362,11 +369,11 @@ impl Block {
             | Block::RedstoneRepeater(_)
             | Block::RedstoneTorch(_) => {
                 let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
-                bottom_block.is_solid() || bottom_block.is_transparent()
+                bottom_block.is_cube()
             }
             Block::RedstoneWallTorch(_, direction) => {
                 let parent_block = plot.get_block(&pos.offset(direction.opposite().block_face()));
-                parent_block.is_solid() || parent_block.is_transparent()
+                parent_block.is_cube()
             }
             _ => true,
         }

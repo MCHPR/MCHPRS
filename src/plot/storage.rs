@@ -1,3 +1,4 @@
+use super::TickEntry;
 use crate::network::packets::clientbound::{C22ChunkData, C22ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
@@ -8,6 +9,7 @@ pub struct PlotData {
     pub tps: i32,
     pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
+    pub pending_ticks: Vec<TickEntry>,
 }
 
 #[derive(Debug)]
