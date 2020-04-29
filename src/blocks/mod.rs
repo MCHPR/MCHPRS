@@ -1,11 +1,12 @@
 mod redstone;
 
 use crate::items::{ActionResult, UseOnBlockContext};
-use crate::plot::Plot;
+use crate::plot::{Plot, TickPriority};
 use log::error;
 use redstone::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
 pub struct BlockPos {
     pub x: i32,
     pub y: u32,
@@ -138,10 +139,9 @@ pub enum Block {
 
 impl Block {
     fn is_transparent(&self) -> bool {
-        if let Block::Transparent(_) = self {
-            true
-        } else {
-            false
+        match self {
+            Block::Transparent(_) | Block::RedstoneBlock => true,
+            _ => false,
         }
     }
 
@@ -155,8 +155,37 @@ impl Block {
 
     fn is_solid(&self) -> bool {
         match self {
-            Block::RedstoneLamp(_) | Block::RedstoneBlock | Block::Solid(_) => true,
+            Block::RedstoneLamp(_) | Block::Solid(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn tick(&self, plot: &mut Plot, pos: &BlockPos) {
+        match self {
+            Block::RedstoneRepeater(repeater) => {
+                repeater.tick(plot, pos);
+            }
+            Block::RedstoneTorch(powered) => {
+                let should_be_off = Block::torch_should_be_off(plot, pos);
+                if *powered && should_be_off {
+                    plot.set_block(pos, Block::RedstoneTorch(false));
+                    Block::update_surrounding_blocks(plot, pos);
+                } else if !powered && !should_be_off {
+                    plot.set_block(pos, Block::RedstoneTorch(true));
+                    Block::update_surrounding_blocks(plot, pos);
+                }
+            }
+            Block::RedstoneWallTorch(powered, direction) => {
+                let should_be_off = Block::wall_torch_should_be_off(plot, pos, *direction);
+                if *powered && should_be_off {
+                    plot.set_block(pos, Block::RedstoneWallTorch(false, *direction));
+                    Block::update_surrounding_blocks(plot, pos);
+                } else if !powered && !should_be_off {
+                    plot.set_block(pos, Block::RedstoneWallTorch(true, *direction));
+                    Block::update_surrounding_blocks(plot, pos);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -180,7 +209,7 @@ impl Block {
     pub fn from_block_state(id: u32) -> Block {
         match id {
             0 => Block::Air,
-            // Glass 
+            // Glass
             230 => Block::Transparent(id),
             // Redstone Wire
             2056..=3351 => {
@@ -315,6 +344,8 @@ impl Block {
                 BlockFace::East => Block::RedstoneWallTorch(true, BlockDirection::East),
                 BlockFace::West => Block::RedstoneWallTorch(true, BlockDirection::West),
             },
+            // Redstone Block
+            272 => Block::RedstoneBlock,
             // Concrete
             413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
@@ -368,6 +399,11 @@ impl Block {
         match self {
             Block::RedstoneWire(wire) => {
                 wire.on_neighbor_updated(plot, pos);
+            }
+            Block::RedstoneTorch(_) | Block::RedstoneWallTorch(_, _) => {
+                if !plot.pending_tick_at(pos) {
+                    plot.schedule_tick(pos, 1, TickPriority::Normal);
+                }
             }
             _ => {}
         }

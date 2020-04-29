@@ -21,19 +21,26 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TickPriority {
     Normal,
     High,
+    Higher,
+    Highest,
+}
+
+impl TickPriority {
+    fn values() -> [TickPriority; 4] {
+        use TickPriority::*;
+        [Highest, Higher, High, Normal]
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TickEntry {
     ticks_left: u32,
     tick_priority: TickPriority,
-    x: i32,
-    y: u32,
-    z: i32,
+    pos: BlockPos,
 }
 
 pub struct Plot {
@@ -112,7 +119,41 @@ impl Plot {
         }
     }
 
-    fn tick(&mut self) {}
+    pub fn schedule_tick(&mut self, pos: &BlockPos, delay: u32, priority: TickPriority) {
+        self.to_be_ticked.push(TickEntry {
+            pos: pos.clone(),
+            ticks_left: delay,
+            tick_priority: priority,
+        });
+    }
+
+    pub fn pending_tick_at(&mut self, pos: &BlockPos) -> bool {
+        self.to_be_ticked.iter().any(|e| &e.pos == pos)
+    }
+
+    fn tick(&mut self) {
+        let mut finished = Vec::new();
+        for pending in &mut self.to_be_ticked {
+            pending.ticks_left = pending.ticks_left.saturating_sub(1);
+        }
+        self.to_be_ticked.retain(|pending| {
+            if pending.ticks_left == 0 {
+                finished.push(pending.clone());
+                false
+            } else {
+                true
+            }
+        });
+        if finished.len() > 0 {
+            for priority in &TickPriority::values() {
+                for entry in &finished {
+                    if &entry.tick_priority == priority {
+                        self.get_block(&entry.pos).tick(self, &entry.pos);
+                    }
+                }
+            }
+        }
+    }
 
     fn enter_plot(&mut self, mut player: Player) {
         debug!("Player enter plot!");
@@ -464,7 +505,7 @@ impl Plot {
         }
         while self.running {
             self.update();
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(2));
         }
     }
 

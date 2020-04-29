@@ -1,23 +1,6 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
 
-impl Block {
-    fn get_weak_power(self, plot: &Plot, pos: &BlockPos, side: &BlockFace) -> u8 {
-        match self {
-            Block::RedstoneTorch(true) => 15,
-            Block::RedstoneWallTorch(true, _) => 15,
-            Block::RedstoneBlock => 15,
-            _ => 0,
-        }
-    }
-
-    fn get_strong_power(self, plot: &Plot, pos: &BlockPos) -> u8 {
-        match self {
-            _ => 0,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RedstoneWireSide {
     Up,
@@ -26,7 +9,7 @@ pub enum RedstoneWireSide {
 }
 
 impl RedstoneWireSide {
-    pub(super) fn from_id(id: u32) -> RedstoneWireSide {
+    pub fn from_id(id: u32) -> RedstoneWireSide {
         match id {
             0 => RedstoneWireSide::Up,
             1 => RedstoneWireSide::Side,
@@ -35,7 +18,7 @@ impl RedstoneWireSide {
         }
     }
 
-    pub(super) fn get_id(self) -> u32 {
+    pub fn get_id(self) -> u32 {
         match self {
             RedstoneWireSide::Up => 0,
             RedstoneWireSide::Side => 1,
@@ -46,15 +29,15 @@ impl RedstoneWireSide {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneWire {
-    pub(super) north: RedstoneWireSide,
-    pub(super) south: RedstoneWireSide,
-    pub(super) east: RedstoneWireSide,
-    pub(super) west: RedstoneWireSide,
-    pub(super) power: u8,
+    pub north: RedstoneWireSide,
+    pub south: RedstoneWireSide,
+    pub east: RedstoneWireSide,
+    pub west: RedstoneWireSide,
+    pub power: u8,
 }
 
 impl RedstoneWire {
-    pub(super) fn new(
+    pub fn new(
         north: RedstoneWireSide,
         south: RedstoneWireSide,
         east: RedstoneWireSide,
@@ -122,6 +105,7 @@ impl RedstoneWire {
             Block::RedstoneWire(_)
             | Block::RedstoneComparator(_)
             | Block::RedstoneTorch(_)
+            | Block::RedstoneBlock
             | Block::RedstoneWallTorch(_, _) => true,
             Block::RedstoneRepeater(repeater) => {
                 repeater.facing == side || repeater.facing == side.opposite()
@@ -185,11 +169,7 @@ impl RedstoneWire {
             let neighbor_pos = &pos.offset(*side);
             wire_power = RedstoneWire::max_wire_power(wire_power, plot, neighbor_pos);
             let neighbor = plot.get_block(neighbor_pos);
-            if neighbor.is_solid() || neighbor.is_transparent() {
-                block_power = block_power.max(neighbor.get_strong_power(plot, neighbor_pos));
-            } else {
-                block_power = block_power.max(neighbor.get_weak_power(plot, neighbor_pos, side));
-            }
+            block_power = block_power.max(neighbor.get_redstone_power(plot, neighbor_pos, *side));
             if side.is_horizontal() {
                 if !up_block.is_solid() && !neighbor.is_transparent() {
                     wire_power = RedstoneWire::max_wire_power(
@@ -210,80 +190,5 @@ impl RedstoneWire {
         }
 
         block_power.max(wire_power.saturating_sub(1))
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct RedstoneRepeater {
-    pub(super) delay: u8,
-    pub(super) facing: BlockDirection,
-    pub(super) locked: bool,
-    pub(super) powered: bool,
-}
-
-impl RedstoneRepeater {
-    pub(super) fn new(
-        delay: u8,
-        facing: BlockDirection,
-        locked: bool,
-        powered: bool,
-    ) -> RedstoneRepeater {
-        RedstoneRepeater {
-            delay,
-            facing,
-            locked,
-            powered,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum ComparatorMode {
-    Compare,
-    Subtract,
-}
-
-impl ComparatorMode {
-    pub(super) fn from_id(id: u32) -> ComparatorMode {
-        match id {
-            0 => ComparatorMode::Compare,
-            1 => ComparatorMode::Subtract,
-            _ => panic!("Invalid ComparatorMode"),
-        }
-    }
-
-    pub(super) fn get_id(self) -> u32 {
-        match self {
-            ComparatorMode::Compare => 0,
-            ComparatorMode::Subtract => 1,
-        }
-    }
-
-    pub(super) fn flip(self) -> ComparatorMode {
-        match self {
-            ComparatorMode::Subtract => ComparatorMode::Compare,
-            ComparatorMode::Compare => ComparatorMode::Subtract,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct RedstoneComparator {
-    pub(super) facing: BlockDirection,
-    pub(super) mode: ComparatorMode,
-    pub(super) powered: bool,
-}
-
-impl RedstoneComparator {
-    pub(super) fn new(
-        facing: BlockDirection,
-        mode: ComparatorMode,
-        powered: bool,
-    ) -> RedstoneComparator {
-        RedstoneComparator {
-            facing,
-            mode,
-            powered,
-        }
     }
 }
