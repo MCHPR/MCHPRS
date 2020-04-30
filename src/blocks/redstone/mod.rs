@@ -16,7 +16,13 @@ impl Block {
         }
     }
 
-    fn get_strong_power(self, plot: &Plot, pos: &BlockPos, side: BlockFace, dust_power: bool) -> u8 {
+    fn get_strong_power(
+        self,
+        plot: &Plot,
+        pos: &BlockPos,
+        side: BlockFace,
+        dust_power: bool,
+    ) -> u8 {
         match self {
             Block::RedstoneTorch(true) if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch(true, _) if side == BlockFace::Bottom => 15,
@@ -27,8 +33,11 @@ impl Block {
                     BlockFace::Bottom => 0,
                     _ => {
                         let direction = side.to_direction();
-                        let right_side = RedstoneWire::get_side(plot, &wire_pos, direction.rotate()).is_none();
-                        let left_side = RedstoneWire::get_side(plot, &wire_pos, direction.rotate_ccw()).is_none();
+                        let right_side =
+                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate()).is_none();
+                        let left_side =
+                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate_ccw())
+                                .is_none();
                         if right_side && left_side {
                             wire.power
                         } else {
@@ -36,7 +45,7 @@ impl Block {
                         }
                     }
                 }
-            },
+            }
             _ => 0,
         }
     }

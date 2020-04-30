@@ -417,7 +417,6 @@ impl Block {
                 plot.set_block(pos, self);
                 Block::change_surrounding_blocks(plot, pos);
                 Block::update_wire_neighbors(plot, pos);
-
             }
             _ => {
                 plot.set_block(pos, self);
@@ -433,7 +432,6 @@ impl Block {
                 plot.set_block(&pos, Block::Air);
                 Block::change_surrounding_blocks(plot, pos);
                 Block::update_wire_neighbors(plot, pos);
-
             }
             _ => {
                 plot.set_block(&pos, Block::Air);
@@ -441,7 +439,6 @@ impl Block {
                 Block::update_surrounding_blocks(plot, pos);
             }
         }
-        
     }
 
     fn update(self, plot: &mut Plot, pos: &BlockPos) {

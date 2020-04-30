@@ -179,7 +179,8 @@ impl RedstoneWire {
             let neighbor_pos = &pos.offset(*side);
             wire_power = RedstoneWire::max_wire_power(wire_power, plot, neighbor_pos);
             let neighbor = plot.get_block(neighbor_pos);
-            block_power = block_power.max(neighbor.get_redstone_power_no_dust(plot, neighbor_pos, *side));
+            block_power =
+                block_power.max(neighbor.get_redstone_power_no_dust(plot, neighbor_pos, *side));
             if side.is_horizontal() {
                 if !up_block.is_solid() && !neighbor.is_transparent() {
                     wire_power = RedstoneWire::max_wire_power(
