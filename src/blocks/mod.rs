@@ -82,6 +82,26 @@ impl BlockDirection {
             BlockDirection::East => 3,
         }
     }
+
+    fn rotate(self) -> BlockDirection {
+        use BlockDirection::*;
+        match self {
+            North => East,
+            East => South,
+            South => West,
+            West => North,
+        }
+    }
+
+    fn rotate_ccw(self) -> BlockDirection {
+        use BlockDirection::*;
+        match self {
+            North => West,
+            West => South,
+            South => East,
+            East => North,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -119,6 +139,16 @@ impl BlockFace {
         match self {
             North | South | East | West => true,
             _ => false,
+        }
+    }
+
+    fn to_direction(self) -> BlockDirection {
+        match self {
+            BlockFace::North => BlockDirection::North,
+            BlockFace::South => BlockDirection::South,
+            BlockFace::East => BlockDirection::East,
+            BlockFace::West => BlockDirection::West,
+            _ => BlockDirection::West,
         }
     }
 }
@@ -380,19 +410,38 @@ impl Block {
             Block::RedstoneRepeater(_) => {
                 // TODO: Queue repeater tick
                 plot.set_block(pos, self);
+                Block::change_surrounding_blocks(plot, pos);
+                Block::update_surrounding_blocks(plot, pos);
+            }
+            Block::RedstoneWire(_) => {
+                plot.set_block(pos, self);
+                Block::change_surrounding_blocks(plot, pos);
+                Block::update_wire_neighbors(plot, pos);
+
             }
             _ => {
                 plot.set_block(pos, self);
+                Block::change_surrounding_blocks(plot, pos);
+                Block::update_surrounding_blocks(plot, pos);
             }
         }
-        Block::change_surrounding_blocks(plot, pos);
-        Block::update_surrounding_blocks(plot, pos);
     }
 
     pub fn destroy(self, plot: &mut Plot, pos: &BlockPos) {
-        plot.set_block(&pos, Block::Air);
-        Block::change_surrounding_blocks(plot, pos);
-        Block::update_surrounding_blocks(plot, pos);
+        match self {
+            Block::RedstoneWire(_) => {
+                plot.set_block(&pos, Block::Air);
+                Block::change_surrounding_blocks(plot, pos);
+                Block::update_wire_neighbors(plot, pos);
+
+            }
+            _ => {
+                plot.set_block(&pos, Block::Air);
+                Block::change_surrounding_blocks(plot, pos);
+                Block::update_surrounding_blocks(plot, pos);
+            }
+        }
+        
     }
 
     fn update(self, plot: &mut Plot, pos: &BlockPos) {
@@ -441,9 +490,24 @@ impl Block {
         match self {
             Block::RedstoneWire(wire) => {
                 let new_state = wire.on_neighbor_changed(plot, pos, direction);
-                plot.set_block(pos, Block::RedstoneWire(new_state));
+                if plot.set_block(pos, Block::RedstoneWire(new_state)) {
+                    Block::update_wire_neighbors(plot, pos);
+                }
             }
             _ => {}
+        }
+    }
+
+    fn update_wire_neighbors(plot: &mut Plot, pos: &BlockPos) {
+        for direction in &BlockFace::values() {
+            let neighbor_pos = &pos.offset(*direction);
+            let block = plot.get_block(neighbor_pos);
+            block.update(plot, neighbor_pos);
+            for n_direction in &BlockFace::values() {
+                let n_neighbor_pos = &neighbor_pos.offset(*n_direction);
+                let block = plot.get_block(n_neighbor_pos);
+                block.update(plot, n_neighbor_pos);
+            }
         }
     }
 

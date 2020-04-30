@@ -9,6 +9,15 @@ pub enum RedstoneWireSide {
 }
 
 impl RedstoneWireSide {
+    pub fn is_none(self) -> bool {
+        match self {
+            RedstoneWireSide::None => true,
+            _ => false,
+        }
+    }
+}
+
+impl RedstoneWireSide {
     pub fn from_id(id: u32) -> RedstoneWireSide {
         match id {
             0 => RedstoneWireSide::Up,
@@ -96,7 +105,8 @@ impl RedstoneWire {
         if self.power != new_power {
             self.power = new_power;
             plot.set_block(pos, Block::RedstoneWire(self));
-            Block::update_surrounding_blocks(plot, pos);
+
+            Block::update_wire_neighbors(plot, pos);
         }
     }
 
@@ -121,7 +131,7 @@ impl RedstoneWire {
         }
     }
 
-    fn get_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> RedstoneWireSide {
+    pub fn get_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> RedstoneWireSide {
         let neighbor_pos = &pos.offset(side.block_face());
         let neighbor = plot.get_block(neighbor_pos);
 
@@ -169,7 +179,7 @@ impl RedstoneWire {
             let neighbor_pos = &pos.offset(*side);
             wire_power = RedstoneWire::max_wire_power(wire_power, plot, neighbor_pos);
             let neighbor = plot.get_block(neighbor_pos);
-            block_power = block_power.max(neighbor.get_redstone_power(plot, neighbor_pos, *side));
+            block_power = block_power.max(neighbor.get_redstone_power_no_dust(plot, neighbor_pos, *side));
             if side.is_horizontal() {
                 if !up_block.is_solid() && !neighbor.is_transparent() {
                     wire_power = RedstoneWire::max_wire_power(

@@ -4,6 +4,7 @@ pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::{Plot, TickPriority};
+use std::cmp;
 
 impl Block {
     fn get_weak_power(self, plot: &Plot, pos: &BlockPos, side: &BlockFace) -> u8 {
@@ -15,27 +16,51 @@ impl Block {
         }
     }
 
-    fn get_strong_power(self, plot: &Plot, pos: &BlockPos, side: BlockFace) -> u8 {
+    fn get_strong_power(self, plot: &Plot, pos: &BlockPos, side: BlockFace, dust_power: bool) -> u8 {
         match self {
             Block::RedstoneTorch(true) if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch(true, _) if side == BlockFace::Bottom => 15,
-            Block::RedstoneWire(wire) => wire.power,
+            Block::RedstoneWire(wire) if dust_power => {
+                let wire_pos = pos.offset(side);
+                match side {
+                    BlockFace::Top => wire.power,
+                    BlockFace::Bottom => 0,
+                    _ => {
+                        let direction = side.to_direction();
+                        let right_side = RedstoneWire::get_side(plot, &wire_pos, direction.rotate()).is_none();
+                        let left_side = RedstoneWire::get_side(plot, &wire_pos, direction.rotate_ccw()).is_none();
+                        if right_side && left_side {
+                            wire.power
+                        } else {
+                            0
+                        }
+                    }
+                }
+            },
             _ => 0,
         }
     }
 
-    fn get_max_strong_power(self, plot: &Plot, pos: &BlockPos) -> u8 {
+    fn get_max_strong_power(self, plot: &Plot, pos: &BlockPos, dust_power: bool) -> u8 {
         let mut max_power = 0;
         for side in &BlockFace::values() {
             let block = plot.get_block(&pos.offset(*side));
-            max_power = max_power.max(block.get_strong_power(plot, pos, *side));
+            max_power = max_power.max(block.get_strong_power(plot, pos, *side, dust_power));
         }
         max_power
     }
 
     fn get_redstone_power(&self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
         if self.is_solid() {
-            self.get_max_strong_power(plot, pos)
+            self.get_max_strong_power(plot, pos, true)
+        } else {
+            self.get_weak_power(plot, pos, &facing)
+        }
+    }
+
+    fn get_redstone_power_no_dust(&self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
+        if self.is_solid() {
+            self.get_max_strong_power(plot, pos, false)
         } else {
             self.get_weak_power(plot, pos, &facing)
         }
