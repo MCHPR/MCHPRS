@@ -75,6 +75,9 @@ impl Plot {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: &BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 64 {
+            return false;
+        }
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32, block)
     }
@@ -91,6 +94,9 @@ impl Plot {
 
     pub fn get_block(&self, pos: &BlockPos) -> Block {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 64 {
+            return Block::Air;
+        }
         let chunk = &self.chunks[chunk_index];
         Block::from_block_state(chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32))
     }
