@@ -69,6 +69,7 @@ impl Item {
             64 => Item::BlockItem(id),
             68 => Item::BlockItem(id),
             82..=97 => Item::BlockItem(id),
+            164 => Item::BlockItem(id),
             173 => Item::BlockItem(id),
             272 => Item::BlockItem(id),
             413..=428 => Item::BlockItem(id),

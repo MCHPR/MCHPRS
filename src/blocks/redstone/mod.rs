@@ -12,6 +12,7 @@ impl Block {
             Block::RedstoneTorch(true) => 15,
             Block::RedstoneWallTorch(true, _) => 15,
             Block::RedstoneBlock => 15,
+            Block::Lever(lever) if lever.powered => 15,
             _ => 0,
         }
     }
@@ -26,6 +27,20 @@ impl Block {
         match self {
             Block::RedstoneTorch(true) if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch(true, _) if side == BlockFace::Bottom => 15,
+            Block::Lever(lever) => {
+                match side {
+                    BlockFace::Top if lever.face == LeverFace::Floor => {
+                        if lever.powered { 15 } else { 0 }
+                    }
+                    BlockFace::Bottom if lever.face == LeverFace::Ceiling => {
+                        if lever.powered { 15 } else { 0 }
+                    }
+                    _ if lever.facing == side.to_direction() => {
+                        if lever.powered { 15 } else { 0 }
+                    }
+                    _ => 0
+                }
+            }
             Block::RedstoneWire(wire) if dust_power => {
                 let wire_pos = pos.offset(side);
                 match side {
@@ -59,7 +74,7 @@ impl Block {
         max_power
     }
 
-    fn get_redstone_power(&self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
+    fn get_redstone_power(self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
         if self.is_solid() {
             self.get_max_strong_power(plot, pos, true)
         } else {
@@ -67,7 +82,7 @@ impl Block {
         }
     }
 
-    fn get_redstone_power_no_dust(&self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
+    fn get_redstone_power_no_dust(self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
         if self.is_solid() {
             self.get_max_strong_power(plot, pos, false)
         } else {
@@ -104,6 +119,22 @@ fn diode_get_input_strength(plot: &Plot, pos: &BlockPos, facing: BlockDirection)
     power
 }
 
+fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
+    let side_pos = &pos.offset(side.block_face());
+    let side_block = plot.get_block(side_pos);
+    if let Block::RedstoneWire(wire) = side_block {
+        return wire.power;
+    }
+    side_block.get_strong_power(plot, side_pos, side.opposite().block_face(), false)
+
+}
+
+fn max_power_on_sides(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> u8 {
+    let right_side = get_power_on_side(plot, pos, facing.rotate());
+    let left_side = get_power_on_side(plot, pos, facing.rotate_ccw());
+    cmp::max(right_side, left_side)
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneRepeater {
     pub(super) delay: u8,
@@ -127,8 +158,29 @@ impl RedstoneRepeater {
         }
     }
 
-    pub fn should_be_powered(&self, plot: &Plot, pos: &BlockPos) -> bool {
+    pub fn get_state_for_placement(plot: &Plot, pos: &BlockPos, facing: BlockDirection) -> RedstoneRepeater {
+        RedstoneRepeater {
+            delay: 1,
+            facing,
+            locked: RedstoneRepeater::should_be_locked(facing, plot, pos),
+            powered: false,
+        }
+    }
+
+    fn should_be_locked(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> bool {
+        max_power_on_sides(facing, plot, pos) > 0
+    }
+
+    pub fn should_be_powered(self, plot: &Plot, pos: &BlockPos) -> bool {
         diode_get_input_strength(plot, pos, self.facing) > 0
+    }
+
+    pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: &BlockPos) {
+        if !self.locked && RedstoneRepeater::should_be_locked(self.facing, plot, pos) {
+            self.locked = true;
+            plot.set_block(pos, Block::RedstoneRepeater(self));
+        }
+
     }
 
     pub fn tick(mut self, plot: &mut Plot, pos: &BlockPos) {
@@ -144,6 +196,53 @@ impl RedstoneRepeater {
                     plot.schedule_tick(pos, self.delay as u32, TickPriority::Higher);
                 }
             }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LeverFace {
+    Floor,
+    Wall,
+    Ceiling
+}
+
+impl LeverFace {
+    pub(super) fn from_id(id: u32) -> LeverFace {
+        match id {
+            0 => LeverFace::Floor,
+            1 => LeverFace::Wall,
+            2 => LeverFace::Ceiling,
+            _ => panic!("Invalid LeverFace"),
+        }
+    }
+
+    pub(super) fn get_id(self) -> u32 {
+        match self {
+            LeverFace::Floor => 0,
+            LeverFace::Wall => 1,
+            LeverFace::Ceiling => 2,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Lever {
+    pub face: LeverFace,
+    pub facing: BlockDirection,
+    pub powered: bool,
+}
+
+impl Lever {
+    pub(super) fn new(
+        face: LeverFace,
+        facing: BlockDirection,
+        powered: bool,
+    ) -> Lever {
+        Lever {
+            face,
+            facing,
+            powered,
         }
     }
 }

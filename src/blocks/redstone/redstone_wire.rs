@@ -116,7 +116,8 @@ impl RedstoneWire {
             | Block::RedstoneComparator(_)
             | Block::RedstoneTorch(_)
             | Block::RedstoneBlock
-            | Block::RedstoneWallTorch(_, _) => true,
+            | Block::RedstoneWallTorch(_, _)
+            | Block::Lever(_) => true,
             Block::RedstoneRepeater(repeater) => {
                 repeater.facing == side || repeater.facing == side.opposite()
             }

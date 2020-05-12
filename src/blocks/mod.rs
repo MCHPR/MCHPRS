@@ -162,20 +162,21 @@ pub enum Block {
     RedstoneTorch(bool),
     RedstoneWallTorch(bool, BlockDirection),
     RedstoneLamp(bool),
+    Lever(Lever),
     RedstoneBlock,
     Solid(u32),
     Transparent(u32),
 }
 
 impl Block {
-    fn is_transparent(&self) -> bool {
+    fn is_transparent(self) -> bool {
         match self {
             Block::Transparent(_) | Block::RedstoneBlock => true,
             _ => false,
         }
     }
 
-    fn is_air(&self) -> bool {
+    fn is_air(self) -> bool {
         if let Block::Air = self {
             true
         } else {
@@ -183,21 +184,21 @@ impl Block {
         }
     }
 
-    fn is_solid(&self) -> bool {
+    fn is_solid(self) -> bool {
         match self {
             Block::RedstoneLamp(_) | Block::Solid(_) => true,
             _ => false,
         }
     }
 
-    pub fn tick(&self, plot: &mut Plot, pos: &BlockPos) {
+    pub fn tick(self, plot: &mut Plot, pos: &BlockPos) {
         match self {
             Block::RedstoneRepeater(repeater) => {
                 repeater.tick(plot, pos);
             }
             Block::RedstoneTorch(powered) => {
                 let should_be_off = Block::torch_should_be_off(plot, pos);
-                if *powered && should_be_off {
+                if powered && should_be_off {
                     plot.set_block(pos, Block::RedstoneTorch(false));
                     Block::update_surrounding_blocks(plot, pos);
                 } else if !powered && !should_be_off {
@@ -206,12 +207,12 @@ impl Block {
                 }
             }
             Block::RedstoneWallTorch(powered, direction) => {
-                let should_be_off = Block::wall_torch_should_be_off(plot, pos, *direction);
-                if *powered && should_be_off {
-                    plot.set_block(pos, Block::RedstoneWallTorch(false, *direction));
+                let should_be_off = Block::wall_torch_should_be_off(plot, pos, direction);
+                if powered && should_be_off {
+                    plot.set_block(pos, Block::RedstoneWallTorch(false, direction));
                     Block::update_surrounding_blocks(plot, pos);
                 } else if !powered && !should_be_off {
-                    plot.set_block(pos, Block::RedstoneWallTorch(true, *direction));
+                    plot.set_block(pos, Block::RedstoneWallTorch(true, direction));
                     Block::update_surrounding_blocks(plot, pos);
                 }
             }
@@ -219,7 +220,7 @@ impl Block {
         }
     }
 
-    pub fn can_place_block_in(&self) -> bool {
+    pub fn can_place_block_in(self) -> bool {
         match self.get_id() {
             0 => true,           // Air
             9129..=9130 => true, // Void and Cave air
@@ -250,6 +251,13 @@ impl Block {
                 let north = RedstoneWireSide::from_id(id % 432 / 144);
                 let east = RedstoneWireSide::from_id(id / 432);
                 Block::RedstoneWire(RedstoneWire::new(north, south, east, west, power as u8))
+            }
+            3781..=3804 => {
+                let id = id - 3781;
+                let face = LeverFace::from_id(id >> 3);
+                let facing = BlockDirection::from_id((id >> 1) & 0b11);
+                let powered = (id & 1) == 0;
+                Block::Lever(Lever::new(face, facing, powered))
             }
             // Redstone Torch
             3885 => Block::RedstoneTorch(true),
@@ -297,6 +305,12 @@ impl Block {
                     + wire.west.get_id()
                     + 2056
             }
+            Block::Lever(lever) => {
+                (lever.face.get_id() << 3)
+                    + (lever.facing.get_id() << 1)
+                    + !lever.powered as u32
+                    + 3781
+            }
             Block::RedstoneTorch(true) => 3885,
             Block::RedstoneTorch(false) => 3886,
             Block::RedstoneWallTorch(lit, facing) => (facing.get_id() << 1) + (!lit as u32) + 3887,
@@ -331,7 +345,7 @@ impl Block {
         }
     }
 
-    pub fn on_use(&self, plot: &mut Plot, pos: &BlockPos) -> ActionResult {
+    pub fn on_use(self, plot: &mut Plot, pos: &BlockPos) -> ActionResult {
         match self {
             Block::RedstoneRepeater(repeater) => {
                 let mut repeater = repeater.clone();
@@ -346,6 +360,17 @@ impl Block {
                 let mut comparator = comparator.clone();
                 comparator.mode = comparator.mode.flip();
                 plot.set_block(&pos, Block::RedstoneComparator(comparator));
+                ActionResult::Success
+            }
+            Block::Lever(lever) => {
+                let mut lever = lever.clone();
+                lever.powered = !lever.powered;
+                plot.set_block(&pos, Block::Lever(lever));
+                match lever.face {
+                    LeverFace::Ceiling => Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top)),
+                    LeverFace::Floor => Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom)),
+                    LeverFace::Wall => Block::update_surrounding_blocks(plot, &pos.offset(lever.facing.opposite().block_face()))
+                }
                 ActionResult::Success
             }
             _ => ActionResult::Pass,
@@ -365,32 +390,38 @@ impl Block {
             68 => Block::Solid(245),
             // Wool
             82..=97 => Block::Solid(item_id + 1301),
+            // Lever
+            164 => {
+                let lever_face = match context.block_face {
+                    BlockFace::Top => LeverFace::Floor,
+                    BlockFace::Bottom => LeverFace::Ceiling,
+                    _ => LeverFace::Wall,
+                };
+                let facing = if lever_face == LeverFace::Wall {
+                    context.block_face.to_direction()
+                } else {
+                    context.player_direction
+                };
+                Block::Lever(Lever::new(lever_face, facing, false))
+            }
             // Redstone Torch
             173 => match context.block_face {
                 BlockFace::Top => Block::RedstoneTorch(true),
                 BlockFace::Bottom => Block::RedstoneTorch(true),
-                BlockFace::North => Block::RedstoneWallTorch(true, BlockDirection::North),
-                BlockFace::South => Block::RedstoneWallTorch(true, BlockDirection::South),
-                BlockFace::East => Block::RedstoneWallTorch(true, BlockDirection::East),
-                BlockFace::West => Block::RedstoneWallTorch(true, BlockDirection::West),
+                face => Block::RedstoneWallTorch(true, face.to_direction()),
             },
             // Redstone Block
             272 => Block::RedstoneBlock,
             // Concrete
             413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
-            513 => Block::RedstoneRepeater(RedstoneRepeater {
-                delay: 1,
-                facing: context.player_direction.opposite(),
-                locked: false,
-                powered: false,
-            }),
+            513 => Block::RedstoneRepeater(RedstoneRepeater::get_state_for_placement(plot, pos, context.player_direction.opposite())),
             // Redstone Comparator
-            514 => Block::RedstoneComparator(RedstoneComparator {
-                mode: ComparatorMode::Compare,
-                facing: context.player_direction.opposite(),
-                powered: false,
-            }),
+            514 => Block::RedstoneComparator(RedstoneComparator::new(
+                context.player_direction.opposite(),
+                ComparatorMode::Compare,
+                false
+            )),
             // Redstone Wire
             600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos)),
             _ => {
@@ -433,6 +464,25 @@ impl Block {
                 Block::change_surrounding_blocks(plot, pos);
                 Block::update_wire_neighbors(plot, pos);
             }
+            Block::Lever(lever) => {
+                plot.set_block(&pos, Block::Air);
+                // This is a horrible idea, don't do this.
+                // One day this will be fixed, but for now... too bad!
+                match lever.face {
+                    LeverFace::Ceiling => {
+                        Block::change_surrounding_blocks(plot, &pos.offset(BlockFace::Top));
+                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top));
+                    },
+                    LeverFace::Floor => {
+                        Block::change_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom));
+                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom));
+                    },
+                    LeverFace::Wall => {
+                        Block::change_surrounding_blocks(plot, &pos.offset(lever.facing.opposite().block_face()));
+                        Block::update_surrounding_blocks(plot, &pos.offset(lever.facing.opposite().block_face()));
+                    },
+                }
+            }
             _ => {
                 plot.set_block(&pos, Block::Air);
                 Block::change_surrounding_blocks(plot, pos);
@@ -450,6 +500,9 @@ impl Block {
                 if !plot.pending_tick_at(pos) {
                     plot.schedule_tick(pos, 1, TickPriority::Normal);
                 }
+            }
+            Block::RedstoneRepeater(repeater) => {
+                repeater.on_neighbor_updated(plot, pos);
             }
             _ => {}
         }
@@ -474,6 +527,22 @@ impl Block {
             Block::RedstoneWallTorch(_, direction) => {
                 let parent_block = plot.get_block(&pos.offset(direction.opposite().block_face()));
                 parent_block.is_cube()
+            }
+            Block::Lever(lever) => {
+                match lever.face {
+                    LeverFace::Floor => {
+                        let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
+                        bottom_block.is_cube()
+                    }
+                    LeverFace::Ceiling => {
+                        let top_block = plot.get_block(&pos.offset(BlockFace::Top));
+                        top_block.is_cube()
+                    }
+                    LeverFace::Wall => {
+                        let parent_block = plot.get_block(&pos.offset(lever.facing.opposite().block_face()));
+                        parent_block.is_cube()
+                    }
+                }
             }
             _ => true,
         }
@@ -513,6 +582,8 @@ impl Block {
             let neighbor_pos = &pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
             block.update(plot, neighbor_pos);
+
+            // Also update diagonal blocks
 
             let up_pos = &neighbor_pos.offset(BlockFace::Top);
             let up_block = plot.get_block(&up_pos);
