@@ -366,6 +366,7 @@ impl Block {
                 let mut lever = lever.clone();
                 lever.powered = !lever.powered;
                 plot.set_block(&pos, Block::Lever(lever));
+                Block::update_surrounding_blocks(plot, &pos);
                 match lever.face {
                     LeverFace::Ceiling => Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top)),
                     LeverFace::Floor => Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom)),
