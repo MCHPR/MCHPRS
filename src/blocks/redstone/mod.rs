@@ -62,6 +62,7 @@ impl Block {
                     }
                 }
             }
+            Block::RedstoneRepeater(_) => self.get_weak_power(plot, pos, side),
             _ => 0,
         }
     }
@@ -188,7 +189,7 @@ impl RedstoneRepeater {
         let front_block = plot.get_block(front_pos);
         front_block.update(plot, front_pos);
         for direction in &BlockFace::values() {
-            let neighbor_pos = &pos.offset(*direction);
+            let neighbor_pos = &front_pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
             block.update(plot, neighbor_pos);
         }
