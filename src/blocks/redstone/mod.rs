@@ -110,11 +110,11 @@ impl Block {
 }
 
 fn diode_get_input_strength(plot: &Plot, pos: &BlockPos, facing: BlockDirection) -> u8 {
-    let neighbor_pos = &pos.offset(facing.block_face());
-    let neighbor = plot.get_block(neighbor_pos);
-    let mut power = neighbor.get_redstone_power(plot, pos, facing.block_face());
+    let input_pos = &pos.offset(facing.block_face());
+    let input_block = plot.get_block(input_pos);
+    let mut power = input_block.get_redstone_power(plot, input_pos, facing.block_face());
     if power == 0 {
-        if let Block::RedstoneWire(wire) = neighbor {
+        if let Block::RedstoneWire(wire) = input_block {
             power = wire.power;
         }
     }
