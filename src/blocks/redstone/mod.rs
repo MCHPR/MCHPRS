@@ -216,7 +216,7 @@ impl RedstoneRepeater {
 
         if !plot.pending_tick_at(pos) {
             let should_be_powered = self.should_be_powered(plot, pos);
-            if should_be_powered != self.powered {
+            if should_be_powered != self.powered && !self.locked {
                 self.schedule_tick(plot, pos, should_be_powered);
             }
         }
