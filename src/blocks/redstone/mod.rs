@@ -128,7 +128,7 @@ impl Block {
             let neighbor_pos = &pos.offset(*face);
             if plot
                 .get_block(neighbor_pos)
-                .get_redstone_power(plot, neighbor_pos, *face)
+                .get_redstone_power(plot, pos, *face)
                 > 0
             {
                 return true;
