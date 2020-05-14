@@ -191,6 +191,13 @@ impl Block {
         }
     }
 
+    fn is_diode(self) -> bool {
+        match self {
+            Block::RedstoneRepeater(_) | Block::RedstoneComparator(_) => true,
+            _ => false
+        }
+    }
+
     pub fn tick(self, plot: &mut Plot, pos: &BlockPos) {
         match self {
             Block::RedstoneRepeater(repeater) => {

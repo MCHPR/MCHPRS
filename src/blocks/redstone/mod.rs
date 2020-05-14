@@ -121,13 +121,6 @@ fn diode_get_input_strength(plot: &Plot, pos: &BlockPos, facing: BlockDirection)
     power
 }
 
-fn is_diode(block: Block) -> bool {
-    match block {
-        Block::RedstoneRepeater(_) | Block::RedstoneComparator(_) => true,
-        _ => false
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneRepeater {
     pub(super) delay: u8,
@@ -173,7 +166,7 @@ impl RedstoneRepeater {
     fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
         let side_pos = &pos.offset(side.block_face());
         let side_block = plot.get_block(side_pos);
-        if is_diode(side_block) {
+        if side_block.is_diode() {
             side_block.get_weak_power(plot, side_pos, side.block_face())
         } else {
             0
@@ -193,7 +186,7 @@ impl RedstoneRepeater {
 
     pub fn schedule_tick(self, plot: &mut Plot, pos: &BlockPos, should_be_powered: bool) {
         let front_block = plot.get_block(&pos.offset(self.facing.opposite().block_face()));
-        let priority = if is_diode(front_block) {
+        let priority = if front_block.is_diode() {
             TickPriority::Highest
         } else if !should_be_powered {
             TickPriority::Higher
@@ -310,6 +303,18 @@ impl ComparatorMode {
         match self {
             ComparatorMode::Subtract => ComparatorMode::Compare,
             ComparatorMode::Compare => ComparatorMode::Subtract,
+        }
+    }
+
+    fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
+        let side_pos = &pos.offset(side.block_face());
+        let side_block = plot.get_block(side_pos);
+        if side_block.is_diode() {
+            side_block.get_weak_power(plot, side_pos, side.block_face())
+        } else if let Block::RedstoneWire(wire) = side_block {
+            wire.power  
+        } else {
+            0
         }
     }
 }
