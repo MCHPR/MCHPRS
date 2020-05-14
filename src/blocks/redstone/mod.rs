@@ -174,7 +174,6 @@ impl RedstoneRepeater {
         let side_pos = &pos.offset(side.block_face());
         let side_block = plot.get_block(side_pos);
         if is_diode(side_block) {
-            println!("{:?} at {:?}", side_block, side);
             side_block.get_weak_power(plot, side_pos, side.block_face())
         } else {
             0
