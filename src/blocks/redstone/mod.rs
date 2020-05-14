@@ -159,29 +159,26 @@ impl RedstoneRepeater {
             powered: false,
         }
     }
-
-    fn should_be_locked(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> bool {
-        RedstoneRepeater::max_power_on_sides(facing, plot, pos) > 0
-    }
-
+    
     pub fn should_be_powered(self, plot: &Plot, pos: &BlockPos) -> bool {
         diode_get_input_strength(plot, pos, self.facing) > 0
+    }
+    
+    fn should_be_locked(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> bool {
+        let right_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate());
+        let left_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate_ccw());
+        cmp::max(right_side, left_side) > 0
     }
 
     fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
         let side_pos = &pos.offset(side.block_face());
         let side_block = plot.get_block(side_pos);
         if is_diode(side_block) {
-            side_block.get_strong_power(plot, side_pos, side.opposite().block_face(), false)
+            println!("{:?} at {:?}", side_block, side);
+            side_block.get_weak_power(plot, side_pos, side.block_face())
         } else {
             0
         }
-    }
-    
-    fn max_power_on_sides(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> u8 {
-        let right_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate());
-        let left_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate_ccw());
-        cmp::max(right_side, left_side)
     }
 
     fn on_state_change(self, plot: &mut Plot, pos: &BlockPos) {
