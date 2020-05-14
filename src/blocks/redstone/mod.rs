@@ -7,12 +7,13 @@ use crate::plot::{Plot, TickPriority};
 use std::cmp;
 
 impl Block {
-    fn get_weak_power(self, plot: &Plot, pos: &BlockPos, side: &BlockFace) -> u8 {
+    fn get_weak_power(self, plot: &Plot, pos: &BlockPos, side: BlockFace) -> u8 {
         match self {
             Block::RedstoneTorch(true) => 15,
             Block::RedstoneWallTorch(true, _) => 15,
             Block::RedstoneBlock => 15,
             Block::Lever(lever) if lever.powered => 15,
+            Block::RedstoneRepeater(repeater) if repeater.facing.block_face() == side && repeater.powered => 15,
             _ => 0,
         }
     }
@@ -78,7 +79,7 @@ impl Block {
         if self.is_solid() {
             self.get_max_strong_power(plot, pos, true)
         } else {
-            self.get_weak_power(plot, pos, &facing)
+            self.get_weak_power(plot, pos, facing)
         }
     }
 
@@ -86,7 +87,7 @@ impl Block {
         if self.is_solid() {
             self.get_max_strong_power(plot, pos, false)
         } else {
-            self.get_weak_power(plot, pos, &facing)
+            self.get_weak_power(plot, pos, facing)
         }
     }
 
@@ -119,20 +120,11 @@ fn diode_get_input_strength(plot: &Plot, pos: &BlockPos, facing: BlockDirection)
     power
 }
 
-fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
-    let side_pos = &pos.offset(side.block_face());
-    let side_block = plot.get_block(side_pos);
-    if let Block::RedstoneWire(wire) = side_block {
-        return wire.power;
+fn is_diode(block: Block) -> bool {
+    match block {
+        Block::RedstoneRepeater(_) | Block::RedstoneComparator(_) => true,
+        _ => false
     }
-    side_block.get_strong_power(plot, side_pos, side.opposite().block_face(), false)
-
-}
-
-fn max_power_on_sides(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> u8 {
-    let right_side = get_power_on_side(plot, pos, facing.rotate());
-    let left_side = get_power_on_side(plot, pos, facing.rotate_ccw());
-    cmp::max(right_side, left_side)
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -168,34 +160,82 @@ impl RedstoneRepeater {
     }
 
     fn should_be_locked(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> bool {
-        max_power_on_sides(facing, plot, pos) > 0
+        RedstoneRepeater::max_power_on_sides(facing, plot, pos) > 0
     }
 
     pub fn should_be_powered(self, plot: &Plot, pos: &BlockPos) -> bool {
         diode_get_input_strength(plot, pos, self.facing) > 0
     }
 
+    fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
+        let side_pos = &pos.offset(side.block_face());
+        let side_block = plot.get_block(side_pos);
+        if is_diode(side_block) {
+            side_block.get_strong_power(plot, side_pos, side.opposite().block_face(), false)
+        } else {
+            0
+        }
+    }
+    
+    fn max_power_on_sides(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> u8 {
+        let right_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate());
+        let left_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate_ccw());
+        cmp::max(right_side, left_side)
+    }
+
+    fn on_state_change(self, plot: &mut Plot, pos: &BlockPos) {
+        let front_pos = &pos.offset(self.facing.opposite().block_face());
+        let front_block = plot.get_block(front_pos);
+        front_block.update(plot, front_pos);
+        for direction in &BlockFace::values() {
+            let neighbor_pos = &pos.offset(*direction);
+            let block = plot.get_block(neighbor_pos);
+            block.update(plot, neighbor_pos);
+        }
+    }
+
+    pub fn schedule_tick(self, plot: &mut Plot, pos: &BlockPos, should_be_powered: bool) {
+        let front_block = plot.get_block(&pos.offset(self.facing.opposite().block_face()));
+        let priority = if is_diode(front_block) {
+            TickPriority::Highest
+        } else if !should_be_powered {
+            TickPriority::Higher
+        } else {
+            TickPriority::High
+        };
+        plot.schedule_tick(pos, self.delay as u32, priority);
+    }
+
     pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: &BlockPos) {
-        if !self.locked && RedstoneRepeater::should_be_locked(self.facing, plot, pos) {
+        let should_be_locked = RedstoneRepeater::should_be_locked(self.facing, plot, pos);
+        if !self.locked && should_be_locked {
             self.locked = true;
+            plot.set_block(pos, Block::RedstoneRepeater(self));
+        } else if self.locked && !should_be_locked {
+            self.locked = false;
             plot.set_block(pos, Block::RedstoneRepeater(self));
         }
 
+        if !plot.pending_tick_at(pos) {
+            let should_be_powered = self.should_be_powered(plot, pos);
+            if should_be_powered != self.powered {
+                self.schedule_tick(plot, pos, should_be_powered);
+            }
+        }
     }
 
     pub fn tick(mut self, plot: &mut Plot, pos: &BlockPos) {
-        if !self.locked {
-            let should_be_powered = self.should_be_powered(plot, pos);
-            if self.powered && should_be_powered {
-                self.powered = false;
-                plot.set_block(pos, Block::RedstoneRepeater(self));
-            } else if !self.powered {
-                self.powered = true;
-                plot.set_block(pos, Block::RedstoneRepeater(self));
-                if !should_be_powered {
-                    plot.schedule_tick(pos, self.delay as u32, TickPriority::Higher);
-                }
-            }
+        if self.locked { return };
+
+        let should_be_powered = self.should_be_powered(plot, pos);
+        if self.powered && !should_be_powered {
+            self.powered = false;
+            plot.set_block(pos, Block::RedstoneRepeater(self));
+            self.on_state_change(plot, pos);
+        } else if !self.powered {
+            self.powered = true;
+            plot.set_block(pos, Block::RedstoneRepeater(self));
+            self.on_state_change(plot, pos);
         }
     }
 }
