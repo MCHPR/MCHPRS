@@ -223,6 +223,12 @@ impl Block {
                     Block::update_surrounding_blocks(plot, pos);
                 }
             }
+            Block::RedstoneLamp(lit) => {
+                let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
+                if lit && !should_be_lit {
+                    plot.set_block(pos, Block::RedstoneLamp(false));
+                }
+            }
             _ => {}
         }
     }
@@ -418,6 +424,8 @@ impl Block {
                 BlockFace::Bottom => Block::RedstoneTorch(true),
                 face => Block::RedstoneWallTorch(true, face.to_direction()),
             },
+            // Redstone Lamp
+            234 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(plot, pos)),
             // Redstone Block
             272 => Block::RedstoneBlock,
             // Concrete
@@ -511,6 +519,14 @@ impl Block {
             }
             Block::RedstoneRepeater(repeater) => {
                 repeater.on_neighbor_updated(plot, pos);
+            }
+            Block::RedstoneLamp(lit) => {
+                let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
+                if lit && !should_be_lit {
+                    plot.schedule_tick(pos, 2, TickPriority::Normal);
+                } else if !lit && should_be_lit {
+                    plot.set_block(pos, Block::RedstoneLamp(true));
+                }
             }
             _ => {}
         }

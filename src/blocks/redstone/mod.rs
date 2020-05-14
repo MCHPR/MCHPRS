@@ -76,7 +76,7 @@ impl Block {
         max_power
     }
 
-    fn get_redstone_power(self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
+    pub fn get_redstone_power(self, plot: &Plot, pos: &BlockPos, facing: BlockFace) -> u8 {
         if self.is_solid() {
             self.get_max_strong_power(plot, pos, true)
         } else {
@@ -106,6 +106,16 @@ impl Block {
         let wall_pos = pos.offset(direction.opposite().block_face());
         let wall_block = plot.get_block(&wall_pos);
         wall_block.get_redstone_power(plot, &wall_pos, direction.opposite().block_face()) > 0
+    }
+
+    pub fn redstone_lamp_should_be_lit(plot: &Plot, pos: &BlockPos) -> bool {
+        for face in &BlockFace::values() {
+            let neighbor_pos = &pos.offset(*face);
+            if plot.get_block(neighbor_pos).get_redstone_power(plot, neighbor_pos, *face) > 0 {
+                return true;   
+            }
+        }
+        false
     }
 }
 
@@ -231,53 +241,6 @@ impl RedstoneRepeater {
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum LeverFace {
-    Floor,
-    Wall,
-    Ceiling
-}
-
-impl LeverFace {
-    pub(super) fn from_id(id: u32) -> LeverFace {
-        match id {
-            0 => LeverFace::Floor,
-            1 => LeverFace::Wall,
-            2 => LeverFace::Ceiling,
-            _ => panic!("Invalid LeverFace"),
-        }
-    }
-
-    pub(super) fn get_id(self) -> u32 {
-        match self {
-            LeverFace::Floor => 0,
-            LeverFace::Wall => 1,
-            LeverFace::Ceiling => 2,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Lever {
-    pub face: LeverFace,
-    pub facing: BlockDirection,
-    pub powered: bool,
-}
-
-impl Lever {
-    pub(super) fn new(
-        face: LeverFace,
-        facing: BlockDirection,
-        powered: bool,
-    ) -> Lever {
-        Lever {
-            face,
-            facing,
-            powered,
-        }
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum ComparatorMode {
     Compare,
     Subtract,
@@ -335,6 +298,53 @@ impl RedstoneComparator {
         RedstoneComparator {
             facing,
             mode,
+            powered,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LeverFace {
+    Floor,
+    Wall,
+    Ceiling
+}
+
+impl LeverFace {
+    pub(super) fn from_id(id: u32) -> LeverFace {
+        match id {
+            0 => LeverFace::Floor,
+            1 => LeverFace::Wall,
+            2 => LeverFace::Ceiling,
+            _ => panic!("Invalid LeverFace"),
+        }
+    }
+
+    pub(super) fn get_id(self) -> u32 {
+        match self {
+            LeverFace::Floor => 0,
+            LeverFace::Wall => 1,
+            LeverFace::Ceiling => 2,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Lever {
+    pub face: LeverFace,
+    pub facing: BlockDirection,
+    pub powered: bool,
+}
+
+impl Lever {
+    pub(super) fn new(
+        face: LeverFace,
+        facing: BlockDirection,
+        powered: bool,
+    ) -> Lever {
+        Lever {
+            face,
+            facing,
             powered,
         }
     }
