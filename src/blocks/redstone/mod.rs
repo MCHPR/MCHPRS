@@ -18,6 +18,26 @@ impl Block {
             {
                 15
             }
+            Block::RedstoneWire(wire) => {
+                let wire_pos = pos.offset(side);
+                match side {
+                    BlockFace::Top => wire.power,
+                    BlockFace::Bottom => 0,
+                    _ => {
+                        let direction = side.to_direction();
+                        let right_side =
+                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate()).is_none();
+                        let left_side =
+                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate_ccw())
+                                .is_none();
+                        if right_side && left_side {
+                            wire.power
+                        } else {
+                            0
+                        }
+                    }
+                }
+            }
             _ => 0,
         }
     }
@@ -56,26 +76,7 @@ impl Block {
                 }
                 _ => 0,
             },
-            Block::RedstoneWire(wire) if dust_power => {
-                let wire_pos = pos.offset(side);
-                match side {
-                    BlockFace::Top => wire.power,
-                    BlockFace::Bottom => 0,
-                    _ => {
-                        let direction = side.to_direction();
-                        let right_side =
-                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate()).is_none();
-                        let left_side =
-                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate_ccw())
-                                .is_none();
-                        if right_side && left_side {
-                            wire.power
-                        } else {
-                            0
-                        }
-                    }
-                }
-            }
+            Block::RedstoneWire(wire) if dust_power => self.get_weak_power(plot, pos, side),
             Block::RedstoneRepeater(_) => self.get_weak_power(plot, pos, side),
             _ => 0,
         }
