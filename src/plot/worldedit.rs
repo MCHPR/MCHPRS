@@ -186,7 +186,6 @@ impl WorldEditOperation {
 impl Plot {
     fn worldedit_send_operation(&mut self, operation: WorldEditOperation) {
         for packet in operation.records {
-
             // if packet.records.len() >= 8192 {
             let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
             let chunk = &self.chunks[chunk_index];

@@ -13,7 +13,11 @@ impl Block {
             Block::RedstoneWallTorch(true, _) => 15,
             Block::RedstoneBlock => 15,
             Block::Lever(lever) if lever.powered => 15,
-            Block::RedstoneRepeater(repeater) if repeater.facing.block_face() == side && repeater.powered => 15,
+            Block::RedstoneRepeater(repeater)
+                if repeater.facing.block_face() == side && repeater.powered =>
+            {
+                15
+            }
             _ => 0,
         }
     }
@@ -28,20 +32,30 @@ impl Block {
         match self {
             Block::RedstoneTorch(true) if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch(true, _) if side == BlockFace::Bottom => 15,
-            Block::Lever(lever) => {
-                match side {
-                    BlockFace::Top if lever.face == LeverFace::Floor => {
-                        if lever.powered { 15 } else { 0 }
+            Block::Lever(lever) => match side {
+                BlockFace::Top if lever.face == LeverFace::Floor => {
+                    if lever.powered {
+                        15
+                    } else {
+                        0
                     }
-                    BlockFace::Bottom if lever.face == LeverFace::Ceiling => {
-                        if lever.powered { 15 } else { 0 }
-                    }
-                    _ if lever.facing == side.to_direction() => {
-                        if lever.powered { 15 } else { 0 }
-                    }
-                    _ => 0
                 }
-            }
+                BlockFace::Bottom if lever.face == LeverFace::Ceiling => {
+                    if lever.powered {
+                        15
+                    } else {
+                        0
+                    }
+                }
+                _ if lever.facing == side.to_direction() => {
+                    if lever.powered {
+                        15
+                    } else {
+                        0
+                    }
+                }
+                _ => 0,
+            },
             Block::RedstoneWire(wire) if dust_power => {
                 let wire_pos = pos.offset(side);
                 match side {
@@ -111,8 +125,12 @@ impl Block {
     pub fn redstone_lamp_should_be_lit(plot: &Plot, pos: &BlockPos) -> bool {
         for face in &BlockFace::values() {
             let neighbor_pos = &pos.offset(*face);
-            if plot.get_block(neighbor_pos).get_redstone_power(plot, neighbor_pos, *face) > 0 {
-                return true;   
+            if plot
+                .get_block(neighbor_pos)
+                .get_redstone_power(plot, neighbor_pos, *face)
+                > 0
+            {
+                return true;
             }
         }
         false
@@ -154,7 +172,11 @@ impl RedstoneRepeater {
         }
     }
 
-    pub fn get_state_for_placement(plot: &Plot, pos: &BlockPos, facing: BlockDirection) -> RedstoneRepeater {
+    pub fn get_state_for_placement(
+        plot: &Plot,
+        pos: &BlockPos,
+        facing: BlockDirection,
+    ) -> RedstoneRepeater {
         RedstoneRepeater {
             delay: 1,
             facing,
@@ -162,11 +184,11 @@ impl RedstoneRepeater {
             powered: false,
         }
     }
-    
+
     pub fn should_be_powered(self, plot: &Plot, pos: &BlockPos) -> bool {
         diode_get_input_strength(plot, pos, self.facing) > 0
     }
-    
+
     fn should_be_locked(facing: BlockDirection, plot: &Plot, pos: &BlockPos) -> bool {
         let right_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate());
         let left_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate_ccw());
@@ -225,7 +247,9 @@ impl RedstoneRepeater {
     }
 
     pub fn tick(mut self, plot: &mut Plot, pos: &BlockPos) {
-        if self.locked { return };
+        if self.locked {
+            return;
+        };
 
         let should_be_powered = self.should_be_powered(plot, pos);
         if self.powered && !should_be_powered {
@@ -275,7 +299,7 @@ impl ComparatorMode {
         if side_block.is_diode() {
             side_block.get_weak_power(plot, side_pos, side.block_face())
         } else if let Block::RedstoneWire(wire) = side_block {
-            wire.power  
+            wire.power
         } else {
             0
         }
@@ -307,7 +331,7 @@ impl RedstoneComparator {
 pub enum LeverFace {
     Floor,
     Wall,
-    Ceiling
+    Ceiling,
 }
 
 impl LeverFace {
@@ -337,11 +361,7 @@ pub struct Lever {
 }
 
 impl Lever {
-    pub(super) fn new(
-        face: LeverFace,
-        facing: BlockDirection,
-        powered: bool,
-    ) -> Lever {
+    pub(super) fn new(face: LeverFace, facing: BlockDirection, powered: bool) -> Lever {
         Lever {
             face,
             facing,

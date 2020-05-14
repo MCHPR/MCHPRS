@@ -194,7 +194,7 @@ impl Block {
     fn is_diode(self) -> bool {
         match self {
             Block::RedstoneRepeater(_) | Block::RedstoneComparator(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -381,9 +381,16 @@ impl Block {
                 plot.set_block(&pos, Block::Lever(lever));
                 Block::update_surrounding_blocks(plot, &pos);
                 match lever.face {
-                    LeverFace::Ceiling => Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top)),
-                    LeverFace::Floor => Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom)),
-                    LeverFace::Wall => Block::update_surrounding_blocks(plot, &pos.offset(lever.facing.opposite().block_face()))
+                    LeverFace::Ceiling => {
+                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top))
+                    }
+                    LeverFace::Floor => {
+                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom))
+                    }
+                    LeverFace::Wall => Block::update_surrounding_blocks(
+                        plot,
+                        &pos.offset(lever.facing.opposite().block_face()),
+                    ),
                 }
                 ActionResult::Success
             }
@@ -431,12 +438,16 @@ impl Block {
             // Concrete
             413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
-            513 => Block::RedstoneRepeater(RedstoneRepeater::get_state_for_placement(plot, pos, context.player_direction.opposite())),
+            513 => Block::RedstoneRepeater(RedstoneRepeater::get_state_for_placement(
+                plot,
+                pos,
+                context.player_direction.opposite(),
+            )),
             // Redstone Comparator
             514 => Block::RedstoneComparator(RedstoneComparator::new(
                 context.player_direction.opposite(),
                 ComparatorMode::Compare,
-                false
+                false,
             )),
             // Redstone Wire
             600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos)),
@@ -488,15 +499,21 @@ impl Block {
                     LeverFace::Ceiling => {
                         Block::change_surrounding_blocks(plot, &pos.offset(BlockFace::Top));
                         Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top));
-                    },
+                    }
                     LeverFace::Floor => {
                         Block::change_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom));
                         Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom));
-                    },
+                    }
                     LeverFace::Wall => {
-                        Block::change_surrounding_blocks(plot, &pos.offset(lever.facing.opposite().block_face()));
-                        Block::update_surrounding_blocks(plot, &pos.offset(lever.facing.opposite().block_face()));
-                    },
+                        Block::change_surrounding_blocks(
+                            plot,
+                            &pos.offset(lever.facing.opposite().block_face()),
+                        );
+                        Block::update_surrounding_blocks(
+                            plot,
+                            &pos.offset(lever.facing.opposite().block_face()),
+                        );
+                    }
                 }
             }
             _ => {
@@ -552,22 +569,21 @@ impl Block {
                 let parent_block = plot.get_block(&pos.offset(direction.opposite().block_face()));
                 parent_block.is_cube()
             }
-            Block::Lever(lever) => {
-                match lever.face {
-                    LeverFace::Floor => {
-                        let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
-                        bottom_block.is_cube()
-                    }
-                    LeverFace::Ceiling => {
-                        let top_block = plot.get_block(&pos.offset(BlockFace::Top));
-                        top_block.is_cube()
-                    }
-                    LeverFace::Wall => {
-                        let parent_block = plot.get_block(&pos.offset(lever.facing.opposite().block_face()));
-                        parent_block.is_cube()
-                    }
+            Block::Lever(lever) => match lever.face {
+                LeverFace::Floor => {
+                    let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
+                    bottom_block.is_cube()
                 }
-            }
+                LeverFace::Ceiling => {
+                    let top_block = plot.get_block(&pos.offset(BlockFace::Top));
+                    top_block.is_cube()
+                }
+                LeverFace::Wall => {
+                    let parent_block =
+                        plot.get_block(&pos.offset(lever.facing.opposite().block_face()));
+                    parent_block.is_cube()
+                }
+            },
             _ => true,
         }
     }
