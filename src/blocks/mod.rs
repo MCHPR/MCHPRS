@@ -551,7 +551,7 @@ impl Block {
 
     pub fn is_cube(self) -> bool {
         match self {
-            Block::Solid(_) | Block::Transparent(_) | Block::RedstoneBlock => true,
+            Block::Solid(_) | Block::Transparent(_) | Block::RedstoneBlock | Block::RedstoneLamp(_) => true,
             _ => false,
         }
     }
