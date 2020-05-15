@@ -18,22 +18,19 @@ impl Block {
             {
                 15
             }
-            Block::RedstoneWire(wire) if dust_power => {
-                match side {
-                    BlockFace::Top => wire.power,
-                    BlockFace::Bottom => 0,
-                    _ => {
-                        let direction = side.to_direction();
-                        let right_side =
-                            RedstoneWire::get_side(plot, &pos, direction.rotate()).is_none();
-                        let left_side =
-                            RedstoneWire::get_side(plot, &pos, direction.rotate_ccw())
-                                .is_none();
-                        if right_side && left_side {
-                            wire.power
-                        } else {
-                            0
-                        }
+            Block::RedstoneWire(wire) if dust_power => match side {
+                BlockFace::Top => wire.power,
+                BlockFace::Bottom => 0,
+                _ => {
+                    let direction = side.to_direction();
+                    let right_side =
+                        RedstoneWire::get_side(plot, &pos, direction.rotate()).is_none();
+                    let left_side =
+                        RedstoneWire::get_side(plot, &pos, direction.rotate_ccw()).is_none();
+                    if right_side && left_side {
+                        wire.power
+                    } else {
+                        0
                     }
                 }
             },
@@ -249,7 +246,7 @@ impl RedstoneRepeater {
     pub fn tick(mut self, plot: &mut Plot, pos: &BlockPos) {
         if self.locked {
             return;
-        };
+        }
 
         let should_be_powered = self.should_be_powered(plot, pos);
         if self.powered && !should_be_powered {
