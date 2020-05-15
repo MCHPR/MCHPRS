@@ -7,7 +7,7 @@ use crate::plot::{Plot, TickPriority};
 use std::cmp;
 
 impl Block {
-    fn get_weak_power(self, plot: &Plot, pos: &BlockPos, side: BlockFace) -> u8 {
+    fn get_weak_power(self, plot: &Plot, pos: &BlockPos, side: BlockFace, dust_power: bool) -> u8 {
         match self {
             Block::RedstoneTorch(true) => 15,
             Block::RedstoneWallTorch(true, _) => 15,
@@ -18,6 +18,25 @@ impl Block {
             {
                 15
             }
+            Block::RedstoneWire(wire) if dust_power => {
+                match side {
+                    BlockFace::Top => wire.power,
+                    BlockFace::Bottom => 0,
+                    _ => {
+                        let direction = side.to_direction();
+                        let right_side =
+                            RedstoneWire::get_side(plot, &pos, direction.rotate()).is_none();
+                        let left_side =
+                            RedstoneWire::get_side(plot, &pos, direction.rotate_ccw())
+                                .is_none();
+                        if right_side && left_side {
+                            wire.power
+                        } else {
+                            0
+                        }
+                    }
+                }
+            },
             _ => 0,
         }
     }
@@ -56,27 +75,8 @@ impl Block {
                 }
                 _ => 0,
             },
-            Block::RedstoneWire(wire) if dust_power => {
-                let wire_pos = pos.offset(side);
-                match side {
-                    BlockFace::Top => wire.power,
-                    BlockFace::Bottom => 0,
-                    _ => {
-                        let direction = side.to_direction();
-                        let right_side =
-                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate()).is_none();
-                        let left_side =
-                            RedstoneWire::get_side(plot, &wire_pos, direction.rotate_ccw())
-                                .is_none();
-                        if right_side && left_side {
-                            wire.power
-                        } else {
-                            0
-                        }
-                    }
-                }
-            },
-            Block::RedstoneRepeater(_) => self.get_weak_power(plot, pos, side),
+            Block::RedstoneWire(_) => self.get_weak_power(plot, pos, side, dust_power),
+            Block::RedstoneRepeater(_) => self.get_weak_power(plot, pos, side, dust_power),
             _ => 0,
         }
     }
@@ -94,7 +94,7 @@ impl Block {
         if self.is_solid() {
             self.get_max_strong_power(plot, pos, true)
         } else {
-            self.get_weak_power(plot, pos, facing)
+            self.get_weak_power(plot, pos, facing, true)
         }
     }
 
@@ -102,7 +102,7 @@ impl Block {
         if self.is_solid() {
             self.get_max_strong_power(plot, pos, false)
         } else {
-            self.get_weak_power(plot, pos, facing)
+            self.get_weak_power(plot, pos, facing, false)
         }
     }
 
@@ -127,7 +127,7 @@ impl Block {
             let neighbor_pos = &pos.offset(*face);
             if plot
                 .get_block(neighbor_pos)
-                .get_redstone_power(plot, pos, *face)
+                .get_redstone_power(plot, neighbor_pos, *face)
                 > 0
             {
                 return true;
@@ -199,7 +199,7 @@ impl RedstoneRepeater {
         let side_pos = &pos.offset(side.block_face());
         let side_block = plot.get_block(side_pos);
         if side_block.is_diode() {
-            side_block.get_weak_power(plot, side_pos, side.block_face())
+            side_block.get_weak_power(plot, side_pos, side.block_face(), false)
         } else {
             0
         }
@@ -297,7 +297,7 @@ impl ComparatorMode {
         let side_pos = &pos.offset(side.block_face());
         let side_block = plot.get_block(side_pos);
         if side_block.is_diode() {
-            side_block.get_weak_power(plot, side_pos, side.block_face())
+            side_block.get_weak_power(plot, side_pos, side.block_face(), false)
         } else if let Block::RedstoneWire(wire) = side_block {
             wire.power
         } else {
