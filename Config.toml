@@ -1,4 +1,4 @@
-bind_address = "127.0.0.1:25565"
+bind_address = "0.0.0.0:25577"
 motd = "Minecraft High Performace Redstone Server"
 chat_format = "<{username}> {message}"
 max_players = 99999

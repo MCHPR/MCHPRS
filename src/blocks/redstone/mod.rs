@@ -283,22 +283,10 @@ impl ComparatorMode {
         }
     }
 
-    pub(super) fn flip(self) -> ComparatorMode {
+    pub(super) fn toggle(self) -> ComparatorMode {
         match self {
             ComparatorMode::Subtract => ComparatorMode::Compare,
             ComparatorMode::Compare => ComparatorMode::Subtract,
-        }
-    }
-
-    fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
-        let side_pos = &pos.offset(side.block_face());
-        let side_block = plot.get_block(side_pos);
-        if side_block.is_diode() {
-            side_block.get_weak_power(plot, side_pos, side.block_face(), false)
-        } else if let Block::RedstoneWire(wire) = side_block {
-            wire.power
-        } else {
-            0
         }
     }
 }
@@ -322,6 +310,27 @@ impl RedstoneComparator {
             powered,
         }
     }
+
+    fn get_power_on_side(plot: &Plot, pos: &BlockPos, side: BlockDirection) -> u8 {
+        let side_pos = &pos.offset(side.block_face());
+        let side_block = plot.get_block(side_pos);
+        if side_block.is_diode() {
+            side_block.get_weak_power(plot, side_pos, side.block_face(), false)
+        } else if let Block::RedstoneWire(wire) = side_block {
+            wire.power
+        } else {
+            0
+        }
+    }
+
+    pub fn update(mut self, plot: &mut Plot, pos: &BlockPos) {
+        
+    }
+
+    pub fn tick(mut self, plot: &mut Plot, pos: &BlockPos) {
+        
+    }
+    
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

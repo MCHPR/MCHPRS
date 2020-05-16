@@ -371,7 +371,7 @@ impl Block {
             }
             Block::RedstoneComparator(comparator) => {
                 let mut comparator = comparator.clone();
-                comparator.mode = comparator.mode.flip();
+                comparator.mode = comparator.mode.toggle();
                 plot.set_block(&pos, Block::RedstoneComparator(comparator));
                 ActionResult::Success
             }

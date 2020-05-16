@@ -159,6 +159,26 @@ impl Plot {
                     );
                 }
             }
+            "/rtps" => {
+                if args.len() < 1 {
+                    self.players[player].send_system_message(
+                        "Please specify the rtps you want to set to.",
+                    );
+                    return;
+                }
+                let tps = if let Ok(tps) = args[0].parse::<u32>() {
+                    tps
+                } else {
+                    self.players[player].send_system_message("Unable to parse rtps!");
+                    return;
+                };
+                if tps > 40000 {
+                    self.players[player].send_system_message("The rtps cannot go higher than 40000!");
+                    return;
+                }
+                self.tps = tps;
+                self.players[player].send_system_message("The rtps was successfully set.");
+            }
             "/tp" => {
                 if args.len() == 3 {
                     let x;

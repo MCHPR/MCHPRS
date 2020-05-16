@@ -10,7 +10,7 @@ use crate::network::packets::SlotData;
 use crate::player::Player;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use bus::BusReader;
-use log::debug;
+use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::{self, OpenOptions};
@@ -49,6 +49,8 @@ pub struct Plot {
     message_receiver: BusReader<BroadcastMessage>,
     message_sender: Sender<Message>,
     priv_message_receiver: Receiver<PrivMessage>,
+    last_update_time: SystemTime,
+    lag_time: Duration,
     last_player_time: SystemTime,
     running: bool,
     x: i32,
@@ -344,7 +346,22 @@ impl Plot {
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.last_player_time = SystemTime::now();
-            self.tick();
+            if self.tps != 0 {
+                let dur_per_tick = Duration::from_micros(1000000 / self.tps as u64);
+                let elapsed_time = self.last_update_time.elapsed().unwrap();
+                self.lag_time += elapsed_time;
+                self.last_update_time = SystemTime::now();
+                let ticks = self.lag_time.as_micros().checked_div(dur_per_tick.as_micros()).unwrap_or_default();
+                if ticks > 4000 {
+                    warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
+                    self.lag_time = Duration::from_secs(0);
+                }
+
+                while self.lag_time >= dur_per_tick {
+                    self.tick();
+                    self.lag_time -= dur_per_tick;
+                }
+            }
         } else {
             // Unload plot after 600 seconds unless the plot should be always loaded
             if self.last_player_time.elapsed().unwrap().as_secs() > 600 && !self.always_running {
@@ -424,6 +441,8 @@ impl Plot {
             .collect();
         Plot {
             last_player_time: SystemTime::now(),
+            last_update_time: SystemTime::now(),
+            lag_time: Duration::new(0, 0),
             message_receiver: rx,
             message_sender: tx,
             priv_message_receiver: priv_rx,
@@ -468,6 +487,8 @@ impl Plot {
             }
             Plot {
                 last_player_time: SystemTime::now(),
+                last_update_time: SystemTime::now(),
+                lag_time: Duration::new(0, 0),
                 message_receiver: rx,
                 message_sender: tx,
                 priv_message_receiver: priv_rx,
