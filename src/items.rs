@@ -30,27 +30,27 @@ pub struct ItemStack {
 
 impl ItemStack {
     pub fn use_on_block(&self, plot: &mut Plot, context: UseOnBlockContext) {
-        let block = plot.get_block(&context.block_pos);
+        let block = plot.get_block(context.block_pos);
 
-        if !context.player_crouching && block.on_use(plot, &context.block_pos).is_success() {
+        if !context.player_crouching && block.on_use(plot, context.block_pos).is_success() {
             return;
         }
 
         let block_pos = context.block_pos.offset(context.block_face);
         if let Item::BlockItem(item_id) = self.item_type {
-            if plot.get_block(&block_pos).can_place_block_in() {
-                let block = Block::get_state_for_placement(plot, &block_pos, item_id, &context);
-                block.place_in_plot(plot, &block_pos);
+            if plot.get_block(block_pos).can_place_block_in() {
+                let block = Block::get_state_for_placement(plot, block_pos, item_id, &context);
+                block.place_in_plot(plot, block_pos);
             }
         } else {
             // This is to make sure the client doesn't place a block
             // that the server can't handle.
 
-            let block = plot.get_block(&context.block_pos);
-            plot.send_block_change(&context.block_pos, block.get_id());
+            let block = plot.get_block(context.block_pos);
+            plot.send_block_change(context.block_pos, block.get_id());
 
-            let offset_block = plot.get_block(&block_pos);
-            plot.send_block_change(&block_pos, offset_block.get_id());
+            let offset_block = plot.get_block(block_pos);
+            plot.send_block_change(block_pos, offset_block.get_id());
         }
     }
 }

@@ -161,9 +161,8 @@ impl Plot {
             }
             "/rtps" => {
                 if args.len() < 1 {
-                    self.players[player].send_system_message(
-                        "Please specify the rtps you want to set to.",
-                    );
+                    self.players[player]
+                        .send_system_message("Please specify the rtps you want to set to.");
                     return;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
@@ -173,7 +172,8 @@ impl Plot {
                     return;
                 };
                 if tps > 40000 {
-                    self.players[player].send_system_message("The rtps cannot go higher than 40000!");
+                    self.players[player]
+                        .send_system_message("The rtps cannot go higher than 40000!");
                     return;
                 }
                 self.tps = tps;

@@ -6,7 +6,21 @@ use log::error;
 use redstone::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignBlockEntity {
+    first_row: String,
+    second_row: String,
+    third_row: String,
+    fouth_row: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum BlockEntity {
+    Comparator { output_strength: u8 },
+    Sign(Box<SignBlockEntity>),
+}
+
+#[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Hash)]
 pub struct BlockPos {
     pub x: i32,
     pub y: u32,
@@ -169,18 +183,18 @@ pub enum Block {
 }
 
 impl Block {
-    fn is_transparent(self) -> bool {
+
+    fn has_block_entity(self) -> bool {
         match self {
-            Block::Transparent(_) | Block::RedstoneBlock => true,
+            Block::RedstoneComparator(_) => true,
             _ => false,
         }
     }
 
-    fn is_air(self) -> bool {
-        if let Block::Air = self {
-            true
-        } else {
-            false
+    fn is_transparent(self) -> bool {
+        match self {
+            Block::Transparent(_) | Block::RedstoneBlock => true,
+            _ => false,
         }
     }
 
@@ -198,7 +212,7 @@ impl Block {
         }
     }
 
-    pub fn tick(self, plot: &mut Plot, pos: &BlockPos) {
+    pub fn tick(self, plot: &mut Plot, pos: BlockPos) {
         match self {
             Block::RedstoneRepeater(repeater) => {
                 repeater.tick(plot, pos);
@@ -358,7 +372,7 @@ impl Block {
         }
     }
 
-    pub fn on_use(self, plot: &mut Plot, pos: &BlockPos) -> ActionResult {
+    pub fn on_use(self, plot: &mut Plot, pos: BlockPos) -> ActionResult {
         match self {
             Block::RedstoneRepeater(repeater) => {
                 let mut repeater = repeater.clone();
@@ -366,30 +380,30 @@ impl Block {
                 if repeater.delay > 4 {
                     repeater.delay -= 4;
                 }
-                plot.set_block(&pos, Block::RedstoneRepeater(repeater));
+                plot.set_block(pos, Block::RedstoneRepeater(repeater));
                 ActionResult::Success
             }
             Block::RedstoneComparator(comparator) => {
                 let mut comparator = comparator.clone();
                 comparator.mode = comparator.mode.toggle();
-                plot.set_block(&pos, Block::RedstoneComparator(comparator));
+                plot.set_block(pos, Block::RedstoneComparator(comparator));
                 ActionResult::Success
             }
             Block::Lever(lever) => {
                 let mut lever = lever.clone();
                 lever.powered = !lever.powered;
-                plot.set_block(&pos, Block::Lever(lever));
-                Block::update_surrounding_blocks(plot, &pos);
+                plot.set_block(pos, Block::Lever(lever));
+                Block::update_surrounding_blocks(plot, pos);
                 match lever.face {
                     LeverFace::Ceiling => {
-                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top))
+                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top))
                     }
                     LeverFace::Floor => {
-                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom))
+                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom))
                     }
                     LeverFace::Wall => Block::update_surrounding_blocks(
                         plot,
-                        &pos.offset(lever.facing.opposite().block_face()),
+                        pos.offset(lever.facing.opposite().block_face()),
                     ),
                 }
                 ActionResult::Success
@@ -400,7 +414,7 @@ impl Block {
 
     pub fn get_state_for_placement(
         plot: &Plot,
-        pos: &BlockPos,
+        pos: BlockPos,
         item_id: u32,
         context: &UseOnBlockContext,
     ) -> Block {
@@ -463,7 +477,7 @@ impl Block {
         }
     }
 
-    pub fn place_in_plot(self, plot: &mut Plot, pos: &BlockPos) {
+    pub fn place_in_plot(self, plot: &mut Plot, pos: BlockPos) {
         match self {
             Block::RedstoneRepeater(_) => {
                 // TODO: Queue repeater tick
@@ -484,47 +498,51 @@ impl Block {
         }
     }
 
-    pub fn destroy(self, plot: &mut Plot, pos: &BlockPos) {
+    pub fn destroy(self, plot: &mut Plot, pos: BlockPos) {
+        if self.has_block_entity() {
+            plot.delete_block_entity(pos);
+        }
+        
         match self {
             Block::RedstoneWire(_) => {
-                plot.set_block(&pos, Block::Air);
+                plot.set_block(pos, Block::Air);
                 Block::change_surrounding_blocks(plot, pos);
                 Block::update_wire_neighbors(plot, pos);
             }
             Block::Lever(lever) => {
-                plot.set_block(&pos, Block::Air);
+                plot.set_block(pos, Block::Air);
                 // This is a horrible idea, don't do this.
                 // One day this will be fixed, but for now... too bad!
                 match lever.face {
                     LeverFace::Ceiling => {
-                        Block::change_surrounding_blocks(plot, &pos.offset(BlockFace::Top));
-                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Top));
+                        Block::change_surrounding_blocks(plot, pos.offset(BlockFace::Top));
+                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top));
                     }
                     LeverFace::Floor => {
-                        Block::change_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom));
-                        Block::update_surrounding_blocks(plot, &pos.offset(BlockFace::Bottom));
+                        Block::change_surrounding_blocks(plot, pos.offset(BlockFace::Bottom));
+                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom));
                     }
                     LeverFace::Wall => {
                         Block::change_surrounding_blocks(
                             plot,
-                            &pos.offset(lever.facing.opposite().block_face()),
+                            pos.offset(lever.facing.opposite().block_face()),
                         );
                         Block::update_surrounding_blocks(
                             plot,
-                            &pos.offset(lever.facing.opposite().block_face()),
+                            pos.offset(lever.facing.opposite().block_face()),
                         );
                     }
                 }
             }
             _ => {
-                plot.set_block(&pos, Block::Air);
+                plot.set_block(pos, Block::Air);
                 Block::change_surrounding_blocks(plot, pos);
                 Block::update_surrounding_blocks(plot, pos);
             }
         }
     }
 
-    fn update(self, plot: &mut Plot, pos: &BlockPos) {
+    fn update(self, plot: &mut Plot, pos: BlockPos) {
         match self {
             Block::RedstoneWire(wire) => {
                 wire.on_neighbor_updated(plot, pos);
@@ -559,31 +577,31 @@ impl Block {
         }
     }
 
-    pub fn is_valid_position(self, plot: &Plot, pos: &BlockPos) -> bool {
+    pub fn is_valid_position(self, plot: &Plot, pos: BlockPos) -> bool {
         match self {
             Block::RedstoneWire(_)
             | Block::RedstoneComparator(_)
             | Block::RedstoneRepeater(_)
             | Block::RedstoneTorch(_) => {
-                let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
+                let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
                 bottom_block.is_cube()
             }
             Block::RedstoneWallTorch(_, direction) => {
-                let parent_block = plot.get_block(&pos.offset(direction.opposite().block_face()));
+                let parent_block = plot.get_block(pos.offset(direction.opposite().block_face()));
                 parent_block.is_cube()
             }
             Block::Lever(lever) => match lever.face {
                 LeverFace::Floor => {
-                    let bottom_block = plot.get_block(&pos.offset(BlockFace::Bottom));
+                    let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
                     bottom_block.is_cube()
                 }
                 LeverFace::Ceiling => {
-                    let top_block = plot.get_block(&pos.offset(BlockFace::Top));
+                    let top_block = plot.get_block(pos.offset(BlockFace::Top));
                     top_block.is_cube()
                 }
                 LeverFace::Wall => {
                     let parent_block =
-                        plot.get_block(&pos.offset(lever.facing.opposite().block_face()));
+                        plot.get_block(pos.offset(lever.facing.opposite().block_face()));
                     parent_block.is_cube()
                 }
             },
@@ -591,7 +609,7 @@ impl Block {
         }
     }
 
-    fn change(self, plot: &mut Plot, pos: &BlockPos, direction: &BlockFace) {
+    fn change(self, plot: &mut Plot, pos: BlockPos, direction: &BlockFace) {
         if !self.is_valid_position(plot, pos) {
             self.destroy(plot, pos);
             return;
@@ -607,51 +625,51 @@ impl Block {
         }
     }
 
-    fn update_wire_neighbors(plot: &mut Plot, pos: &BlockPos) {
+    fn update_wire_neighbors(plot: &mut Plot, pos: BlockPos) {
         for direction in &BlockFace::values() {
-            let neighbor_pos = &pos.offset(*direction);
+            let neighbor_pos = pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
             block.update(plot, neighbor_pos);
             for n_direction in &BlockFace::values() {
-                let n_neighbor_pos = &neighbor_pos.offset(*n_direction);
+                let n_neighbor_pos = neighbor_pos.offset(*n_direction);
                 let block = plot.get_block(n_neighbor_pos);
                 block.update(plot, n_neighbor_pos);
             }
         }
     }
 
-    fn update_surrounding_blocks(plot: &mut Plot, pos: &BlockPos) {
+    fn update_surrounding_blocks(plot: &mut Plot, pos: BlockPos) {
         for direction in &BlockFace::values() {
-            let neighbor_pos = &pos.offset(*direction);
+            let neighbor_pos = pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
             block.update(plot, neighbor_pos);
 
             // Also update diagonal blocks
 
-            let up_pos = &neighbor_pos.offset(BlockFace::Top);
-            let up_block = plot.get_block(&up_pos);
+            let up_pos = neighbor_pos.offset(BlockFace::Top);
+            let up_block = plot.get_block(up_pos);
             up_block.update(plot, up_pos);
 
-            let down_pos = &neighbor_pos.offset(BlockFace::Bottom);
-            let down_block = plot.get_block(&down_pos);
+            let down_pos = neighbor_pos.offset(BlockFace::Bottom);
+            let down_block = plot.get_block(down_pos);
             down_block.update(plot, down_pos);
         }
     }
 
-    fn change_surrounding_blocks(plot: &mut Plot, pos: &BlockPos) {
+    fn change_surrounding_blocks(plot: &mut Plot, pos: BlockPos) {
         for direction in &BlockFace::values() {
-            let neighbor_pos = &pos.offset(*direction);
+            let neighbor_pos = pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
             block.change(plot, neighbor_pos, direction);
 
             // Also change diagonal blocks
 
-            let up_pos = &neighbor_pos.offset(BlockFace::Top);
-            let up_block = plot.get_block(&up_pos);
+            let up_pos = neighbor_pos.offset(BlockFace::Top);
+            let up_block = plot.get_block(up_pos);
             up_block.change(plot, up_pos, direction);
 
-            let down_pos = &neighbor_pos.offset(BlockFace::Bottom);
-            let down_block = plot.get_block(&down_pos);
+            let down_pos = neighbor_pos.offset(BlockFace::Bottom);
+            let down_block = plot.get_block(down_pos);
             down_block.change(plot, down_pos, direction);
         }
     }

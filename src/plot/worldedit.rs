@@ -6,6 +6,9 @@ use regex::Regex;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
+// TODO: Actually use the multiblock change record.
+// Right now we're just resending the whole chunk no
+// matter how big or small the operation is.
 pub struct MultiBlockChangeRecord {
     pub x: i32,
     pub y: i32,
@@ -111,7 +114,7 @@ struct WorldEditOperation {
 }
 
 impl WorldEditOperation {
-    fn new(first_pos: &BlockPos, second_pos: &BlockPos) -> WorldEditOperation {
+    fn new(first_pos: BlockPos, second_pos: BlockPos) -> WorldEditOperation {
         let x_start = std::cmp::min(first_pos.x, second_pos.x);
         let x_end = std::cmp::max(first_pos.x, second_pos.x);
 
@@ -144,7 +147,7 @@ impl WorldEditOperation {
         }
     }
 
-    fn update_block(&mut self, block_pos: &BlockPos, block_id: u32) {
+    fn update_block(&mut self, block_pos: BlockPos, block_id: u32) {
         let chunk_x = block_pos.x >> 4;
         let chunk_z = block_pos.z >> 4;
 
@@ -228,7 +231,7 @@ impl Plot {
             return None;
         }
 
-        Some(WorldEditOperation::new(&first_pos, &second_pos))
+        Some(WorldEditOperation::new(first_pos, second_pos))
     }
 
     pub(super) fn worldedit_set(
@@ -246,8 +249,8 @@ impl Plot {
                         let block_pos = BlockPos::new(x, y as u32, z);
                         let block_id = pattern.pick().get_id();
 
-                        if self.set_block_raw(&block_pos, block_id) {
-                            operation.update_block(&block_pos, block_id);
+                        if self.set_block_raw(block_pos, block_id) {
+                            operation.update_block(block_pos, block_id);
                         }
                     }
                 }
@@ -282,11 +285,11 @@ impl Plot {
                     for z in operation.z_range() {
                         let block_pos = BlockPos::new(x, y as u32, z);
 
-                        if filter.matches(self.get_block(&block_pos)) {
+                        if filter.matches(self.get_block(block_pos)) {
                             let block_id = pattern.pick().get_id();
 
-                            if self.set_block_raw(&block_pos, block_id) {
-                                operation.update_block(&block_pos, block_id);
+                            if self.set_block_raw(block_pos, block_id) {
+                                operation.update_block(block_pos, block_id);
                             }
                         }
                     }
@@ -321,7 +324,7 @@ impl Plot {
                 for y in operation.y_range() {
                     for z in operation.z_range() {
                         let block_pos = BlockPos::new(x, y as u32, z);
-                        if filter.matches(self.get_block(&block_pos)) {
+                        if filter.matches(self.get_block(block_pos)) {
                             blocks_counted += 1;
                         }
                     }

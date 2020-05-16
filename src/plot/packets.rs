@@ -151,7 +151,7 @@ impl Plot {
 
         if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
             self.players[player].send_system_message("Can't interact with blocks outside of plot");
-            self.send_block_change(&block_pos.offset(block_face), 0);
+            self.send_block_change(block_pos.offset(block_face), 0);
             return;
         }
 
@@ -368,8 +368,8 @@ impl Plot {
                 return;
             }
 
-            let other_block = self.get_block(&block_pos);
-            other_block.destroy(self, &block_pos);
+            let other_block = self.get_block(block_pos);
+            other_block.destroy(self, block_pos);
 
             let effect = C23Effect {
                 effect_id: 2001,
