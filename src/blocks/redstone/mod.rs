@@ -415,7 +415,6 @@ impl RedstoneComparator {
                 plot.schedule_tick(pos, 1, priority);
             }
         }
-        plot.set_block_entity(pos, BlockEntity::Comparator { output_strength });
     }
 
     pub fn tick(mut self, plot: &mut Plot, pos: BlockPos) {
@@ -441,11 +440,12 @@ impl RedstoneComparator {
             if powered && !should_be_powered {
                 self.powered = false;
                 plot.set_block(pos, Block::RedstoneComparator(self));
+                self.on_state_change(plot, pos);
             } else if !powered && should_be_powered {
                 self.powered = true;
                 plot.set_block(pos, Block::RedstoneComparator(self));
+                self.on_state_change(plot, pos);
             }
-            self.on_state_change(plot, pos);
         }
     }
 }
