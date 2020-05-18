@@ -2,7 +2,7 @@ mod redstone_wire;
 
 pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 
-use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
+use crate::blocks::{Block, BlockDirection, BlockEntity, BlockFace, BlockPos};
 use crate::plot::{Plot, TickPriority};
 use std::cmp;
 
@@ -17,6 +17,15 @@ impl Block {
                 if repeater.facing.block_face() == side && repeater.powered =>
             {
                 15
+            }
+            Block::RedstoneComparator(comparator) if comparator.facing.block_face() == side => {
+                if let Some(BlockEntity::Comparator { output_strength }) =
+                    plot.get_block_entity(pos)
+                {
+                    *output_strength
+                } else {
+                    0
+                }
             }
             Block::RedstoneWire(wire) if dust_power => match side {
                 BlockFace::Top => wire.power,
@@ -38,13 +47,7 @@ impl Block {
         }
     }
 
-    fn get_strong_power(
-        self,
-        plot: &Plot,
-        pos: BlockPos,
-        side: BlockFace,
-        dust_power: bool,
-    ) -> u8 {
+    fn get_strong_power(self, plot: &Plot, pos: BlockPos, side: BlockFace, dust_power: bool) -> u8 {
         match self {
             Block::RedstoneTorch(true) if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch(true, _) if side == BlockFace::Bottom => 15,
@@ -74,6 +77,7 @@ impl Block {
             },
             Block::RedstoneWire(_) => self.get_weak_power(plot, pos, side, dust_power),
             Block::RedstoneRepeater(_) => self.get_weak_power(plot, pos, side, dust_power),
+            Block::RedstoneComparator(_) => self.get_weak_power(plot, pos, side, dust_power),
             _ => 0,
         }
     }
@@ -109,11 +113,7 @@ impl Block {
         bottom_block.get_redstone_power(plot, bottom_pos, BlockFace::Top) > 0
     }
 
-    pub fn wall_torch_should_be_off(
-        plot: &Plot,
-        pos: BlockPos,
-        direction: BlockDirection,
-    ) -> bool {
+    pub fn wall_torch_should_be_off(plot: &Plot, pos: BlockPos, direction: BlockDirection) -> bool {
         let wall_pos = pos.offset(direction.opposite().block_face());
         let wall_block = plot.get_block(wall_pos);
         wall_block.get_redstone_power(plot, wall_pos, direction.opposite().block_face()) > 0
@@ -182,10 +182,6 @@ impl RedstoneRepeater {
         }
     }
 
-    pub fn should_be_powered(self, plot: &Plot, pos: BlockPos) -> bool {
-        diode_get_input_strength(plot, pos, self.facing) > 0
-    }
-
     fn should_be_locked(facing: BlockDirection, plot: &Plot, pos: BlockPos) -> bool {
         let right_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate());
         let left_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate_ccw());
@@ -223,6 +219,10 @@ impl RedstoneRepeater {
             TickPriority::High
         };
         plot.schedule_tick(pos, self.delay as u32, priority);
+    }
+
+    pub fn should_be_powered(self, plot: &Plot, pos: BlockPos) -> bool {
+        diode_get_input_strength(plot, pos, self.facing) > 0
     }
 
     pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: BlockPos) {
@@ -324,37 +324,130 @@ impl RedstoneComparator {
     }
 
     fn max_power_on_sides(self, plot: &Plot, pos: BlockPos) -> u8 {
-        let right_side = RedstoneRepeater::get_power_on_side(plot, pos, self.facing.rotate());
-        let left_side = RedstoneRepeater::get_power_on_side(plot, pos, self.facing.rotate_ccw());
+        let right_side = RedstoneComparator::get_power_on_side(plot, pos, self.facing.rotate());
+        let left_side = RedstoneComparator::get_power_on_side(plot, pos, self.facing.rotate_ccw());
         cmp::max(right_side, left_side)
     }
 
     fn calculate_input_strength(self, plot: &Plot, pos: BlockPos) -> u8 {
-        let diode_strength = diode_get_input_strength(plot, pos, self.facing);
-        diode_strength
+        let base_input_strength = diode_get_input_strength(plot, pos, self.facing);
+        let input_pos = pos.offset(self.facing.block_face());
+        let input_block = plot.get_block(input_pos);
+        if input_block.has_comparator_override() {
+            input_block.get_comparator_override(plot, input_pos)
+        } else if base_input_strength < 15 && input_block.is_cube() {
+            let far_input_pos = input_pos.offset(self.facing.block_face());
+            let far_input_block = plot.get_block(far_input_pos);
+            if far_input_block.has_comparator_override() {
+                far_input_block.get_comparator_override(plot, far_input_pos)
+            } else {
+                base_input_strength
+            }
+        } else {
+            base_input_strength
+        }
+    }
+
+    fn get_power_on_sides(self, plot: &Plot, pos: BlockPos) -> u8 {
+        cmp::max(
+            RedstoneComparator::get_power_on_side(plot, pos, self.facing.rotate()),
+            RedstoneComparator::get_power_on_side(plot, pos, self.facing.rotate_ccw()),
+        )
+    }
+
+    pub fn should_be_powered(self, plot: &Plot, pos: BlockPos) -> bool {
+        let input_strength = self.calculate_input_strength(plot, pos);
+        if input_strength == 0 {
+            false
+        } else {
+            let power_on_sides = self.get_power_on_sides(plot, pos);
+            if input_strength > power_on_sides {
+                true
+            } else {
+                power_on_sides == input_strength && self.mode == ComparatorMode::Compare
+            }
+        }
     }
 
     fn calculate_output_strength(self, plot: &mut Plot, pos: BlockPos) -> u8 {
+        let input_strength = Self::calculate_input_strength(self, plot, pos);
         if self.mode == ComparatorMode::Subtract {
-            cmp::max(
-                Self::calculate_input_strength(self, plot, pos)
-                    - self.max_power_on_sides(plot, pos),
-                0,
-            )
+            input_strength.saturating_sub(self.max_power_on_sides(plot, pos))
+        } else if input_strength >= self.max_power_on_sides(plot, pos) {
+            input_strength
         } else {
-            // TODO: Compare mode
             0
         }
     }
 
-    pub fn update(mut self, plot: &mut Plot, pos: BlockPos) {
+    // This is exactly the same as it is in the RedstoneRepeater struct.
+    // Sometime in the future, this needs to be reused. LLVM might optimize
+    // it way, but te human brane wil not!
+    fn on_state_change(self, plot: &mut Plot, pos: BlockPos) {
+        let front_pos = pos.offset(self.facing.opposite().block_face());
+        let front_block = plot.get_block(front_pos);
+        front_block.update(plot, front_pos);
+        for direction in &BlockFace::values() {
+            let neighbor_pos = front_pos.offset(*direction);
+            let block = plot.get_block(neighbor_pos);
+            block.update(plot, neighbor_pos);
+        }
+    }
+
+    pub fn update(self, plot: &mut Plot, pos: BlockPos) {
         if plot.pending_tick_at(pos) {
             return;
         }
         let output_strength = self.calculate_output_strength(plot, pos);
+        if let Some(BlockEntity::Comparator {
+            output_strength: old_output_strength,
+        }) = plot.get_block_entity(pos)
+        {
+            if output_strength != *old_output_strength
+                || self.powered != self.should_be_powered(plot, pos)
+            {
+                let front_block = plot.get_block(pos.offset(self.facing.opposite().block_face()));
+                let priority = if front_block.is_diode() {
+                    TickPriority::High
+                } else {
+                    TickPriority::Normal
+                };
+                plot.schedule_tick(pos, 1, priority);
+            }
+        }
+        plot.set_block_entity(pos, BlockEntity::Comparator { output_strength });
     }
 
-    pub fn tick(mut self, plot: &mut Plot, pos: BlockPos) {}
+    pub fn tick(mut self, plot: &mut Plot, pos: BlockPos) {
+        let new_strength = self.calculate_output_strength(plot, pos);
+        let old_strength = if let Some(BlockEntity::Comparator {
+            output_strength: old_output_strength,
+        }) = plot.get_block_entity(pos)
+        {
+            *old_output_strength
+        } else {
+            0
+        };
+
+        if new_strength != old_strength || self.mode == ComparatorMode::Compare {
+            plot.set_block_entity(
+                pos,
+                BlockEntity::Comparator {
+                    output_strength: new_strength,
+                },
+            );
+            let should_be_powered = self.should_be_powered(plot, pos);
+            let powered = self.powered;
+            if powered && !should_be_powered {
+                self.powered = false;
+                plot.set_block(pos, Block::RedstoneComparator(self));
+            } else if !powered && should_be_powered {
+                self.powered = true;
+                plot.set_block(pos, Block::RedstoneComparator(self));
+            }
+            self.on_state_change(plot, pos);
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]

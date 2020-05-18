@@ -17,6 +17,7 @@ pub struct SignBlockEntity {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BlockEntity {
     Comparator { output_strength: u8 },
+    Container { comparator_override: u8 },
     Sign(Box<SignBlockEntity>),
 }
 
@@ -178,16 +179,39 @@ pub enum Block {
     RedstoneLamp(bool),
     Lever(Lever),
     RedstoneBlock,
+    Container(u32),
     Solid(u32),
     Transparent(u32),
 }
 
 impl Block {
-
     fn has_block_entity(self) -> bool {
         match self {
             Block::RedstoneComparator(_) => true,
             _ => false,
+        }
+    }
+
+    fn has_comparator_override(self) -> bool {
+        match self {
+            Block::Container(_) => true,
+            _ => false,
+        }
+    }
+
+    fn get_comparator_override(self, plot: &Plot, pos: BlockPos) -> u8 {
+        match self {
+            Block::Container(_) => {
+                if let Some(BlockEntity::Container {
+                    comparator_override,
+                }) = plot.get_block_entity(pos)
+                {
+                    *comparator_override
+                } else {
+                    0
+                }
+            }
+            _ => 0,
         }
     }
 
@@ -205,45 +229,20 @@ impl Block {
         }
     }
 
-    fn is_diode(self) -> bool {
+    pub fn is_cube(self) -> bool {
         match self {
-            Block::RedstoneRepeater(_) | Block::RedstoneComparator(_) => true,
+            Block::Solid(_)
+            | Block::Transparent(_)
+            | Block::RedstoneBlock
+            | Block::RedstoneLamp(_) => true,
             _ => false,
         }
     }
 
-    pub fn tick(self, plot: &mut Plot, pos: BlockPos) {
+    fn is_diode(self) -> bool {
         match self {
-            Block::RedstoneRepeater(repeater) => {
-                repeater.tick(plot, pos);
-            }
-            Block::RedstoneTorch(powered) => {
-                let should_be_off = Block::torch_should_be_off(plot, pos);
-                if powered && should_be_off {
-                    plot.set_block(pos, Block::RedstoneTorch(false));
-                    Block::update_surrounding_blocks(plot, pos);
-                } else if !powered && !should_be_off {
-                    plot.set_block(pos, Block::RedstoneTorch(true));
-                    Block::update_surrounding_blocks(plot, pos);
-                }
-            }
-            Block::RedstoneWallTorch(powered, direction) => {
-                let should_be_off = Block::wall_torch_should_be_off(plot, pos, direction);
-                if powered && should_be_off {
-                    plot.set_block(pos, Block::RedstoneWallTorch(false, direction));
-                    Block::update_surrounding_blocks(plot, pos);
-                } else if !powered && !should_be_off {
-                    plot.set_block(pos, Block::RedstoneWallTorch(true, direction));
-                    Block::update_surrounding_blocks(plot, pos);
-                }
-            }
-            Block::RedstoneLamp(lit) => {
-                let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
-                if lit && !should_be_lit {
-                    plot.set_block(pos, Block::RedstoneLamp(false));
-                }
-            }
-            _ => {}
+            Block::RedstoneRepeater(_) | Block::RedstoneComparator(_) => true,
+            _ => false,
         }
     }
 
@@ -359,6 +358,7 @@ impl Block {
             Block::RedstoneBlock => 6190,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
+            Block::Container(id) => id,
         }
     }
 
@@ -386,6 +386,7 @@ impl Block {
             Block::RedstoneComparator(comparator) => {
                 let mut comparator = comparator.clone();
                 comparator.mode = comparator.mode.toggle();
+                comparator.tick(plot, pos);
                 plot.set_block(pos, Block::RedstoneComparator(comparator));
                 ActionResult::Success
             }
@@ -502,7 +503,7 @@ impl Block {
         if self.has_block_entity() {
             plot.delete_block_entity(pos);
         }
-        
+
         match self {
             Block::RedstoneWire(_) => {
                 plot.set_block(pos, Block::Air);
@@ -555,6 +556,9 @@ impl Block {
             Block::RedstoneRepeater(repeater) => {
                 repeater.on_neighbor_updated(plot, pos);
             }
+            Block::RedstoneComparator(comparator) => {
+                comparator.update(plot, pos);
+            }
             Block::RedstoneLamp(lit) => {
                 let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
                 if lit && !should_be_lit {
@@ -567,13 +571,41 @@ impl Block {
         }
     }
 
-    pub fn is_cube(self) -> bool {
+    pub fn tick(self, plot: &mut Plot, pos: BlockPos) {
         match self {
-            Block::Solid(_)
-            | Block::Transparent(_)
-            | Block::RedstoneBlock
-            | Block::RedstoneLamp(_) => true,
-            _ => false,
+            Block::RedstoneRepeater(repeater) => {
+                repeater.tick(plot, pos);
+            }
+            Block::RedstoneComparator(comparator) => {
+                comparator.tick(plot, pos);
+            }
+            Block::RedstoneTorch(powered) => {
+                let should_be_off = Block::torch_should_be_off(plot, pos);
+                if powered && should_be_off {
+                    plot.set_block(pos, Block::RedstoneTorch(false));
+                    Block::update_surrounding_blocks(plot, pos);
+                } else if !powered && !should_be_off {
+                    plot.set_block(pos, Block::RedstoneTorch(true));
+                    Block::update_surrounding_blocks(plot, pos);
+                }
+            }
+            Block::RedstoneWallTorch(powered, direction) => {
+                let should_be_off = Block::wall_torch_should_be_off(plot, pos, direction);
+                if powered && should_be_off {
+                    plot.set_block(pos, Block::RedstoneWallTorch(false, direction));
+                    Block::update_surrounding_blocks(plot, pos);
+                } else if !powered && !should_be_off {
+                    plot.set_block(pos, Block::RedstoneWallTorch(true, direction));
+                    Block::update_surrounding_blocks(plot, pos);
+                }
+            }
+            Block::RedstoneLamp(lit) => {
+                let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
+                if lit && !should_be_lit {
+                    plot.set_block(pos, Block::RedstoneLamp(false));
+                }
+            }
+            _ => {}
         }
     }
 
