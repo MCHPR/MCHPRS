@@ -429,7 +429,6 @@ impl RedstoneComparator {
         } else {
             0
         };
-
         if new_strength != old_strength || self.mode == ComparatorMode::Compare {
             plot.set_block_entity(
                 pos,
@@ -442,12 +441,11 @@ impl RedstoneComparator {
             if powered && !should_be_powered {
                 self.powered = false;
                 plot.set_block(pos, Block::RedstoneComparator(self));
-                self.on_state_change(plot, pos);
             } else if !powered && should_be_powered {
                 self.powered = true;
                 plot.set_block(pos, Block::RedstoneComparator(self));
-                self.on_state_change(plot, pos);
             }
+            self.on_state_change(plot, pos);
         }
     }
 }
