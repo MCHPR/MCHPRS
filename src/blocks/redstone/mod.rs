@@ -399,21 +399,23 @@ impl RedstoneComparator {
             return;
         }
         let output_strength = self.calculate_output_strength(plot, pos);
-        if let Some(BlockEntity::Comparator {
-            output_strength: old_output_strength,
-        }) = plot.get_block_entity(pos)
+        let old_strength = if let Some(BlockEntity::Comparator {
+            output_strength,
+        }) = plot.get_block_entity(pos) {
+            *output_strength
+        } else {
+            0
+        };
+        if output_strength != old_strength
+            || self.powered != self.should_be_powered(plot, pos)
         {
-            if output_strength != *old_output_strength
-                || self.powered != self.should_be_powered(plot, pos)
-            {
-                let front_block = plot.get_block(pos.offset(self.facing.opposite().block_face()));
-                let priority = if front_block.is_diode() {
-                    TickPriority::High
-                } else {
-                    TickPriority::Normal
-                };
-                plot.schedule_tick(pos, 1, priority);
-            }
+            let front_block = plot.get_block(pos.offset(self.facing.opposite().block_face()));
+            let priority = if front_block.is_diode() {
+                TickPriority::High
+            } else {
+                TickPriority::Normal
+            };
+            plot.schedule_tick(pos, 1, priority);
         }
     }
 

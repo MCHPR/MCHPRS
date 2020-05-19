@@ -1,6 +1,15 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
 
+// Redstone wires are extremely inefficient. 
+// Here we are updating many blocks which don't
+// need to be updated. A lot of the time we even
+// updating the same redstone wire twice. In the
+// future we can use the algorithm created by
+// theosib to greatly speed this up.
+// The comments in this issue might be useful:
+// https://bugs.mojang.com/browse/MC-81098
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RedstoneWireSide {
     Up,
