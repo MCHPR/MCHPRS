@@ -86,7 +86,7 @@ impl Block {
         let mut max_power = 0;
         for side in &BlockFace::values() {
             let block = plot.get_block(pos.offset(*side));
-            max_power = max_power.max(block.get_strong_power(plot, pos, *side, dust_power));
+            max_power = max_power.max(block.get_strong_power(plot, pos.offset(*side), *side, dust_power));
         }
         max_power
     }
