@@ -1,7 +1,7 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
 
-// Redstone wires are extremely inefficient. 
+// Redstone wires are extremely inefficient.
 // Here we are updating many blocks which don't
 // need to be updated. A lot of the time we even
 // updating the same redstone wire twice. In the

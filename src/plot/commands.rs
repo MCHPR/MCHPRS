@@ -139,19 +139,20 @@ impl Plot {
                 player.worldedit_set_second_position(x, y, z);
             }
             "//set" => {
-                if let Err(_) = self.worldedit_set(player, &args[0]) {
+                if self.worldedit_set(player, &args[0]).is_err() {
                     self.players[player].send_system_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
             "//replace" => {
-                if let Err(_) = self.worldedit_replace(player, &args[0], &args[1]) {
+                if self.worldedit_replace(player, &args[0], &args[1]).is_err() {
                     self.players[player].send_system_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
+            "//copy" => self.worldedit_copy(player),
             "//count" => {
                 if let Err(_) = self.worldedit_count(player, &args[0]) {
                     self.players[player].send_system_message(
@@ -171,9 +172,9 @@ impl Plot {
                     self.players[player].send_system_message("Unable to parse rtps!");
                     return;
                 };
-                if tps > 40000 {
+                if tps > 35000 {
                     self.players[player]
-                        .send_system_message("The rtps cannot go higher than 40000!");
+                        .send_system_message("The rtps cannot go higher than 35000!");
                     return;
                 }
                 self.tps = tps;

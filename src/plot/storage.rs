@@ -42,19 +42,22 @@ impl BitBuffer {
         }
     }
 
-    fn get_entry(&self, index: usize) -> u32 {
-        let long_index = (self.bits_per_entry as usize * index) >> 6;
-        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
-        let bitmask = ((1u128 << self.bits_per_entry) - 1) << index_in_long;
-
-        let mut long_long = self.longs[long_index] as u128;
-        if self.longs.len() > long_index + 1 {
-            long_long |= (self.longs[long_index + 1] as u128) << 64;
+    fn get_entry(&self, word_idx: usize) -> u32 {
+        // Find the set of indices.
+        let abs_idx = word_idx * self.bits_per_entry as usize;
+        let arr_idx = abs_idx >> 6;
+        let sub_idx = abs_idx & 0x3f;
+        // Find (at least) the lower half of the word, if not the full thing.
+        let mask = (1 << self.bits_per_entry) - 1;
+        let word = (self.longs[arr_idx] >> sub_idx) & mask;
+        // If it's not on a boundary, we can early exit; there's no top half to fill in.
+        if sub_idx + self.bits_per_entry as usize <= 64 {
+            return word as u32;
         }
-        // if ((bitmask & long_long) >> index_in_long) != 0 {
-        //     println!("long:    {:0128b}\nbitmask: {:128b} {}", long_long, bitmask, self.bits_per_entry);
-        // }
-        ((bitmask & long_long) >> index_in_long) as u32
+        // Otherwise, we need to get a little tricky.
+        let bits_we_have = 64 - sub_idx;
+        let next = self.longs[arr_idx + 1] << bits_we_have;
+        ((word | next) & mask) as u32
     }
 
     fn set_entry(&mut self, index: usize, val: u32) {
@@ -74,7 +77,7 @@ impl BitBuffer {
 }
 
 #[derive(Debug)]
-struct PalettedBitBuffer {
+pub struct PalettedBitBuffer {
     data: BitBuffer,
     palatte: Vec<u32>,
     max_entries: u32,
@@ -82,7 +85,7 @@ struct PalettedBitBuffer {
 }
 
 impl PalettedBitBuffer {
-    fn new() -> PalettedBitBuffer {
+    pub fn new() -> PalettedBitBuffer {
         let mut palatte = Vec::new();
         palatte.push(0);
         PalettedBitBuffer {
@@ -122,7 +125,7 @@ impl PalettedBitBuffer {
         };
     }
 
-    fn get_entry(&self, index: usize) -> u32 {
+    pub fn get_entry(&self, index: usize) -> u32 {
         if self.use_palatte {
             self.palatte[self.data.get_entry(index) as usize]
         } else {
@@ -130,7 +133,7 @@ impl PalettedBitBuffer {
         }
     }
 
-    fn set_entry(&mut self, index: usize, val: u32) {
+    pub fn set_entry(&mut self, index: usize, val: u32) {
         if self.use_palatte {
             if let Some(palatte_index) = self.palatte.iter().position(|x| x == &val) {
                 self.data.set_entry(index, palatte_index as u32);

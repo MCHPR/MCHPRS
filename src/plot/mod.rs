@@ -2,7 +2,7 @@ mod commands;
 pub mod database;
 mod packets;
 mod storage;
-mod worldedit;
+pub mod worldedit;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::network::packets::clientbound::*;
@@ -71,9 +71,9 @@ impl Plot {
     }
 
     fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - self.x * 128) >> 4;
-        let chunk_z = (block_z - self.z * 128) >> 4;
-        (chunk_x * 8 + chunk_z).abs() as usize
+        let chunk_x = (block_x - (self.x << 7)) >> 4;
+        let chunk_z = (block_z - (self.z << 7)) >> 4;
+        ((chunk_x << 3) + chunk_z).abs() as usize
     }
 
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
@@ -96,13 +96,18 @@ impl Plot {
         changed
     }
 
-    pub fn get_block(&self, pos: BlockPos) -> Block {
+    fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 64 {
-            return Block::Air;
+            return 0;
         }
         let chunk = &self.chunks[chunk_index];
-        Block::from_block_state(chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32))
+        chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32)
+    }
+
+    pub fn get_block(&self, pos: BlockPos) -> Block {
+        
+        Block::from_block_state(self.get_block_raw(pos))
     }
 
     pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
@@ -552,7 +557,7 @@ impl Plot {
         }
         while self.running {
             self.update();
-            thread::sleep(Duration::from_millis(2));
+            thread::sleep(Duration::from_millis(1));
         }
     }
 
@@ -581,7 +586,8 @@ impl Drop for Plot {
             // TODO: send all players to spawn and send them message along the lines of:
             // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
             for player in &mut self.players {
-                player.send_system_message("The plot you were previously in has crashed!");
+                // Give the player the bad news.
+                player.kick("The plot you were previously in has crashed!".to_owned());
             }
         }
         self.save();
