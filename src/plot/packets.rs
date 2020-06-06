@@ -259,6 +259,7 @@ impl Plot {
         player: usize,
         player_position_and_rotation: S12PlayerPositionAndRotation,
     ) {
+        // This is beautiful
         let old_x = self.players[player].x;
         let old_y = self.players[player].y;
         let old_z = self.players[player].z;
