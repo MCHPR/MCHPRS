@@ -163,6 +163,7 @@ impl Plot {
                     block_pos,
                     player_crouching: self.players[player].crouching,
                     player_direction: self.players[player].get_direction(),
+                    player_idx: player,
                 },
             );
         }
@@ -366,6 +367,28 @@ impl Plot {
             if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
                 self.players[player].send_system_message("Can't break blocks outside of plot");
                 return;
+            }
+
+            // This worldedit wand stuff should probably be done in another file. It's good enough for now.
+            let item_in_hand = self.players[player].inventory
+                [self.players[player].selected_slot as usize + 36]
+                .clone();
+            if let Some(item) = item_in_hand {
+                if item.item_type == Item::WEWand {
+                    let block = self.get_block(block_pos);
+                    self.send_block_change(block_pos, block.get_id());
+                    if let Some(pos) = self.players[player].first_position {
+                        if pos == block_pos {
+                            return;
+                        }
+                    }
+                    self.players[player].worldedit_set_first_position(
+                        block_pos.x,
+                        block_pos.y,
+                        block_pos.z,
+                    );
+                    return;
+                }
             }
 
             let other_block = self.get_block(block_pos);

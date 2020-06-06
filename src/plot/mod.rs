@@ -48,7 +48,8 @@ pub struct Plot {
     message_receiver: BusReader<BroadcastMessage>,
     message_sender: Sender<Message>,
     priv_message_receiver: Receiver<PrivMessage>,
-    players: Vec<Player>,
+    // It's kinda dumb making this pub but it would be too much work to do it differently.
+    pub players: Vec<Player>,
     tps: u32,
     to_be_ticked: Vec<TickEntry>,
     last_update_time: SystemTime,
@@ -106,7 +107,6 @@ impl Plot {
     }
 
     pub fn get_block(&self, pos: BlockPos) -> Block {
-        
         Block::from_block_state(self.get_block_raw(pos))
     }
 
@@ -587,7 +587,10 @@ impl Drop for Plot {
             // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
             for player in &mut self.players {
                 // Give the player the bad news.
-                player.kick("The plot you were previously in has crashed!".to_owned());
+                player.kick(
+                    r#"{ "text": "The plot you were previously in has crashed!", "color": "red" }"#
+                        .to_owned(),
+                );
             }
         }
         self.save();

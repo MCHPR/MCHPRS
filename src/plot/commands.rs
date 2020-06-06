@@ -153,6 +153,7 @@ impl Plot {
                 }
             }
             "//copy" => self.worldedit_copy(player),
+            "//paste" => self.worldedit_paste(player),
             "//count" => {
                 if let Err(_) = self.worldedit_count(player, &args[0]) {
                     self.players[player].send_system_message(

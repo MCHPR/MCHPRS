@@ -1,3 +1,4 @@
+use super::storage::PalettedBitBuffer;
 use super::Plot;
 use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
@@ -7,7 +8,7 @@ use std::ops::RangeInclusive;
 use std::time::Instant;
 
 // TODO: Actually use the multiblock change record.
-// Right now we're just resending the whole chunk no
+// Right now I'm just resending the whole chunk no
 // matter how big or small the operation is.
 pub struct MultiBlockChangeRecord {
     pub x: i32,
@@ -19,6 +20,21 @@ pub struct MultiBlockChangeRecord {
 pub struct WorldEditPatternPart {
     pub weight: f32,
     pub block_id: u32,
+}
+
+#[derive(Clone, Debug)]
+pub struct WorldEditClipboard {
+    pub origin_x: i32,
+    pub origin_y: i32,
+    pub origin_z: i32,
+    pub size_x: u32,
+    pub size_y: u32,
+    pub size_z: u32,
+    pub data: PalettedBitBuffer,
+}
+
+impl WorldEditClipboard {
+    
 }
 
 pub enum PatternParseError {
@@ -115,19 +131,13 @@ struct WorldEditOperation {
 
 impl WorldEditOperation {
     fn new(first_pos: BlockPos, second_pos: BlockPos) -> WorldEditOperation {
-        let x_start = std::cmp::min(first_pos.x, second_pos.x);
-        let x_end = std::cmp::max(first_pos.x, second_pos.x);
-
-        let y_start = std::cmp::min(first_pos.y, second_pos.y);
-        let y_end = std::cmp::max(first_pos.y, second_pos.y);
-
-        let z_start = std::cmp::min(first_pos.z, second_pos.z);
-        let z_end = std::cmp::max(first_pos.z, second_pos.z);
+        let start_pos = first_pos.min(second_pos);
+        let end_pos = first_pos.max(second_pos);
 
         let mut records: Vec<C10MultiBlockChange> = Vec::new();
 
-        for chunk_x in (x_start >> 4)..=(x_end >> 4) {
-            for chunk_z in (z_start >> 4)..=(z_end >> 4) {
+        for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
+            for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
                 records.push(C10MultiBlockChange {
                     chunk_x,
                     chunk_z,
@@ -136,9 +146,9 @@ impl WorldEditOperation {
             }
         }
 
-        let x_range = x_start..=x_end;
-        let y_range = (y_start as u32)..=(y_end as u32);
-        let z_range = z_start..=z_end;
+        let x_range = start_pos.x..=end_pos.x;
+        let y_range = (start_pos.y as u32)..=(end_pos.y as u32);
+        let z_range = start_pos.z..=end_pos.z;
         WorldEditOperation {
             records,
             x_range,
@@ -176,13 +186,13 @@ impl WorldEditOperation {
     }
 
     fn x_range(&self) -> RangeInclusive<i32> {
-        (&self.x_range).to_owned()
+        self.x_range.to_owned()
     }
     fn y_range(&self) -> RangeInclusive<u32> {
-        (&self.y_range).to_owned()
+        self.y_range.to_owned()
     }
     fn z_range(&self) -> RangeInclusive<i32> {
-        (&self.z_range).to_owned()
+        self.z_range.to_owned()
     }
 }
 
@@ -210,13 +220,13 @@ impl Plot {
         let player = &mut self.players[player];
         let first_pos;
         let second_pos;
-        if let Some(pos) = player.first_position.clone() {
+        if let Some(pos) = player.first_position {
             first_pos = pos;
         } else {
             player.send_system_message("First position is not set!");
             return None;
         }
-        if let Some(pos) = player.second_position.clone() {
+        if let Some(pos) = player.second_position {
             second_pos = pos;
         } else {
             player.send_system_message("Second position is not set!");
@@ -339,4 +349,117 @@ impl Plot {
         }
         Ok(())
     }
+
+    fn create_clipboard(
+        &self,
+        origin: BlockPos,
+        first_pos: BlockPos,
+        second_pos: BlockPos,
+    ) -> WorldEditClipboard {
+        let start_pos = first_pos.min(second_pos);
+        let end_pos = first_pos.max(second_pos);
+        let size_x = (end_pos.x - start_pos.x) as u32 + 1;
+        let size_y = end_pos.y - start_pos.y + 1;
+        let size_z = (end_pos.z - start_pos.z) as u32 + 1;
+        let mut cb = WorldEditClipboard {
+            origin_x: origin.x - start_pos.x,
+            origin_y: origin.y as i32 - start_pos.y as i32,
+            origin_z: origin.z - start_pos.z,
+            size_x,
+            size_y,
+            size_z,
+            data: PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize),
+        };
+        let mut i = 0;
+        for x in start_pos.x..=end_pos.x {
+            for y in start_pos.y..=end_pos.y {
+                for z in start_pos.z..=end_pos.z {
+                    //println!("{:?} {:?} {:?}", x, y, z);
+                    cb.data
+                        .set_entry(i, self.get_block_raw(BlockPos::new(x, y, z)));
+                    i += 1;
+                }
+            }
+        }
+        cb
+    }
+
+    fn paste_clipboard(&mut self, cb: &WorldEditClipboard, pos: BlockPos) {
+        let origin_x = pos.x - cb.origin_x;
+        let origin_y = pos.y as i32 - cb.origin_y;
+        let origin_z = pos.z - cb.origin_z;
+        let mut i = 0;
+        // This can be made better, but right now it's not D:
+        let x_range = origin_x..origin_x + cb.size_x as i32;
+        let y_range = origin_y..origin_y + cb.size_y as i32;
+        let z_range = origin_z..origin_z + cb.size_z as i32;
+        // I have no clue if these clones are going to cost anything noticeable.
+        for x in x_range.clone() {
+            for y in y_range.clone() {
+                for z in z_range.clone() {
+                    self.set_block_raw(BlockPos::new(x, y as u32, z), cb.data.get_entry(i));
+                    i += 1;
+                }
+            }
+        }
+        let chunk_x_range = (origin_x - (self.x << 7)) >> 4..=(origin_x + cb.size_x as i32 - (self.x << 7)) >> 4;
+        let chunk_z_range = (origin_z - (self.z << 7)) >> 4..=(origin_z + cb.size_z as i32 - (self.z << 7)) >> 4;
+        // This might also get costly, especially if the plot size gets expanded in the future.
+        for chunk_idx in 0..self.chunks.len() {
+            if chunk_x_range.contains(&(chunk_idx as i32 >> 3))
+                && chunk_z_range.contains(&(chunk_idx as i32 & 7))
+            {
+                let chunk = &self.chunks[chunk_idx];
+                let chunk_data = chunk.encode_packet(false);
+                for player in &mut self.players {
+                    player.client.send_packet(&chunk_data);
+                }
+            }
+        }
+    }
+
+    pub(super) fn worldedit_copy(&mut self, player: usize) {
+        let start_time = Instant::now();
+
+        // Start the operation just to verify the positions
+        if let Some(_) = self.worldedit_start_operation(player) {
+            let origin = BlockPos::new(
+                self.players[player].x.floor() as i32,
+                self.players[player].y.floor() as u32,
+                self.players[player].z.floor() as i32,
+            );
+            let clipboard = self.create_clipboard(
+                origin,
+                self.players[player].first_position.unwrap(),
+                self.players[player].second_position.unwrap(),
+            );
+            self.players[player].worldedit_clipboard = Some(clipboard);
+
+            self.players[player].worldedit_send_message(format!(
+                "Your selection was copied. ({:?})",
+                start_time.elapsed()
+            ));
+        }
+    }
+
+    pub(super) fn worldedit_paste(&mut self, player: usize) {
+        let start_time = Instant::now();
+
+        if self.players[player].worldedit_clipboard.is_some() {
+            // Here I am cloning the clipboard. This is bad. Don't do this.
+            let cb = &self.players[player].worldedit_clipboard.clone().unwrap();
+            let pos = BlockPos::new(
+                self.players[player].x.floor() as i32,
+                self.players[player].y.floor() as u32,
+                self.players[player].z.floor() as i32,
+            );
+            self.paste_clipboard(cb, pos);
+            self.players[player].worldedit_send_message(format!(
+                "Your clipboard was pasted. ({:?})",
+                start_time.elapsed()
+            ));
+        } else {
+            self.players[player].send_system_message("Your clipboard is empty!");
+        }
+    } 
 }

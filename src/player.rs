@@ -2,6 +2,7 @@ use crate::blocks::{BlockDirection, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
+use crate::plot::worldedit::WorldEditClipboard;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -72,6 +73,7 @@ pub struct Player {
     // Worldedit
     pub first_position: Option<BlockPos>,
     pub second_position: Option<BlockPos>,
+    pub worldedit_clipboard: Option<WorldEditClipboard>,
 }
 
 impl fmt::Debug for Player {
@@ -149,6 +151,7 @@ impl Player {
                 last_keep_alive_sent: Instant::now(),
                 first_position: None,
                 second_position: None,
+                worldedit_clipboard: None,
             }
         } else {
             Player::create_player(uuid, username, client)
@@ -183,6 +186,7 @@ impl Player {
             last_keep_alive_sent: Instant::now(),
             first_position: None,
             second_position: None,
+            worldedit_clipboard: None,
         }
     }
 

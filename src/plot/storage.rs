@@ -15,7 +15,7 @@ pub struct PlotData {
     pub block_entities: HashMap<BlockPos, BlockEntity>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct BitBuffer {
     bits_per_entry: u8,
     entries: usize,
@@ -24,7 +24,7 @@ struct BitBuffer {
 
 impl BitBuffer {
     fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
-        let longs_len = entries * bits_per_entry as usize / 64;
+        let longs_len = (entries * bits_per_entry as usize + 63) / 64;
         let longs = vec![0; longs_len];
         BitBuffer {
             bits_per_entry,
@@ -76,7 +76,7 @@ impl BitBuffer {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PalettedBitBuffer {
     data: BitBuffer,
     palatte: Vec<u32>,
@@ -86,10 +86,14 @@ pub struct PalettedBitBuffer {
 
 impl PalettedBitBuffer {
     pub fn new() -> PalettedBitBuffer {
+        Self::with_entries(4096)
+    }
+
+    pub fn with_entries(entries: usize) -> PalettedBitBuffer {
         let mut palatte = Vec::new();
         palatte.push(0);
         PalettedBitBuffer {
-            data: BitBuffer::create(4, 4096),
+            data: BitBuffer::create(4, entries),
             palatte,
             max_entries: 16,
             use_palatte: true,

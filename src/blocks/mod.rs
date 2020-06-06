@@ -33,7 +33,7 @@ impl BlockPos {
         BlockPos { x, y, z }
     }
 
-    pub fn offset(&self, face: BlockFace) -> BlockPos {
+    pub fn offset(self, face: BlockFace) -> BlockPos {
         match face {
             BlockFace::Bottom => BlockPos::new(self.x, self.y.saturating_sub(1), self.z),
             BlockFace::Top => BlockPos::new(self.x, self.y + 1, self.z),
@@ -41,6 +41,34 @@ impl BlockPos {
             BlockFace::South => BlockPos::new(self.x, self.y, self.z + 1),
             BlockFace::West => BlockPos::new(self.x - 1, self.y, self.z),
             BlockFace::East => BlockPos::new(self.x + 1, self.y, self.z),
+        }
+    }
+
+    pub fn max(self, other: BlockPos) -> BlockPos {
+        BlockPos {
+            x: std::cmp::max(self.x, other.x),
+            y: std::cmp::max(self.y, other.y),
+            z: std::cmp::max(self.z, other.z),
+        }
+    }
+
+    pub fn min(self, other: BlockPos) -> BlockPos {
+        BlockPos {
+            x: std::cmp::min(self.x, other.x),
+            y: std::cmp::min(self.y, other.y),
+            z: std::cmp::min(self.z, other.z),
+        }
+    }
+}
+
+impl std::ops::Sub for BlockPos {
+    type Output = BlockPos;
+
+    fn sub(self, rhs: BlockPos) -> BlockPos {
+        BlockPos {
+            x: self.x - rhs.x,
+            y: self.y - rhs.y,
+            z: self.z - rhs.z,
         }
     }
 }

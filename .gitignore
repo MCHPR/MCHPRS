@@ -2,4 +2,5 @@ target
 test_proxy
 world
 generators/reports
+schems
 output.log
