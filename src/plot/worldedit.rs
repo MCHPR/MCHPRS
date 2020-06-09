@@ -1,6 +1,6 @@
 use super::storage::PalettedBitBuffer;
 use super::Plot;
-use crate::blocks::{Block, BlockPos};
+use crate::blocks::{Block, BlockPos, BlockEntity};
 use crate::network::packets::clientbound::*;
 use rand::Rng;
 use regex::Regex;
@@ -34,17 +34,7 @@ pub struct WorldEditClipboard {
     pub size_y: u32,
     pub size_z: u32,
     pub data: PalettedBitBuffer,
-}
-
-macro_rules! nbt_unwrap_val {
-    // I'm not sure if path is the right type here.
-    // It works though!
-    ($e:expr, $p:path) => {
-        match $e {
-            $p(val) => val,
-            _ => return None,
-        }
-    };
+    pub block_entities: HashMap<BlockPos, BlockEntity>,
 }
 
 impl WorldEditClipboard {
@@ -100,6 +90,18 @@ impl WorldEditClipboard {
                 }
             }
         }
+        let block_entities = nbt_unwrap_val!(&nbt["BlockEntities"], Value::List);
+        let mut parsed_block_entities = HashMap::new();
+        for block_entity in block_entities {
+            let val = nbt_unwrap_val!(block_entity, Value::Compound);
+            let pos_array = nbt_unwrap_val!(&val["Pos"], Value::IntArray);
+            let pos = BlockPos {
+                x: pos_array[0],
+                y: pos_array[1] as u32,
+                z: pos_array[2],
+            };
+            parsed_block_entities.insert(pos, BlockEntity::from_nbt(val)?);
+        }
         Some(WorldEditClipboard {
             size_x,
             size_y,
@@ -108,6 +110,7 @@ impl WorldEditClipboard {
             origin_y,
             origin_z,
             data,
+            block_entities: parsed_block_entities,
         })
     }
 }
@@ -442,12 +445,13 @@ impl Plot {
             size_y,
             size_z,
             data: PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize),
+            // TODO: Get the block entities in the selection
+            block_entities: HashMap::new(),
         };
         let mut i = 0;
         for x in start_pos.x..=end_pos.x {
             for y in start_pos.y..=end_pos.y {
                 for z in start_pos.z..=end_pos.z {
-                    //println!("{:?} {:?} {:?}", x, y, z);
                     cb.data
                         .set_entry(i, self.get_block_raw(BlockPos::new(x, y, z)));
                     i += 1;
@@ -491,13 +495,21 @@ impl Plot {
                 }
             }
         }
+        for (pos, block_entity) in &cb.block_entities {
+            let new_pos = BlockPos {
+                x: pos.x + origin_x,
+                y: pos.y + origin_y as u32,
+                z: pos.z + origin_z,
+            };
+            self.set_block_entity(new_pos, block_entity.clone());
+        } 
     }
 
     pub(super) fn worldedit_copy(&mut self, player: usize) {
         let start_time = Instant::now();
 
         // Start the operation just to verify the positions
-        if let Some(_) = self.worldedit_start_operation(player) {
+        if self.worldedit_start_operation(player).is_some() {
             let origin = BlockPos::new(
                 self.players[player].x.floor() as i32,
                 self.players[player].y.floor() as u32,

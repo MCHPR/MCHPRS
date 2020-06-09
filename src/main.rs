@@ -1,5 +1,6 @@
 mod network;
 //mod permissions;
+#[macro_use]
 mod blocks;
 mod items;
 mod player;

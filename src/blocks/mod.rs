@@ -3,6 +3,7 @@ mod redstone;
 use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::{Plot, TickPriority};
 use log::error;
+use std::collections::HashMap;
 use redstone::*;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +20,52 @@ pub enum BlockEntity {
     Comparator { output_strength: u8 },
     Container { comparator_override: u8 },
     Sign(Box<SignBlockEntity>),
+}
+
+macro_rules! nbt_unwrap_val {
+    // I'm not sure if path is the right type here.
+    // It works though!
+    ($e:expr, $p:path) => {
+        match $e {
+            $p(val) => val,
+            _ => return None,
+        }
+    };
+}
+
+impl BlockEntity {
+    fn load_container(slots_nbt: &[nbt::Value], num_slots: u8) -> Option<BlockEntity> {
+        use nbt::Value;
+        let mut fullness_sum: f32 = 0.0;
+        for item in slots_nbt {
+            let item_compound = nbt_unwrap_val!(item, Value::Compound);
+            let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
+            // TODO: Detect item and replace 64 with the actual max stack size
+            fullness_sum += count as f32 / 64.0;
+        }
+        Some(BlockEntity::Container {
+            comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8
+        })
+    }
+
+    pub fn from_nbt(nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
+        use nbt::Value;
+        let id = nbt_unwrap_val!(&nbt["Id"], Value::String);
+        match id.as_ref() {
+            "minecraft:comparator" => {
+                Some(BlockEntity::Comparator {
+                    output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8
+                })
+            }
+            "minecraft:furnace" => {
+                BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 3)
+            }
+            "minecraft:barrel" => {
+                BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 27)
+            }
+            _ => None
+        }
+    }
 }
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Hash)]
@@ -321,6 +368,7 @@ impl Block {
                 let east = RedstoneWireSide::from_id(id / 432);
                 Block::RedstoneWire(RedstoneWire::new(north, south, east, west, power as u8))
             }
+            3372 => Block::Container(id),
             3781..=3804 => {
                 let id = id - 3781;
                 let face = LeverFace::from_id(id >> 3);
@@ -359,6 +407,7 @@ impl Block {
                 Block::RedstoneComparator(RedstoneComparator::new(facing, mode, powered))
             }
             6190 => Block::RedstoneBlock,
+            11136 => Block::Container(id),
             _ => Block::Solid(id),
         }
     }
@@ -452,6 +501,8 @@ impl Block {
             "redstone_lamp" => Some(Block::RedstoneLamp(false)),
             "repeater" => Some(Block::RedstoneRepeater(RedstoneRepeater::default())),
             "comparator" => Some(Block::RedstoneComparator(RedstoneComparator::default())),
+            "furnace" => Some(Block::Container(3372)),
+            "barrel" => Some(Block::Container(11136)),
             _ => None,
         }
     }
