@@ -407,6 +407,8 @@ impl Block {
                 Block::RedstoneComparator(RedstoneComparator::new(facing, mode, powered))
             }
             6190 => Block::RedstoneBlock,
+            7807 => Block::Transparent(id),
+            7855 => Block::Transparent(id),
             11136 => Block::Container(id),
             _ => Block::Solid(id),
         }

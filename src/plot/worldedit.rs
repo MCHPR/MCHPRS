@@ -100,7 +100,9 @@ impl WorldEditClipboard {
                 y: pos_array[1] as u32,
                 z: pos_array[2],
             };
-            parsed_block_entities.insert(pos, BlockEntity::from_nbt(val)?);
+            if let Some(parsed) = BlockEntity::from_nbt(val) {
+                parsed_block_entities.insert(pos, parsed);
+            }
         }
         Some(WorldEditClipboard {
             size_x,
