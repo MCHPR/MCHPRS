@@ -147,7 +147,7 @@ fn diode_get_input_strength(plot: &Plot, pos: BlockPos, facing: BlockDirection) 
     power
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct RedstoneRepeater {
     pub(super) delay: u8,
     pub(super) facing: BlockDirection,
@@ -290,9 +290,23 @@ impl ComparatorMode {
             ComparatorMode::Compare => ComparatorMode::Subtract,
         }
     }
+
+    pub(super) fn from_str(name: &str) -> ComparatorMode {
+        match name {
+            "subtract" => ComparatorMode::Subtract,
+            "compare" => ComparatorMode::Compare,
+            _ => ComparatorMode::Compare,
+        }
+    }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+impl Default for ComparatorMode {
+    fn default() -> Self {
+        ComparatorMode::Compare
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct RedstoneComparator {
     pub(super) facing: BlockDirection,
     pub(super) mode: ComparatorMode,

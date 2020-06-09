@@ -53,7 +53,7 @@ impl Plot {
 
                 self.players[player].send_system_message("Running: //set =10");
 
-                if let Err(_) = self.worldedit_set(player, "=10") {
+                if self.worldedit_set(player, "=10").is_err() {
                     self.players[player].send_system_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
@@ -61,7 +61,7 @@ impl Plot {
 
                 self.players[player].send_system_message("Running: //set sandstone");
 
-                if let Err(_) = self.worldedit_set(player, "sandstone") {
+                if self.worldedit_set(player, "sandstone").is_err() {
                     self.players[player].send_system_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
@@ -69,7 +69,7 @@ impl Plot {
 
                 self.players[player].send_system_message("Running: //count sandstone");
 
-                if let Err(_) = self.worldedit_count(player, "sandstone") {
+                if self.worldedit_count(player, "sandstone").is_err() {
                     self.players[player].send_system_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
@@ -155,14 +155,15 @@ impl Plot {
             "//copy" => self.worldedit_copy(player),
             "//paste" => self.worldedit_paste(player),
             "//count" => {
-                if let Err(_) = self.worldedit_count(player, &args[0]) {
+                if self.worldedit_count(player, &args[0]).is_err() {
                     self.players[player].send_system_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
+            "//load" => self.worldedit_load(player, &args[0]),
             "/rtps" => {
-                if args.len() < 1 {
+                if args.is_empty() {
                     self.players[player]
                         .send_system_message("Please specify the rtps you want to set to.");
                     return;
@@ -218,7 +219,7 @@ impl Plot {
                 self.message_sender.send(Message::Shutdown);
             }
             "/plot" | "/p" => {
-                if args.len() < 1 {
+                if args.is_empty() {
                     self.players[player].send_system_message("Wrong number of arguments!");
                     return;
                 }

@@ -148,7 +148,7 @@ impl Plot {
 
     pub fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
         self.to_be_ticked.push(TickEntry {
-            pos: pos.clone(),
+            pos,
             ticks_left: delay,
             tick_priority: priority,
         });
@@ -171,7 +171,7 @@ impl Plot {
                 true
             }
         });
-        if finished.len() > 0 {
+        if !finished.is_empty() {
             for priority in &TickPriority::values() {
                 for entry in &finished {
                     if &entry.tick_priority == priority {
@@ -365,7 +365,7 @@ impl Plot {
         if !self.players.is_empty() {
             self.last_player_time = SystemTime::now();
             if self.tps != 0 {
-                let dur_per_tick = Duration::from_micros(1000000 / self.tps as u64);
+                let dur_per_tick = Duration::from_micros(1_000_000 / self.tps as u64);
                 let elapsed_time = self.last_update_time.elapsed().unwrap();
                 self.lag_time += elapsed_time;
                 self.last_update_time = SystemTime::now();

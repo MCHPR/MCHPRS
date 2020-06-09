@@ -4,6 +4,9 @@ use crate::blocks::{Block, BlockPos};
 use crate::network::packets::clientbound::*;
 use rand::Rng;
 use regex::Regex;
+use std::collections::HashMap;
+use log::debug;
+use std::fs::File;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
@@ -33,8 +36,80 @@ pub struct WorldEditClipboard {
     pub data: PalettedBitBuffer,
 }
 
+macro_rules! nbt_unwrap_val {
+    // I'm not sure if path is the right type here.
+    // It works though!
+    ($e:expr, $p:path) => {
+        match $e {
+            $p(val) => val,
+            _ => return None,
+        }
+    };
+}
+
 impl WorldEditClipboard {
-    
+    fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
+        // I greaty dislike this
+        let mut file = match File::open("./schems/icache.schem") {
+            Ok(file) => file,
+            Err(_) => return None,
+        };
+        let nbt = match nbt::Blob::from_gzip_reader(&mut file) {
+            Ok(blob) => blob,
+            Err(_) => return None,
+        };
+        use nbt::Value;
+        let size_x = nbt_unwrap_val!(nbt["Width"], Value::Short) as u32;
+        let size_z = nbt_unwrap_val!(nbt["Length"], Value::Short) as u32;
+        let size_y = nbt_unwrap_val!(nbt["Height"], Value::Short) as u32;
+        let nbt_palette = nbt_unwrap_val!(&nbt["Palette"], Value::Compound);
+        let metadata = nbt_unwrap_val!(&nbt["Metadata"], Value::Compound);
+        let origin_x = -nbt_unwrap_val!(metadata["WEOffsetX"], Value::Int);
+        let origin_y = -nbt_unwrap_val!(metadata["WEOffsetY"], Value::Int);
+        let origin_z = -nbt_unwrap_val!(metadata["WEOffsetZ"], Value::Int);
+        lazy_static! {
+            static ref RE: Regex =
+                Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap();
+        }
+        let mut palette: HashMap<u32, u32> = HashMap::new();
+        for (k, v) in nbt_palette {
+            let id = *nbt_unwrap_val!(v, Value::Int) as u32;
+            let captures = RE.captures(&k)?;
+            let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air);
+            if let Some(properties_match) = captures.get(2) {
+                let properties: Vec<&str> =
+                    properties_match.as_str().split(&[',', '='][..]).collect();
+                for prop_idx in (0..properties.len()).step_by(2) {
+                    block.set_property(properties[prop_idx], properties[prop_idx + 1]);
+                }
+            }
+            palette.insert(id, block.get_id());
+        }
+        let blocks = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray);
+        let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
+        let mut i = 0;
+        for y in 0..size_y {
+            let y_offset = size_z * y;
+            for z in 0..size_z {
+                for x in 0..size_x {
+                    let x_offset = x * size_z * size_y;
+                    // This double cast may look funny, but it does serve a magical purpose. 
+                    let entry = *palette.get(&(blocks[i] as u8 as u32)).unwrap();
+                    data.set_entry((z + y_offset + x_offset) as usize, entry);
+                    i += 1;
+                }
+            }
+        }
+        Some(WorldEditClipboard {
+            size_x,
+            size_y,
+            size_z,
+            origin_x,
+            origin_y,
+            origin_z,
+            data,
+        })
+    }
 }
 
 pub enum PatternParseError {
@@ -59,21 +134,19 @@ impl WorldEditPattern {
                 .captures(part)
                 .ok_or(PatternParseError::InvalidPattern(part.to_owned()))?;
 
-            let block: Block;
-
-            if pattern_match.get(4).is_some() {
-                block = Block::from_block_state(
+            let block = if pattern_match.get(4).is_some() {
+                Block::from_block_state(
                     pattern_match
                         .get(5)
                         .map_or("0", |m| m.as_str())
                         .parse::<u32>()
                         .unwrap(),
-                );
+                )
             } else {
                 let block_name = pattern_match.get(5).unwrap().as_str();
-                block = Block::from_name(block_name)
-                    .ok_or(PatternParseError::UnknownBlock(part.to_owned()))?;
-            }
+                Block::from_name(block_name)
+                    .ok_or(PatternParseError::UnknownBlock(part.to_owned()))?
+            };
 
             let weight = pattern_match
                 .get(2)
@@ -402,8 +475,10 @@ impl Plot {
                 }
             }
         }
-        let chunk_x_range = (origin_x - (self.x << 7)) >> 4..=(origin_x + cb.size_x as i32 - (self.x << 7)) >> 4;
-        let chunk_z_range = (origin_z - (self.z << 7)) >> 4..=(origin_z + cb.size_z as i32 - (self.z << 7)) >> 4;
+        let chunk_x_range =
+            (origin_x - (self.x << 7)) >> 4..=(origin_x + cb.size_x as i32 - (self.x << 7)) >> 4;
+        let chunk_z_range =
+            (origin_z - (self.z << 7)) >> 4..=(origin_z + cb.size_z as i32 - (self.z << 7)) >> 4;
         // This might also get costly, especially if the plot size gets expanded in the future.
         for chunk_idx in 0..self.chunks.len() {
             if chunk_x_range.contains(&(chunk_idx as i32 >> 3))
@@ -461,5 +536,24 @@ impl Plot {
         } else {
             self.players[player].send_system_message("Your clipboard is empty!");
         }
-    } 
+    }
+
+    pub(super) fn worldedit_load(&mut self, player: usize, file_name: &str) {
+        let start_time = Instant::now();
+
+        let clipboard = WorldEditClipboard::load_from_schematic(file_name);
+        match clipboard {
+            Some(cb) => {
+                self.players[player].worldedit_clipboard = Some(cb);
+                self.players[player].worldedit_send_message(format!(
+                    "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
+                    start_time.elapsed()
+                ));
+            }
+            None => {
+                self.players[player]
+                    .send_system_message("There was an error loading the schematic.");
+            }
+        }
+    }
 }

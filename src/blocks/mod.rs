@@ -117,6 +117,15 @@ impl BlockDirection {
         }
     }
 
+    fn from_str(name: &str) -> BlockDirection {
+        match name {
+            "north" => BlockDirection::North,
+            "south" => BlockDirection::South,
+            "east" => BlockDirection::East,
+            _ => BlockDirection::West,
+        }
+    }
+
     fn get_id(self) -> u32 {
         match self {
             BlockDirection::North => 0,
@@ -144,6 +153,12 @@ impl BlockDirection {
             South => East,
             East => North,
         }
+    }
+}
+
+impl Default for BlockDirection {
+    fn default() -> Self {
+        BlockDirection::West
     }
 }
 
@@ -396,6 +411,28 @@ impl Block {
             "glass" => Some(Block::Transparent(230)),
             "sandstone" => Some(Block::Solid(245)),
             "stone_bricks" => Some(Block::Solid(4481)),
+            "white_concrete" => Some(Block::Solid(8902)),
+            "orange_concrete" => Some(Block::Solid(8903)),
+            "megenta_concrete" => Some(Block::Solid(8904)),
+            "light_blue_concrete" => Some(Block::Solid(8905)),
+            "yellow_concrete" => Some(Block::Solid(8906)),
+            "lime_concrete" => Some(Block::Solid(8907)),
+            "pink_concrete" => Some(Block::Solid(8908)),
+            "gray_concrete" => Some(Block::Solid(8909)),
+            "light_gray_concrete" => Some(Block::Solid(8910)),
+            "cyan_concrete" => Some(Block::Solid(8911)),
+            "purple_concrete" => Some(Block::Solid(8912)),
+            "blue_concrete" => Some(Block::Solid(8913)),
+            "brown_concrete" => Some(Block::Solid(8914)),
+            "green_concrete" => Some(Block::Solid(8915)),
+            "red_concrete" => Some(Block::Solid(8916)),
+            "black_concrete" => Some(Block::Solid(8917)),
+            "redstone_wire" => Some(Block::RedstoneWire(RedstoneWire::default())),
+            "redstone_torch" => Some(Block::RedstoneTorch(true)),
+            "redstone_wall_torch" => Some(Block::RedstoneWallTorch(true, BlockDirection::West)),
+            "redstone_block" => Some(Block::RedstoneBlock),
+            "repeater" => Some(Block::RedstoneRepeater(RedstoneRepeater::default())),
+            "comparator" => Some(Block::RedstoneComparator(RedstoneComparator::default())),
             _ => None,
         }
     }
@@ -403,7 +440,7 @@ impl Block {
     pub fn on_use(self, plot: &mut Plot, pos: BlockPos) -> ActionResult {
         match self {
             Block::RedstoneRepeater(repeater) => {
-                let mut repeater = repeater.clone();
+                let mut repeater = repeater;
                 repeater.delay += 1;
                 if repeater.delay > 4 {
                     repeater.delay -= 4;
@@ -412,14 +449,14 @@ impl Block {
                 ActionResult::Success
             }
             Block::RedstoneComparator(comparator) => {
-                let mut comparator = comparator.clone();
+                let mut comparator = comparator;
                 comparator.mode = comparator.mode.toggle();
                 comparator.tick(plot, pos);
                 plot.set_block(pos, Block::RedstoneComparator(comparator));
                 ActionResult::Success
             }
             Block::Lever(lever) => {
-                let mut lever = lever.clone();
+                let mut lever = lever;
                 lever.powered = !lever.powered;
                 plot.set_block(pos, Block::Lever(lever));
                 Block::update_surrounding_blocks(plot, pos);
@@ -669,7 +706,7 @@ impl Block {
         }
     }
 
-    fn change(self, plot: &mut Plot, pos: BlockPos, direction: &BlockFace) {
+    fn change(self, plot: &mut Plot, pos: BlockPos, direction: BlockFace) {
         if !self.is_valid_position(plot, pos) {
             self.destroy(plot, pos);
             return;
@@ -720,17 +757,66 @@ impl Block {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
-            block.change(plot, neighbor_pos, direction);
+            block.change(plot, neighbor_pos, *direction);
 
             // Also change diagonal blocks
 
             let up_pos = neighbor_pos.offset(BlockFace::Top);
             let up_block = plot.get_block(up_pos);
-            up_block.change(plot, up_pos, direction);
+            up_block.change(plot, up_pos, *direction);
 
             let down_pos = neighbor_pos.offset(BlockFace::Bottom);
             let down_block = plot.get_block(down_pos);
-            down_block.change(plot, down_pos, direction);
+            down_block.change(plot, down_pos, *direction);
+        }
+    }
+
+    pub fn set_property(&mut self, key: &str, val: &str) {
+        // Macros might be able to help here
+        match self {
+            Block::RedstoneWire(wire) if key == "north" => {
+                wire.north = RedstoneWireSide::from_str(val);
+            }
+            Block::RedstoneWire(wire) if key == "south" => {
+                wire.south = RedstoneWireSide::from_str(val);
+            }
+            Block::RedstoneWire(wire) if key == "east" => {
+                wire.east = RedstoneWireSide::from_str(val);
+            }
+            Block::RedstoneWire(wire) if key == "west" => {
+                wire.west = RedstoneWireSide::from_str(val);
+            }
+            Block::RedstoneWire(wire) if key == "power" => {
+                wire.power = val.parse::<u8>().unwrap_or_default();
+            }
+            Block::RedstoneTorch(lit) | Block::RedstoneWallTorch(lit, _) if key == "lit" => {
+                *lit = val.parse::<bool>().unwrap_or_default();
+            }
+            Block::RedstoneWallTorch(_, facing) if key == "facing" => {
+                *facing = BlockDirection::from_str(val);
+            }
+            Block::RedstoneRepeater(repeater) if key == "facing" => {
+                repeater.facing = BlockDirection::from_str(val);
+            }
+            Block::RedstoneRepeater(repeater) if key == "delay" => {
+                repeater.delay = val.parse::<u8>().unwrap_or(1);
+            }
+            Block::RedstoneRepeater(repeater) if key == "powered" => {
+                repeater.powered = val.parse::<bool>().unwrap_or_default();
+            }
+            Block::RedstoneRepeater(repeater) if key == "locked" => {
+                repeater.locked = val.parse::<bool>().unwrap_or_default();
+            }
+            Block::RedstoneComparator(comparator) if key == "facing" => {
+                comparator.facing = BlockDirection::from_str(val);
+            }
+            Block::RedstoneComparator(comparator) if key == "mode" => {
+                comparator.mode = ComparatorMode::from_str(val);
+            }
+            Block::RedstoneComparator(comparator) if key == "powered" => {
+                comparator.powered = val.parse::<bool>().unwrap_or_default();
+            }
+            _ => {}
         }
     }
 }

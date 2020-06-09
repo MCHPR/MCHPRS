@@ -142,7 +142,7 @@ impl PacketDecoder {
         Ok(self.buffer.read_u8()? == 1)
     }
 
-    fn read_varint_from_buffer(offset: usize, buf: &Vec<u8>) -> DecodeResult<(i32, i32)> {
+    fn read_varint_from_buffer(offset: usize, buf: &[u8]) -> DecodeResult<(i32, i32)> {
         let mut num_read = 0;
         let mut result = 0i32;
         let mut read;
@@ -247,7 +247,7 @@ pub trait PacketEncoderExt: Write {
     fn write_varlong(&mut self, mut val: i64) {
         loop {
             let mut temp = (val & 0b1111_1111) as u8;
-            val = val >> 7;
+            val >>= 7;
             if val != 0 {
                 temp |= 0b1000_0000;
             }

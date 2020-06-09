@@ -112,7 +112,7 @@ impl PalettedBitBuffer {
     fn resize_buffer(&mut self) {
         let old_bits_per_entry = self.data.bits_per_entry;
         if old_bits_per_entry + 1 > 8 {
-            let mut old_buffer = BitBuffer::create(14, 4096);
+            let mut old_buffer = BitBuffer::create(14, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
             self.max_entries = 1 << 14;
             for entry in 0..old_buffer.entries {
@@ -120,7 +120,7 @@ impl PalettedBitBuffer {
                     .set_entry(entry, self.palatte[old_buffer.get_entry(entry) as usize]);
             }
         } else {
-            let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, 4096);
+            let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
             self.max_entries <<= 1;
             for entry in 0..old_buffer.entries {

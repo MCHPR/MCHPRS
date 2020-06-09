@@ -24,6 +24,20 @@ impl RedstoneWireSide {
             _ => false,
         }
     }
+
+    pub fn from_str(name: &str) -> RedstoneWireSide {
+        match name {
+            "up" => RedstoneWireSide::Up,
+            "side" => RedstoneWireSide::Side,
+            _ => RedstoneWireSide::None,
+        }
+    }
+}
+
+impl Default for RedstoneWireSide {
+    fn default() -> RedstoneWireSide {
+        RedstoneWireSide::None
+    }
 }
 
 impl RedstoneWireSide {
@@ -45,7 +59,7 @@ impl RedstoneWireSide {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct RedstoneWire {
     pub north: RedstoneWireSide,
     pub south: RedstoneWireSide,
@@ -85,7 +99,7 @@ impl RedstoneWire {
         mut self,
         plot: &Plot,
         pos: BlockPos,
-        side: &BlockFace,
+        side: BlockFace,
     ) -> RedstoneWire {
         match side {
             BlockFace::Top => {}
@@ -119,7 +133,7 @@ impl RedstoneWire {
         }
     }
 
-    fn can_connect_to(block: &Block, side: BlockDirection) -> bool {
+    fn can_connect_to(block: Block, side: BlockDirection) -> bool {
         match block {
             Block::RedstoneWire(_)
             | Block::RedstoneComparator(_)
@@ -134,7 +148,7 @@ impl RedstoneWire {
         }
     }
 
-    fn can_connect_diagonal_to(block: &Block) -> bool {
+    fn can_connect_diagonal_to(block: Block) -> bool {
         match block {
             Block::RedstoneWire(_) => true,
             _ => false,
@@ -145,7 +159,7 @@ impl RedstoneWire {
         let neighbor_pos = pos.offset(side.block_face());
         let neighbor = plot.get_block(neighbor_pos);
 
-        if RedstoneWire::can_connect_to(&neighbor, side) {
+        if RedstoneWire::can_connect_to(neighbor, side) {
             return RedstoneWireSide::Side;
         }
 
@@ -154,13 +168,13 @@ impl RedstoneWire {
 
         if !up.is_solid()
             && RedstoneWire::can_connect_diagonal_to(
-                &plot.get_block(neighbor_pos.offset(BlockFace::Top)),
+                plot.get_block(neighbor_pos.offset(BlockFace::Top)),
             )
         {
             RedstoneWireSide::Up
         } else if !neighbor.is_solid()
             && RedstoneWire::can_connect_diagonal_to(
-                &plot.get_block(neighbor_pos.offset(BlockFace::Bottom)),
+                plot.get_block(neighbor_pos.offset(BlockFace::Bottom)),
             )
         {
             RedstoneWireSide::Side

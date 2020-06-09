@@ -344,7 +344,6 @@ impl MinecraftServer {
                         self.send_player_to_plot(player, false);
                     }
                 }
-                _ => {}
             }
         }
         self.network.update();
