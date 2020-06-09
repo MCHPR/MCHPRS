@@ -50,7 +50,7 @@ macro_rules! nbt_unwrap_val {
 impl WorldEditClipboard {
     fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
         // I greaty dislike this
-        let mut file = match File::open("./schems/icache.schem") {
+        let mut file = match File::open("./schems/".to_owned() + file_name + ".schem") {
             Ok(file) => file,
             Err(_) => return None,
         };

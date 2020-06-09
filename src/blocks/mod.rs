@@ -409,8 +409,26 @@ impl Block {
         match name {
             "air" => Some(Block::Air),
             "glass" => Some(Block::Transparent(230)),
+            "quartz_slab" => Some(Block::Transparent(7855)),
+            "smooth_stone_slab" => Some(Block::Transparent(7807)),
             "sandstone" => Some(Block::Solid(245)),
             "stone_bricks" => Some(Block::Solid(4481)),
+            "white_terracotta" => Some(Block::Solid(6311)),
+            "orange_terracotta" => Some(Block::Solid(6312)),
+            "megenta_terracotta" => Some(Block::Solid(6313)),
+            "light_blue_terracotta" => Some(Block::Solid(6314)),
+            "yellow_terracotta" => Some(Block::Solid(6315)),
+            "lime_terracotta" => Some(Block::Solid(6316)),
+            "pink_terracotta" => Some(Block::Solid(6317)),
+            "gray_terracotta" => Some(Block::Solid(6318)),
+            "light_gray_terracotta" => Some(Block::Solid(6319)),
+            "cyan_terracotta" => Some(Block::Solid(6320)),
+            "purple_terracotta" => Some(Block::Solid(6321)),
+            "blue_terracotta" => Some(Block::Solid(6322)),
+            "brown_terracotta" => Some(Block::Solid(6323)),
+            "green_terracotta" => Some(Block::Solid(6324)),
+            "red_terracotta" => Some(Block::Solid(6325)),
+            "black_terracotta" => Some(Block::Solid(6326)),
             "white_concrete" => Some(Block::Solid(8902)),
             "orange_concrete" => Some(Block::Solid(8903)),
             "megenta_concrete" => Some(Block::Solid(8904)),
@@ -431,6 +449,7 @@ impl Block {
             "redstone_torch" => Some(Block::RedstoneTorch(true)),
             "redstone_wall_torch" => Some(Block::RedstoneWallTorch(true, BlockDirection::West)),
             "redstone_block" => Some(Block::RedstoneBlock),
+            "redstone_lamp" => Some(Block::RedstoneLamp(false)),
             "repeater" => Some(Block::RedstoneRepeater(RedstoneRepeater::default())),
             "comparator" => Some(Block::RedstoneComparator(RedstoneComparator::default())),
             _ => None,
@@ -788,6 +807,9 @@ impl Block {
             }
             Block::RedstoneWire(wire) if key == "power" => {
                 wire.power = val.parse::<u8>().unwrap_or_default();
+            }
+            Block::RedstoneLamp(lit) if key == "lit" => {
+                *lit = val.parse::<bool>().unwrap_or_default();
             }
             Block::RedstoneTorch(lit) | Block::RedstoneWallTorch(lit, _) if key == "lit" => {
                 *lit = val.parse::<bool>().unwrap_or_default();

@@ -80,14 +80,10 @@ impl fmt::Debug for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Player")
             .field("username", &self.username)
-            //.field("uuid", &format!("{:032x}", self.uuid))
             .field("uuid", &Player::uuid_with_hyphens(self.uuid))
             .finish()
     }
 }
-
-// bfc93de5-cf9f-3e88-918c-ed818f97abf8
-// bfc93de5-cf9f-3e88-918c-ed818f97abf8
 
 impl Player {
     pub fn generate_offline_uuid(username: &str) -> u128 {

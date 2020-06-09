@@ -586,6 +586,7 @@ impl Drop for Plot {
             // TODO: send all players to spawn and send them message along the lines of:
             // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
             for player in &mut self.players {
+                player.save();
                 // Give the player the bad news.
                 player.kick(
                     r#"{ "text": "The plot you were previously in has crashed!", "color": "red" }"#
