@@ -97,7 +97,6 @@ impl WorldEditClipboard {
                         }
                         i += 1;
                     }
-                    // This double cast may look funny, but it does serve a magical purpose.
                     let entry = *palette.get(&block_id).unwrap();
                     data.set_entry((z + y_offset + x_offset) as usize, entry);
                 }
