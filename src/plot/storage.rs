@@ -3,7 +3,7 @@ use crate::blocks::{BlockEntity, BlockPos};
 use crate::network::packets::clientbound::{C22ChunkData, C22ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::mem;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -156,8 +156,7 @@ impl PalettedBitBuffer {
 }
 
 #[derive(Debug)]
-struct ChunkSection {
-    y: u8,
+pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
 }
@@ -190,7 +189,6 @@ impl ChunkSection {
         let palette = data.palatte.into_iter().map(|x| x as u32).collect();
         let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
         ChunkSection {
-            y: data.y as u8,
             buffer,
             block_count: data.block_count as u32,
         }
@@ -216,14 +214,12 @@ impl ChunkSection {
             data: longs,
             palatte,
             bits_per_block: self.buffer.data.bits_per_entry as i8,
-            y: self.y as i8,
             block_count: self.block_count as i32,
         }
     }
 
-    fn new(y: u8) -> ChunkSection {
+    fn new() -> ChunkSection {
         ChunkSection {
-            y,
             buffer: PalettedBitBuffer::new(),
             block_count: 10,
         }
@@ -252,7 +248,7 @@ impl ChunkSection {
 
 #[derive(Debug)]
 pub struct Chunk {
-    sections: Vec<ChunkSection>,
+    pub sections: BTreeMap<u8, ChunkSection>,
     pub x: i32,
     pub z: i32,
 }
@@ -269,8 +265,8 @@ impl Chunk {
 
         let mut chunk_sections = Vec::new();
         let mut bitmask = 0;
-        for section in &self.sections {
-            bitmask |= 1 << section.y;
+        for (section_y, section) in &self.sections {
+            bitmask |= 1 << section_y;
             chunk_sections.push(section.encode_packet());
         }
         let mut heightmaps = nbt::Blob::new();
@@ -302,11 +298,11 @@ impl Chunk {
 
     fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
         let mut top_most = 0;
-        for section in &self.sections {
+        for (section_y, section) in &self.sections {
             for y in (0..15).rev() {
                 let block_state = section.get_block(x, y, z);
-                if block_state != 0 && top_most < y + section.y as u32 * 16 {
-                    top_most = section.y as u32 * 16;
+                if block_state != 0 && top_most < y + *section_y as u32 * 16 {
+                    top_most = *section_y as u32 * 16;
                 }
             }
         }
@@ -316,12 +312,12 @@ impl Chunk {
     /// Sets a block in the chunk. Returns true if a block was changed.
     pub fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
         let section_y = (y >> 4) as u8;
-        if let Some(section) = self.sections.iter_mut().find(|s| s.y == section_y) {
+        if let Some(section) = self.sections.get_mut(&section_y) {
             section.set_block(x, y & 0xF, z, block_id)
         } else if block_id != 0 {
-            let mut section = ChunkSection::new(section_y);
+            let mut section = ChunkSection::new();
             section.set_block(x, y & 0xF, z, block_id);
-            self.sections.push(section);
+            self.sections.insert(section_y, section);
             true
         } else {
             // The block was air so a new chunk section does not need to be created.
@@ -331,7 +327,7 @@ impl Chunk {
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
         let section_y = (y / 16) as u8;
-        if let Some(section) = self.sections.iter().find(|s| s.y == section_y) {
+        if let Some(section) = self.sections.get(&section_y) {
             section.get_block(x, y & 0xF, z)
         } else {
             0
@@ -340,7 +336,7 @@ impl Chunk {
 
     pub fn save(&self) -> ChunkData {
         ChunkData {
-            sections: self.sections.iter().map(|s| s.save()).collect(),
+            sections: self.sections.iter().map(|(y, s)| (*y, s.save())).collect(),
         }
     }
 
@@ -351,14 +347,14 @@ impl Chunk {
             sections: chunk_data
                 .sections
                 .into_iter()
-                .map(ChunkSection::load)
+                .map(|(y, cs)| (y, ChunkSection::load(cs)))
                 .collect(),
         }
     }
 
     pub fn empty(x: i32, z: i32) -> Chunk {
         Chunk {
-            sections: Vec::new(),
+            sections: BTreeMap::new(),
             x,
             z,
         }
@@ -366,7 +362,7 @@ impl Chunk {
 
     pub fn generate(layers: i32, x: i32, z: i32) -> Chunk {
         let mut chunk = Chunk {
-            sections: Vec::new(),
+            sections: BTreeMap::new(),
             x,
             z,
         };
@@ -395,7 +391,6 @@ impl Chunk {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct ChunkSectionData {
-    y: i8,
     data: Vec<i64>,
     palatte: Vec<i32>,
     bits_per_block: i8,
@@ -404,5 +399,5 @@ struct ChunkSectionData {
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ChunkData {
-    sections: Vec<ChunkSectionData>,
+    sections: BTreeMap<u8, ChunkSectionData>,
 }
