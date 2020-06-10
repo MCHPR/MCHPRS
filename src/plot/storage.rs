@@ -3,7 +3,7 @@ use crate::blocks::{BlockEntity, BlockPos};
 use crate::network::packets::clientbound::{C22ChunkData, C22ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 use std::mem;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -132,7 +132,10 @@ impl PalettedBitBuffer {
     pub fn get_entry(&self, index: usize) -> u32 {
         if self.use_palatte {
             // Bound checking shouldn't be nessisary but for some reason removing it causes crashes.
-            *self.palatte.get(self.data.get_entry(index) as usize).unwrap_or(&0)
+            *self
+                .palatte
+                .get(self.data.get_entry(index) as usize)
+                .unwrap_or(&0)
         } else {
             self.data.get_entry(index)
         }
@@ -378,10 +381,10 @@ impl Chunk {
                     let block_x = (x << 4) | rx;
                     let block_z = (z << 4) | rz;
 
-                    if block_x % 128 == 0
-                        || block_z % 128 == 0
-                        || (block_x + 1) % 128 == 0
-                        || (block_z + 1) % 128 == 0
+                    if block_x % 256 == 0
+                        || block_z % 256 == 0
+                        || (block_x + 1) % 256 == 0
+                        || (block_z + 1) % 256 == 0
                     {
                         chunk.set_block(rx as u32, ry as u32, rz as u32, 4481); // Stone Bricks
                     } else {

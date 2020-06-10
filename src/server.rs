@@ -220,8 +220,8 @@ impl MinecraftServer {
     }
 
     fn send_player_to_plot(&mut self, player: Player, new_entry: bool) {
-        let plot_x = (player.x as i32) >> 7;
-        let plot_z = (player.z as i32) >> 7;
+        let plot_x = (player.x as i32) >> 8;
+        let plot_z = (player.z as i32) >> 8;
 
         if new_entry {
             let player_list_entry = PlayerListEntry {
@@ -451,7 +451,7 @@ impl MinecraftServer {
                             client.send_packet(&join_game);
 
                             let brand = C19PluginMessageBrand {
-                                brand: "Minecraft High Performace Redstone Server".to_string(),
+                                brand: "Minecraft High Performace Redstone".to_string(),
                             }
                             .encode();
                             client.send_packet(&brand);

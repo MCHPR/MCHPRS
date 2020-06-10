@@ -226,6 +226,21 @@ impl ClientBoundPacket for C1BDisconnect {
     }
 }
 
+#[derive(Debug)]
+pub struct C1EUnloadChunk {
+    pub chunk_x: i32,
+    pub chunk_z: i32,
+}
+
+impl ClientBoundPacket for C1EUnloadChunk {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_int(self.chunk_x);
+        buf.write_int(self.chunk_z);
+        PacketEncoder::new(buf, 0x1E)
+    }
+}
+
 pub struct C21KeepAlive {
     pub id: i64,
 }

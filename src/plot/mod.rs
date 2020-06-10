@@ -66,21 +66,21 @@ pub struct Plot {
 
 impl Plot {
     fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
-        let local_x = chunk_x - self.x * 8;
-        let local_z = chunk_z - self.z * 8;
-        (local_x * 8 + local_z).abs() as usize
+        let local_x = chunk_x - self.x * 16;
+        let local_z = chunk_z - self.z * 16;
+        (local_x * 16 + local_z).abs() as usize
     }
 
     fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - (self.x << 7)) >> 4;
-        let chunk_z = (block_z - (self.z << 7)) >> 4;
-        ((chunk_x << 3) + chunk_z).abs() as usize
+        let chunk_x = (block_x - (self.x << 8)) >> 4;
+        let chunk_z = (block_z - (self.z << 8)) >> 4;
+        ((chunk_x << 4) + chunk_z).abs() as usize
     }
 
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 64 {
+        if chunk_index >= 256 {
             return false;
         }
         let chunk = &mut self.chunks[chunk_index];
@@ -99,7 +99,7 @@ impl Plot {
 
     fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 64 {
+        if chunk_index >= 256 {
             return 0;
         }
         let chunk = &self.chunks[chunk_index];
@@ -293,12 +293,23 @@ impl Plot {
         }
         let destroy_other_entities = C38DestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
+        let chunk_offset_x = self.x << 4;
+        let chunk_offset_z = self.z << 4;
+        for chunk in &self.chunks {
+            player.client.send_packet(
+                &C1EUnloadChunk {
+                    chunk_x: chunk_offset_x + chunk.x,
+                    chunk_z: chunk_offset_z + chunk.z,
+                }
+                .encode(),
+            );
+        }
         self.destroy_entity(player.entity_id);
         player
     }
 
     fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
-        x >= plot_x * 128 && x < (plot_x + 1) * 128 && z >= plot_z * 128 && z < (plot_z + 1) * 128
+        x >= plot_x * 256 && x < (plot_x + 1) * 256 && z >= plot_z * 256 && z < (plot_z + 1) * 256
     }
 
     fn update(&mut self) {
@@ -446,8 +457,8 @@ impl Plot {
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
     ) -> Plot {
-        let chunk_x_offset = x << 3;
-        let chunk_z_offset = z << 3;
+        let chunk_x_offset = x << 4;
+        let chunk_z_offset = z << 4;
         let plot_data: PlotData = bincode::deserialize(&data).unwrap();
         let chunks: Vec<Chunk> = plot_data
             .chunk_data
@@ -455,8 +466,8 @@ impl Plot {
             .enumerate()
             .map(|(i, c)| {
                 Chunk::load(
-                    chunk_x_offset + i as i32 / 8,
-                    chunk_z_offset + i as i32 % 8,
+                    chunk_x_offset + i as i32 / 16,
+                    chunk_z_offset + i as i32 % 16,
                     c,
                 )
             })
@@ -495,12 +506,16 @@ impl Plot {
             let data = fs::read("./world/plots/pTEMPLATE").unwrap();
             Plot::load_from_file(data, x, z, rx, tx, priv_rx, always_running)
         } else {
-            debug!("Plot {},{} does not exist yet, generating now.", x, z);
-            let chunk_x_offset = x << 3;
-            let chunk_z_offset = z << 3;
+            debug!(
+                "Plot {},{} does not exist and no template was found, generating now.",
+                x, z
+            );
+            let chunk_x_offset = x << 4;
+            let chunk_z_offset = z << 4;
+            dbg!(chunk_x_offset, chunk_z_offset);
             let mut chunks = Vec::new();
-            for chunk_x in 0..8 {
-                for chunk_z in 0..8 {
+            for chunk_x in 0..16 {
+                for chunk_z in 0..16 {
                     chunks.push(Chunk::generate(
                         8,
                         chunk_x + chunk_x_offset,

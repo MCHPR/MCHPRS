@@ -3,9 +3,9 @@ mod redstone;
 use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::{Plot, TickPriority};
 use log::error;
-use std::collections::HashMap;
 use redstone::*;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
@@ -44,7 +44,7 @@ impl BlockEntity {
             fullness_sum += count as f32 / 64.0;
         }
         Some(BlockEntity::Container {
-            comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8
+            comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
         })
     }
 
@@ -52,18 +52,16 @@ impl BlockEntity {
         use nbt::Value;
         let id = nbt_unwrap_val!(&nbt["Id"], Value::String);
         match id.as_ref() {
-            "minecraft:comparator" => {
-                Some(BlockEntity::Comparator {
-                    output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8
-                })
-            }
+            "minecraft:comparator" => Some(BlockEntity::Comparator {
+                output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8,
+            }),
             "minecraft:furnace" => {
                 BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 3)
             }
             "minecraft:barrel" => {
                 BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 27)
             }
-            _ => None
+            _ => None,
         }
     }
 }
@@ -314,7 +312,7 @@ impl Block {
 
     fn is_solid(self) -> bool {
         match self {
-            Block::RedstoneLamp(_) | Block::Solid(_) => true,
+            Block::RedstoneLamp(_) | Block::Solid(_) | Block::Container(_) => true,
             _ => false,
         }
     }
@@ -324,6 +322,7 @@ impl Block {
             Block::Solid(_)
             | Block::Transparent(_)
             | Block::RedstoneBlock
+            | Block::Container(_)
             | Block::RedstoneLamp(_) => true,
             _ => false,
         }

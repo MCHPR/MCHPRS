@@ -1,11 +1,11 @@
 use super::storage::PalettedBitBuffer;
 use super::Plot;
-use crate::blocks::{Block, BlockPos, BlockEntity};
+use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::network::packets::clientbound::*;
+use log::debug;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
-use log::debug;
 use std::fs::File;
 use std::ops::RangeInclusive;
 use std::time::Instant;
@@ -75,7 +75,10 @@ impl WorldEditClipboard {
             }
             palette.insert(id, block.get_id());
         }
-        let blocks: Vec<u8> = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray).iter().map(|b| *b as u8).collect();
+        let blocks: Vec<u8> = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray)
+            .iter()
+            .map(|b| *b as u8)
+            .collect();
         let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
         let mut i = 0;
         for y in 0..size_y {
@@ -94,7 +97,7 @@ impl WorldEditClipboard {
                         }
                         i += 1;
                     }
-                    // This double cast may look funny, but it does serve a magical purpose. 
+                    // This double cast may look funny, but it does serve a magical purpose.
                     let entry = *palette.get(&block_id).unwrap();
                     data.set_entry((z + y_offset + x_offset) as usize, entry);
                 }
@@ -497,9 +500,9 @@ impl Plot {
             }
         }
         let chunk_x_range =
-            (origin_x - (self.x << 7)) >> 4..=(origin_x + cb.size_x as i32 - (self.x << 7)) >> 4;
+            (origin_x - (self.x << 8)) >> 4..=(origin_x + cb.size_x as i32 - (self.x << 8)) >> 4;
         let chunk_z_range =
-            (origin_z - (self.z << 7)) >> 4..=(origin_z + cb.size_z as i32 - (self.z << 7)) >> 4;
+            (origin_z - (self.z << 8)) >> 4..=(origin_z + cb.size_z as i32 - (self.z << 8)) >> 4;
         // This might also get costly, especially if the plot size gets expanded in the future.
         for chunk_idx in 0..self.chunks.len() {
             if chunk_x_range.contains(&(chunk_idx as i32 >> 3))
@@ -519,7 +522,7 @@ impl Plot {
                 z: pos.z + origin_z,
             };
             self.set_block_entity(new_pos, block_entity.clone());
-        } 
+        }
     }
 
     pub(super) fn worldedit_copy(&mut self, player: usize) {
