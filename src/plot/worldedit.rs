@@ -75,7 +75,7 @@ impl WorldEditClipboard {
             }
             palette.insert(id, block.get_id());
         }
-        let blocks = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray);
+        let blocks: Vec<u8> = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray).iter().map(|b| *b as u8).collect();
         let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
         let mut i = 0;
         for y in 0..size_y {
@@ -83,10 +83,20 @@ impl WorldEditClipboard {
             for z in 0..size_z {
                 for x in 0..size_x {
                     let x_offset = x * size_z * size_y;
+                    let mut block_id = 0;
+                    let mut varint_len = 0;
+                    while varint_len < 6 {
+                        block_id |= ((blocks[i] & 127) as u32) << (varint_len * 7);
+                        varint_len += 1;
+                        if (blocks[i] & 128) != 128 {
+                            i += 1;
+                            break;
+                        }
+                        i += 1;
+                    }
                     // This double cast may look funny, but it does serve a magical purpose. 
-                    let entry = *palette.get(&(blocks[i] as u8 as u32)).unwrap();
+                    let entry = *palette.get(&block_id).unwrap();
                     data.set_entry((z + y_offset + x_offset) as usize, entry);
-                    i += 1;
                 }
             }
         }
@@ -472,10 +482,15 @@ impl Plot {
         let x_range = origin_x..origin_x + cb.size_x as i32;
         let y_range = origin_y..origin_y + cb.size_y as i32;
         let z_range = origin_z..origin_z + cb.size_z as i32;
+
+        let entries = cb.data.entries();
         // I have no clue if these clones are going to cost anything noticeable.
-        for x in x_range.clone() {
+        'top_loop: for x in x_range.clone() {
             for y in y_range.clone() {
                 for z in z_range.clone() {
+                    if i >= entries {
+                        break 'top_loop;
+                    }
                     self.set_block_raw(BlockPos::new(x, y as u32, z), cb.data.get_entry(i));
                     i += 1;
                 }

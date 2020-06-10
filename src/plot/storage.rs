@@ -131,7 +131,8 @@ impl PalettedBitBuffer {
 
     pub fn get_entry(&self, index: usize) -> u32 {
         if self.use_palatte {
-            self.palatte[self.data.get_entry(index) as usize]
+            // Bound checking shouldn't be nessisary but for some reason removing it causes crashes.
+            *self.palatte.get(self.data.get_entry(index) as usize).unwrap_or(&0)
         } else {
             self.data.get_entry(index)
         }
@@ -152,6 +153,10 @@ impl PalettedBitBuffer {
         } else {
             self.data.set_entry(index, val);
         }
+    }
+
+    pub fn entries(&self) -> usize {
+        self.data.entries
     }
 }
 
