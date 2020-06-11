@@ -147,12 +147,23 @@ fn diode_get_input_strength(plot: &Plot, pos: BlockPos, facing: BlockDirection) 
     power
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneRepeater {
     pub(super) delay: u8,
     pub(super) facing: BlockDirection,
     pub(super) locked: bool,
     pub(super) powered: bool,
+}
+
+impl Default for RedstoneRepeater {
+    fn default() -> Self {
+        RedstoneRepeater {
+            delay: 1,
+            facing: Default::default(),
+            locked: false,
+            powered: false,
+        }
+    }
 }
 
 impl RedstoneRepeater {

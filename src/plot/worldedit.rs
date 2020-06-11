@@ -82,7 +82,7 @@ impl WorldEditClipboard {
         let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
         let mut i = 0;
         for y_offset in (0..size_y).map(|y| y * size_z * size_x) {
-            for z_offset in (0..size_z).map(|z | z * size_x) {
+            for z_offset in (0..size_z).map(|z| z * size_x) {
                 for x in 0..size_x {
                     let mut blockstate_id = 0;
                     // Max varint length is 5

@@ -22,12 +22,12 @@ use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TickPriority {
-    Normal,
-    High,
-    Higher,
     Highest,
+    Higher,
+    High,
+    Normal,
 }
 
 impl TickPriority {
@@ -152,6 +152,8 @@ impl Plot {
             ticks_left: delay,
             tick_priority: priority,
         });
+        self.to_be_ticked
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
     }
 
     pub fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
@@ -159,26 +161,12 @@ impl Plot {
     }
 
     fn tick(&mut self) {
-        let mut finished = Vec::new();
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
-        self.to_be_ticked.retain(|pending| {
-            if pending.ticks_left == 0 {
-                finished.push(pending.clone());
-                false
-            } else {
-                true
-            }
-        });
-        if !finished.is_empty() {
-            for priority in &TickPriority::values() {
-                for entry in &finished {
-                    if &entry.tick_priority == priority {
-                        self.get_block(entry.pos).tick(self, entry.pos);
-                    }
-                }
-            }
+        while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
+            let entry = self.to_be_ticked.remove(0);
+            self.get_block(entry.pos).tick(self, entry.pos);
         }
     }
 
