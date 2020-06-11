@@ -500,7 +500,6 @@ impl Plot {
             );
             let chunk_x_offset = x << 4;
             let chunk_z_offset = z << 4;
-            dbg!(chunk_x_offset, chunk_z_offset);
             let mut chunks = Vec::new();
             for chunk_x in 0..16 {
                 for chunk_z in 0..16 {
@@ -560,7 +559,7 @@ impl Plot {
         }
         while self.running {
             self.update();
-            thread::sleep(Duration::from_millis(1));
+            thread::sleep(Duration::from_micros(500));
         }
     }
 

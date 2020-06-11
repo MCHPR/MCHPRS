@@ -497,9 +497,23 @@ impl LeverFace {
             LeverFace::Ceiling => 2,
         }
     }
+
+    pub(super) fn from_str(name: &str) -> LeverFace {
+        match name {
+            "floor" => LeverFace::Floor,
+            "ceiling" => LeverFace::Ceiling,
+            _ => LeverFace::Wall,
+        }
+    }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+impl Default for LeverFace {
+    fn default() -> Self {
+        LeverFace::Wall
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct Lever {
     pub face: LeverFace,
     pub facing: BlockDirection,

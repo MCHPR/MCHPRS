@@ -504,6 +504,7 @@ impl Block {
             "comparator" => Some(Block::RedstoneComparator(RedstoneComparator::default())),
             "furnace" => Some(Block::Container(3372)),
             "barrel" => Some(Block::Container(11136)),
+            "lever" => Some(Block::Lever(Lever::default())),
             _ => None,
         }
     }
@@ -889,6 +890,15 @@ impl Block {
             }
             Block::RedstoneComparator(comparator) if key == "powered" => {
                 comparator.powered = val.parse::<bool>().unwrap_or_default();
+            }
+            Block::Lever(lever) if key == "face" => {
+                lever.face = LeverFace::from_str(val);
+            }
+            Block::Lever(lever) if key == "facing" => {
+                lever.facing = BlockDirection::from_str(val);
+            }
+            Block::Lever(lever) if key == "powered" => {
+                lever.powered = val.parse::<bool>().unwrap_or_default();
             }
             _ => {}
         }
