@@ -119,6 +119,7 @@ impl PalettedBitBuffer {
                 self.data
                     .set_entry(entry, self.palatte[old_buffer.get_entry(entry) as usize]);
             }
+            self.use_palatte = false;
         } else {
             let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
@@ -131,11 +132,7 @@ impl PalettedBitBuffer {
 
     pub fn get_entry(&self, index: usize) -> u32 {
         if self.use_palatte {
-            // Bound checking shouldn't be nessisary but for some reason removing it causes crashes.
-            *self
-                .palatte
-                .get(self.data.get_entry(index) as usize)
-                .unwrap_or(&0)
+            self.palatte[self.data.get_entry(index) as usize]
         } else {
             self.data.get_entry(index)
         }
