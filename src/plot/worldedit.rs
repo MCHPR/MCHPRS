@@ -27,9 +27,9 @@ pub struct WorldEditPatternPart {
 
 #[derive(Clone, Debug)]
 pub struct WorldEditClipboard {
-    pub origin_x: i32,
-    pub origin_y: i32,
-    pub origin_z: i32,
+    pub offset_x: i32,
+    pub offset_y: i32,
+    pub offset_z: i32,
     pub size_x: u32,
     pub size_y: u32,
     pub size_z: u32,
@@ -54,9 +54,9 @@ impl WorldEditClipboard {
         let size_y = nbt_unwrap_val!(nbt["Height"], Value::Short) as u32;
         let nbt_palette = nbt_unwrap_val!(&nbt["Palette"], Value::Compound);
         let metadata = nbt_unwrap_val!(&nbt["Metadata"], Value::Compound);
-        let origin_x = -nbt_unwrap_val!(metadata["WEOffsetX"], Value::Int);
-        let origin_y = -nbt_unwrap_val!(metadata["WEOffsetY"], Value::Int);
-        let origin_z = -nbt_unwrap_val!(metadata["WEOffsetZ"], Value::Int);
+        let offset_x = -nbt_unwrap_val!(metadata["WEOffsetX"], Value::Int);
+        let offset_y = -nbt_unwrap_val!(metadata["WEOffsetY"], Value::Int);
+        let offset_z = -nbt_unwrap_val!(metadata["WEOffsetZ"], Value::Int);
         lazy_static! {
             static ref RE: Regex =
                 Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap();
@@ -81,24 +81,21 @@ impl WorldEditClipboard {
             .collect();
         let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
         let mut i = 0;
-        for y in 0..size_y {
-            let y_offset = size_z * y;
-            for z in 0..size_z {
+        for y_offset in (0..size_y).map(|y| y * size_z * size_x) {
+            for z_offset in (0..size_z).map(|z | z * size_x) {
                 for x in 0..size_x {
-                    let x_offset = x * size_z * size_y;
-                    let mut block_id = 0;
-                    let mut varint_len = 0;
-                    while varint_len < 6 {
-                        block_id |= ((blocks[i] & 127) as u32) << (varint_len * 7);
-                        varint_len += 1;
+                    let mut blockstate_id = 0;
+                    // Max varint length is 5
+                    for varint_len in 0..=5 {
+                        blockstate_id |= ((blocks[i] & 127) as u32) << (varint_len * 7);
                         if (blocks[i] & 128) != 128 {
                             i += 1;
                             break;
                         }
                         i += 1;
                     }
-                    let entry = *palette.get(&block_id).unwrap();
-                    data.set_entry((z + y_offset + x_offset) as usize, entry);
+                    let entry = *palette.get(&blockstate_id).unwrap();
+                    data.set_entry((y_offset + z_offset + x) as usize, entry);
                 }
             }
         }
@@ -120,9 +117,9 @@ impl WorldEditClipboard {
             size_x,
             size_y,
             size_z,
-            origin_x,
-            origin_y,
-            origin_z,
+            offset_x,
+            offset_y,
+            offset_z,
             data,
             block_entities: parsed_block_entities,
         })
@@ -452,9 +449,9 @@ impl Plot {
         let size_y = end_pos.y - start_pos.y + 1;
         let size_z = (end_pos.z - start_pos.z) as u32 + 1;
         let mut cb = WorldEditClipboard {
-            origin_x: origin.x - start_pos.x,
-            origin_y: origin.y as i32 - start_pos.y as i32,
-            origin_z: origin.z - start_pos.z,
+            offset_x: origin.x - start_pos.x,
+            offset_y: origin.y as i32 - start_pos.y as i32,
+            offset_z: origin.z - start_pos.z,
             size_x,
             size_y,
             size_z,
@@ -463,9 +460,9 @@ impl Plot {
             block_entities: HashMap::new(),
         };
         let mut i = 0;
-        for x in start_pos.x..=end_pos.x {
-            for y in start_pos.y..=end_pos.y {
-                for z in start_pos.z..=end_pos.z {
+        for y in start_pos.y..=end_pos.y {
+            for z in start_pos.z..=end_pos.z {
+                for x in start_pos.x..=end_pos.x {
                     cb.data
                         .set_entry(i, self.get_block_raw(BlockPos::new(x, y, z)));
                     i += 1;
@@ -476,20 +473,20 @@ impl Plot {
     }
 
     fn paste_clipboard(&mut self, cb: &WorldEditClipboard, pos: BlockPos) {
-        let origin_x = pos.x - cb.origin_x;
-        let origin_y = pos.y as i32 - cb.origin_y;
-        let origin_z = pos.z - cb.origin_z;
+        let offset_x = pos.x - cb.offset_x;
+        let offset_y = pos.y as i32 - cb.offset_y;
+        let offset_z = pos.z - cb.offset_z;
         let mut i = 0;
         // This can be made better, but right now it's not D:
-        let x_range = origin_x..origin_x + cb.size_x as i32;
-        let y_range = origin_y..origin_y + cb.size_y as i32;
-        let z_range = origin_z..origin_z + cb.size_z as i32;
+        let x_range = offset_x..offset_x + cb.size_x as i32;
+        let y_range = offset_y..offset_y + cb.size_y as i32;
+        let z_range = offset_z..offset_z + cb.size_z as i32;
 
         let entries = cb.data.entries();
         // I have no clue if these clones are going to cost anything noticeable.
-        'top_loop: for x in x_range.clone() {
-            for y in y_range.clone() {
-                for z in z_range.clone() {
+        'top_loop: for y in y_range.clone() {
+            for z in z_range.clone() {
+                for x in x_range.clone() {
                     if i >= entries {
                         break 'top_loop;
                     }
@@ -499,13 +496,13 @@ impl Plot {
             }
         }
         let chunk_x_range =
-            (origin_x - (self.x << 8)) >> 4..=(origin_x + cb.size_x as i32 - (self.x << 8)) >> 4;
+            (offset_x - (self.x << 8)) >> 4..=(offset_x + cb.size_x as i32 - (self.x << 8)) >> 4;
         let chunk_z_range =
-            (origin_z - (self.z << 8)) >> 4..=(origin_z + cb.size_z as i32 - (self.z << 8)) >> 4;
+            (offset_z - (self.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (self.z << 8)) >> 4;
         // This might also get costly, especially if the plot size gets expanded in the future.
         for chunk_idx in 0..self.chunks.len() {
-            if chunk_x_range.contains(&(chunk_idx as i32 >> 3))
-                && chunk_z_range.contains(&(chunk_idx as i32 & 7))
+            if chunk_x_range.contains(&(chunk_idx as i32 >> 4))
+                && chunk_z_range.contains(&(chunk_idx as i32 & 8))
             {
                 let chunk = &self.chunks[chunk_idx];
                 let chunk_data = chunk.encode_packet(false);
@@ -516,9 +513,9 @@ impl Plot {
         }
         for (pos, block_entity) in &cb.block_entities {
             let new_pos = BlockPos {
-                x: pos.x + origin_x,
-                y: pos.y + origin_y as u32,
-                z: pos.z + origin_z,
+                x: pos.x + offset_x,
+                y: pos.y + offset_y as u32,
+                z: pos.z + offset_z,
             };
             self.set_block_entity(new_pos, block_entity.clone());
         }
