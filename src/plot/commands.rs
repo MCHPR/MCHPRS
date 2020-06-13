@@ -186,20 +186,20 @@ impl Plot {
             "/radv" | "/radvance" => {
                 if args.is_empty() {
                     self.players[player]
-                        .send_system_message("HOw many TICk you want??");
+                        .send_system_message("Please specify a number of ticks to advance.");
                     return;
                 }
                 let ticks = if let Ok(ticks) = args[0].parse::<u32>() {
                     ticks
                 } else {
-                    self.players[player].send_system_message("Lmeo idk what that means");
+                    self.players[player].send_system_message("Unable to parse ticks!");
                     return;
                 };
                 let start_time = Instant::now();
                 for _ in 0..ticks {
                     self.tick();
                 }
-                self.players[player].send_system_message(&format!("oka {} Ticks went brrr ({:?})", ticks, start_time.elapsed()));
+                self.players[player].send_system_message(&format!("Plot has been advanced by {} ticks ({:?})", ticks, start_time.elapsed()));
             }
             "/tp" => {
                 if args.len() == 3 {
