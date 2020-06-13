@@ -502,7 +502,7 @@ impl Plot {
         // This might also get costly, especially if the plot size gets expanded in the future.
         for chunk_idx in 0..self.chunks.len() {
             if chunk_x_range.contains(&(chunk_idx as i32 >> 4))
-                && chunk_z_range.contains(&(chunk_idx as i32 & 8))
+                && chunk_z_range.contains(&(chunk_idx as i32 & 15))
             {
                 let chunk = &self.chunks[chunk_idx];
                 let chunk_data = chunk.encode_packet(false);
