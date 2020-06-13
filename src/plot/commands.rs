@@ -39,45 +39,6 @@ impl Plot {
             args.join(" ")
         );
         match command {
-            "//test_op" => {
-                let start_time = Instant::now();
-
-                self.players[player].send_system_message("Setting Positions");
-
-                self.players[player].worldedit_set_first_position(0, 0, 0);
-                self.players[player].worldedit_set_second_position(127, 8, 127);
-
-                self.players[player].send_system_message("Teleporting Player");
-
-                self.players[player].teleport(63.0, 150.0, 63.0);
-
-                self.players[player].send_system_message("Running: //set =10");
-
-                if self.worldedit_set(player, "=10").is_err() {
-                    self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
-
-                self.players[player].send_system_message("Running: //set sandstone");
-
-                if self.worldedit_set(player, "sandstone").is_err() {
-                    self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
-
-                self.players[player].send_system_message("Running: //count sandstone");
-
-                if self.worldedit_count(player, "sandstone").is_err() {
-                    self.players[player].send_system_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
-
-                self.players[player]
-                    .send_chat_message(format!("Opperation took {:?}", start_time.elapsed()));
-            }
             "//1" | "//pos1" => {
                 let player = &mut self.players[player];
 
@@ -152,8 +113,8 @@ impl Plot {
                     );
                 }
             }
-            "//copy" => self.worldedit_copy(player),
-            "//paste" => self.worldedit_paste(player),
+            "//copy" | "//c" => self.worldedit_copy(player),
+            "//paste" | "//p" => self.worldedit_paste(player),
             "//count" => {
                 if self.worldedit_count(player, &args[0]).is_err() {
                     self.players[player].send_system_message(
@@ -180,7 +141,11 @@ impl Plot {
                     return;
                 }
                 self.lag_time = Duration::from_millis(0);
-                self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
+                if tps > 0 {
+                    self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
+                } else {
+                    self.sleep_time = Duration::from_millis(2);
+                }
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
@@ -202,7 +167,7 @@ impl Plot {
                 }
                 self.players[player].send_system_message(&format!("Plot has been advanced by {} ticks ({:?})", ticks, start_time.elapsed()));
             }
-            "/tp" => {
+            "/teleport" | "/tp" => {
                 if args.len() == 3 {
                     let x;
                     let y;
