@@ -180,6 +180,7 @@ impl Plot {
                     return;
                 }
                 self.lag_time = Duration::from_millis(0);
+                self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
