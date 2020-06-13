@@ -24,7 +24,7 @@ Once complete, the optimized executable will be located at `./target/release/mch
 | Command | Alias | Description |
 | --- | --- |--- |
 | `/rtps [rtps]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two redstone ticks in a game tick) |
-| `/radvnace [ticks]` | `/radv` | Advances the plot by `[ticks]` ticks. |
+| `/radvnace [ticks]` | `/radv` | Advances the plot by `[ticks]` redstone ticks. |
 | `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
 | `/stop` | None | Stops the server. |
 | `/plot info` | `/p i` | Gets the owner of the plot you are in. |
