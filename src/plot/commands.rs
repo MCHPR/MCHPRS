@@ -2,7 +2,7 @@ use super::{database, Plot};
 use crate::server::Message;
 use log::info;
 
-use std::time::Instant;
+use std::time::{Instant, Duration};
 
 impl Plot {
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
@@ -179,8 +179,27 @@ impl Plot {
                         .send_system_message("The rtps cannot go higher than 35000!");
                     return;
                 }
+                self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
+            }
+            "/radv" | "/radvance" => {
+                if args.is_empty() {
+                    self.players[player]
+                        .send_system_message("HOw many TICk you want??");
+                    return;
+                }
+                let ticks = if let Ok(ticks) = args[0].parse::<u32>() {
+                    ticks
+                } else {
+                    self.players[player].send_system_message("Lmeo idk what that means");
+                    return;
+                };
+                let start_time = Instant::now();
+                for _ in 0..ticks {
+                    self.tick();
+                }
+                self.players[player].send_system_message(&format!("oka {} Ticks went brrr ({:?})", ticks, start_time.elapsed()));
             }
             "/tp" => {
                 if args.len() == 3 {

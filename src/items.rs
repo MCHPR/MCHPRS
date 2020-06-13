@@ -93,6 +93,7 @@ impl Item {
             173 => Item::BlockItem(id),
             234 => Item::BlockItem(id),
             272 => Item::BlockItem(id),
+            281..=296 => Item::BlockItem(id),
             413..=428 => Item::BlockItem(id),
             513..=514 => Item::BlockItem(id),
             536 => Item::WEWand,

@@ -147,6 +147,16 @@ impl BlockDirection {
         }
     }
 
+    pub fn block_facing(self) -> BlockFacing {
+        use BlockDirection::*;
+        match self {
+            North => BlockFacing::North,
+            South => BlockFacing::South,
+            East => BlockFacing::East,
+            West => BlockFacing::West,
+        }
+    }
+
     fn values() -> [BlockDirection; 4] {
         use BlockDirection::*;
         [North, South, East, West]
@@ -226,8 +236,55 @@ impl BlockFace {
             3 => BlockFace::South,
             4 => BlockFace::West,
             5 => BlockFace::East,
-            _ => panic!("Invalid BlockFace"),
+            _ => BlockFace::West,
         }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum BlockFacing {
+    North, East, South, West, Up, Down
+}
+
+impl BlockFacing {
+    fn from_id(id: u32) -> BlockFacing {
+        match id {
+            0 => BlockFacing::North,
+            1 => BlockFacing::East,
+            2 => BlockFacing::South,
+            3 => BlockFacing::West,
+            4 => BlockFacing::Up,
+            5 => BlockFacing::Down,
+            _ => BlockFacing::West,
+        }
+    }
+
+    fn get_id(self) -> u32 {
+        match self {
+            BlockFacing::North => 0,
+            BlockFacing::East => 1,
+            BlockFacing::South => 2,
+            BlockFacing::West => 3,
+            BlockFacing::Up => 4,
+            BlockFacing::Down => 5,
+        }
+    }
+
+    fn from_str(name: &str) -> BlockFacing {
+        match name {
+            "north" => BlockFacing::North,
+            "south" => BlockFacing::South,
+            "east" => BlockFacing::East,
+            "west" => BlockFacing::West,
+            "up" => BlockFacing::Up,
+            _ => BlockFacing::Down,
+        }
+    }
+}
+
+impl Default for BlockFacing {
+    fn default() -> Self {
+        BlockFacing::West
     }
 }
 
@@ -268,6 +325,9 @@ pub enum Block {
     Lever(Lever),
     RedstoneBlock,
     Container(u32),
+    PressurePlate(u32),
+    TripwireHook(BlockDirection),
+    Observer(BlockFacing),
     Solid(u32),
     Transparent(u32),
 }
@@ -367,7 +427,9 @@ impl Block {
                 let east = RedstoneWireSide::from_id(id / 432);
                 Block::RedstoneWire(RedstoneWire::new(north, south, east, west, power as u8))
             }
+            // Furnace
             3372 => Block::Container(id),
+            // Lever
             3781..=3804 => {
                 let id = id - 3781;
                 let face = LeverFace::from_id(id >> 3);
@@ -375,6 +437,8 @@ impl Block {
                 let powered = (id & 1) == 0;
                 Block::Lever(Lever::new(face, facing, powered))
             }
+            // Stone Pressure Plate
+            3806 => Block::PressurePlate(id), 
             // Redstone Torch
             3885 => Block::RedstoneTorch(true),
             3886 => Block::RedstoneTorch(false),
@@ -397,6 +461,11 @@ impl Block {
             // Redstone Lamp
             5140 => Block::RedstoneLamp(true),
             5141 => Block::RedstoneLamp(false),
+            // Tripwire Hooks
+            5252 => Block::TripwireHook(BlockDirection::North),
+            5254 => Block::TripwireHook(BlockDirection::South),
+            5256 => Block::TripwireHook(BlockDirection::West),
+            5258 => Block::TripwireHook(BlockDirection::East),
             // Redstone Comparator
             6142..=6157 => {
                 let id = id - 6142;
@@ -408,6 +477,11 @@ impl Block {
             6190 => Block::RedstoneBlock,
             7807 => Block::Transparent(id),
             7855 => Block::Transparent(id),
+            8725..=8735 => {
+                let id = id - 8725;
+                let facing = BlockFacing::from_id(id >> 1);
+                Block::Observer(facing)
+            }
             11136 => Block::Container(id),
             _ => Block::Solid(id),
         }
@@ -442,6 +516,12 @@ impl Block {
             }
             Block::RedstoneLamp(true) => 5140,
             Block::RedstoneLamp(false) => 5141,
+            // I might make tripwire calculate id at some point,
+            // This is easier though
+            Block::TripwireHook(BlockDirection::North) => 5252,
+            Block::TripwireHook(BlockDirection::South) => 5254,
+            Block::TripwireHook(BlockDirection::West) => 5256,
+            Block::TripwireHook(BlockDirection::East) => 5258,
             Block::RedstoneComparator(comparator) => {
                 comparator.facing.get_id() * 4
                     + comparator.mode.get_id() * 2
@@ -449,6 +529,10 @@ impl Block {
                     + 6142
             }
             Block::RedstoneBlock => 6190,
+            Block::Observer(facing) => {
+                (facing.get_id() << 1) + 8725
+            }
+            Block::PressurePlate(id) => id,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
             Block::Container(id) => id,
@@ -462,6 +546,7 @@ impl Block {
             "quartz_slab" => Some(Block::Transparent(7855)),
             "smooth_stone_slab" => Some(Block::Transparent(7807)),
             "sandstone" => Some(Block::Solid(245)),
+            "stone_pressure_plate" => Some(Block::PressurePlate(3806)),
             "stone_bricks" => Some(Block::Solid(4481)),
             "white_terracotta" => Some(Block::Solid(6311)),
             "orange_terracotta" => Some(Block::Solid(6312)),
@@ -505,6 +590,8 @@ impl Block {
             "furnace" => Some(Block::Container(3372)),
             "barrel" => Some(Block::Container(11136)),
             "lever" => Some(Block::Lever(Lever::default())),
+            "tripwire_hook" => Some(Block::TripwireHook(BlockDirection::default())),
+            "observer" => Some(Block::Observer(BlockFacing::default())),
             _ => None,
         }
     }
@@ -587,6 +674,8 @@ impl Block {
             234 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(plot, pos)),
             // Redstone Block
             272 => Block::RedstoneBlock,
+            // Terracotta
+            281..=296 => Block::Solid(item_id + 6030),
             // Concrete
             413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
@@ -603,10 +692,7 @@ impl Block {
             )),
             // Redstone Wire
             600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos)),
-            _ => {
-                error!("Tried to place block which wasnt a block!");
-                Block::Solid(245)
-            }
+            _ => Block::Air
         };
         if block.is_valid_position(plot, pos) {
             block
@@ -899,6 +985,12 @@ impl Block {
             }
             Block::Lever(lever) if key == "powered" => {
                 lever.powered = val.parse::<bool>().unwrap_or_default();
+            }
+            Block::TripwireHook(facing) if key == "facing" => {
+                *facing = BlockDirection::from_str(val);
+            }
+            Block::Observer(facing) if key == "facing" => {
+                *facing = BlockFacing::from_str(val);
             }
             _ => {}
         }
