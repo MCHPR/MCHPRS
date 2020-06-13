@@ -55,6 +55,7 @@ pub struct Plot {
     last_update_time: SystemTime,
     lag_time: Duration,
     last_player_time: SystemTime,
+    sleep_time: Duration,
     running: bool,
     x: i32,
     z: i32,
@@ -464,13 +465,14 @@ impl Plot {
             last_player_time: SystemTime::now(),
             last_update_time: SystemTime::now(),
             lag_time: Duration::new(0, 0),
+            sleep_time: Duration::from_micros(1_000_000 / plot_data.tps as u64),
             message_receiver: rx,
             message_sender: tx,
             priv_message_receiver: priv_rx,
             players: Vec::new(),
             running: true,
             show_redstone: plot_data.show_redstone,
-            tps: plot_data.tps as u32,
+            tps: plot_data.tps,
             x,
             z,
             always_running,
@@ -514,6 +516,7 @@ impl Plot {
                 last_player_time: SystemTime::now(),
                 last_update_time: SystemTime::now(),
                 lag_time: Duration::new(0, 0),
+                sleep_time: Duration::from_millis(30),
                 message_receiver: rx,
                 message_sender: tx,
                 priv_message_receiver: priv_rx,
@@ -540,7 +543,7 @@ impl Plot {
             .unwrap();
         let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
-            tps: self.tps as i32,
+            tps: self.tps,
             show_redstone: self.show_redstone,
             chunk_data,
             pending_ticks: self.to_be_ticked.clone(),
@@ -559,7 +562,7 @@ impl Plot {
         }
         while self.running {
             self.update();
-            thread::sleep(Duration::from_micros(500));
+            thread::sleep(self.sleep_time);
         }
     }
 

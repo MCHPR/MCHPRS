@@ -8,7 +8,7 @@ use std::mem;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {
-    pub tps: i32,
+    pub tps: u32,
     pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,
