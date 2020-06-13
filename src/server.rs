@@ -268,257 +268,265 @@ impl MinecraftServer {
         }
     }
 
+    fn handle_packet(&mut self, client: usize, packet: PacketDecoder) {
+        let clients = &mut self.network.handshaking_clients;
+        match clients[client].state {
+            NetworkState::Handshake => {
+                if packet.packet_id == 0x00 {
+                    let handshake = S00Handshake::decode(packet).unwrap();
+                    let client = &mut clients[client];
+                    match handshake.next_state {
+                        1 => client.state = NetworkState::Status,
+                        2 => client.state = NetworkState::Login,
+                        _ => {}
+                    }
+                    if client.state == NetworkState::Login
+                        && handshake.protocol_version != 578
+                    {
+                        warn!("A player tried to connect using the wrong version");
+                        let disconnect = C00DisconnectLogin {
+                            reason: json!({
+                                "text": "Version mismatch, I'm on 1.15.2!"
+                            })
+                            .to_string(),
+                        }
+                        .encode();
+                        client.send_packet(&disconnect);
+                        client.close_connection();
+                    }
+                }
+            }
+            NetworkState::Status => {
+                let client = &mut clients[client];
+                match packet.packet_id {
+                    0x00 => {
+                        let response = C00Response {
+                            json_response: json!({
+                                "version": {
+                                    "name": "1.15.2",
+                                    "protocol": 578
+                                },
+                                "players": {
+                                    "max": self.config.get_int("max_players").unwrap_or_default(),
+                                    "online": self.online_players.len(),
+                                    "sample": []
+                                },
+                                "description": {
+                                    "text": self.config.get_str("motd").unwrap_or_default()
+                                }
+                            })
+                            .to_string(),
+                        }
+                        .encode();
+                        client.send_packet(&response);
+                    }
+                    0x01 => {
+                        let ping = S00Ping::decode(packet).unwrap();
+                        let pong = C01Pong {
+                            payload: ping.payload,
+                        }
+                        .encode();
+                        client.send_packet(&pong);
+                    }
+                    _ => {}
+                }
+            }
+            NetworkState::Login => {
+                if packet.packet_id == 0x00 {
+                    let login_start = S00LoginStart::decode(packet).unwrap();
+                    clients[client].username = Some(login_start.name);
+                    let set_compression = C03SetCompression { threshold: 500 }.encode();
+                    clients[client].send_packet(&set_compression);
+                    clients[client].compressed = true;
+                    let username = if let Some(name) = &clients[client].username {
+                        name.clone()
+                    } else {
+                        Default::default()
+                    };
+                    let uuid = Player::generate_offline_uuid(&username);
+
+                    let login_success = C02LoginSuccess {
+                        uuid,
+                        username: username.clone(),
+                    }
+                    .encode();
+                    clients[client].send_packet(&login_success);
+
+                    clients[client].state = NetworkState::Play;
+                    let mut client = clients.remove(client);
+
+                    let join_game = C26JoinGame {
+                        entity_id: client.id as i32,
+                        gamemode: 1,
+                        dimention: 0,
+                        hash_seed: 0,
+                        max_players: 0,
+                        level_type: "flat".to_string(),
+                        view_distance: 8,
+                        reduced_debug_info: false,
+                        enable_respawn_screen: false,
+                    }
+                    .encode();
+                    client.send_packet(&join_game);
+
+                    let brand = C19PluginMessageBrand {
+                        brand: "Minecraft High Performace Redstone".to_string(),
+                    }
+                    .encode();
+                    client.send_packet(&brand);
+
+                    let mut player = Player::load_player(uuid, username.clone(), client);
+
+                    let player_pos_and_look = C36PlayerPositionAndLook {
+                        x: player.x,
+                        y: player.y,
+                        z: player.z,
+                        yaw: player.yaw,
+                        pitch: player.pitch,
+                        flags: 0,
+                        teleport_id: 0,
+                    }
+                    .encode();
+                    player.client.send_packet(&player_pos_and_look);
+
+                    player.update_view_pos();
+
+                    let mut add_player_list = Vec::new();
+                    for player in &self.online_players {
+                        add_player_list.push(C34PlayerInfoAddPlayer {
+                            uuid: player.uuid,
+                            name: player.username.clone(),
+                            display_name: None,
+                            gamemode: 1,
+                            ping: 0,
+                            properties: Vec::new(),
+                        });
+                    }
+                    add_player_list.push(C34PlayerInfoAddPlayer {
+                        uuid: player.uuid,
+                        name: player.username.clone(),
+                        display_name: None,
+                        gamemode: 1,
+                        ping: 0,
+                        properties: Vec::new(),
+                    });
+                    let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
+                    player.client.send_packet(&player_info);
+
+                    let slot_data: Vec<Option<SlotData>> = player
+                        .inventory
+                        .iter()
+                        .map(|op| {
+                            op.as_ref().map(|item| SlotData {
+                                item_count: item.count as i8,
+                                item_id: item.item_type.get_id() as i32,
+                                nbt: item.nbt.clone(),
+                            })
+                        })
+                        .collect();
+                    let window_items = C15WindowItems {
+                        window_id: 0,
+                        slot_data,
+                    }
+                    .encode();
+                    player.client.send_packet(&window_items);
+
+                    self.plot_sender
+                        .send(Message::PlayerJoined(player))
+                        .unwrap();
+                }
+            }
+            NetworkState::Play => {}
+        }
+    }
+
+    fn handle_message(&mut self, message: Message) {
+        debug!("Main thread received message: {:#?}", message);
+        match message {
+            Message::PlayerJoined(player) => {
+                // Send player info to plots
+                let player_join_info = PlayerJoinInfo {
+                    username: player.username.clone(),
+                    uuid: player.uuid,
+                    skin: None,
+                };
+                self.broadcaster
+                    .broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
+                self.send_player_to_plot(player, true);
+            }
+            Message::PlayerLeft(uuid) => {
+                let index = self.online_players.iter().position(|p| p.uuid == uuid);
+                if let Some(index) = index {
+                    self.online_players.remove(index);
+                }
+                self.broadcaster
+                    .broadcast(BroadcastMessage::PlayerLeft(uuid));
+            }
+            Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
+            Message::ChatInfo(username, message) => {
+                self.broadcaster.broadcast(BroadcastMessage::Chat(
+                    json!({
+                        "text": self.config.get_str("chat_format").unwrap_or("<{username}> {message}".to_owned())
+                                    .replace("{username}", &username)
+                                    .replace("{message}", &message)
+                    }).to_string()
+                ));
+            }
+            Message::PlayerLeavePlot(player) => {
+                self.send_player_to_plot(player, false);
+            }
+            Message::Shutdown => {
+                self.graceful_shutdown();
+            }
+            Message::PlayerTeleportOther(mut player, other_username) => {
+                if let Some(other_player) = self
+                    .online_players
+                    .iter()
+                    .find(|p| p.username == other_username)
+                {
+                    let plot_x = other_player.plot_x;
+                    let plot_z = other_player.plot_z;
+
+                    let plot_loaded = self
+                        .running_plots
+                        .iter()
+                        .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
+                    if !plot_loaded {
+                        player.send_system_message(
+                            "Their plot wasn't loaded. How did this happen??",
+                        );
+                        self.send_player_to_plot(player, false);
+                    } else {
+                        self.update_player_entry(player.uuid, plot_x, plot_z);
+                        let plot_list_entry = self
+                            .running_plots
+                            .iter()
+                            .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
+                            .unwrap();
+                        plot_list_entry
+                            .priv_message_sender
+                            .send(PrivMessage::PlayerTeleportOther(player, other_username));
+                    }
+                } else {
+                    player.send_system_message("Player not found!");
+                    self.send_player_to_plot(player, false);
+                }
+            }
+        }
+    }
+
     fn update(&mut self) {
         while let Ok(message) = self.debug_plot_receiver.try_recv() {
             debug!("Main thread broadcasted message: {:#?}", message);
         }
         while let Ok(message) = self.receiver.try_recv() {
-            debug!("Main thread received message: {:#?}", message);
-            match message {
-                Message::PlayerJoined(player) => {
-                    // Send player info to plots
-                    let player_join_info = PlayerJoinInfo {
-                        username: player.username.clone(),
-                        uuid: player.uuid,
-                        skin: None,
-                    };
-                    self.broadcaster
-                        .broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
-                    self.send_player_to_plot(player, true);
-                }
-                Message::PlayerLeft(uuid) => {
-                    let index = self.online_players.iter().position(|p| p.uuid == uuid);
-                    if let Some(index) = index {
-                        self.online_players.remove(index);
-                    }
-                    self.broadcaster
-                        .broadcast(BroadcastMessage::PlayerLeft(uuid));
-                }
-                Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
-                Message::ChatInfo(username, message) => {
-                    self.broadcaster.broadcast(BroadcastMessage::Chat(
-                        json!({
-                            "text": self.config.get_str("chat_format").unwrap_or("<{username}> {message}".to_owned())
-                                        .replace("{username}", &username)
-                                        .replace("{message}", &message)
-                        }).to_string()
-                    ));
-                }
-                Message::PlayerLeavePlot(player) => {
-                    self.send_player_to_plot(player, false);
-                }
-                Message::Shutdown => {
-                    self.graceful_shutdown();
-                }
-                Message::PlayerTeleportOther(mut player, other_username) => {
-                    if let Some(other_player) = self
-                        .online_players
-                        .iter()
-                        .find(|p| p.username == other_username)
-                    {
-                        let plot_x = other_player.plot_x;
-                        let plot_z = other_player.plot_z;
-
-                        let plot_loaded = self
-                            .running_plots
-                            .iter()
-                            .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
-                        if !plot_loaded {
-                            player.send_system_message(
-                                "Their plot wasn't loaded. How did this happen??",
-                            );
-                            self.send_player_to_plot(player, false);
-                        } else {
-                            self.update_player_entry(player.uuid, plot_x, plot_z);
-                            let plot_list_entry = self
-                                .running_plots
-                                .iter()
-                                .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
-                                .unwrap();
-                            plot_list_entry
-                                .priv_message_sender
-                                .send(PrivMessage::PlayerTeleportOther(player, other_username));
-                        }
-                    } else {
-                        player.send_system_message("Player not found!");
-                        self.send_player_to_plot(player, false);
-                    }
-                }
-            }
+            self.handle_message(message);
         }
         self.network.update();
-        let clients = &mut self.network.handshaking_clients;
-        for client in 0..clients.len() {
-            let packets: Vec<PacketDecoder> = clients[client].packets.drain(..).collect();
+        for client in 0..self.network.handshaking_clients.len() {
+            let packets: Vec<PacketDecoder> = self.network.handshaking_clients[client].packets.drain(..).collect();
             for packet in packets {
-                match clients[client].state {
-                    NetworkState::Handshake => {
-                        if packet.packet_id == 0x00 {
-                            let handshake = S00Handshake::decode(packet).unwrap();
-                            let client = &mut clients[client];
-                            match handshake.next_state {
-                                1 => client.state = NetworkState::Status,
-                                2 => client.state = NetworkState::Login,
-                                _ => {}
-                            }
-                            if client.state == NetworkState::Login
-                                && handshake.protocol_version != 578
-                            {
-                                warn!("A player tried to connect using the wrong version");
-                                let disconnect = C00DisconnectLogin {
-                                    reason: json!({
-                                        "text": "Version mismatch, I'm on 1.15.2!"
-                                    })
-                                    .to_string(),
-                                }
-                                .encode();
-                                client.send_packet(&disconnect);
-                                client.close_connection();
-                            }
-                        }
-                    }
-                    NetworkState::Status => {
-                        let client = &mut clients[client];
-                        match packet.packet_id {
-                            0x00 => {
-                                let response = C00Response {
-                                    json_response: json!({
-                                        "version": {
-                                            "name": "1.15.2",
-                                            "protocol": 578
-                                        },
-                                        "players": {
-                                            "max": self.config.get_int("max_players").unwrap_or_default(),
-                                            "online": self.online_players.len(),
-                                            "sample": []
-                                        },
-                                        "description": {
-                                            "text": self.config.get_str("motd").unwrap_or_default()
-                                        }
-                                    })
-                                    .to_string(),
-                                }
-                                .encode();
-                                client.send_packet(&response);
-                            }
-                            0x01 => {
-                                let ping = S00Ping::decode(packet).unwrap();
-                                let pong = C01Pong {
-                                    payload: ping.payload,
-                                }
-                                .encode();
-                                client.send_packet(&pong);
-                            }
-                            _ => {}
-                        }
-                    }
-                    NetworkState::Login => {
-                        if packet.packet_id == 0x00 {
-                            let login_start = S00LoginStart::decode(packet).unwrap();
-                            clients[client].username = Some(login_start.name);
-                            let set_compression = C03SetCompression { threshold: 500 }.encode();
-                            clients[client].send_packet(&set_compression);
-                            clients[client].compressed = true;
-                            let username = if let Some(name) = &clients[client].username {
-                                name.clone()
-                            } else {
-                                Default::default()
-                            };
-                            let uuid = Player::generate_offline_uuid(&username);
-
-                            let login_success = C02LoginSuccess {
-                                uuid,
-                                username: username.clone(),
-                            }
-                            .encode();
-                            clients[client].send_packet(&login_success);
-
-                            clients[client].state = NetworkState::Play;
-                            let mut client = clients.remove(client);
-
-                            let join_game = C26JoinGame {
-                                entity_id: client.id as i32,
-                                gamemode: 1,
-                                dimention: 0,
-                                hash_seed: 0,
-                                max_players: 0,
-                                level_type: "flat".to_string(),
-                                view_distance: 8,
-                                reduced_debug_info: false,
-                                enable_respawn_screen: false,
-                            }
-                            .encode();
-                            client.send_packet(&join_game);
-
-                            let brand = C19PluginMessageBrand {
-                                brand: "Minecraft High Performace Redstone".to_string(),
-                            }
-                            .encode();
-                            client.send_packet(&brand);
-
-                            let mut player = Player::load_player(uuid, username.clone(), client);
-
-                            let player_pos_and_look = C36PlayerPositionAndLook {
-                                x: player.x,
-                                y: player.y,
-                                z: player.z,
-                                yaw: player.yaw,
-                                pitch: player.pitch,
-                                flags: 0,
-                                teleport_id: 0,
-                            }
-                            .encode();
-                            player.client.send_packet(&player_pos_and_look);
-
-                            player.update_view_pos();
-
-                            let mut add_player_list = Vec::new();
-                            for player in &self.online_players {
-                                add_player_list.push(C34PlayerInfoAddPlayer {
-                                    uuid: player.uuid,
-                                    name: player.username.clone(),
-                                    display_name: None,
-                                    gamemode: 1,
-                                    ping: 0,
-                                    properties: Vec::new(),
-                                });
-                            }
-                            add_player_list.push(C34PlayerInfoAddPlayer {
-                                uuid: player.uuid,
-                                name: player.username.clone(),
-                                display_name: None,
-                                gamemode: 1,
-                                ping: 0,
-                                properties: Vec::new(),
-                            });
-                            let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
-                            player.client.send_packet(&player_info);
-
-                            let slot_data: Vec<Option<SlotData>> = player
-                                .inventory
-                                .iter()
-                                .map(|op| {
-                                    op.as_ref().map(|item| SlotData {
-                                        item_count: item.count as i8,
-                                        item_id: item.item_type.get_id() as i32,
-                                        nbt: item.nbt.clone(),
-                                    })
-                                })
-                                .collect();
-                            let window_items = C15WindowItems {
-                                window_id: 0,
-                                slot_data,
-                            }
-                            .encode();
-                            player.client.send_packet(&window_items);
-
-                            self.plot_sender
-                                .send(Message::PlayerJoined(player))
-                                .unwrap();
-                        }
-                    }
-                    NetworkState::Play => {}
-                }
+                self.handle_packet(client, packet);
             }
         }
     }
