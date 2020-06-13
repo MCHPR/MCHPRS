@@ -465,7 +465,7 @@ impl Plot {
             last_player_time: SystemTime::now(),
             last_update_time: SystemTime::now(),
             lag_time: Duration::new(0, 0),
-            sleep_time: Duration::from_micros(1_000_000 / plot_data.tps as u64),
+            sleep_time: Duration::from_micros((1_000_000 as u64).checked_div(plot_data.tps as u64).unwrap_or(0)),
             message_receiver: rx,
             message_sender: tx,
             priv_message_receiver: priv_rx,

@@ -9,10 +9,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
-    first_row: String,
-    second_row: String,
-    third_row: String,
-    fouth_row: String,
+    rows: [String; 4],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,8 +58,42 @@ impl BlockEntity {
             "minecraft:barrel" => {
                 BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 27)
             }
+            "minecraft:sign" => Some({
+                BlockEntity::Sign(Box::new(SignBlockEntity {
+                    rows: [
+                        // This cloning is really dumb
+                        nbt_unwrap_val!(nbt["Text1"].clone(), Value::String),
+                        nbt_unwrap_val!(nbt["Text2"].clone(), Value::String),
+                        nbt_unwrap_val!(nbt["Text3"].clone(), Value::String),
+                        nbt_unwrap_val!(nbt["Text4"].clone(), Value::String),
+                    ]
+                }))
+            }),
             _ => None,
         }
+    }
+
+    pub fn to_nbt(&self, pos: BlockPos) -> Option<nbt::Blob> {
+        use nbt::Value;
+        let blob = match self {
+            BlockEntity::Sign(sign) => Some({
+                let mut blob = nbt::Blob::new();
+                let [r1, r2, r3, r4] = sign.rows.clone();
+                blob.insert("Text1", Value::String(r1));
+                blob.insert("Text2", Value::String(r2));
+                blob.insert("Text3", Value::String(r3));
+                blob.insert("Text4", Value::String(r4));
+                blob.insert("id", Value::String("minecraft:sign".to_owned()));
+                blob
+            }),
+            _ => None
+        };
+        blob.map(|mut nbt|  {
+            nbt.insert("x", Value::Int(pos.x));
+            nbt.insert("y", Value::Int(pos.y as i32));
+            nbt.insert("z", Value::Int(pos.z));
+            nbt
+        })
     }
 }
 
@@ -328,6 +359,8 @@ pub enum Block {
     PressurePlate(u32),
     TripwireHook(BlockDirection),
     Observer(BlockFacing),
+    Sign(u32, u32),
+    WallSign(u32, BlockDirection),
     Solid(u32),
     Transparent(u32),
 }
@@ -429,6 +462,16 @@ impl Block {
             }
             // Furnace
             3372 => Block::Container(id),
+            // Signs
+            3380..=3570 => {
+                let id = id - 3380;
+                Block::Sign(id >> 5, (id & 0b11110) >> 1)
+            }
+            // Wall Signs
+            3734..=3780 => {
+                let id = id - 3734;
+                Block::WallSign(id >> 3, BlockDirection::from_id((id & 0b110) >> 1))
+            }
             // Lever
             3781..=3804 => {
                 let id = id - 3781;
@@ -532,6 +575,12 @@ impl Block {
             Block::Observer(facing) => {
                 (facing.get_id() << 1) + 8725
             }
+            Block::Sign(sign_type, rotation) => {
+                (sign_type << 5) + (rotation << 1) + 3380
+            },
+            Block::WallSign(sign_type, facing) => {
+                (sign_type << 3) + (facing.get_id() << 1) + 3734
+            },
             Block::PressurePlate(id) => id,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
@@ -592,6 +641,18 @@ impl Block {
             "lever" => Some(Block::Lever(Lever::default())),
             "tripwire_hook" => Some(Block::TripwireHook(BlockDirection::default())),
             "observer" => Some(Block::Observer(BlockFacing::default())),
+            "oak_sign" => Some(Block::Sign(0, 0)),
+            "spruce_sign" => Some(Block::Sign(1, 0)),
+            "birch_sign" => Some(Block::Sign(2, 0)),
+            "jungle_sign" => Some(Block::Sign(3, 0)),
+            "acacia_sign" => Some(Block::Sign(4, 0)),
+            "dark_oak_sign" => Some(Block::Sign(5, 0)),
+            "oak_wall_sign" => dbg!(Some(Block::WallSign(0, BlockDirection::default()))),
+            "spruce_wall_sign" => Some(Block::WallSign(1, BlockDirection::default())),
+            "birch_wall_sign" => Some(Block::WallSign(2, BlockDirection::default())),
+            "jungle_wall_sign" => Some(Block::WallSign(3, BlockDirection::default())),
+            "acacia_wall_sign" => Some(Block::WallSign(4, BlockDirection::default())),
+            "dark_oak_wall_sign" => Some(Block::WallSign(5, BlockDirection::default())),
             _ => None,
         }
     }
@@ -991,6 +1052,12 @@ impl Block {
             }
             Block::Observer(facing) if key == "facing" => {
                 *facing = BlockFacing::from_str(val);
+            }
+            Block::WallSign(_, facing) if key == "facing" => {
+                *facing = BlockDirection::from_str(val);
+            }
+            Block::Sign(_, rotation) if key == "rotation" => {
+                *rotation = val.parse::<u32>().unwrap_or_default();
             }
             _ => {}
         }
