@@ -4,7 +4,7 @@
 
 A minecraft creative server built for redstone. Each 256x256 plot runs on its own thread, allowing for less lag, more concurrency, and many awesome extra features!
 
-MCHPRS is very different from traditional servers. Because this server is tailored to for the use of computation redstone, many things that are a part of Vanilla Minecraft servers simply don't exist here. That being said, MCHPRS comes with many unique features.
+MCHPRS is very different from traditional servers. Because this server is tailored to for the use of computation redstone, many things that are a part of Vanilla Minecraft servers simply don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
 ## Building
 
