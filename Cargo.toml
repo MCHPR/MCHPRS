@@ -10,6 +10,11 @@ keywords = ["minecraft", "server"]
 repository = "https://github.com/StackDoubleFlow/MCHPRS"
 homepage = "https://github.com/StackDoubleFlow/MCHPRS"
 
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+]
+
 [badges]
 travis-ci = { repository = "StackDoubleFlow/MCHPRS" }
 
