@@ -23,6 +23,7 @@ impl Plot {
                     })
                     .to_string(),
                 );
+                return;
             }
         }
     }
