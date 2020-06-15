@@ -499,7 +499,6 @@ impl Plot {
             (offset_x - (self.x << 8)) >> 4..=(offset_x + cb.size_x as i32 - (self.x << 8)) >> 4;
         let chunk_z_range =
             (offset_z - (self.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (self.z << 8)) >> 4;
-        // This might also get costly, especially if the plot size gets expanded in the future.
         for chunk_idx in 0..self.chunks.len() {
             if chunk_x_range.contains(&(chunk_idx as i32 >> 4))
                 && chunk_z_range.contains(&(chunk_idx as i32 & 15))
