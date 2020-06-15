@@ -167,6 +167,11 @@ impl Plot {
                     player_idx: player,
                 },
             );
+        } else {
+            let block = self.get_block(block_pos);
+            if !self.players[player].crouching {
+                block.on_use(self, block_pos);
+            }
         }
     }
 
