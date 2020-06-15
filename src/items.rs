@@ -13,8 +13,6 @@ impl ActionResult {
     }
 }
 
-// Debug is temporary
-#[derive(Debug)]
 pub struct UseOnBlockContext {
     pub block_pos: BlockPos,
     pub block_face: BlockFace,

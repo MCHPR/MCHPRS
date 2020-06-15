@@ -583,4 +583,26 @@ impl Plot {
             }
         }
     }
+
+    pub(super) fn worldedit_find(&mut self, player: usize, block_id: u32) {
+        let start_time = Instant::now();
+
+        if let Some(operation) = self.worldedit_start_operation(player) {
+            for x in operation.x_range() {
+                for y in operation.y_range() {
+                    for z in operation.z_range() {
+                        let block_pos = BlockPos::new(x, y as u32, z);
+                        if self.get_block_raw(block_pos) == block_id {
+                            self.players[player].worldedit_send_message(format!(
+                                "The block was found at {:?}", block_pos));
+                        }
+                    }
+                }
+            }
+            self.players[player].worldedit_send_message(format!(
+                "Done. ({:?})",
+                start_time.elapsed()
+            ));
+        }
+    }
 }

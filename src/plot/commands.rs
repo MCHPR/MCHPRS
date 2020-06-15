@@ -113,6 +113,7 @@ impl Plot {
                     );
                 }
             }
+            "//find" => self.worldedit_find(player, args[0].parse::<u32>().unwrap()),
             "//copy" | "//c" => self.worldedit_copy(player),
             "//paste" | "//p" => self.worldedit_paste(player),
             "//count" => {
