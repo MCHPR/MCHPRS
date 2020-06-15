@@ -58,6 +58,9 @@ impl BlockEntity {
             "minecraft:barrel" => {
                 BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 27)
             }
+            "minecraft:hopper" => {
+                BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 5)
+            }
             "minecraft:sign" => Some({
                 BlockEntity::Sign(Box::new(SignBlockEntity {
                     rows: [
@@ -398,14 +401,16 @@ impl Block {
 
     fn is_transparent(self) -> bool {
         match self {
-            Block::Transparent(_) | Block::RedstoneBlock => true,
+            Block::Transparent(_) | Block::RedstoneBlock | Block::Container(6198) => true,
             _ => false,
         }
     }
 
     fn is_solid(self) -> bool {
         match self {
-            Block::RedstoneLamp(_) | Block::Solid(_) | Block::Container(_) => true,
+            Block::RedstoneLamp(_) | Block::Solid(_) => true,
+            // Hoppers are transparent
+            Block::Container(id) if id != 6198 => true,
             _ => false,
         }
     }
@@ -416,6 +421,7 @@ impl Block {
             | Block::Transparent(_)
             | Block::RedstoneBlock
             | Block::Container(_)
+            | Block::Observer(_)
             | Block::RedstoneLamp(_) => true,
             _ => false,
         }
@@ -518,13 +524,18 @@ impl Block {
                 Block::RedstoneComparator(RedstoneComparator::new(facing, mode, powered))
             }
             6190 => Block::RedstoneBlock,
+            // Hopper
+            6198 => Block::Container(id),
+            // Smooth Stone Slab
             7807 => Block::Transparent(id),
+            // Quartz Slab
             7855 => Block::Transparent(id),
             8725..=8735 => {
                 let id = id - 8725;
                 let facing = BlockFacing::from_id(id >> 1);
                 Block::Observer(facing)
             }
+            // Barrel
             11136 => Block::Container(id),
             _ => Block::Solid(id),
         }
@@ -664,12 +675,13 @@ impl Block {
             "jungle_sign" => Some(Block::Sign(3, 0)),
             "acacia_sign" => Some(Block::Sign(4, 0)),
             "dark_oak_sign" => Some(Block::Sign(5, 0)),
-            "oak_wall_sign" => dbg!(Some(Block::WallSign(0, BlockDirection::default()))),
+            "oak_wall_sign" => Some(Block::WallSign(0, BlockDirection::default())),
             "spruce_wall_sign" => Some(Block::WallSign(1, BlockDirection::default())),
             "birch_wall_sign" => Some(Block::WallSign(2, BlockDirection::default())),
             "jungle_wall_sign" => Some(Block::WallSign(3, BlockDirection::default())),
             "acacia_wall_sign" => Some(Block::WallSign(4, BlockDirection::default())),
             "dark_oak_wall_sign" => Some(Block::WallSign(5, BlockDirection::default())),
+            "hopper" => Some(Block::Container(6198)),
             _ => None,
         }
     }
