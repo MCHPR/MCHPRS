@@ -79,9 +79,9 @@ impl BitBuffer {
 #[derive(Debug, Clone)]
 pub struct PalettedBitBuffer {
     data: BitBuffer,
-    palatte: Vec<u32>,
+    palette: Vec<u32>,
     max_entries: u32,
-    use_palatte: bool,
+    use_palette: bool,
 }
 
 impl PalettedBitBuffer {
@@ -90,21 +90,21 @@ impl PalettedBitBuffer {
     }
 
     pub fn with_entries(entries: usize) -> PalettedBitBuffer {
-        let mut palatte = Vec::new();
-        palatte.push(0);
+        let mut palette = Vec::new();
+        palette.push(0);
         PalettedBitBuffer {
             data: BitBuffer::create(4, entries),
-            palatte,
+            palette,
             max_entries: 16,
-            use_palatte: true,
+            use_palette: true,
         }
     }
 
-    fn load(bits_per_entry: u8, longs: Vec<u64>, palatte: Vec<u32>) -> PalettedBitBuffer {
+    fn load(bits_per_entry: u8, longs: Vec<u64>, palette: Vec<u32>) -> PalettedBitBuffer {
         PalettedBitBuffer {
             data: BitBuffer::load(bits_per_entry, longs),
-            palatte,
-            use_palatte: bits_per_entry < 9,
+            palette,
+            use_palette: bits_per_entry < 9,
             max_entries: 1 << bits_per_entry,
         }
     }
@@ -115,40 +115,44 @@ impl PalettedBitBuffer {
             let mut old_buffer = BitBuffer::create(14, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
             self.max_entries = 1 << 14;
-            for entry in 0..old_buffer.entries {
+            for entry_idx in 0..old_buffer.entries {
+                let entry = self.palette[old_buffer.get_entry(entry_idx) as usize];
                 self.data
-                    .set_entry(entry, self.palatte[old_buffer.get_entry(entry) as usize]);
+                    .set_entry(entry_idx, entry);
             }
-            self.use_palatte = false;
+            self.use_palette = false;
         } else {
             let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
             self.max_entries <<= 1;
-            for entry in 0..old_buffer.entries {
-                self.data.set_entry(entry, old_buffer.get_entry(entry));
+            for entry_idx in 0..old_buffer.entries {
+                let entry = old_buffer.get_entry(entry_idx);
+                self.data.set_entry(entry_idx, entry);
             }
         };
     }
 
     pub fn get_entry(&self, index: usize) -> u32 {
-        if self.use_palatte {
-            self.palatte[self.data.get_entry(index) as usize]
+        if self.use_palette {
+            self.palette[self.data.get_entry(index) as usize]
         } else {
             self.data.get_entry(index)
         }
     }
 
     pub fn set_entry(&mut self, index: usize, val: u32) {
-        if self.use_palatte {
-            if let Some(palatte_index) = self.palatte.iter().position(|x| x == &val) {
-                self.data.set_entry(index, palatte_index as u32);
+        if self.use_palette {
+            if let Some(palette_index) = self.palette.iter().position(|x| x == &val) {
+                self.data.set_entry(index, palette_index as u32);
             } else {
-                if self.palatte.len() + 1 > self.max_entries as usize {
+                if self.palette.len() + 1 > self.max_entries as usize {
                     self.resize_buffer();
+                    self.set_entry(index, val);
+                    return;
                 }
-                let palatte_index = self.palatte.len();
-                self.palatte.push(val);
-                self.data.set_entry(index, palatte_index as u32);
+                let palette_index = self.palette.len();
+                self.palette.push(val);
+                self.data.set_entry(index, palette_index as u32);
             }
         } else {
             self.data.set_entry(index, val);
@@ -191,7 +195,7 @@ impl ChunkSection {
     fn load(data: ChunkSectionData) -> ChunkSection {
         let loaded_longs = data.data.into_iter().map(|x| x as u64).collect();
         let bits_per_entry = data.bits_per_block as u8;
-        let palette = data.palatte.into_iter().map(|x| x as u32).collect();
+        let palette = data.palette.into_iter().map(|x| x as u32).collect();
         let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
         ChunkSection {
             buffer,
@@ -208,16 +212,16 @@ impl ChunkSection {
             .into_iter()
             .map(|x| x as i64)
             .collect();
-        let palatte: Vec<i32> = self
+        let palette: Vec<i32> = self
             .buffer
-            .palatte
+            .palette
             .clone()
             .into_iter()
             .map(|x| x as i32)
             .collect();
         ChunkSectionData {
             data: longs,
-            palatte,
+            palette,
             bits_per_block: self.buffer.data.bits_per_entry as i8,
             block_count: self.block_count as i32,
         }
@@ -235,10 +239,10 @@ impl ChunkSection {
             bits_per_block: self.buffer.data.bits_per_entry,
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
-            palette: if self.buffer.use_palatte {
+            palette: if self.buffer.use_palette {
                 Some(
                     self.buffer
-                        .palatte
+                        .palette
                         .clone()
                         .into_iter()
                         .map(|x| x as i32)
@@ -397,7 +401,7 @@ impl Chunk {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 struct ChunkSectionData {
     data: Vec<i64>,
-    palatte: Vec<i32>,
+    palette: Vec<i32>,
     bits_per_block: i8,
     block_count: i32,
 }
