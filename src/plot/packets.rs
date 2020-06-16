@@ -416,7 +416,22 @@ impl Plot {
                 };
                 self.players[other_player].client.send_packet(&effect);
             }
-        }
+        } else {
+            let selected_slot = self.players[player].selected_slot as usize + 36;
+            if player_digging.status == 3 {
+                self.players[player].inventory[selected_slot] = None;
+            } else if player_digging.status == 4 {
+                let mut stack_empty = false;
+                if let Some(item_stack) = &mut self.players[player].inventory[selected_slot] {
+                    item_stack.count -= 1;
+                    stack_empty = item_stack.count == 0;
+                }
+                if stack_empty {
+                    self.players[player].inventory[selected_slot] = None;
+                }
+            }
+        } 
+        
     }
 
     fn handle_entity_action(&mut self, player: usize, entity_action: S1BEntityAction) {
