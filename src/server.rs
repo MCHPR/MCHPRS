@@ -1,7 +1,7 @@
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C15WindowItems,
     C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
-    C36PlayerPositionAndLook, ClientBoundPacket,
+    C36PlayerPositionAndLook, C40HeldItemChange, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
@@ -430,6 +430,11 @@ impl MinecraftServer {
                     }
                     .encode();
                     player.client.send_packet(&window_items);
+
+                    let held_item_change = C40HeldItemChange {
+                        slot: player.selected_slot as i8
+                    }.encode();
+                    player.client.send_packet(&held_item_change);
 
                     self.plot_sender
                         .send(Message::PlayerJoined(player))

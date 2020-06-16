@@ -527,6 +527,18 @@ impl ClientBoundPacket for C3CEntityHeadLook {
     }
 }
 
+pub struct C40HeldItemChange {
+    pub slot: i8,
+}
+
+impl ClientBoundPacket for C40HeldItemChange {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_byte(self.slot);
+        PacketEncoder::new(buf, 0x40)
+    }
+}
+
 pub struct C41UpdateViewPosition {
     pub chunk_x: i32,
     pub chunk_z: i32,
