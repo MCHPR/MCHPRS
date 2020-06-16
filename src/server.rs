@@ -280,9 +280,7 @@ impl MinecraftServer {
                         2 => client.state = NetworkState::Login,
                         _ => {}
                     }
-                    if client.state == NetworkState::Login
-                        && handshake.protocol_version != 578
-                    {
+                    if client.state == NetworkState::Login && handshake.protocol_version != 578 {
                         warn!("A player tried to connect using the wrong version");
                         let disconnect = C00DisconnectLogin {
                             reason: json!({
@@ -432,8 +430,9 @@ impl MinecraftServer {
                     player.client.send_packet(&window_items);
 
                     let held_item_change = C40HeldItemChange {
-                        slot: player.selected_slot as i8
-                    }.encode();
+                        slot: player.selected_slot as i8,
+                    }
+                    .encode();
                     player.client.send_packet(&held_item_change);
 
                     self.plot_sender
@@ -497,9 +496,8 @@ impl MinecraftServer {
                         .iter()
                         .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
                     if !plot_loaded {
-                        player.send_system_message(
-                            "Their plot wasn't loaded. How did this happen??",
-                        );
+                        player
+                            .send_system_message("Their plot wasn't loaded. How did this happen??");
                         self.send_player_to_plot(player, false);
                     } else {
                         self.update_player_entry(player.uuid, plot_x, plot_z);
@@ -529,7 +527,10 @@ impl MinecraftServer {
         }
         self.network.update();
         for client in 0..self.network.handshaking_clients.len() {
-            let packets: Vec<PacketDecoder> = self.network.handshaking_clients[client].packets.drain(..).collect();
+            let packets: Vec<PacketDecoder> = self.network.handshaking_clients[client]
+                .packets
+                .drain(..)
+                .collect();
             for packet in packets {
                 self.handle_packet(client, packet);
             }

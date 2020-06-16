@@ -12,7 +12,6 @@ pub struct PlotData {
     pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,
-    pub block_entities: HashMap<BlockPos, BlockEntity>,
 }
 
 #[derive(Debug, Clone)]
@@ -117,8 +116,7 @@ impl PalettedBitBuffer {
             self.max_entries = 1 << 14;
             for entry_idx in 0..old_buffer.entries {
                 let entry = self.palette[old_buffer.get_entry(entry_idx) as usize];
-                self.data
-                    .set_entry(entry_idx, entry);
+                self.data.set_entry(entry_idx, entry);
             }
             self.use_palette = false;
         } else {
@@ -260,6 +258,7 @@ pub struct Chunk {
     pub sections: BTreeMap<u8, ChunkSection>,
     pub x: i32,
     pub z: i32,
+    pub block_entities: HashMap<BlockPos, BlockEntity>,
 }
 
 impl Chunk {
@@ -287,6 +286,19 @@ impl Chunk {
         heightmaps
             .insert("MOTION_BLOCKING", heightmap_longs)
             .unwrap();
+        let mut block_entities = Vec::new();
+        self.block_entities
+            .iter()
+            .map(|(pos, block_entity)| {
+                block_entity
+                    .to_nbt(BlockPos::new(
+                        pos.x + (self.x << 4),
+                        pos.y,
+                        pos.z + (self.z << 4),
+                    ))
+                    .map(|blob| block_entities.push(blob))
+            })
+            .for_each(drop);
         C22ChunkData {
             // Use `bool_to_option` feature when stabalized
             // Tracking issue: https://github.com/rust-lang/rust/issues/64260
@@ -301,6 +313,7 @@ impl Chunk {
             full_chunk,
             heightmaps,
             primary_bit_mask: bitmask as i32,
+            block_entities,
         }
         .encode()
     }
@@ -343,9 +356,22 @@ impl Chunk {
         }
     }
 
+    pub fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
+        self.block_entities.get(&pos)
+    }
+
+    pub fn delete_block_entity(&mut self, pos: BlockPos) {
+        self.block_entities.remove(&pos);
+    }
+
+    pub fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
+        self.block_entities.insert(pos, block_entity);
+    }
+
     pub fn save(&self) -> ChunkData {
         ChunkData {
             sections: self.sections.iter().map(|(y, s)| (*y, s.save())).collect(),
+            block_entities: self.block_entities.clone(),
         }
     }
 
@@ -358,6 +384,7 @@ impl Chunk {
                 .into_iter()
                 .map(|(y, cs)| (y, ChunkSection::load(cs)))
                 .collect(),
+            block_entities: chunk_data.block_entities,
         }
     }
 
@@ -366,6 +393,7 @@ impl Chunk {
             sections: BTreeMap::new(),
             x,
             z,
+            block_entities: HashMap::new(),
         }
     }
 
@@ -374,6 +402,7 @@ impl Chunk {
             sections: BTreeMap::new(),
             x,
             z,
+            block_entities: HashMap::new(),
         };
 
         for ry in 0..layers {
@@ -406,7 +435,8 @@ struct ChunkSectionData {
     block_count: i32,
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ChunkData {
     sections: BTreeMap<u8, ChunkSectionData>,
+    block_entities: HashMap<BlockPos, BlockEntity>,
 }

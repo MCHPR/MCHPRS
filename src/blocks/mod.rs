@@ -69,7 +69,7 @@ impl BlockEntity {
                         nbt_unwrap_val!(nbt["Text2"].clone(), Value::String),
                         nbt_unwrap_val!(nbt["Text3"].clone(), Value::String),
                         nbt_unwrap_val!(nbt["Text4"].clone(), Value::String),
-                    ]
+                    ],
                 }))
             }),
             _ => None,
@@ -89,9 +89,9 @@ impl BlockEntity {
                 blob.insert("id", Value::String("minecraft:sign".to_owned()));
                 blob
             }),
-            _ => None
+            _ => None,
         };
-        blob.map(|mut nbt|  {
+        blob.map(|mut nbt| {
             nbt.insert("x", Value::Int(pos.x));
             nbt.insert("y", Value::Int(pos.y as i32));
             nbt.insert("z", Value::Int(pos.z));
@@ -277,7 +277,12 @@ impl BlockFace {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockFacing {
-    North, East, South, West, Up, Down
+    North,
+    East,
+    South,
+    West,
+    Up,
+    Down,
 }
 
 impl BlockFacing {
@@ -487,7 +492,7 @@ impl Block {
                 Block::Lever(Lever::new(face, facing, powered))
             }
             // Stone Pressure Plate
-            3806 => Block::PressurePlate(id), 
+            3806 => Block::PressurePlate(id),
             // Redstone Torch
             3885 => Block::RedstoneTorch(true),
             3886 => Block::RedstoneTorch(false),
@@ -583,15 +588,9 @@ impl Block {
                     + 6142
             }
             Block::RedstoneBlock => 6190,
-            Block::Observer(facing) => {
-                (facing.get_id() << 1) + 8725
-            }
-            Block::Sign(sign_type, rotation) => {
-                (sign_type << 5) + (rotation << 1) + 3380
-            },
-            Block::WallSign(sign_type, facing) => {
-                (sign_type << 3) + (facing.get_id() << 1) + 3734
-            },
+            Block::Observer(facing) => (facing.get_id() << 1) + 8725,
+            Block::Sign(sign_type, rotation) => (sign_type << 5) + (rotation << 1) + 3380,
+            Block::WallSign(sign_type, facing) => (sign_type << 3) + (facing.get_id() << 1) + 3734,
             Block::PressurePlate(id) => id,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
@@ -782,7 +781,7 @@ impl Block {
             )),
             // Redstone Wire
             600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos)),
-            _ => Block::Air
+            _ => Block::Air,
         };
         if block.is_valid_position(plot, pos) {
             block
@@ -867,7 +866,9 @@ impl Block {
                 }
             }
             Block::RedstoneWallTorch(lit, facing) => {
-                if lit == Block::wall_torch_should_be_off(plot, pos, facing) && !plot.pending_tick_at(pos) {
+                if lit == Block::wall_torch_should_be_off(plot, pos, facing)
+                    && !plot.pending_tick_at(pos)
+                {
                     plot.schedule_tick(pos, 1, TickPriority::Normal);
                 }
             }

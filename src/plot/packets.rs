@@ -430,8 +430,7 @@ impl Plot {
                     self.players[player].inventory[selected_slot] = None;
                 }
             }
-        } 
-        
+        }
     }
 
     fn handle_entity_action(&mut self, player: usize, entity_action: S1BEntityAction) {

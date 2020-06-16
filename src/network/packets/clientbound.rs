@@ -268,6 +268,7 @@ pub struct C22ChunkData {
     pub heightmaps: nbt::Blob,
     pub chunk_sections: Vec<C22ChunkDataSection>,
     pub biomes: Option<Vec<i32>>,
+    pub block_entities: Vec<nbt::Blob>,
 }
 
 impl ClientBoundPacket for C22ChunkData {
@@ -303,7 +304,10 @@ impl ClientBoundPacket for C22ChunkData {
         buf.write_varint(data.len() as i32);
         buf.write_bytes(data);
         // Number of block entities
-        buf.write_varint(0);
+        buf.write_varint(self.block_entities.len() as i32);
+        for block_entity in self.block_entities {
+            buf.write_nbt_blob(block_entity);
+        }
         PacketEncoder::new(buf, 0x22)
     }
 }

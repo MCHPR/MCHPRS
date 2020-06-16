@@ -594,15 +594,15 @@ impl Plot {
                         let block_pos = BlockPos::new(x, y as u32, z);
                         if self.get_block_raw(block_pos) == block_id {
                             self.players[player].worldedit_send_message(format!(
-                                "The block was found at {:?}", block_pos));
+                                "The block was found at {:?}",
+                                block_pos
+                            ));
                         }
                     }
                 }
             }
-            self.players[player].worldedit_send_message(format!(
-                "Done. ({:?})",
-                start_time.elapsed()
-            ));
+            self.players[player]
+                .worldedit_send_message(format!("Done. ({:?})", start_time.elapsed()));
         }
     }
 }

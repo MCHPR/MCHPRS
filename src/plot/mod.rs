@@ -62,7 +62,6 @@ pub struct Plot {
     show_redstone: bool,
     always_running: bool,
     chunks: Vec<Chunk>,
-    block_entities: HashMap<BlockPos, BlockEntity>,
 }
 
 impl Plot {
@@ -125,15 +124,30 @@ impl Plot {
     }
 
     pub fn delete_block_entity(&mut self, pos: BlockPos) {
-        self.block_entities.remove(&pos);
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return;
+        }
+        let chunk = &mut self.chunks[chunk_index];
+        chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
     pub fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
-        self.block_entities.get(&pos)
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return None;
+        }
+        let chunk = &self.chunks[chunk_index];
+        chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
     pub fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
-        self.block_entities.insert(pos, block_entity);
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return;
+        }
+        let chunk = &mut self.chunks[chunk_index];
+        chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity)
     }
 
     pub fn broadcast_chat_message(&mut self, message: String) {
@@ -465,7 +479,11 @@ impl Plot {
             last_player_time: SystemTime::now(),
             last_update_time: SystemTime::now(),
             lag_time: Duration::new(0, 0),
-            sleep_time: Duration::from_micros((1_000_000 as u64).checked_div(plot_data.tps as u64).unwrap_or(0)),
+            sleep_time: Duration::from_micros(
+                (1_000_000 as u64)
+                    .checked_div(plot_data.tps as u64)
+                    .unwrap_or(0),
+            ),
             message_receiver: rx,
             message_sender: tx,
             priv_message_receiver: priv_rx,
@@ -478,7 +496,6 @@ impl Plot {
             always_running,
             chunks,
             to_be_ticked: plot_data.pending_ticks,
-            block_entities: plot_data.block_entities,
         }
     }
 
@@ -529,7 +546,6 @@ impl Plot {
                 always_running,
                 chunks,
                 to_be_ticked: Vec::new(),
-                block_entities: HashMap::new(),
             }
         }
     }
@@ -547,7 +563,6 @@ impl Plot {
             show_redstone: self.show_redstone,
             chunk_data,
             pending_ticks: self.to_be_ticked.clone(),
-            block_entities: self.block_entities.clone(),
         })
         .unwrap();
         file.write_all(&encoded).unwrap();

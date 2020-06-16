@@ -146,9 +146,7 @@ impl RedstoneWire {
             Block::RedstoneRepeater(repeater) => {
                 repeater.facing == side || repeater.facing == side.opposite()
             }
-            Block::Observer(facing) => {
-                facing == side.block_facing()
-            }
+            Block::Observer(facing) => facing == side.block_facing(),
             _ => false,
         }
     }

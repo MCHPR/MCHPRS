@@ -2,7 +2,7 @@ use super::{database, Plot};
 use crate::server::Message;
 use log::info;
 
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 
 impl Plot {
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
@@ -166,7 +166,11 @@ impl Plot {
                 for _ in 0..ticks {
                     self.tick();
                 }
-                self.players[player].send_system_message(&format!("Plot has been advanced by {} ticks ({:?})", ticks, start_time.elapsed()));
+                self.players[player].send_system_message(&format!(
+                    "Plot has been advanced by {} ticks ({:?})",
+                    ticks,
+                    start_time.elapsed()
+                ));
             }
             "/teleport" | "/tp" => {
                 if args.len() == 3 {
