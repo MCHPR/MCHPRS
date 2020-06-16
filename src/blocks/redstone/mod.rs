@@ -247,9 +247,9 @@ impl RedstoneRepeater {
             plot.set_block(pos, Block::RedstoneRepeater(self));
         }
 
-        if !plot.pending_tick_at(pos) {
+        if !self.locked && !plot.pending_tick_at(pos) {
             let should_be_powered = self.should_be_powered(plot, pos);
-            if should_be_powered != self.powered && !self.locked {
+            if should_be_powered != self.powered {
                 self.schedule_tick(plot, pos, should_be_powered);
             }
         }

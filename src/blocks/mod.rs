@@ -861,8 +861,13 @@ impl Block {
             Block::RedstoneWire(wire) => {
                 wire.on_neighbor_updated(plot, pos);
             }
-            Block::RedstoneTorch(_) | Block::RedstoneWallTorch(_, _) => {
-                if !plot.pending_tick_at(pos) {
+            Block::RedstoneTorch(lit) => {
+                if lit == Block::torch_should_be_off(plot, pos) && !plot.pending_tick_at(pos) {
+                    plot.schedule_tick(pos, 1, TickPriority::Normal);
+                }
+            }
+            Block::RedstoneWallTorch(lit, facing) => {
+                if lit == Block::wall_torch_should_be_off(plot, pos, facing) && !plot.pending_tick_at(pos) {
                     plot.schedule_tick(pos, 1, TickPriority::Normal);
                 }
             }
