@@ -10,7 +10,7 @@ use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
 use crate::player::Player;
-use crate::plot::{self, Plot};
+use crate::plot::{self, Plot, commands::DECLARE_COMMANDS};
 use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};
@@ -434,6 +434,8 @@ impl MinecraftServer {
                     }
                     .encode();
                     player.client.send_packet(&held_item_change);
+
+                    player.client.send_packet(&DECLARE_COMMANDS);
 
                     self.plot_sender
                         .send(Message::PlayerJoined(player))

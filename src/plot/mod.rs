@@ -1,4 +1,4 @@
-mod commands;
+pub mod commands;
 pub mod database;
 mod packets;
 mod storage;
@@ -13,7 +13,6 @@ use bus::BusReader;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;

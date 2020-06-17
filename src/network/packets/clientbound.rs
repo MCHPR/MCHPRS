@@ -173,6 +173,73 @@ impl ClientBoundPacket for C10MultiBlockChange {
     }
 }
 
+pub enum C12DeclareCommandsNodeParser {
+    Entity(i8),
+    Vec3,
+    Integer(i32, i32),
+    BlockPos,
+    BlockState
+}
+
+impl C12DeclareCommandsNodeParser {
+    fn write(&self, buf: &mut Vec<u8>) {
+        use C12DeclareCommandsNodeParser::*;
+        match self {
+            Entity(flags) => {
+                buf.write_string(32767, "minecraft:entity");
+                buf.write_byte(*flags);
+            }
+            Vec3 => buf.write_string(32767, "minecraft:vec3"),
+            BlockPos => buf.write_string(32767, "minecraft:block_pos"),
+            BlockState => buf.write_string(32767, "minecraft:block_state"),
+            Integer(min, max) => {
+                buf.write_string(32767, "brigadier:integer");
+                buf.write_byte(3); // Supply min and max value
+                buf.write_int(*min);
+                buf.write_int(*max);
+            }
+        }
+    }
+}
+
+pub struct C12DeclareCommandsNode {
+    pub flags: i8,
+    pub children: Vec<i32>,
+    pub redirect_node: Option<i32>,
+    pub name: Option<&'static str>,
+    pub parser: Option<C12DeclareCommandsNodeParser>,
+}
+
+pub struct C12DeclareCommands {
+    pub nodes: Vec<C12DeclareCommandsNode>,
+    pub root_index: i32,
+}
+
+impl ClientBoundPacket for C12DeclareCommands {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.nodes.len() as i32);
+        for node in self.nodes {
+            buf.write_byte(node.flags);
+            buf.write_varint(node.children.len() as i32);
+            for child in node.children {
+                buf.write_varint(child);
+            }
+            if let Some(redirect_node) = node.redirect_node {
+                buf.write_varint(redirect_node);
+            }
+            if let Some(name) = node.name {
+                buf.write_string(32767, &name);
+            }
+            if let Some(parser) = node.parser {
+                parser.write(&mut buf);
+            }
+        }
+        buf.write_varint(self.root_index);
+        PacketEncoder::new(buf, 0x12)
+    }
+}
+
 pub struct C15WindowItems {
     pub window_id: u8,
     pub slot_data: Vec<Option<SlotData>>,

@@ -2,7 +2,6 @@ use super::storage::PalettedBitBuffer;
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::network::packets::clientbound::*;
-use log::debug;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
@@ -356,7 +355,7 @@ impl Plot {
             let blocks_updated = operation.blocks_updated();
             self.worldedit_send_operation(operation);
 
-            self.players[player].worldedit_send_message(format!(
+            self.players[player].send_worldedit_message(&format!(
                 "Operation completed: {} block(s) affected ({:?})",
                 blocks_updated,
                 start_time.elapsed()
@@ -396,7 +395,7 @@ impl Plot {
             let blocks_updated = operation.blocks_updated();
             self.worldedit_send_operation(operation);
 
-            self.players[player].worldedit_send_message(format!(
+            self.players[player].send_worldedit_message(&format!(
                 "Operation completed: {} block(s) affected ({:?})",
                 blocks_updated,
                 start_time.elapsed()
@@ -428,7 +427,7 @@ impl Plot {
                 }
             }
 
-            self.players[player].worldedit_send_message(format!(
+            self.players[player].send_worldedit_message(&format!(
                 "Counted {} block(s) ({:?})",
                 blocks_counted,
                 start_time.elapsed()
@@ -537,7 +536,7 @@ impl Plot {
             );
             self.players[player].worldedit_clipboard = Some(clipboard);
 
-            self.players[player].worldedit_send_message(format!(
+            self.players[player].send_worldedit_message(&format!(
                 "Your selection was copied. ({:?})",
                 start_time.elapsed()
             ));
@@ -556,7 +555,7 @@ impl Plot {
                 self.players[player].z.floor() as i32,
             );
             self.paste_clipboard(cb, pos);
-            self.players[player].worldedit_send_message(format!(
+            self.players[player].send_worldedit_message(&format!(
                 "Your clipboard was pasted. ({:?})",
                 start_time.elapsed()
             ));
@@ -572,14 +571,14 @@ impl Plot {
         match clipboard {
             Some(cb) => {
                 self.players[player].worldedit_clipboard = Some(cb);
-                self.players[player].worldedit_send_message(format!(
+                self.players[player].send_worldedit_message(&format!(
                     "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
                     start_time.elapsed()
                 ));
             }
             None => {
                 self.players[player]
-                    .send_system_message("There was an error loading the schematic.");
+                    .send_error_message("There was an error loading the schematic.");
             }
         }
     }
@@ -593,7 +592,7 @@ impl Plot {
                     for z in operation.z_range() {
                         let block_pos = BlockPos::new(x, y as u32, z);
                         if self.get_block_raw(block_pos) == block_id {
-                            self.players[player].worldedit_send_message(format!(
+                            self.players[player].send_worldedit_message(&format!(
                                 "The block was found at {:?}",
                                 block_pos
                             ));
@@ -602,7 +601,7 @@ impl Plot {
                 }
             }
             self.players[player]
-                .worldedit_send_message(format!("Done. ({:?})", start_time.elapsed()));
+                .send_worldedit_message(&format!("Done. ({:?})", start_time.elapsed()));
         }
     }
 }

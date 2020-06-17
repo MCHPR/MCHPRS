@@ -1,5 +1,5 @@
 use super::Plot;
-use crate::blocks::{Block, BlockFace, BlockPos};
+use crate::blocks::{BlockFace, BlockPos};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;

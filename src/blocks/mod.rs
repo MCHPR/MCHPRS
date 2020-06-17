@@ -2,7 +2,6 @@ mod redstone;
 
 use crate::items::{ActionResult, UseOnBlockContext};
 use crate::plot::{Plot, TickPriority};
-use log::error;
 use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
