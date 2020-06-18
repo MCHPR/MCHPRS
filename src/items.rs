@@ -57,7 +57,7 @@ impl ItemStack {
         if let Item::BlockItem(item_id) = self.item_type {
             if plot.get_block(block_pos).can_place_block_in() {
                 let block = Block::get_state_for_placement(plot, block_pos, item_id, &context);
-                block.place_in_plot(plot, block_pos);
+                block.place_in_plot(plot, block_pos, &self.nbt);
             }
         } else {
             // This is to make sure the client doesn't place a block
@@ -78,6 +78,8 @@ pub enum Item {
     /// it is NOT a block state id.
     BlockItem(u32),
     WEWand,
+    Snowball,
+    TotemOfUndying,
     Unknown(u32),
 }
 
@@ -87,15 +89,20 @@ impl Item {
             64 => Item::BlockItem(id),
             68 => Item::BlockItem(id),
             82..=97 => Item::BlockItem(id),
+            160 => Item::BlockItem(id),
             164 => Item::BlockItem(id),
             173 => Item::BlockItem(id),
             234 => Item::BlockItem(id),
             272 => Item::BlockItem(id),
+            274 => Item::BlockItem(id),
             281..=296 => Item::BlockItem(id),
             413..=428 => Item::BlockItem(id),
             513..=514 => Item::BlockItem(id),
             536 => Item::WEWand,
             600 => Item::BlockItem(id),
+            601 => Item::Snowball,
+            836 => Item::TotemOfUndying,
+            865 => Item::BlockItem(id),
             _ => Item::Unknown(id),
         }
     }
@@ -103,8 +110,26 @@ impl Item {
     pub fn get_id(&self) -> u32 {
         match self {
             Item::WEWand => 536,
+            Item::Snowball => 601,
+            Item::TotemOfUndying => 836,
             Item::BlockItem(id) => *id,
             Item::Unknown(id) => *id,
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Item> {
+        match name {
+           "snowball" => Some(Item::Snowball),
+           "totem_of_undying" => Some(Item::TotemOfUndying),
+           _ => None, 
+        }
+    }
+
+    pub fn max_stack_size(&self) -> u32 {
+        match self {
+            Item::Snowball => 16,
+            Item::TotemOfUndying => 1,
+            _ => 64,
         }
     }
 }

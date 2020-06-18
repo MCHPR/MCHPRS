@@ -1,6 +1,6 @@
 mod redstone;
 
-use crate::items::{ActionResult, UseOnBlockContext};
+use crate::items::{Item, ActionResult, UseOnBlockContext};
 use crate::plot::{Plot, TickPriority};
 use redstone::*;
 use serde::{Deserialize, Serialize};
@@ -36,8 +36,9 @@ impl BlockEntity {
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
             let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
-            // TODO: Detect item and replace 64 with the actual max stack size
-            fullness_sum += count as f32 / 64.0;
+            let namespaced_name = nbt_unwrap_val!(item_compound.get("Id").or(item_compound.get("id"))?, Value::String);
+            let item_type = Item::from_name(namespaced_name.split(':').last()?);
+            fullness_sum += count as f32 / item_type.as_ref().map(Item::max_stack_size).unwrap_or(64) as f32;
         }
         Some(BlockEntity::Container {
             comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
@@ -46,7 +47,7 @@ impl BlockEntity {
 
     pub fn from_nbt(nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
         use nbt::Value;
-        let id = nbt_unwrap_val!(&nbt["Id"], Value::String);
+        let id = nbt_unwrap_val!(&nbt.get("Id").or(nbt.get("id"))?, Value::String);
         match id.as_ref() {
             "minecraft:comparator" => Some(BlockEntity::Comparator {
                 output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8,
@@ -375,7 +376,7 @@ pub enum Block {
 impl Block {
     fn has_block_entity(self) -> bool {
         match self {
-            Block::RedstoneComparator(_) => true,
+            Block::RedstoneComparator(_) | Block::Container(_) => true,
             _ => false,
         }
     }
@@ -738,6 +739,8 @@ impl Block {
             68 => Block::Solid(245),
             // Wool
             82..=97 => Block::Solid(item_id + 1301),
+            // Furnace
+            160 => Block::Container(3372),
             // Lever
             164 => {
                 let lever_face = match context.block_face {
@@ -762,6 +765,8 @@ impl Block {
             234 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(plot, pos)),
             // Redstone Block
             272 => Block::RedstoneBlock,
+            // Hopper
+            274 => Block::Container(6198),
             // Terracotta
             281..=296 => Block::Solid(item_id + 6030),
             // Concrete
@@ -780,6 +785,8 @@ impl Block {
             )),
             // Redstone Wire
             600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos)),
+            // Barrel
+            865 => Block::Container(11136),
             _ => Block::Air,
         };
         if block.is_valid_position(plot, pos) {
@@ -789,7 +796,16 @@ impl Block {
         }
     }
 
-    pub fn place_in_plot(self, plot: &mut Plot, pos: BlockPos) {
+    pub fn place_in_plot(self, plot: &mut Plot, pos: BlockPos, nbt: &Option<nbt::Blob>) {
+        if self.has_block_entity() {
+            if let Some(nbt) = nbt {
+                if let nbt::Value::Compound(compound) = &nbt["BlockEntityTag"] {
+                    if let Some(block_entity) = BlockEntity::from_nbt(compound) {
+                        plot.set_block_entity(pos, block_entity);
+                    }
+                }
+            }; 
+        }
         match self {
             Block::RedstoneRepeater(_) => {
                 // TODO: Queue repeater tick
