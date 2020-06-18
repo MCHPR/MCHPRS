@@ -15,22 +15,27 @@ impl Plot {
         let packets: Vec<PacketDecoder> = self.players[player].client.packets.drain(..).collect();
         for packet in packets {
             let id = packet.packet_id;
-            if let Err(err) = self.handle_packet(player, packet) {
-                self.players[player].kick(
-                    json!({
-                        "text":
-                            format!("There was an error handling packet 0x{:02X}: {:?}", id, err)
-                    })
-                    .to_string(),
-                );
-                return;
+            match self.handle_packet(player, packet) {
+                Ok(true) => return,
+                Err(err) => {
+                    self.players[player].kick(
+                        json!({
+                            "text":
+                                format!("There was an error handling packet 0x{:02X}: {:?}", id, err)
+                        })
+                        .to_string(),
+                    );
+                    return;
+                }
+                _ => {}
             }
         }
     }
 
-    fn handle_packet(&mut self, player: usize, packet: PacketDecoder) -> DecodeResult<()> {
+    // Returns true if packets should stop being handled
+    fn handle_packet(&mut self, player: usize, packet: PacketDecoder) -> DecodeResult<bool> {
         match packet.packet_id {
-            0x03 => self.handle_chat_message(player, S03ChatMessage::decode(packet)?),
+            0x03 => return Ok(self.handle_chat_message(player, S03ChatMessage::decode(packet)?)),
             0x05 => self.handle_client_settings(player, S05ClientSettings::decode(packet)?),
             0x0B => self.handle_plugin_message(player, S0BPluginMessage::decode(packet)?),
             0x0F => self.players[player].last_keep_alive_received = Instant::now(), // Keep Alive
@@ -57,7 +62,7 @@ impl Plot {
                 debug!("Unhandled packet: {:02X}", id);
             }
         }
-        Ok(())
+        Ok(false)
     }
 
     fn handle_creative_inventory_action(
@@ -175,16 +180,18 @@ impl Plot {
         }
     }
 
-    fn handle_chat_message(&mut self, player: usize, chat_message: S03ChatMessage) {
+    // Returns true if packets should stop being handled
+    fn handle_chat_message(&mut self, player: usize, chat_message: S03ChatMessage) -> bool {
         let message = chat_message.message;
         if message.starts_with('/') {
             let mut args: Vec<&str> = message.split(' ').collect();
             let command = args.remove(0);
-            self.handle_command(player, command, args);
+            self.handle_command(player, command, args)
         } else {
             let player = &self.players[player];
             let broadcast_message = Message::ChatInfo(player.username.to_owned(), message);
             self.message_sender.send(broadcast_message).unwrap();
+            false
         }
     }
 

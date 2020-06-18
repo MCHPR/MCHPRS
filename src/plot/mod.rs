@@ -96,7 +96,7 @@ impl Plot {
         changed
     }
 
-    fn get_block_raw(&self, pos: BlockPos) -> u32 {
+    pub fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return 0;

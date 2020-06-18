@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 
 impl Plot {
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
-        let plot_x = self.players[player].x as i32 >> 7;
-        let plot_z = self.players[player].z as i32 >> 7;
+        let plot_x = self.players[player].x as i32 >> 8;
+        let plot_z = self.players[player].z as i32 >> 8;
         match command {
             "claim" | "c" => {
                 if database::get_plot_owner(plot_x, plot_z).is_some() {
@@ -33,7 +33,8 @@ impl Plot {
         }
     }
 
-    pub(super) fn handle_command(&mut self, player: usize, command: &str, mut args: Vec<&str>) {
+    // Returns true if packets should stop being handled
+    pub(super) fn handle_command(&mut self, player: usize, command: &str, mut args: Vec<&str>) -> bool {
         info!(
             "{} issued command: {} {}",
             self.players[player].username,
@@ -53,19 +54,19 @@ impl Plot {
                         x = x_arg;
                     } else {
                         player.send_error_message("Unable to parse x coordinate!");
-                        return;
+                        return false;
                     }
                     if let Ok(y_arg) = args[1].parse::<u32>() {
                         y = y_arg;
                     } else {
                         player.send_error_message("Unable to parse y coordinate!");
-                        return;
+                        return false;
                     }
                     if let Ok(z_arg) = args[2].parse::<i32>() {
                         z = z_arg;
                     } else {
                         player.send_error_message("Unable to parse z coordinate!");
-                        return;
+                        return false;
                     }
                 }
 
@@ -83,19 +84,19 @@ impl Plot {
                         x = x_arg;
                     } else {
                         player.send_error_message("Unable to parse x coordinate!");
-                        return;
+                        return false;
                     }
                     if let Ok(y_arg) = args[1].parse::<u32>() {
                         y = y_arg;
                     } else {
                         player.send_error_message("Unable to parse y coordinate!");
-                        return;
+                        return false;
                     }
                     if let Ok(z_arg) = args[2].parse::<i32>() {
                         z = z_arg;
                     } else {
                         player.send_error_message("Unable to parse z coordinate!");
-                        return;
+                        return false;
                     }
                 }
 
@@ -130,18 +131,18 @@ impl Plot {
                 if args.is_empty() {
                     self.players[player]
                         .send_error_message("Please specify the rtps you want to set to.");
-                    return;
+                        return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
                     tps
                 } else {
                     self.players[player].send_error_message("Unable to parse rtps!");
-                    return;
+                    return false;
                 };
                 if tps > 35000 {
                     self.players[player]
                         .send_error_message("The rtps cannot go higher than 35000!");
-                    return;
+                    return false;
                 }
                 self.lag_time = Duration::from_millis(0);
                 if tps > 0 {
@@ -156,13 +157,13 @@ impl Plot {
                 if args.is_empty() {
                     self.players[player]
                         .send_error_message("Please specify a number of ticks to advance.");
-                    return;
+                    return false;
                 }
                 let ticks = if let Ok(ticks) = args[0].parse::<u32>() {
                     ticks
                 } else {
                     self.players[player].send_error_message("Unable to parse ticks!");
-                    return;
+                    return false;
                 };
                 let start_time = Instant::now();
                 for _ in 0..ticks {
@@ -183,25 +184,26 @@ impl Plot {
                         x = x_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse x coordinate!");
-                        return;
+                        return false;
                     }
                     if let Ok(y_arg) = args[1].parse::<f64>() {
                         y = y_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse y coordinate!");
-                        return;
+                        return false;
                     }
                     if let Ok(z_arg) = args[2].parse::<f64>() {
                         z = z_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse z coordinate!");
-                        return;
+                        return false;
                     }
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     let player = self.leave_plot(player);
                     self.message_sender
                         .send(Message::PlayerTeleportOther(player, args[0].to_string()));
+                    return true;
                 } else {
                     self.players[player]
                         .send_error_message("Wrong number of arguments for teleport command!");
@@ -213,13 +215,14 @@ impl Plot {
             "/plot" | "/p" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Wrong number of arguments!");
-                    return;
+                    return false;
                 }
                 let command = args.remove(0);
                 self.handle_plot_command(player, command, args);
             }
             _ => self.players[player].send_error_message("Command not found!"),
         }
+        false
     }
 }
 
@@ -258,7 +261,7 @@ lazy_static! {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![],
                 redirect_node: None,
-                name: Some("pos"),
+                name: Some("x, y, z"),
                 parser: Some(Parser::Vec3),
             },
             // 3: /teleport [player]
