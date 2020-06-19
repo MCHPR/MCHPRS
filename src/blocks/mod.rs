@@ -604,6 +604,7 @@ impl Block {
             "glass" => Some(Block::Transparent(230)),
             "quartz_slab" => Some(Block::Transparent(7855)),
             "smooth_stone_slab" => Some(Block::Transparent(7807)),
+            "quartz_block" => Some(Block::Solid(6202)),
             "sandstone" => Some(Block::Solid(245)),
             "stone_pressure_plate" => Some(Block::PressurePlate(3806)),
             "white_wool" => Some(Block::Solid(1383)),
