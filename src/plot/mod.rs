@@ -182,10 +182,14 @@ impl Plot {
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
+        let mut total = 0;
+        let start_time = std::time::Instant::now();
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
+            total += 1;
             let entry = self.to_be_ticked.remove(0);
             self.get_block(entry.pos).tick(self, entry.pos);
         }
+        println!("total: {}, done in: {:?}", total, start_time.elapsed());
     }
 
     fn enter_plot(&mut self, mut player: Player) {
