@@ -22,7 +22,7 @@ impl Block {
                 if let Some(BlockEntity::Comparator { output_strength }) =
                     plot.get_block_entity(pos)
                 {
-                    *output_strength
+                    output_strength
                 } else {
                     0
                 }
@@ -427,7 +427,7 @@ impl RedstoneComparator {
         let output_strength = self.calculate_output_strength(plot, pos);
         let old_strength =
             if let Some(BlockEntity::Comparator { output_strength }) = plot.get_block_entity(pos) {
-                *output_strength
+                output_strength
             } else {
                 0
             };
@@ -448,7 +448,7 @@ impl RedstoneComparator {
             output_strength: old_output_strength,
         }) = plot.get_block_entity(pos)
         {
-            *old_output_strength
+            old_output_strength
         } else {
             0
         };

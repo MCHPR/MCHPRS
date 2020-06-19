@@ -395,7 +395,7 @@ impl Block {
                     comparator_override,
                 }) = plot.get_block_entity(pos)
                 {
-                    *comparator_override
+                    comparator_override
                 } else {
                     0
                 }

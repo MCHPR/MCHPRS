@@ -287,7 +287,7 @@ impl Plot {
         for packet in operation.records {
             // if packet.records.len() >= 8192 {
             let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
-            let chunk = &self.chunks[chunk_index];
+            let chunk = &self.chunks.read().unwrap()[chunk_index];
             let chunk_data = chunk.encode_packet(false);
             for player in &mut self.players {
                 player.client.send_packet(&chunk_data);
@@ -498,11 +498,11 @@ impl Plot {
             (offset_x - (self.x << 8)) >> 4..=(offset_x + cb.size_x as i32 - (self.x << 8)) >> 4;
         let chunk_z_range =
             (offset_z - (self.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (self.z << 8)) >> 4;
-        for chunk_idx in 0..self.chunks.len() {
+        for chunk_idx in 0..self.chunks.read().unwrap().len() {
             if chunk_x_range.contains(&(chunk_idx as i32 >> 4))
                 && chunk_z_range.contains(&(chunk_idx as i32 & 15))
             {
-                let chunk = &self.chunks[chunk_idx];
+                let chunk = &self.chunks.read().unwrap()[chunk_idx];
                 let chunk_data = chunk.encode_packet(false);
                 for player in &mut self.players {
                     player.client.send_packet(&chunk_data);

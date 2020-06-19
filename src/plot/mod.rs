@@ -20,6 +20,8 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
+use std::sync::RwLock;
+use threadpool::ThreadPool;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TickPriority {
@@ -60,7 +62,8 @@ pub struct Plot {
     z: i32,
     show_redstone: bool,
     always_running: bool,
-    chunks: Vec<Chunk>,
+    chunks: RwLock<Vec<Chunk>>,
+    tick_pool: ThreadPool,
 }
 
 impl Plot {
@@ -82,7 +85,7 @@ impl Plot {
         if chunk_index >= 256 {
             return false;
         }
-        let chunk = &mut self.chunks[chunk_index];
+        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
         chunk.set_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32, block)
     }
 
@@ -101,7 +104,7 @@ impl Plot {
         if chunk_index >= 256 {
             return 0;
         }
-        let chunk = &self.chunks[chunk_index];
+        let chunk = &self.chunks.read().unwrap()[chunk_index];
         chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32)
     }
 
@@ -127,17 +130,18 @@ impl Plot {
         if chunk_index >= 256 {
             return;
         }
-        let chunk = &mut self.chunks[chunk_index];
+        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
         chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
-    pub fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
+    pub fn get_block_entity(&self, pos: BlockPos) -> Option<BlockEntity> {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return None;
         }
-        let chunk = &self.chunks[chunk_index];
-        chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
+        let chunk = &self.chunks.read().unwrap()[chunk_index];
+        // This clone is so bad
+        chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF)).map(Clone::clone)
     }
 
     pub fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
@@ -145,7 +149,7 @@ impl Plot {
         if chunk_index >= 256 {
             return;
         }
-        let chunk = &mut self.chunks[chunk_index];
+        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
         chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity)
     }
 
@@ -187,7 +191,7 @@ impl Plot {
     fn enter_plot(&mut self, mut player: Player) {
         debug!("Player enter plot!");
         self.save();
-        for chunk in &self.chunks {
+        for chunk in self.chunks.read().unwrap().iter() {
             player.client.send_packet(&chunk.encode_packet(true));
         }
         let spawn_player = C05SpawnPlayer {
@@ -297,7 +301,7 @@ impl Plot {
         player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.x << 4;
         let chunk_offset_z = self.z << 4;
-        for chunk in &self.chunks {
+        for chunk in self.chunks.read().unwrap().iter() {
             player.client.send_packet(
                 &C1EUnloadChunk {
                     chunk_x: chunk_offset_x + chunk.x,
@@ -493,8 +497,9 @@ impl Plot {
             x,
             z,
             always_running,
-            chunks,
+            chunks: RwLock::new(chunks),
             to_be_ticked: plot_data.pending_ticks,
+            tick_pool: ThreadPool::new(4),
         }
     }
 
@@ -543,8 +548,9 @@ impl Plot {
                 x,
                 z,
                 always_running,
-                chunks,
+                chunks: RwLock::new(chunks),
                 to_be_ticked: Vec::new(),
+                tick_pool: ThreadPool::new(4),
             }
         }
     }
@@ -556,7 +562,7 @@ impl Plot {
             .create(true)
             .open(format!("./world/plots/p{},{}", self.x, self.z))
             .unwrap();
-        let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData> = self.chunks.read().unwrap().iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
             tps: self.tps,
             show_redstone: self.show_redstone,
