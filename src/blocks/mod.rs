@@ -1,7 +1,7 @@
 mod redstone;
 
-use crate::items::{Item, ActionResult, UseOnBlockContext};
-use crate::plot::{Plot, TickPriority};
+use crate::items::{ActionResult, Item, UseOnBlockContext};
+use crate::plot::{Plot, TickPriority, World};
 use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -36,9 +36,13 @@ impl BlockEntity {
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
             let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
-            let namespaced_name = nbt_unwrap_val!(item_compound.get("Id").or(item_compound.get("id"))?, Value::String);
+            let namespaced_name = nbt_unwrap_val!(
+                item_compound.get("Id").or(item_compound.get("id"))?,
+                Value::String
+            );
             let item_type = Item::from_name(namespaced_name.split(':').last()?);
-            fullness_sum += count as f32 / item_type.as_ref().map(Item::max_stack_size).unwrap_or(64) as f32;
+            fullness_sum +=
+                count as f32 / item_type.as_ref().map(Item::max_stack_size).unwrap_or(64) as f32;
         }
         Some(BlockEntity::Container {
             comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
@@ -388,7 +392,7 @@ impl Block {
         }
     }
 
-    fn get_comparator_override(self, plot: &Plot, pos: BlockPos) -> u8 {
+    fn get_comparator_override(self, plot: &dyn World, pos: BlockPos) -> u8 {
         match self {
             Block::Container(_) => {
                 if let Some(BlockEntity::Container {
@@ -805,7 +809,7 @@ impl Block {
                         plot.set_block_entity(pos, block_entity);
                     }
                 }
-            }; 
+            };
         }
         match self {
             Block::RedstoneRepeater(_) => {
@@ -871,7 +875,7 @@ impl Block {
         }
     }
 
-    fn update(self, plot: &mut Plot, pos: BlockPos) {
+    fn update(self, plot: &mut dyn World, pos: BlockPos) {
         match self {
             Block::RedstoneWire(wire) => {
                 wire.on_neighbor_updated(plot, pos);
@@ -906,7 +910,7 @@ impl Block {
         }
     }
 
-    pub fn tick(self, plot: &mut Plot, pos: BlockPos) {
+    pub fn tick(self, plot: &mut dyn World, pos: BlockPos) {
         match self {
             Block::RedstoneRepeater(repeater) => {
                 repeater.tick(plot, pos);
@@ -992,7 +996,7 @@ impl Block {
         }
     }
 
-    fn update_wire_neighbors(plot: &mut Plot, pos: BlockPos) {
+    fn update_wire_neighbors(plot: &mut dyn World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
@@ -1005,7 +1009,7 @@ impl Block {
         }
     }
 
-    fn update_surrounding_blocks(plot: &mut Plot, pos: BlockPos) {
+    fn update_surrounding_blocks(plot: &mut dyn World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);

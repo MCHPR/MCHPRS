@@ -1,4 +1,4 @@
-use super::Plot;
+use super::{Plot, World};
 use crate::blocks::{BlockFace, BlockPos};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
@@ -21,7 +21,10 @@ impl Plot {
                     self.players[player].kick(
                         json!({
                             "text":
-                                format!("There was an error handling packet 0x{:02X}: {:?}", id, err)
+                                format!(
+                                    "There was an error handling packet 0x{:02X}: {:?}",
+                                    id, err
+                                )
                         })
                         .to_string(),
                     );

@@ -17,10 +17,10 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, SystemTime};
 use storage::{Chunk, ChunkData, PlotData};
-use std::sync::RwLock;
 use threadpool::ThreadPool;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -45,6 +45,154 @@ pub struct TickEntry {
     pos: BlockPos,
 }
 
+#[derive(Debug)]
+pub struct MultiBlockChangeRecord {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub block_id: u32,
+}
+
+pub trait World {
+    /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
+    fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool;
+
+    /// Returns true if a block was changed
+    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool;
+
+    fn get_block_raw(&self, pos: BlockPos) -> u32;
+
+    fn get_block(&self, pos: BlockPos) -> Block;
+
+    fn delete_block_entity(&mut self, pos: BlockPos);
+
+    fn get_block_entity(&self, pos: BlockPos) -> Option<BlockEntity>;
+
+    fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity);
+
+    fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority);
+
+    fn pending_tick_at(&mut self, pos: BlockPos) -> bool;
+}
+
+#[derive(Clone)]
+pub struct TickingWorld {
+    x: i32,
+    z: i32,
+    chunks: Arc<RwLock<Vec<Chunk>>>,
+    change_records: Arc<Mutex<Vec<MultiBlockChangeRecord>>>,
+    pending_ticks: Arc<Mutex<Vec<TickEntry>>>,
+}
+
+impl TickingWorld {
+    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
+        let local_x = chunk_x - self.x * 16;
+        let local_z = chunk_z - self.z * 16;
+        (local_x * 16 + local_z).abs() as usize
+    }
+
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+        let chunk_x = (block_x - (self.x << 8)) >> 4;
+        let chunk_z = (block_z - (self.z << 8)) >> 4;
+        ((chunk_x << 4) + chunk_z).abs() as usize
+    }
+
+    fn new(x: i32, z: i32, chunks: Vec<Chunk>, pending_ticks: Vec<TickEntry>) -> TickingWorld {
+        TickingWorld {
+            x,
+            z,
+            chunks: Arc::new(RwLock::new(chunks)),
+            change_records: Arc::new(Mutex::new(Vec::new())),
+            pending_ticks: Arc::new(Mutex::new(pending_ticks)),
+        }
+    }
+}
+
+impl World for TickingWorld {
+    /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
+    fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return false;
+        }
+        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
+        chunk.set_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32, block)
+    }
+
+    /// Returns true if a block was changed
+    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
+        let block_id = Block::get_id(block);
+        let changed = self.set_block_raw(pos, block_id);
+        if changed {
+            self.change_records
+                .lock()
+                .unwrap()
+                .push(MultiBlockChangeRecord {
+                    x: pos.x,
+                    y: pos.y as i32,
+                    z: pos.z,
+                    block_id,
+                });
+        }
+        changed
+    }
+
+    fn get_block_raw(&self, pos: BlockPos) -> u32 {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return 0;
+        }
+        let chunk = &self.chunks.read().unwrap()[chunk_index];
+        chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32)
+    }
+
+    fn get_block(&self, pos: BlockPos) -> Block {
+        Block::from_block_state(self.get_block_raw(pos))
+    }
+
+    fn delete_block_entity(&mut self, pos: BlockPos) {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return;
+        }
+        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
+        chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
+    }
+
+    fn get_block_entity(&self, pos: BlockPos) -> Option<BlockEntity> {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return None;
+        }
+        let chunk = &self.chunks.read().unwrap()[chunk_index];
+        // This clone is so bad
+        chunk
+            .get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
+            .map(Clone::clone)
+    }
+
+    fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return;
+        }
+        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
+        chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity)
+    }
+
+    fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
+        self.pending_ticks.lock().unwrap().push(TickEntry {
+            pos,
+            ticks_left: delay,
+            tick_priority: priority,
+        });
+    }
+
+    fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
+        self.pending_ticks.lock().unwrap().iter().any(|e| e.pos == pos)
+    }
+}
+
 pub struct Plot {
     message_receiver: BusReader<BroadcastMessage>,
     message_sender: Sender<Message>,
@@ -62,35 +210,23 @@ pub struct Plot {
     z: i32,
     show_redstone: bool,
     always_running: bool,
-    chunks: RwLock<Vec<Chunk>>,
+    chunks: Vec<Chunk>,
     tick_pool: ThreadPool,
 }
 
-impl Plot {
-    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
-        let local_x = chunk_x - self.x * 16;
-        let local_z = chunk_z - self.z * 16;
-        (local_x * 16 + local_z).abs() as usize
-    }
-
-    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - (self.x << 8)) >> 4;
-        let chunk_z = (block_z - (self.z << 8)) >> 4;
-        ((chunk_x << 4) + chunk_z).abs() as usize
-    }
-
+impl World for Plot {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return false;
         }
-        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
+        let chunk = &mut self.chunks[chunk_index];
         chunk.set_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32, block)
     }
 
     /// Returns true if a block was changed
-    pub fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
+    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
         let changed = self.set_block_raw(pos, block_id);
         if changed {
@@ -99,19 +235,65 @@ impl Plot {
         changed
     }
 
-    pub fn get_block_raw(&self, pos: BlockPos) -> u32 {
+    fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return 0;
         }
-        let chunk = &self.chunks.read().unwrap()[chunk_index];
+        let chunk = &self.chunks[chunk_index];
         chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32)
     }
 
-    pub fn get_block(&self, pos: BlockPos) -> Block {
+    fn get_block(&self, pos: BlockPos) -> Block {
         Block::from_block_state(self.get_block_raw(pos))
     }
 
+    fn delete_block_entity(&mut self, pos: BlockPos) {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return;
+        }
+        let chunk = &mut self.chunks[chunk_index];
+        chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
+    }
+
+    fn get_block_entity(&self, pos: BlockPos) -> Option<BlockEntity> {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return None;
+        }
+        let chunk = &self.chunks[chunk_index];
+        // This clone is so bad
+        chunk
+            .get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
+            .map(Clone::clone)
+    }
+
+    fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 {
+            return;
+        }
+        let chunk = &mut self.chunks[chunk_index];
+        chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity)
+    }
+
+    fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
+        self.to_be_ticked.push(TickEntry {
+            pos,
+            ticks_left: delay,
+            tick_priority: priority,
+        });
+        self.to_be_ticked
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
+    }
+
+    fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
+        self.to_be_ticked.iter().any(|e| e.pos == pos)
+    }
+}
+
+impl Plot {
     pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
         let block_change = C0CBlockChange {
             block_id: id as i32,
@@ -125,32 +307,16 @@ impl Plot {
         }
     }
 
-    pub fn delete_block_entity(&mut self, pos: BlockPos) {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
-            return;
-        }
-        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
-        chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
+    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
+        let local_x = chunk_x - self.x * 16;
+        let local_z = chunk_z - self.z * 16;
+        (local_x * 16 + local_z).abs() as usize
     }
 
-    pub fn get_block_entity(&self, pos: BlockPos) -> Option<BlockEntity> {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
-            return None;
-        }
-        let chunk = &self.chunks.read().unwrap()[chunk_index];
-        // This clone is so bad
-        chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF)).map(Clone::clone)
-    }
-
-    pub fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
-            return;
-        }
-        let chunk = &mut self.chunks.write().unwrap()[chunk_index];
-        chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity)
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+        let chunk_x = (block_x - (self.x << 8)) >> 4;
+        let chunk_z = (block_z - (self.z << 8)) >> 4;
+        ((chunk_x << 4) + chunk_z).abs() as usize
     }
 
     pub fn broadcast_chat_message(&mut self, message: String) {
@@ -164,38 +330,69 @@ impl Plot {
         }
     }
 
-    pub fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
-        self.to_be_ticked.push(TickEntry {
-            pos,
-            ticks_left: delay,
-            tick_priority: priority,
-        });
-        self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
-    }
-
-    pub fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
-        self.to_be_ticked.iter().any(|e| e.pos == pos)
-    }
-
     fn tick(&mut self) {
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
-        let mut total = 0;
+        let mut tmp_chunks = Vec::new();
+        let mut tmp_tbt = Vec::new();
+        std::mem::swap(&mut tmp_chunks, &mut self.chunks);
+        std::mem::swap(&mut tmp_tbt, &mut self.to_be_ticked);
         let start_time = std::time::Instant::now();
+        let limited_world = TickingWorld::new(self.x, self.z, tmp_chunks, tmp_tbt);
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
-            total += 1;
             let entry = self.to_be_ticked.remove(0);
-            self.get_block(entry.pos).tick(self, entry.pos);
+            let block = self.get_block(entry.pos);
+            let mut limited_world_clone = limited_world.clone();
+            self.tick_pool
+                .execute(move || block.tick(&mut limited_world_clone, entry.pos));
         }
-        println!("total: {}, done in: {:?}", total, start_time.elapsed());
+        self.tick_pool.join();
+        Arc::try_unwrap(limited_world.chunks).unwrap().into_inner().unwrap();
+        Arc::try_unwrap(limited_world.pending_ticks).unwrap().into_inner().unwrap();
+        println!("total: {}, done in: {:?}", 1, start_time.elapsed());
+    }
+
+    fn tick_batch(&mut self, ticks: u32) {
+        let mut tmp_chunks = Vec::new();
+        let mut tmp_tbt = Vec::new();
+        std::mem::swap(&mut tmp_chunks, &mut self.chunks);
+        std::mem::swap(&mut tmp_tbt, &mut self.to_be_ticked);
+        let start_time = std::time::Instant::now();
+        let limited_world = TickingWorld::new(self.x, self.z, tmp_chunks, tmp_tbt);
+        let mut total_entries = 0;
+        for _ in 0..ticks {
+            for pending in limited_world.pending_ticks.lock().unwrap().iter_mut() {
+                pending.ticks_left = pending.ticks_left.saturating_sub(1);
+            }
+            let mut last_priority: TickPriority = TickPriority::Highest;
+            while limited_world.pending_ticks.lock().unwrap().first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
+                let entry = limited_world.pending_ticks.lock().unwrap().remove(0);
+                if entry.tick_priority != last_priority {
+                    self.tick_pool.join();
+                    last_priority = entry.tick_priority.clone();
+                }
+                total_entries += 1;
+                let block = limited_world.get_block(entry.pos);
+                let mut limited_world_clone = limited_world.clone();
+                self.tick_pool
+                    .execute(move || block.tick(&mut limited_world_clone, entry.pos));
+            }
+            self.tick_pool.join();
+        }
+        std::mem::swap(&mut Arc::try_unwrap(limited_world.chunks).unwrap().into_inner().unwrap(), &mut self.chunks);
+        std::mem::swap(&mut Arc::try_unwrap(limited_world.pending_ticks).unwrap().into_inner().unwrap(), &mut self.to_be_ticked);
+        let changed_blocks = Arc::try_unwrap(limited_world.change_records).unwrap().into_inner().unwrap();
+        for block in changed_blocks {
+            self.send_block_change(BlockPos::new(block.x, block.y as u32, block.z), block.block_id);
+        }
+        println!("entries: {}, ticks: {}, done in: {:?}", total_entries, ticks, start_time.elapsed());
     }
 
     fn enter_plot(&mut self, mut player: Player) {
         debug!("Player enter plot!");
         self.save();
-        for chunk in self.chunks.read().unwrap().iter() {
+        for chunk in &self.chunks {
             player.client.send_packet(&chunk.encode_packet(true));
         }
         let spawn_player = C05SpawnPlayer {
@@ -305,7 +502,7 @@ impl Plot {
         player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.x << 4;
         let chunk_offset_z = self.z << 4;
-        for chunk in self.chunks.read().unwrap().iter() {
+        for chunk in &self.chunks {
             player.client.send_packet(
                 &C1EUnloadChunk {
                     chunk_x: chunk_offset_x + chunk.x,
@@ -399,10 +596,13 @@ impl Plot {
                     warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
                     self.lag_time = Duration::from_secs(0);
                 }
-
+                let mut lag_ticks = 0;
                 while self.lag_time >= dur_per_tick {
-                    self.tick();
+                    lag_ticks += 1;
                     self.lag_time -= dur_per_tick;
+                }
+                if lag_ticks > 0 {
+                    self.tick_batch(lag_ticks);
                 }
             }
         } else {
@@ -501,7 +701,7 @@ impl Plot {
             x,
             z,
             always_running,
-            chunks: RwLock::new(chunks),
+            chunks,
             to_be_ticked: plot_data.pending_ticks,
             tick_pool: ThreadPool::new(4),
         }
@@ -552,7 +752,7 @@ impl Plot {
                 x,
                 z,
                 always_running,
-                chunks: RwLock::new(chunks),
+                chunks,
                 to_be_ticked: Vec::new(),
                 tick_pool: ThreadPool::new(4),
             }
@@ -566,7 +766,7 @@ impl Plot {
             .create(true)
             .open(format!("./world/plots/p{},{}", self.x, self.z))
             .unwrap();
-        let chunk_data: Vec<ChunkData> = self.chunks.read().unwrap().iter().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
             tps: self.tps,
             show_redstone: self.show_redstone,

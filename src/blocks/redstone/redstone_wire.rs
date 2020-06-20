@@ -1,5 +1,5 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
-use crate::plot::Plot;
+use crate::plot::{Plot, World};
 
 // Redstone wires are extremely inefficient.
 // Here we are updating many blocks which don't
@@ -122,7 +122,7 @@ impl RedstoneWire {
         self
     }
 
-    pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: BlockPos) {
+    pub fn on_neighbor_updated(mut self, plot: &mut dyn World, pos: BlockPos) {
         let new_power = RedstoneWire::calculate_power(plot, pos);
 
         if self.power != new_power {
@@ -158,7 +158,7 @@ impl RedstoneWire {
         }
     }
 
-    pub fn get_side(plot: &Plot, pos: BlockPos, side: BlockDirection) -> RedstoneWireSide {
+    pub fn get_side(plot: &dyn World, pos: BlockPos, side: BlockDirection) -> RedstoneWireSide {
         let neighbor_pos = pos.offset(side.block_face());
         let neighbor = plot.get_block(neighbor_pos);
 
@@ -186,7 +186,7 @@ impl RedstoneWire {
         }
     }
 
-    fn max_wire_power(wire_power: u8, plot: &Plot, pos: BlockPos) -> u8 {
+    fn max_wire_power(wire_power: u8, plot: &dyn World, pos: BlockPos) -> u8 {
         let block = plot.get_block(pos);
         if let Block::RedstoneWire(wire) = block {
             wire_power.max(wire.power)
@@ -195,7 +195,7 @@ impl RedstoneWire {
         }
     }
 
-    fn calculate_power(plot: &Plot, pos: BlockPos) -> u8 {
+    fn calculate_power(plot: &dyn World, pos: BlockPos) -> u8 {
         let mut block_power = 0;
         let mut wire_power = 0;
 

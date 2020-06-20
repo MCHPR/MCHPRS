@@ -10,7 +10,7 @@ use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
 use crate::player::Player;
-use crate::plot::{self, Plot, commands::DECLARE_COMMANDS};
+use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
 use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};

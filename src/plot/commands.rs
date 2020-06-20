@@ -1,6 +1,9 @@
 use super::{database, Plot};
+use crate::network::packets::clientbound::{
+    C12DeclareCommands, C12DeclareCommandsNode as Node, C12DeclareCommandsNodeParser as Parser,
+    ClientBoundPacket,
+};
 use crate::network::packets::PacketEncoder;
-use crate::network::packets::clientbound::{ClientBoundPacket, C12DeclareCommands, C12DeclareCommandsNode as Node, C12DeclareCommandsNodeParser as Parser};
 use crate::server::Message;
 use log::info;
 
@@ -34,7 +37,12 @@ impl Plot {
     }
 
     // Returns true if packets should stop being handled
-    pub(super) fn handle_command(&mut self, player: usize, command: &str, mut args: Vec<&str>) -> bool {
+    pub(super) fn handle_command(
+        &mut self,
+        player: usize,
+        command: &str,
+        mut args: Vec<&str>,
+    ) -> bool {
         info!(
             "{} issued command: {} {}",
             self.players[player].username,
@@ -131,7 +139,7 @@ impl Plot {
                 if args.is_empty() {
                     self.players[player]
                         .send_error_message("Please specify the rtps you want to set to.");
-                        return false;
+                    return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
                     tps

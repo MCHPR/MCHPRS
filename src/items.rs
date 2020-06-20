@@ -1,5 +1,5 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
-use crate::plot::Plot;
+use crate::plot::{Plot, World};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ActionResult {
@@ -119,9 +119,9 @@ impl Item {
 
     pub fn from_name(name: &str) -> Option<Item> {
         match name {
-           "snowball" => Some(Item::Snowball),
-           "totem_of_undying" => Some(Item::TotemOfUndying),
-           _ => None, 
+            "snowball" => Some(Item::Snowball),
+            "totem_of_undying" => Some(Item::TotemOfUndying),
+            _ => None,
         }
     }
 
