@@ -7,8 +7,8 @@ description = "A multithreaded minecraft server built for redstone."
 readme = "README.md"
 license = "MIT"
 keywords = ["minecraft", "server", "redstone"]
-repository = "https://github.com/StackDoubleFlow/MCHPRS"
-homepage = "https://github.com/StackDoubleFlow/MCHPRS"
+repository = "https://github.com/MCHPR/MCHPRS"
+homepage = "https://github.com/MCHPR/MCHPRS"
 
 include = [
     "**/*.rs",
