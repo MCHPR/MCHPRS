@@ -409,7 +409,10 @@ impl Plot {
         }
         // Handle received packets
         for player in 0..self.players.len() {
-            self.handle_packets_for_player(player);
+            if self.handle_packets_for_player(player) {
+                // This is a really stupid hack
+                return;
+            }
         }
 
         let message_sender = &mut self.message_sender;

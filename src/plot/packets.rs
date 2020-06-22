@@ -11,12 +11,12 @@ use serde_json::json;
 use std::time::Instant;
 
 impl Plot {
-    pub(super) fn handle_packets_for_player(&mut self, player: usize) {
+    pub(super) fn handle_packets_for_player(&mut self, player: usize) -> bool {
         let packets: Vec<PacketDecoder> = self.players[player].client.packets.drain(..).collect();
         for packet in packets {
             let id = packet.packet_id;
             match self.handle_packet(player, packet) {
-                Ok(true) => return,
+                Ok(true) => return true,
                 Err(err) => {
                     self.players[player].kick(
                         json!({
@@ -25,11 +25,12 @@ impl Plot {
                         })
                         .to_string(),
                     );
-                    return;
+                    return true;
                 }
                 _ => {}
             }
         }
+        false
     }
 
     // Returns true if packets should stop being handled
