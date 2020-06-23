@@ -21,7 +21,10 @@ impl Plot {
                     self.players[player].kick(
                         json!({
                             "text":
-                                format!("There was an error handling packet 0x{:02X}: {:?}", id, err)
+                                format!(
+                                    "There was an error handling packet 0x{:02X}: {:?}",
+                                    id, err
+                                )
                         })
                         .to_string(),
                     );

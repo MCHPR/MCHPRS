@@ -178,7 +178,7 @@ pub enum C12DeclareCommandsNodeParser {
     Vec3,
     Integer(i32, i32),
     BlockPos,
-    BlockState
+    BlockState,
 }
 
 impl C12DeclareCommandsNodeParser {

@@ -10,15 +10,18 @@ use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
 use crate::player::Player;
-use crate::plot::{self, Plot, commands::DECLARE_COMMANDS};
+use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
 use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{debug, error, info, warn};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs;
+use std::fs::read_to_string;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
+use toml::Value;
 
 /// Messages get passed between plot threads, the server thread, and the networking thread.
 /// These messages are used to communicate when a player joins, leaves, or moves into another plot,
@@ -64,6 +67,14 @@ struct PlayerListEntry {
     skin: Option<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct ServerConfig {
+    bind_address: String,
+    motd: String,
+    chat_format: String,
+    max_players: i64,
+}
+
 struct PlotListEntry {
     plot_x: i32,
     plot_z: i32,
@@ -73,7 +84,7 @@ struct PlotListEntry {
 /// This represents a minecraft server
 pub struct MinecraftServer {
     network: NetworkServer,
-    config: config::Config,
+    config: ServerConfig,
     broadcaster: Bus<BroadcastMessage>,
     debug_plot_receiver: BusReader<BroadcastMessage>,
     receiver: Receiver<Message>,
@@ -127,13 +138,52 @@ impl MinecraftServer {
         plot::database::init();
 
         // Load config
-        let mut config = config::Config::default();
-        config
-            .merge(config::File::with_name("Config"))
-            .expect("Error reading config file!");
-        let bind_addr = config
-            .get_str("bind_address")
-            .expect("Bind address not found in config file!");
+        let default_config = ServerConfig {
+            bind_address: "0.0.0.0:25565".to_string(),
+            motd: "Minecraft High Performace Redstone Server".to_string(),
+            chat_format: "<{username}> {message}".to_string(),
+            max_players: 99999,
+        };
+        let config: ServerConfig =
+            toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
+                let config_string = toml::to_string(&default_config).unwrap();
+                fs::write("Config.toml", &config_string);
+                config_string
+            }))
+            .unwrap_or_else(|_| {
+                let config_string = read_to_string("Config.toml").unwrap();
+                let config_map = config_string.parse::<Value>().unwrap();
+                let merged_config = ServerConfig {
+                    bind_address: config_map
+                        .get("bind_address")
+                        .map(toml::value::Value::as_str)
+                        .map(|pp| pp.unwrap_or(&default_config.bind_address))
+                        .unwrap_or(&default_config.bind_address)
+                        .to_string(),
+                    motd: config_map
+                        .get("motd")
+                        .map(toml::value::Value::as_str)
+                        .map(|pp| pp.unwrap_or(&default_config.motd))
+                        .unwrap_or(&default_config.motd)
+                        .to_string(),
+                    chat_format: config_map
+                        .get("chat_format")
+                        .map(toml::value::Value::as_str)
+                        .map(|pp| pp.unwrap_or(&default_config.chat_format))
+                        .unwrap_or(&default_config.chat_format)
+                        .to_string(),
+                    max_players: config_map
+                        .get("max_players")
+                        .map(toml::value::Value::as_integer)
+                        .map(|pp| pp.unwrap_or(default_config.max_players))
+                        .unwrap_or(default_config.max_players),
+                };
+                let config_string = toml::to_string(&merged_config).unwrap();
+                fs::write("Config.toml", &config_string);
+                merged_config
+            });
+
+        let bind_addr = config.bind_address.clone();
 
         //let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
         // Create thread messaging structs
@@ -305,12 +355,12 @@ impl MinecraftServer {
                                     "protocol": 578
                                 },
                                 "players": {
-                                    "max": self.config.get_int("max_players").unwrap_or_default(),
+                                    "max": self.config.max_players,
                                     "online": self.online_players.len(),
                                     "sample": []
                                 },
                                 "description": {
-                                    "text": self.config.get_str("motd").unwrap_or_default()
+                                    "text": self.config.motd
                                 }
                             })
                             .to_string(),
@@ -472,10 +522,11 @@ impl MinecraftServer {
             Message::ChatInfo(username, message) => {
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     json!({
-                        "text": self.config.get_str("chat_format").unwrap_or("<{username}> {message}".to_owned())
-                                    .replace("{username}", &username)
-                                    .replace("{message}", &message)
-                    }).to_string()
+                        "text": self.config.chat_format
+                            .replace("{username}", &username)
+                            .replace("{message}", &message)
+                    })
+                    .to_string(),
                 ));
             }
             Message::PlayerLeavePlot(player) => {
