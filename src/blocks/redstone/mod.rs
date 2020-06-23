@@ -13,6 +13,7 @@ impl Block {
             Block::RedstoneWallTorch(true, _) => 15,
             Block::RedstoneBlock => 15,
             Block::Lever(lever) if lever.powered => 15,
+            Block::StoneButton(button) if button.powered => 15,
             Block::RedstoneRepeater(repeater)
                 if repeater.facing.block_face() == side && repeater.powered =>
             {
@@ -52,27 +53,15 @@ impl Block {
             Block::RedstoneTorch(true) if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch(true, _) if side == BlockFace::Bottom => 15,
             Block::Lever(lever) => match side {
-                BlockFace::Top if lever.face == LeverFace::Floor => {
-                    if lever.powered {
-                        15
-                    } else {
-                        0
-                    }
-                }
-                BlockFace::Bottom if lever.face == LeverFace::Ceiling => {
-                    if lever.powered {
-                        15
-                    } else {
-                        0
-                    }
-                }
-                _ if lever.facing == side.to_direction() => {
-                    if lever.powered {
-                        15
-                    } else {
-                        0
-                    }
-                }
+                BlockFace::Top if lever.face == LeverFace::Floor && lever.powered => 15,
+                BlockFace::Bottom if lever.face == LeverFace::Ceiling && lever.powered => 15,
+                _ if lever.facing == side.to_direction() && lever.powered => 15,
+                _ => 0,
+            },
+            Block::StoneButton(button) => match side {
+                BlockFace::Top if button.face == ButtonFace::Floor && button.powered => 15,
+                BlockFace::Bottom if button.face == ButtonFace::Ceiling && button.powered => 15,
+                _ if button.facing == side.to_direction() && button.powered => 15,
                 _ => 0,
             },
             Block::RedstoneWire(_) => self.get_weak_power(plot, pos, side, dust_power),
@@ -523,6 +512,63 @@ pub struct Lever {
 impl Lever {
     pub(super) fn new(face: LeverFace, facing: BlockDirection, powered: bool) -> Lever {
         Lever {
+            face,
+            facing,
+            powered,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum ButtonFace {
+    Floor,
+    Wall,
+    Ceiling,
+}
+
+impl ButtonFace {
+    pub(super) fn from_id(id: u32) -> ButtonFace {
+        match id {
+            0 => ButtonFace::Floor,
+            1 => ButtonFace::Wall,
+            2 => ButtonFace::Ceiling,
+            _ => panic!("Invalid ButtonFace"),
+        }
+    }
+
+    pub(super) fn get_id(self) -> u32 {
+        match self {
+            ButtonFace::Floor => 0,
+            ButtonFace::Wall => 1,
+            ButtonFace::Ceiling => 2,
+        }
+    }
+
+    pub(super) fn from_str(name: &str) -> ButtonFace {
+        match name {
+            "floor" => ButtonFace::Floor,
+            "ceiling" => ButtonFace::Ceiling,
+            _ => ButtonFace::Wall,
+        }
+    }
+}
+
+impl Default for ButtonFace {
+    fn default() -> Self {
+        ButtonFace::Wall
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Default)]
+pub struct StoneButton {
+    pub face: ButtonFace,
+    pub facing: BlockDirection,
+    pub powered: bool,
+}
+
+impl StoneButton {
+    pub(super) fn new(face: ButtonFace, facing: BlockDirection, powered: bool) -> StoneButton {
+        StoneButton {
             face,
             facing,
             powered,

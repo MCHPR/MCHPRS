@@ -92,6 +92,7 @@ impl Item {
             160 => Item::BlockItem(id),
             164 => Item::BlockItem(id),
             173 => Item::BlockItem(id),
+            174 => Item::BlockItem(id),
             234 => Item::BlockItem(id),
             272 => Item::BlockItem(id),
             274 => Item::BlockItem(id),

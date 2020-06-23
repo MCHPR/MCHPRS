@@ -375,6 +375,7 @@ pub enum Block {
     WallSign(u32, BlockDirection),
     Solid(u32),
     Transparent(u32),
+    StoneButton(StoneButton),
 }
 
 impl Block {
@@ -495,6 +496,14 @@ impl Block {
                 let powered = (id & 1) == 0;
                 Block::Lever(Lever::new(face, facing, powered))
             }
+            // Stone Button
+            3895..=3918 => {
+                let id = id - 3895;
+                let face = ButtonFace::from_id(id >> 3);
+                let facing = BlockDirection::from_id((id >> 1) & 0b11);
+                let powered = (id & 1) == 0;
+                Block::StoneButton(StoneButton::new(face, facing, powered))
+            }
             // Stone Pressure Plate
             3806 => Block::PressurePlate(id),
             // Redstone Torch
@@ -566,6 +575,12 @@ impl Block {
                     + (lever.facing.get_id() << 1)
                     + !lever.powered as u32
                     + 3781
+            }
+            Block::StoneButton(button) => {
+                (button.face.get_id() << 3)
+                    + (button.facing.get_id() << 1)
+                    + !button.powered as u32
+                    + 3895
             }
             Block::RedstoneTorch(true) => 3885,
             Block::RedstoneTorch(false) => 3886,
@@ -685,6 +700,7 @@ impl Block {
             "jungle_wall_sign" => Some(Block::WallSign(3, BlockDirection::default())),
             "acacia_wall_sign" => Some(Block::WallSign(4, BlockDirection::default())),
             "dark_oak_wall_sign" => Some(Block::WallSign(5, BlockDirection::default())),
+            "stone_button" => Some(Block::StoneButton(StoneButton::default())),
             "hopper" => Some(Block::Container(6198)),
             _ => None,
         }
@@ -708,8 +724,7 @@ impl Block {
                 plot.set_block(pos, Block::RedstoneComparator(comparator));
                 ActionResult::Success
             }
-            Block::Lever(lever) => {
-                let mut lever = lever;
+            Block::Lever(mut lever) => {
                 lever.powered = !lever.powered;
                 plot.set_block(pos, Block::Lever(lever));
                 Block::update_surrounding_blocks(plot, pos);
@@ -724,6 +739,27 @@ impl Block {
                         plot,
                         pos.offset(lever.facing.opposite().block_face()),
                     ),
+                }
+                ActionResult::Success
+            }
+            Block::StoneButton(mut button) => {
+                if !button.powered {
+                    button.powered = true;
+                    plot.set_block(pos, Block::StoneButton(button));
+                    plot.schedule_tick(pos, 10, TickPriority::Normal);
+                    Block::update_surrounding_blocks(plot, pos);
+                    match button.face {
+                        ButtonFace::Ceiling => {
+                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top))
+                        }
+                        ButtonFace::Floor => {
+                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom))
+                        }
+                        ButtonFace::Wall => Block::update_surrounding_blocks(
+                            plot,
+                            pos.offset(button.facing.opposite().block_face()),
+                        ),
+                    }
                 }
                 ActionResult::Success
             }
@@ -766,6 +802,20 @@ impl Block {
                 BlockFace::Bottom => Block::RedstoneTorch(true),
                 face => Block::RedstoneWallTorch(true, face.to_direction()),
             },
+            // Stone Button
+            174 => {
+                let button_face = match context.block_face {
+                    BlockFace::Top => ButtonFace::Floor,
+                    BlockFace::Bottom => ButtonFace::Ceiling,
+                    _ => ButtonFace::Wall,
+                };
+                let facing = if button_face == ButtonFace::Wall {
+                    context.block_face.to_direction()
+                } else {
+                    context.player_direction
+                };
+                Block::StoneButton(StoneButton::new(button_face, facing, false))
+            }
             // Redstone Lamp
             234 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(plot, pos)),
             // Redstone Block
@@ -944,6 +994,25 @@ impl Block {
                     plot.set_block(pos, Block::RedstoneLamp(false));
                 }
             }
+            Block::StoneButton(mut button) => {
+                if button.powered {
+                    button.powered = false;
+                    plot.set_block(pos, Block::StoneButton(button));
+                    Block::update_surrounding_blocks(plot, pos);
+                    match button.face {
+                        ButtonFace::Ceiling => {
+                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top))
+                        }
+                        ButtonFace::Floor => {
+                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom))
+                        }
+                        ButtonFace::Wall => Block::update_surrounding_blocks(
+                            plot,
+                            pos.offset(button.facing.opposite().block_face()),
+                        ),
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -973,6 +1042,21 @@ impl Block {
                 LeverFace::Wall => {
                     let parent_block =
                         plot.get_block(pos.offset(lever.facing.opposite().block_face()));
+                    parent_block.is_cube()
+                }
+            },
+            Block::StoneButton(button) => match button.face {
+                ButtonFace::Floor => {
+                    let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
+                    bottom_block.is_cube()
+                }
+                ButtonFace::Ceiling => {
+                    let top_block = plot.get_block(pos.offset(BlockFace::Top));
+                    top_block.is_cube()
+                }
+                ButtonFace::Wall => {
+                    let parent_block =
+                        plot.get_block(pos.offset(button.facing.opposite().block_face()));
                     parent_block.is_cube()
                 }
             },
@@ -1101,6 +1185,15 @@ impl Block {
             }
             Block::Lever(lever) if key == "powered" => {
                 lever.powered = val.parse::<bool>().unwrap_or_default();
+            }
+            Block::StoneButton(button) if key == "face" => {
+                button.face = ButtonFace::from_str(val);
+            }
+            Block::StoneButton(button) if key == "facing" => {
+                button.facing = BlockDirection::from_str(val);
+            }
+            Block::StoneButton(button) if key == "powered" => {
+                button.powered = val.parse::<bool>().unwrap_or_default();
             }
             Block::TripwireHook(facing) if key == "facing" => {
                 *facing = BlockDirection::from_str(val);
