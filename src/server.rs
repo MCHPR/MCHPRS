@@ -536,10 +536,11 @@ impl MinecraftServer {
                 self.graceful_shutdown();
             }
             Message::PlayerTeleportOther(mut player, other_username) => {
+                let username_lower = other_username.to_lowercase();
                 if let Some(other_player) = self
                     .online_players
                     .iter()
-                    .find(|p| p.username == other_username)
+                    .find(|p| p.username.to_lowercase().starts_with(&username_lower))
                 {
                     let plot_x = other_player.plot_x;
                     let plot_z = other_player.plot_z;
