@@ -179,7 +179,7 @@ impl Plot {
         } else {
             let block = self.get_block(block_pos);
             if !self.players[player].crouching {
-                block.on_use(self, block_pos);
+                block.on_use(self, block_pos, None);
             }
         }
     }
