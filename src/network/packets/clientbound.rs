@@ -112,6 +112,24 @@ impl ClientBoundPacket for C06EntityAnimation {
     }
 }
 
+pub struct C0ABlockEntityData {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub action: u8,
+    pub nbt: nbt::Blob,
+}
+
+impl ClientBoundPacket for C0ABlockEntityData {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_position(self.x, self.y, self.z);
+        buf.write_unsigned_byte(self.action);
+        buf.write_nbt_blob(self.nbt);
+        PacketEncoder::new(buf, 0x0A)
+    }
+}
+
 pub struct C0CBlockChange {
     pub x: i32,
     pub y: i32,

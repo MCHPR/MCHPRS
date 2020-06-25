@@ -145,8 +145,20 @@ impl Plot {
         if chunk_index >= 256 {
             return;
         }
+        if let Some(nbt) = block_entity.to_nbt(pos) {
+            let block_entity_data = C0ABlockEntityData {
+                x: pos.x, y: pos.y as i32, z: pos.z,
+                // For now the only nbt we send to the client is sign data
+                action: 9,
+                nbt,
+            }.encode();
+            for player in &mut self.players {
+                player.client.send_packet(&block_entity_data);
+            }
+        }
         let chunk = &mut self.chunks[chunk_index];
-        chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity)
+        chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity);
+
     }
 
     pub fn broadcast_chat_message(&mut self, message: String) {
