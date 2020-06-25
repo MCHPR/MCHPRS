@@ -1,7 +1,7 @@
 use super::{database, Plot};
 use crate::network::packets::clientbound::{
     C12DeclareCommands, C12DeclareCommandsNode as Node, C12DeclareCommandsNodeParser as Parser,
-    ClientBoundPacket,
+    ClientBoundPacket, C32PlayerAbilities,
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
@@ -252,6 +252,33 @@ impl Plot {
                 let command = args.remove(0);
                 self.handle_plot_command(player, command, args);
             }
+            "/speed" => {
+                if args.len() == 1 {
+                    if let Ok(speed_arg) = args[0].parse::<f32>() {
+                        if speed_arg < 0.0 {
+                            self.players[player].send_error_message("Silly child, you can't have a negative flyspeed");
+                            return false;
+                        }
+                        else if speed_arg > 10.0 {
+                            self.players[player].send_error_message("You cannot have a flyspeed greater than 10");
+                            return false;
+                        }
+                        let player_abilities = C32PlayerAbilities {
+                            flags: 0x0F,
+                            fly_speed: 0.05 * speed_arg,
+                            fov_modifier: 0.1
+                        }.encode();
+                        self.players[player].client.send_packet(&player_abilities);
+                    }
+                    else {
+                        self.players[player].send_error_message("Unable to parse speed value");
+                    }
+                }
+                else {
+                    self.players[player].send_error_message("/speed <0-10>");
+                    return false;
+                }
+            }
             _ => self.players[player].send_error_message("Command not found!"),
         }
         false
@@ -275,7 +302,7 @@ lazy_static! {
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31],
+                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32],
                 redirect_node: None,
                 name: None,
                 parser: None,
@@ -528,6 +555,23 @@ lazy_static! {
                 name: Some("radv"),
                 parser: None,
             },
+            // 32: /speed
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![33],
+                redirect_node: None,
+                name: Some("speed"),
+                parser: None,
+            },
+            // 33: /speed [speed]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("speed"),
+                //A Parser::Float would be needed here (command still executes with floats though)
+                parser: Some(Parser::Integer(0, 35000)),
+            }
         ],
         root_index: 0
     }.encode();
