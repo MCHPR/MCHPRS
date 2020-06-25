@@ -49,7 +49,11 @@ impl ItemStack {
             _ => {}
         }
 
-        if !context.player_crouching && block.on_use(plot, context.block_pos, Some(self.item_type)).is_success() {
+        if !context.player_crouching
+            && block
+                .on_use(plot, context.block_pos, Some(self.item_type))
+                .is_success()
+        {
             return;
         }
 

@@ -41,8 +41,7 @@ impl BlockEntity {
                 Value::String
             );
             let item_type = Item::from_name(namespaced_name.split(':').last()?);
-            fullness_sum +=
-                count as f32 / item_type.map(Item::max_stack_size).unwrap_or(64) as f32;
+            fullness_sum += count as f32 / item_type.map(Item::max_stack_size).unwrap_or(64) as f32;
         }
         Some(BlockEntity::Container {
             comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
@@ -711,7 +710,12 @@ impl Block {
         }
     }
 
-    pub fn on_use(self, plot: &mut Plot, pos: BlockPos, item_in_hand: Option<Item>) -> ActionResult {
+    pub fn on_use(
+        self,
+        plot: &mut Plot,
+        pos: BlockPos,
+        item_in_hand: Option<Item>,
+    ) -> ActionResult {
         match self {
             Block::RedstoneRepeater(repeater) => {
                 let mut repeater = repeater;
