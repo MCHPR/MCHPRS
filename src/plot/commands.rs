@@ -111,6 +111,10 @@ impl Plot {
                 player.worldedit_set_second_position(x, y, z);
             }
             "//set" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Wrong number of arguments!");
+                    return false;
+                }
                 if self.worldedit_set(player, &args[0]).is_err() {
                     self.players[player].send_error_message(
                         "Invalid block. Note that not all blocks are supported.",
@@ -118,23 +122,43 @@ impl Plot {
                 }
             }
             "//replace" => {
+                if args.len() < 2 {
+                    self.players[player].send_error_message("Wrong number of arguments!");
+                    return false;
+                }
                 if self.worldedit_replace(player, &args[0], &args[1]).is_err() {
                     self.players[player].send_error_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
-            "//find" => self.worldedit_find(player, args[0].parse::<u32>().unwrap()),
+            "//find" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Wrong number of arguments!");
+                    return false;
+                }
+                self.worldedit_find(player, args[0].parse::<u32>().unwrap())
+            }
             "//copy" | "//c" => self.worldedit_copy(player),
             "//paste" | "//p" => self.worldedit_paste(player),
             "//count" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Wrong number of arguments!");
+                    return false;
+                }
                 if self.worldedit_count(player, &args[0]).is_err() {
                     self.players[player].send_error_message(
                         "Invalid block. Note that not all blocks are supported.",
                     );
                 }
             }
-            "//load" => self.worldedit_load(player, &args[0]),
+            "//load" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Wrong number of arguments!");
+                    return false;
+                }
+                self.worldedit_load(player, &args[0])
+            }
             "/rtps" => {
                 if args.is_empty() {
                     self.players[player]

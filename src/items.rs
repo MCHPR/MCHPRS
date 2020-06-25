@@ -49,7 +49,11 @@ impl ItemStack {
             _ => {}
         }
 
-        if !context.player_crouching && block.on_use(plot, context.block_pos).is_success() {
+        if !context.player_crouching
+            && block
+                .on_use(plot, context.block_pos, Some(self.item_type))
+                .is_success()
+        {
             return;
         }
 
@@ -72,7 +76,7 @@ impl ItemStack {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Item {
     /// BlockItem represents an item that can be placed down. The u32 is the id of the item,
     /// it is NOT a block state id.
@@ -88,6 +92,7 @@ impl Item {
         match id {
             64 => Item::BlockItem(id),
             68 => Item::BlockItem(id),
+            80 => Item::BlockItem(id),
             82..=97 => Item::BlockItem(id),
             160 => Item::BlockItem(id),
             164 => Item::BlockItem(id),
@@ -108,13 +113,13 @@ impl Item {
         }
     }
 
-    pub fn get_id(&self) -> u32 {
+    pub fn get_id(self) -> u32 {
         match self {
             Item::WEWand => 536,
             Item::Snowball => 601,
             Item::TotemOfUndying => 836,
-            Item::BlockItem(id) => *id,
-            Item::Unknown(id) => *id,
+            Item::BlockItem(id) => id,
+            Item::Unknown(id) => id,
         }
     }
 
@@ -126,7 +131,7 @@ impl Item {
         }
     }
 
-    pub fn max_stack_size(&self) -> u32 {
+    pub fn max_stack_size(self) -> u32 {
         match self {
             Item::Snowball => 16,
             Item::TotemOfUndying => 1,

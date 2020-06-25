@@ -41,8 +41,7 @@ impl BlockEntity {
                 Value::String
             );
             let item_type = Item::from_name(namespaced_name.split(':').last()?);
-            fullness_sum +=
-                count as f32 / item_type.as_ref().map(Item::max_stack_size).unwrap_or(64) as f32;
+            fullness_sum += count as f32 / item_type.map(Item::max_stack_size).unwrap_or(64) as f32;
         }
         Some(BlockEntity::Container {
             comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
@@ -371,6 +370,7 @@ pub enum Block {
     PressurePlate(u32),
     TripwireHook(BlockDirection),
     Observer(BlockFacing),
+    SeaPickle(u8),
     Sign(u32, u32),
     WallSign(u32, BlockDirection),
     Solid(u32),
@@ -548,11 +548,14 @@ impl Block {
             7807 => Block::Transparent(id),
             // Quartz Slab
             7855 => Block::Transparent(id),
+            // Observer
             8725..=8735 => {
                 let id = id - 8725;
                 let facing = BlockFacing::from_id(id >> 1);
                 Block::Observer(facing)
             }
+            // Sea Pickles
+            9105..=9111 => Block::SeaPickle(((id - 9105) >> 1) as u8 + 1),
             // Barrel
             11136 => Block::Container(id),
             _ => Block::Solid(id),
@@ -582,6 +585,7 @@ impl Block {
                     + !button.powered as u32
                     + 3895
             }
+            Block::Sign(sign_type, rotation) => (sign_type << 5) + (rotation << 1) + 3380,
             Block::RedstoneTorch(true) => 3885,
             Block::RedstoneTorch(false) => 3886,
             Block::RedstoneWallTorch(lit, facing) => (facing.get_id() << 1) + (!lit as u32) + 3887,
@@ -608,8 +612,8 @@ impl Block {
             }
             Block::RedstoneBlock => 6190,
             Block::Observer(facing) => (facing.get_id() << 1) + 8725,
-            Block::Sign(sign_type, rotation) => (sign_type << 5) + (rotation << 1) + 3380,
             Block::WallSign(sign_type, facing) => (sign_type << 3) + (facing.get_id() << 1) + 3734,
+            Block::SeaPickle(pickles) => ((pickles - 1) << 1) as u32 + 9105,
             Block::PressurePlate(id) => id,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
@@ -706,7 +710,12 @@ impl Block {
         }
     }
 
-    pub fn on_use(self, plot: &mut Plot, pos: BlockPos) -> ActionResult {
+    pub fn on_use(
+        self,
+        plot: &mut Plot,
+        pos: BlockPos,
+        item_in_hand: Option<Item>,
+    ) -> ActionResult {
         match self {
             Block::RedstoneRepeater(repeater) => {
                 let mut repeater = repeater;
@@ -763,6 +772,14 @@ impl Block {
                 }
                 ActionResult::Success
             }
+            Block::SeaPickle(pickles) => {
+                if let Some(Item::BlockItem(80)) = item_in_hand {
+                    if pickles < 4 {
+                        plot.set_block(pos, Block::SeaPickle(pickles + 1));
+                    }
+                }
+                ActionResult::Success
+            }
             _ => ActionResult::Pass,
         }
     }
@@ -778,6 +795,8 @@ impl Block {
             64 => Block::Transparent(230),
             // Sandstone
             68 => Block::Solid(245),
+            // Sea Pickle
+            80 => Block::SeaPickle(1),
             // Wool
             82..=97 => Block::Solid(item_id + 1301),
             // Furnace
