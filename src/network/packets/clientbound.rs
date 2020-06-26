@@ -694,6 +694,20 @@ impl ClientBoundPacket for C47EntityEquipment {
     }
 }
 
+pub struct C4FTimeUpdate {
+    pub world_age: i64,
+    pub time_of_day: i64,
+}
+
+impl ClientBoundPacket for C4FTimeUpdate {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_long(self.world_age);
+        buf.write_long(self.time_of_day);
+        PacketEncoder::new(buf, 0x4F)
+    }
+}
+
 pub struct C57EntityTeleport {
     pub entity_id: i32,
     pub x: f64,

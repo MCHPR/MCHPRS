@@ -1,7 +1,7 @@
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C15WindowItems,
     C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
-    C36PlayerPositionAndLook, C40HeldItemChange, ClientBoundPacket,
+    C36PlayerPositionAndLook, C40HeldItemChange, C4FTimeUpdate, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
@@ -486,6 +486,13 @@ impl MinecraftServer {
                     player.client.send_packet(&held_item_change);
 
                     player.client.send_packet(&DECLARE_COMMANDS);
+
+                    let time_update = C4FTimeUpdate {
+                        world_age: 0,
+                        // Noon
+                        time_of_day: -6000,
+                    }.encode();
+                    player.client.send_packet(&time_update);
 
                     self.plot_sender
                         .send(Message::PlayerJoined(player))
