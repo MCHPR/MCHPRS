@@ -1,16 +1,20 @@
+
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C15WindowItems,
     C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
     C36PlayerPositionAndLook, C40HeldItemChange, C4FTimeUpdate, ClientBoundPacket,
 };
+
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
 };
+
 use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 //use crate::permissions::Permissions;
 use crate::player::Player;
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
+
 use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};
@@ -81,7 +85,7 @@ struct PlotListEntry {
     priv_message_sender: mpsc::Sender<PrivMessage>,
 }
 
-/// This represents a minecraft server
+/// Represents a Minecraft server
 pub struct MinecraftServer {
     network: NetworkServer,
     config: ServerConfig,
@@ -128,7 +132,7 @@ impl MinecraftServer {
             }
         }));
 
-        info!("Starting server...");
+        info!("MCHPRS is starting...");
         let start_time = Instant::now();
 
         // Create world folders if they don't exist yet
@@ -137,7 +141,7 @@ impl MinecraftServer {
 
         plot::database::init();
 
-        // Load config
+        // Configuration loading
         let default_config = ServerConfig {
             bind_address: "0.0.0.0:25565".to_string(),
             motd: "Minecraft High Performace Redstone Server".to_string(),
@@ -197,7 +201,7 @@ impl MinecraftServer {
         })
         .expect("There was an error setting the ctrlc handler");
 
-        // Create server struct
+        // Create server structure
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
             config,
@@ -334,7 +338,7 @@ impl MinecraftServer {
                         warn!("A player tried to connect using the wrong version");
                         let disconnect = C00DisconnectLogin {
                             reason: json!({
-                                "text": "Version mismatch, I'm on 1.15.2!"
+                                "text": "Version mismatch, server is on version 1.15.2!"
                             })
                             .to_string(),
                         }
@@ -386,11 +390,13 @@ impl MinecraftServer {
                     let set_compression = C03SetCompression { threshold: 500 }.encode();
                     clients[client].send_packet(&set_compression);
                     clients[client].compressed = true;
+
                     let username = if let Some(name) = &clients[client].username {
                         name.clone()
                     } else {
                         Default::default()
                     };
+
                     let uuid = Player::generate_offline_uuid(&username);
 
                     let login_success = C02LoginSuccess {
@@ -458,6 +464,7 @@ impl MinecraftServer {
                         ping: 0,
                         properties: Vec::new(),
                     });
+
                     let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
                     player.client.send_packet(&player_info);
 
@@ -489,8 +496,7 @@ impl MinecraftServer {
 
                     let time_update = C4FTimeUpdate {
                         world_age: 0,
-                        // Noon
-                        time_of_day: -6000,
+                        time_of_day: -6000, // Noon
                     }.encode();
                     player.client.send_packet(&time_update);
 
@@ -517,6 +523,7 @@ impl MinecraftServer {
                     .broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
                 self.send_player_to_plot(player, true);
             }
+
             Message::PlayerLeft(uuid) => {
                 let index = self.online_players.iter().position(|p| p.uuid == uuid);
                 if let Some(index) = index {
@@ -525,6 +532,7 @@ impl MinecraftServer {
                 self.broadcaster
                     .broadcast(BroadcastMessage::PlayerLeft(uuid));
             }
+
             Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
             Message::ChatInfo(username, message) => {
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
@@ -536,12 +544,15 @@ impl MinecraftServer {
                     .to_string(),
                 ));
             }
+
             Message::PlayerLeavePlot(player) => {
                 self.send_player_to_plot(player, false);
             }
+
             Message::Shutdown => {
                 self.graceful_shutdown();
             }
+
             Message::PlayerTeleportOther(mut player, other_username) => {
                 let username_lower = other_username.to_lowercase();
                 if let Some(other_player) = self
@@ -583,9 +594,11 @@ impl MinecraftServer {
         while let Ok(message) = self.debug_plot_receiver.try_recv() {
             debug!("Main thread broadcasted message: {:#?}", message);
         }
+        
         while let Ok(message) = self.receiver.try_recv() {
             self.handle_message(message);
         }
+
         self.network.update();
         for client in 0..self.network.handshaking_clients.len() {
             let packets: Vec<PacketDecoder> = self.network.handshaking_clients[client]

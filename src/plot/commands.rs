@@ -1,8 +1,10 @@
+
 use super::{database, Plot};
 use crate::network::packets::clientbound::{
     C12DeclareCommands, C12DeclareCommandsNode as Node, C12DeclareCommandsNodeParser as Parser,
     C32PlayerAbilities, ClientBoundPacket,
 };
+
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
 use log::info;
@@ -49,6 +51,9 @@ impl Plot {
             command,
             args.join(" ")
         );
+
+        // TODO: Create some type of command handler and put commands in different files
+        // (would be cleaner than having 50+ commands hardcoded)
         match command {
             "//1" | "//pos1" => {
                 let player = &mut self.players[player];
@@ -64,12 +69,14 @@ impl Plot {
                         player.send_error_message("Unable to parse x coordinate!");
                         return false;
                     }
+
                     if let Ok(y_arg) = args[1].parse::<u32>() {
                         y = y_arg;
                     } else {
                         player.send_error_message("Unable to parse y coordinate!");
                         return false;
                     }
+
                     if let Ok(z_arg) = args[2].parse::<i32>() {
                         z = z_arg;
                     } else {
@@ -80,6 +87,7 @@ impl Plot {
 
                 player.worldedit_set_first_position(x, y, z);
             }
+
             "//2" | "//pos2" => {
                 let player = &mut self.players[player];
 
@@ -94,12 +102,14 @@ impl Plot {
                         player.send_error_message("Unable to parse x coordinate!");
                         return false;
                     }
+
                     if let Ok(y_arg) = args[1].parse::<u32>() {
                         y = y_arg;
                     } else {
                         player.send_error_message("Unable to parse y coordinate!");
                         return false;
                     }
+
                     if let Ok(z_arg) = args[2].parse::<i32>() {
                         z = z_arg;
                     } else {
@@ -110,6 +120,7 @@ impl Plot {
 
                 player.worldedit_set_second_position(x, y, z);
             }
+
             "//set" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Wrong number of arguments!");
@@ -121,6 +132,7 @@ impl Plot {
                     );
                 }
             }
+
             "//replace" => {
                 if args.len() < 2 {
                     self.players[player].send_error_message("Wrong number of arguments!");
@@ -132,6 +144,7 @@ impl Plot {
                     );
                 }
             }
+
             "//find" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Wrong number of arguments!");
@@ -139,8 +152,10 @@ impl Plot {
                 }
                 self.worldedit_find(player, args[0].parse::<u32>().unwrap())
             }
+
             "//copy" | "//c" => self.worldedit_copy(player),
             "//paste" | "//p" => self.worldedit_paste(player),
+
             "//count" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Wrong number of arguments!");
@@ -152,6 +167,7 @@ impl Plot {
                     );
                 }
             }
+
             "//load" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Wrong number of arguments!");
@@ -159,77 +175,93 @@ impl Plot {
                 }
                 self.worldedit_load(player, &args[0])
             }
+
             "/rtps" => {
                 if args.is_empty() {
                     self.players[player]
                         .send_error_message("Please specify the rtps you want to set to.");
                     return false;
                 }
+
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
                     tps
                 } else {
                     self.players[player].send_error_message("Unable to parse rtps!");
                     return false;
                 };
+
                 if tps > 35000 {
                     self.players[player]
                         .send_error_message("The rtps cannot go higher than 35000!");
                     return false;
                 }
+
                 self.lag_time = Duration::from_millis(0);
+
                 if tps > 0 {
                     self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
                 } else {
                     self.sleep_time = Duration::from_millis(2);
                 }
+
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
+
             "/radv" | "/radvance" => {
                 if args.is_empty() {
                     self.players[player]
                         .send_error_message("Please specify a number of ticks to advance.");
                     return false;
                 }
+
                 let ticks = if let Ok(ticks) = args[0].parse::<u32>() {
                     ticks
                 } else {
                     self.players[player].send_error_message("Unable to parse ticks!");
                     return false;
                 };
+
                 let start_time = Instant::now();
                 for _ in 0..ticks {
                     self.tick();
                 }
+
                 self.players[player].send_system_message(&format!(
                     "Plot has been advanced by {} ticks ({:?})",
                     ticks,
                     start_time.elapsed()
                 ));
             }
+
             "/teleport" | "/tp" => {
                 if args.len() == 3 {
+
                     let x;
                     let y;
                     let z;
+
                     if let Ok(x_arg) = args[0].parse::<f64>() {
                         x = x_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse x coordinate!");
                         return false;
                     }
+
                     if let Ok(y_arg) = args[1].parse::<f64>() {
                         y = y_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse y coordinate!");
                         return false;
                     }
+
                     if let Ok(z_arg) = args[2].parse::<f64>() {
                         z = z_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse z coordinate!");
                         return false;
                     }
+
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     let player = self.leave_plot(player);
@@ -241,22 +273,27 @@ impl Plot {
                         .send_error_message("Wrong number of arguments for teleport command!");
                 }
             }
+
             "/stop" => {
                 self.message_sender.send(Message::Shutdown);
             }
+
             "/plot" | "/p" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Wrong number of arguments!");
                     return false;
                 }
+
                 let command = args.remove(0);
                 self.handle_plot_command(player, command, args);
             }
+
             "/speed" => {
                 if args.len() != 1 {
                     self.players[player].send_error_message("/speed <0-10>");
                     return false;
                 }
+
                 if let Ok(speed_arg) = args[0].parse::<f32>() {
                     if speed_arg < 0.0 {
                         self.players[player]
@@ -267,12 +304,14 @@ impl Plot {
                             .send_error_message("You cannot have a flyspeed greater than 10");
                         return false;
                     }
+
                     let player_abilities = C32PlayerAbilities {
                         flags: 0x0F,
                         fly_speed: 0.05 * speed_arg,
                         fov_modifier: 0.1,
                     }
                     .encode();
+                    
                     self.players[player].client.send_packet(&player_abilities);
                 } else {
                     self.players[player].send_error_message("Unable to parse speed value");

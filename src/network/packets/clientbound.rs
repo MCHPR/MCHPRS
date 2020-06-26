@@ -1,3 +1,4 @@
+
 use super::{PacketEncoder, PacketEncoderExt, SlotData};
 use crate::player::Player;
 
@@ -207,9 +208,11 @@ impl C12DeclareCommandsNodeParser {
                 buf.write_string(32767, "minecraft:entity");
                 buf.write_byte(*flags);
             }
+
             Vec3 => buf.write_string(32767, "minecraft:vec3"),
             BlockPos => buf.write_string(32767, "minecraft:block_pos"),
             BlockState => buf.write_string(32767, "minecraft:block_state"),
+
             Integer(min, max) => {
                 buf.write_string(32767, "brigadier:integer");
                 buf.write_byte(3); // Supply min and max value
@@ -240,19 +243,24 @@ impl ClientBoundPacket for C12DeclareCommands {
         for node in self.nodes {
             buf.write_byte(node.flags);
             buf.write_varint(node.children.len() as i32);
+
             for child in node.children {
                 buf.write_varint(child);
             }
+
             if let Some(redirect_node) = node.redirect_node {
                 buf.write_varint(redirect_node);
             }
+
             if let Some(name) = node.name {
                 buf.write_string(32767, &name);
             }
+
             if let Some(parser) = node.parser {
                 parser.write(&mut buf);
             }
         }
+
         buf.write_varint(self.root_index);
         PacketEncoder::new(buf, 0x12)
     }
@@ -363,15 +371,19 @@ impl ClientBoundPacket for C22ChunkData {
         buf.write_int(self.chunk_z);
         buf.write_boolean(self.full_chunk);
         buf.write_varint(self.primary_bit_mask);
+
         let mut heightmaps = Vec::new();
         self.heightmaps.to_writer(&mut heightmaps).unwrap();
         buf.write_bytes(heightmaps);
+
         if let Some(biomes) = self.biomes {
             for biome in biomes {
                 buf.write_int(biome);
             }
         }
+
         let mut data = Vec::new();
+
         for chunk_section in self.chunk_sections {
             data.write_short(chunk_section.block_count);
             data.write_unsigned_byte(chunk_section.bits_per_block);
@@ -381,18 +393,22 @@ impl ClientBoundPacket for C22ChunkData {
                     data.write_varint(palette_entry);
                 }
             }
+
             data.write_varint(chunk_section.data_array.len() as i32);
             for long in chunk_section.data_array {
                 data.write_long(long as i64);
             }
         }
+
         buf.write_varint(data.len() as i32);
         buf.write_bytes(data);
+
         // Number of block entities
         buf.write_varint(self.block_entities.len() as i32);
         for block_entity in self.block_entities {
             buf.write_nbt_blob(block_entity);
         }
+
         PacketEncoder::new(buf, 0x22)
     }
 }
@@ -694,10 +710,12 @@ impl ClientBoundPacket for C47EntityEquipment {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_varint(self.slot);
+
         if let Some(slot) = self.item {
             buf.write_bool(true);
             buf.write_varint(slot.item_id);
             buf.write_byte(slot.item_count);
+
             if let Some(nbt) = slot.nbt {
                 buf.write_nbt_blob(nbt);
             } else {
@@ -706,6 +724,7 @@ impl ClientBoundPacket for C47EntityEquipment {
         } else {
             buf.write_bool(false);
         }
+        
         PacketEncoder::new(buf, 0x47)
     }
 }

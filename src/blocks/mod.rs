@@ -1,3 +1,4 @@
+
 mod redstone;
 
 use crate::items::{ActionResult, Item, UseOnBlockContext};
@@ -20,7 +21,7 @@ pub enum BlockEntity {
 
 macro_rules! nbt_unwrap_val {
     // I'm not sure if path is the right type here.
-    // It works though!
+    // It works though! :D
     ($e:expr, $p:path) => {
         match $e {
             $p(val) => val,
@@ -33,13 +34,16 @@ impl BlockEntity {
     fn load_container(slots_nbt: &[nbt::Value], num_slots: u8) -> Option<BlockEntity> {
         use nbt::Value;
         let mut fullness_sum: f32 = 0.0;
+
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
             let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
+
             let namespaced_name = nbt_unwrap_val!(
                 item_compound.get("Id").or(item_compound.get("id"))?,
                 Value::String
             );
+
             let item_type = Item::from_name(namespaced_name.split(':').last()?);
             fullness_sum += count as f32 / item_type.map(Item::max_stack_size).unwrap_or(64) as f32;
         }
@@ -949,11 +953,13 @@ impl Block {
             Block::RedstoneWire(wire) => {
                 wire.on_neighbor_updated(plot, pos);
             }
+
             Block::RedstoneTorch(lit) => {
                 if lit == Block::torch_should_be_off(plot, pos) && !plot.pending_tick_at(pos) {
                     plot.schedule_tick(pos, 1, TickPriority::Normal);
                 }
             }
+
             Block::RedstoneWallTorch(lit, facing) => {
                 if lit == Block::wall_torch_should_be_off(plot, pos, facing)
                     && !plot.pending_tick_at(pos)
@@ -961,12 +967,15 @@ impl Block {
                     plot.schedule_tick(pos, 1, TickPriority::Normal);
                 }
             }
+
             Block::RedstoneRepeater(repeater) => {
                 repeater.on_neighbor_updated(plot, pos);
             }
+
             Block::RedstoneComparator(comparator) => {
                 comparator.update(plot, pos);
             }
+
             Block::RedstoneLamp(lit) => {
                 let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
                 if lit && !should_be_lit {
@@ -984,9 +993,11 @@ impl Block {
             Block::RedstoneRepeater(repeater) => {
                 repeater.tick(plot, pos);
             }
+
             Block::RedstoneComparator(comparator) => {
                 comparator.tick(plot, pos);
             }
+
             Block::RedstoneTorch(powered) => {
                 let should_be_off = Block::torch_should_be_off(plot, pos);
                 if powered && should_be_off {
@@ -997,6 +1008,7 @@ impl Block {
                     Block::update_surrounding_blocks(plot, pos);
                 }
             }
+
             Block::RedstoneWallTorch(powered, direction) => {
                 let should_be_off = Block::wall_torch_should_be_off(plot, pos, direction);
                 if powered && should_be_off {
@@ -1007,17 +1019,20 @@ impl Block {
                     Block::update_surrounding_blocks(plot, pos);
                 }
             }
+
             Block::RedstoneLamp(lit) => {
                 let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
                 if lit && !should_be_lit {
                     plot.set_block(pos, Block::RedstoneLamp(false));
                 }
             }
+
             Block::StoneButton(mut button) => {
-                if button.powered {
+                if button.powered { // TODO: Add redstone redirect when button is next to it
                     button.powered = false;
                     plot.set_block(pos, Block::StoneButton(button));
                     Block::update_surrounding_blocks(plot, pos);
+
                     match button.face {
                         ButtonFace::Ceiling => {
                             Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top))
@@ -1045,10 +1060,12 @@ impl Block {
                 let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
                 bottom_block.is_cube()
             }
+
             Block::RedstoneWallTorch(_, direction) => {
                 let parent_block = plot.get_block(pos.offset(direction.opposite().block_face()));
                 parent_block.is_cube()
             }
+
             Block::Lever(lever) => match lever.face {
                 LeverFace::Floor => {
                     let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
@@ -1064,6 +1081,7 @@ impl Block {
                     parent_block.is_cube()
                 }
             },
+
             Block::StoneButton(button) => match button.face {
                 ButtonFace::Floor => {
                     let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
@@ -1104,6 +1122,7 @@ impl Block {
             let neighbor_pos = pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
             block.update(plot, neighbor_pos);
+
             for n_direction in &BlockFace::values() {
                 let n_neighbor_pos = neighbor_pos.offset(*n_direction);
                 let block = plot.get_block(n_neighbor_pos);
@@ -1119,7 +1138,6 @@ impl Block {
             block.update(plot, neighbor_pos);
 
             // Also update diagonal blocks
-
             let up_pos = neighbor_pos.offset(BlockFace::Top);
             let up_block = plot.get_block(up_pos);
             up_block.update(plot, up_pos);
@@ -1137,7 +1155,6 @@ impl Block {
             block.change(plot, neighbor_pos, *direction);
 
             // Also change diagonal blocks
-
             let up_pos = neighbor_pos.offset(BlockFace::Top);
             let up_block = plot.get_block(up_pos);
             up_block.change(plot, up_pos, *direction);

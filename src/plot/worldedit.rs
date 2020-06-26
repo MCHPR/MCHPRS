@@ -1,7 +1,9 @@
+
 use super::storage::PalettedBitBuffer;
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::network::packets::clientbound::*;
+
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
@@ -9,9 +11,11 @@ use std::fs::File;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
-// TODO: Actually use the multiblock change record.
-// Right now I'm just resending the whole chunk no
-// matter how big or small the operation is.
+/*
+    TODO: Actually use the multiblock change record.
+    Right now I'm just resending the whole chunk no
+    matter how big or small the operation is.
+*/
 pub struct MultiBlockChangeRecord {
     pub x: i32,
     pub y: i32,
@@ -38,15 +42,17 @@ pub struct WorldEditClipboard {
 
 impl WorldEditClipboard {
     fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
-        // I greaty dislike this
+        // I greaty dislike this (then change it ~Q)
         let mut file = match File::open("./schems/".to_owned() + file_name + ".schem") {
             Ok(file) => file,
             Err(_) => return None,
         };
+
         let nbt = match nbt::Blob::from_gzip_reader(&mut file) {
             Ok(blob) => blob,
             Err(_) => return None,
         };
+
         use nbt::Value;
         let size_x = nbt_unwrap_val!(nbt["Width"], Value::Short) as u32;
         let size_z = nbt_unwrap_val!(nbt["Length"], Value::Short) as u32;
@@ -56,11 +62,14 @@ impl WorldEditClipboard {
         let offset_x = -nbt_unwrap_val!(metadata["WEOffsetX"], Value::Int);
         let offset_y = -nbt_unwrap_val!(metadata["WEOffsetY"], Value::Int);
         let offset_z = -nbt_unwrap_val!(metadata["WEOffsetZ"], Value::Int);
-        lazy_static! {
+
+        lazy_static!{
             static ref RE: Regex =
                 Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap();
         }
+
         let mut palette: HashMap<u32, u32> = HashMap::new();
+
         for (k, v) in nbt_palette {
             let id = *nbt_unwrap_val!(v, Value::Int) as u32;
             let captures = RE.captures(&k)?;
@@ -74,12 +83,15 @@ impl WorldEditClipboard {
             }
             palette.insert(id, block.get_id());
         }
+
         let blocks: Vec<u8> = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray)
             .iter()
             .map(|b| *b as u8)
             .collect();
+
         let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
         let mut i = 0;
+
         for y_offset in (0..size_y).map(|y| y * size_z * size_x) {
             for z_offset in (0..size_z).map(|z| z * size_x) {
                 for x in 0..size_x {
@@ -98,11 +110,14 @@ impl WorldEditClipboard {
                 }
             }
         }
+
         let block_entities = nbt_unwrap_val!(&nbt["BlockEntities"], Value::List);
         let mut parsed_block_entities = HashMap::new();
+
         for block_entity in block_entities {
             let val = nbt_unwrap_val!(block_entity, Value::Compound);
             let pos_array = nbt_unwrap_val!(&val["Pos"], Value::IntArray);
+
             let pos = BlockPos {
                 x: pos_array[0],
                 y: pos_array[1] as u32,
@@ -112,6 +127,7 @@ impl WorldEditClipboard {
                 parsed_block_entities.insert(pos, parsed);
             }
         }
+
         Some(WorldEditClipboard {
             size_x,
             size_y,
@@ -143,6 +159,7 @@ impl WorldEditPattern {
             lazy_static! {
                 static ref RE: Regex = Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap();
             }
+
             let pattern_match = RE
                 .captures(part)
                 .ok_or(PatternParseError::InvalidPattern(part.to_owned()))?;
@@ -184,6 +201,7 @@ impl WorldEditPattern {
 
     pub fn pick(&self) -> Block {
         let mut weight_sum = 0.0;
+
         for part in &self.parts {
             weight_sum += part.weight;
         }
@@ -235,6 +253,7 @@ impl WorldEditOperation {
         let x_range = start_pos.x..=end_pos.x;
         let y_range = (start_pos.y as u32)..=(end_pos.y as u32);
         let z_range = start_pos.z..=end_pos.z;
+
         WorldEditOperation {
             records,
             x_range,
@@ -250,14 +269,14 @@ impl WorldEditOperation {
         if let Some(packet) = self
             .records
             .iter_mut()
-            .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z)
+            .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z);
         {
             packet.records.push(C10MultiBlockChangeRecord {
                 x: (block_pos.x >> 4) as i8,
                 y: (block_pos.y >> 4) as u8,
                 z: (block_pos.z >> 4) as i8,
                 block_id: block_id as i32,
-            })
+            });
         }
     }
 
@@ -271,12 +290,15 @@ impl WorldEditOperation {
         blocks_updated
     }
 
+
     fn x_range(&self) -> RangeInclusive<i32> {
         self.x_range.to_owned()
     }
+
     fn y_range(&self) -> RangeInclusive<u32> {
         self.y_range.to_owned()
     }
+
     fn z_range(&self) -> RangeInclusive<i32> {
         self.z_range.to_owned()
     }
@@ -289,6 +311,7 @@ impl Plot {
             let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
             let chunk = &self.chunks[chunk_index];
             let chunk_data = chunk.encode_packet(false);
+
             for player in &mut self.players {
                 player.client.send_packet(&chunk_data);
             }
@@ -303,25 +326,30 @@ impl Plot {
     }
 
     fn worldedit_start_operation(&mut self, player: usize) -> Option<WorldEditOperation> {
+
         let player = &mut self.players[player];
         let first_pos;
         let second_pos;
+
         if let Some(pos) = player.first_position {
             first_pos = pos;
         } else {
             player.send_system_message("First position is not set!");
             return None;
         }
+
         if let Some(pos) = player.second_position {
             second_pos = pos;
         } else {
             player.send_system_message("Second position is not set!");
             return None;
         }
+
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.x, first_pos.z) {
             player.send_system_message("First position is outside plot bounds!");
             return None;
         }
+
         if !Plot::in_plot_bounds(self.x, self.z, first_pos.x, first_pos.z) {
             player.send_system_message("Second position is outside plot bounds!");
             return None;
@@ -361,7 +389,7 @@ impl Plot {
                 start_time.elapsed()
             ));
         }
-        Ok(())
+        Ok(());
     }
 
     pub(super) fn worldedit_replace(
@@ -401,7 +429,7 @@ impl Plot {
                 start_time.elapsed()
             ));
         }
-        Ok(())
+        Ok(());
     }
 
     pub(super) fn worldedit_count(
@@ -409,8 +437,8 @@ impl Plot {
         player: usize,
         filter_str: &str,
     ) -> PatternParseResult<()> {
-        let start_time = Instant::now();
 
+        let start_time = Instant::now();
         let filter = WorldEditPattern::from_str(filter_str)?;
 
         if let Some(operation) = self.worldedit_start_operation(player) {
@@ -433,7 +461,7 @@ impl Plot {
                 start_time.elapsed()
             ));
         }
-        Ok(())
+        Ok(());
     }
 
     fn create_clipboard(
@@ -458,7 +486,9 @@ impl Plot {
             // TODO: Get the block entities in the selection
             block_entities: HashMap::new(),
         };
+
         let mut i = 0;
+
         for y in start_pos.y..=end_pos.y {
             for z in start_pos.z..=end_pos.z {
                 for x in start_pos.x..=end_pos.x {
@@ -472,16 +502,19 @@ impl Plot {
     }
 
     fn paste_clipboard(&mut self, cb: &WorldEditClipboard, pos: BlockPos) {
+
         let offset_x = pos.x - cb.offset_x;
         let offset_y = pos.y as i32 - cb.offset_y;
         let offset_z = pos.z - cb.offset_z;
         let mut i = 0;
+
         // This can be made better, but right now it's not D:
         let x_range = offset_x..offset_x + cb.size_x as i32;
         let y_range = offset_y..offset_y + cb.size_y as i32;
         let z_range = offset_z..offset_z + cb.size_z as i32;
 
         let entries = cb.data.entries();
+
         // I have no clue if these clones are going to cost anything noticeable.
         'top_loop: for y in y_range.clone() {
             for z in z_range.clone() {
@@ -494,10 +527,12 @@ impl Plot {
                 }
             }
         }
+
         let chunk_x_range =
             (offset_x - (self.x << 8)) >> 4..=(offset_x + cb.size_x as i32 - (self.x << 8)) >> 4;
         let chunk_z_range =
             (offset_z - (self.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (self.z << 8)) >> 4;
+
         for chunk_x in chunk_x_range {
             for chunk_z in chunk_z_range.clone() {
                 let chunk = &self.chunks[((chunk_x << 4) + chunk_z) as usize];
@@ -507,6 +542,7 @@ impl Plot {
                 }
             }
         }
+
         for (pos, block_entity) in &cb.block_entities {
             let new_pos = BlockPos {
                 x: pos.x + offset_x,
@@ -527,11 +563,13 @@ impl Plot {
                 self.players[player].y.floor() as u32,
                 self.players[player].z.floor() as i32,
             );
+
             let clipboard = self.create_clipboard(
                 origin,
                 self.players[player].first_position.unwrap(),
                 self.players[player].second_position.unwrap(),
             );
+
             self.players[player].worldedit_clipboard = Some(clipboard);
 
             self.players[player].send_worldedit_message(&format!(
@@ -545,6 +583,7 @@ impl Plot {
         let start_time = Instant::now();
 
         if self.players[player].worldedit_clipboard.is_some() {
+
             // Here I am cloning the clipboard. This is bad. Don't do this.
             let cb = &self.players[player].worldedit_clipboard.clone().unwrap();
             let pos = BlockPos::new(
@@ -552,6 +591,7 @@ impl Plot {
                 self.players[player].y.floor() as u32,
                 self.players[player].z.floor() as i32,
             );
+
             self.paste_clipboard(cb, pos);
             self.players[player].send_worldedit_message(&format!(
                 "Your clipboard was pasted. ({:?})",
@@ -570,7 +610,7 @@ impl Plot {
             Some(cb) => {
                 self.players[player].worldedit_clipboard = Some(cb);
                 self.players[player].send_worldedit_message(&format!(
-                    "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
+                    "The schematic was loaded to your clipboard. Do //paste to birth it into the world! ({:?})", // a bit more happi
                     start_time.elapsed()
                 ));
             }
@@ -584,6 +624,7 @@ impl Plot {
     pub(super) fn worldedit_find(&mut self, player: usize, block_id: u32) {
         let start_time = Instant::now();
 
+        // what the heck is this nested for loop mess
         if let Some(operation) = self.worldedit_start_operation(player) {
             for x in operation.x_range() {
                 for y in operation.y_range() {

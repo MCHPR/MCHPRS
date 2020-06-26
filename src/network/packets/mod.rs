@@ -1,3 +1,4 @@
+
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
@@ -349,8 +350,10 @@ impl PacketEncoder {
     }
 
     pub fn compressed(&self) -> Vec<u8> {
+
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
         let data = [&packet_id[..], &self.buffer[..]].concat();
+
         if self.buffer.len() < 500 {
             let data_length = PacketEncoder::varint(0);
             let packet_length = PacketEncoder::varint((data_length.len() + data.len()) as i32);
@@ -358,7 +361,9 @@ impl PacketEncoder {
         } else {
             let data_length = PacketEncoder::varint(data.len() as i32);
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
+
             encoder.write_all(&data).unwrap();
+            
             let compressed = encoder.finish().unwrap();
             let packet_length =
                 PacketEncoder::varint((data_length.len() + compressed.len()) as i32);

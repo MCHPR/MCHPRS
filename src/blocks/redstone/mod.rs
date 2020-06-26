@@ -1,3 +1,4 @@
+
 mod redstone_wire;
 
 pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
@@ -19,6 +20,7 @@ impl Block {
             {
                 15
             }
+
             Block::RedstoneComparator(comparator) if comparator.facing.block_face() == side => {
                 if let Some(BlockEntity::Comparator { output_strength }) =
                     plot.get_block_entity(pos)
@@ -28,6 +30,7 @@ impl Block {
                     0
                 }
             }
+
             Block::RedstoneWire(wire) if dust_power => match side {
                 BlockFace::Top => wire.power,
                 BlockFace::Bottom => 0,
@@ -345,14 +348,17 @@ impl RedstoneComparator {
     }
 
     fn calculate_input_strength(self, plot: &Plot, pos: BlockPos) -> u8 {
+
         let base_input_strength = diode_get_input_strength(plot, pos, self.facing);
         let input_pos = pos.offset(self.facing.block_face());
         let input_block = plot.get_block(input_pos);
+
         if input_block.has_comparator_override() {
             input_block.get_comparator_override(plot, input_pos)
         } else if base_input_strength < 15 && input_block.is_cube() {
             let far_input_pos = input_pos.offset(self.facing.block_face());
             let far_input_block = plot.get_block(far_input_pos);
+
             if far_input_block.has_comparator_override() {
                 far_input_block.get_comparator_override(plot, far_input_pos)
             } else {
@@ -397,11 +403,13 @@ impl RedstoneComparator {
 
     // This is exactly the same as it is in the RedstoneRepeater struct.
     // Sometime in the future, this needs to be reused. LLVM might optimize
-    // it way, but te human brane wil not!
+    // it way, but te human brane wil defo not!
     fn on_state_change(self, plot: &mut Plot, pos: BlockPos) {
+
         let front_pos = pos.offset(self.facing.opposite().block_face());
         let front_block = plot.get_block(front_pos);
         front_block.update(plot, front_pos);
+
         for direction in &BlockFace::values() {
             let neighbor_pos = front_pos.offset(*direction);
             let block = plot.get_block(neighbor_pos);
@@ -413,6 +421,7 @@ impl RedstoneComparator {
         if plot.pending_tick_at(pos) {
             return;
         }
+
         let output_strength = self.calculate_output_strength(plot, pos);
         let old_strength =
             if let Some(BlockEntity::Comparator { output_strength }) = plot.get_block_entity(pos) {
@@ -420,6 +429,7 @@ impl RedstoneComparator {
             } else {
                 0
             };
+
         if output_strength != old_strength || self.powered != self.should_be_powered(plot, pos) {
             let front_block = plot.get_block(pos.offset(self.facing.opposite().block_face()));
             let priority = if front_block.is_diode() {
@@ -441,6 +451,7 @@ impl RedstoneComparator {
         } else {
             0
         };
+
         if new_strength != old_strength || self.mode == ComparatorMode::Compare {
             plot.set_block_entity(
                 pos,
@@ -448,8 +459,10 @@ impl RedstoneComparator {
                     output_strength: new_strength,
                 },
             );
+
             let should_be_powered = self.should_be_powered(plot, pos);
             let powered = self.powered;
+
             if powered && !should_be_powered {
                 self.powered = false;
                 plot.set_block(pos, Block::RedstoneComparator(self));
@@ -457,6 +470,7 @@ impl RedstoneComparator {
                 self.powered = true;
                 plot.set_block(pos, Block::RedstoneComparator(self));
             }
+            
             self.on_state_change(plot, pos);
         }
     }

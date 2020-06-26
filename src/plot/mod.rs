@@ -1,3 +1,4 @@
+
 pub mod commands;
 pub mod database;
 mod packets;
@@ -302,13 +303,16 @@ impl Plot {
     fn leave_plot(&mut self, player_index: usize) -> Player {
         let mut player = self.players.remove(player_index);
         let mut entity_ids = Vec::new();
+
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
         }
+
         let destroy_other_entities = C38DestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.x << 4;
         let chunk_offset_z = self.z << 4;
+
         for chunk in &self.chunks {
             player.client.send_packet(
                 &C1EUnloadChunk {
@@ -318,6 +322,7 @@ impl Plot {
                 .encode(),
             );
         }
+
         self.destroy_entity(player.entity_id);
         player
     }
@@ -335,6 +340,7 @@ impl Plot {
                         player.send_raw_chat(message.clone());
                     }
                 }
+
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
                     let player_info = C34PlayerInfo::AddPlayer(vec![C34PlayerInfoAddPlayer {
                         name: player_join_info.username,
@@ -349,29 +355,33 @@ impl Plot {
                         player.client.send_packet(&player_info);
                     }
                 }
+
                 BroadcastMessage::PlayerLeft(uuid) => {
                     let player_info = C34PlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
                 }
+
                 BroadcastMessage::Shutdown => {
                     let mut players: Vec<Player> = self.players.drain(..).collect();
                     for player in players.iter_mut() {
                         player.save();
                         player.kick(
                             json!({
-                                "text": "Server closed"
+                                "text": "Server has closed"
                             })
                             .to_string(),
                         );
                     }
+
                     self.always_running = false;
                     self.running = false;
                     return;
                 }
             }
         }
+
         // Handle messages from the private message channel
         while let Ok(message) = self.priv_message_receiver.try_recv() {
             match message {
@@ -386,6 +396,7 @@ impl Plot {
                 }
             }
         }
+
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.last_player_time = SystemTime::now();
@@ -399,6 +410,7 @@ impl Plot {
                     .as_micros()
                     .checked_div(dur_per_tick.as_micros())
                     .unwrap_or_default();
+
                 if ticks > 4000 {
                     warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
                     self.lag_time = Duration::from_secs(0);
@@ -415,10 +427,12 @@ impl Plot {
                 self.running = false;
             }
         }
+
         // Update players
         for player in &mut self.players {
             player.update();
         }
+
         // Handle received packets
         for player in 0..self.players.len() {
             if self.handle_packets_for_player(player) {
@@ -531,9 +545,11 @@ impl Plot {
                 "Plot {},{} does not exist and no template was found, generating now.",
                 x, z
             );
+
             let chunk_x_offset = x << 4;
             let chunk_z_offset = z << 4;
             let mut chunks = Vec::new();
+
             for chunk_x in 0..16 {
                 for chunk_z in 0..16 {
                     chunks.push(Chunk::generate(
@@ -543,6 +559,7 @@ impl Plot {
                     ));
                 }
             }
+
             Plot {
                 last_player_time: SystemTime::now(),
                 last_update_time: SystemTime::now(),
@@ -565,12 +582,16 @@ impl Plot {
     }
 
     fn save(&self) {
-        debug!("Saving plot {},{}", self.x, self.z);
+        debug!("Saving plot {},{}",
+            self.x, self.z
+        );
+
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .open(format!("./world/plots/p{},{}", self.x, self.z))
             .unwrap();
+
         let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
             tps: self.tps,
@@ -579,16 +600,19 @@ impl Plot {
             pending_ticks: self.to_be_ticked.clone(),
         })
         .unwrap();
+
         file.write_all(&encoded).unwrap();
         file.sync_data().unwrap();
     }
 
     fn run(&mut self, initial_player: Option<Player>) {
         debug!("Running new plot!");
+
         if let Some(player) = initial_player {
-            debug!("Sending initial player into plot!");
+            debug!("Sending initial player into plot");
             self.enter_plot(player);
         }
+
         while self.running {
             self.update();
             thread::sleep(self.sleep_time);
@@ -628,8 +652,10 @@ impl Drop for Plot {
                 );
             }
         }
+
         self.save();
         debug!("Plot {},{} unloaded", self.x, self.z);
+
         self.message_sender
             .send(Message::PlotUnload(self.x, self.z))
             .unwrap();
@@ -641,8 +667,10 @@ fn chunk_save_and_load_test() {
     let mut chunk = Chunk::empty(1, 1);
     chunk.set_block(13, 63, 12, 332);
     chunk.set_block(13, 62, 12, 331);
+    
     let chunk_data = chunk.save();
     let loaded_chunk = Chunk::load(1, 1, chunk_data);
+
     assert_eq!(loaded_chunk.get_block(13, 63, 12), 332);
     assert_eq!(loaded_chunk.get_block(13, 62, 12), 331);
     assert_eq!(loaded_chunk.get_block(13, 64, 12), 0);

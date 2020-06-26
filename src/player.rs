@@ -1,8 +1,10 @@
+
 use crate::blocks::{BlockDirection, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::WorldEditClipboard;
+
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -66,10 +68,12 @@ pub struct Player {
     pub fly_speed: f32,
     pub walk_speed: f32,
     pub entity_id: u32,
+
     // Networking
     pub client: NetworkClient,
     pub last_keep_alive_received: Instant,
     last_keep_alive_sent: Instant,
+
     // Worldedit
     pub first_position: Option<BlockPos>,
     pub second_position: Option<BlockPos>,
@@ -90,6 +94,7 @@ impl Player {
         Cursor::new(md5::compute(format!("OfflinePlayer:{}", username)).0)
             .read_u128::<BigEndian>()
             .unwrap()
+
             // Encode version and varient into uuid
             & (!(0xC << 60) & !(0xF << 76))
             | ((0x8 << 60) | (0x3 << 76))
@@ -122,6 +127,7 @@ impl Player {
                     nbt,
                 });
             }
+
             Player {
                 uuid,
                 username,
@@ -157,6 +163,7 @@ impl Player {
     fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
         let mut inventory: Vec<Option<ItemStack>> = vec![];
         inventory.resize_with(46, || None);
+
         Player {
             uuid,
             username,
@@ -192,7 +199,9 @@ impl Player {
             .create(true)
             .open(format!("./world/players/{:032x}", self.uuid))
             .unwrap();
+
         let mut inventory: Vec<InventoryEntry> = Vec::new();
+
         for (slot, item_option) in self.inventory.iter().enumerate() {
             if let Some(item) = item_option {
                 let nbt = item.nbt.clone().map(|blob| {
@@ -209,6 +218,7 @@ impl Player {
                 })
             }
         }
+
         let data = bincode::serialize(&PlayerData {
             fly_speed: self.fly_speed,
             flying: self.flying,
@@ -227,10 +237,12 @@ impl Player {
     pub fn update_view_pos(&mut self) {
         let chunk_x = self.x as i32 >> 4;
         let chunk_z = self.z as i32 >> 4;
+        
         if chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z {
             let update_view = C41UpdateViewPosition { chunk_x, chunk_z }.encode();
             self.client.send_packet(&update_view);
         }
+
         self.last_chunk_x = chunk_x;
         self.last_chunk_z = chunk_z;
     }
@@ -239,9 +251,11 @@ impl Player {
         if self.last_keep_alive_received.elapsed().as_secs() > 30 {
             self.kick("Timed out".to_string());
         }
+
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
         }
+
         self.update_view_pos();
         if let Err(err) = self.client.update() {
             self.kick(
@@ -259,6 +273,7 @@ impl Player {
                 .as_secs() as i64,
         }
         .encode();
+
         self.client.send_packet(&keep_alive);
         self.last_keep_alive_sent = Instant::now();
     }
@@ -284,9 +299,11 @@ impl Player {
             teleport_id: 0,
         }
         .encode();
+
         self.x = x;
         self.y = y;
         self.z = z;
+
         self.client.send_packet(&player_position_and_look);
         self.update_view_pos();
     }
@@ -296,6 +313,7 @@ impl Player {
             message,
             position: 0,
         }
+
         .encode();
         self.client.send_packet(&chat_message);
     }
@@ -305,6 +323,7 @@ impl Player {
             message,
             position: 1,
         }
+        
         .encode();
         self.client.send_packet(&chat_message);
     }

@@ -1,7 +1,9 @@
+
 use super::TickEntry;
 use crate::blocks::{BlockEntity, BlockPos};
 use crate::network::packets::clientbound::{C22ChunkData, C22ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
+
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::mem;
@@ -25,6 +27,7 @@ impl BitBuffer {
     fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
         let longs_len = (entries * bits_per_entry as usize + 63) / 64;
         let longs = vec![0; longs_len];
+
         BitBuffer {
             bits_per_entry,
             longs,
@@ -42,17 +45,21 @@ impl BitBuffer {
     }
 
     fn get_entry(&self, word_idx: usize) -> u32 {
+
         // Find the set of indices.
         let abs_idx = word_idx * self.bits_per_entry as usize;
         let arr_idx = abs_idx >> 6;
         let sub_idx = abs_idx & 0x3f;
+
         // Find (at least) the lower half of the word, if not the full thing.
         let mask = (1 << self.bits_per_entry) - 1;
         let word = (self.longs[arr_idx] >> sub_idx) & mask;
+
         // If it's not on a boundary, we can early exit; there's no top half to fill in.
         if sub_idx + self.bits_per_entry as usize <= 64 {
             return word as u32;
         }
+
         // Otherwise, we need to get a little tricky.
         let bits_we_have = 64 - sub_idx;
         let next = self.longs[arr_idx + 1] << bits_we_have;
@@ -180,11 +187,13 @@ impl ChunkSection {
     /// Sets a block in the chunk sections. Returns true if a block was changed.
     fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) -> bool {
         let old_block = self.get_block(x, y, z);
+
         if old_block == 0 && block != 0 {
             self.block_count += 1;
         } else if old_block != 0 && block == 0 {
             self.block_count -= 1;
         }
+
         self.buffer
             .set_entry(ChunkSection::get_index(x, y, z), block);
         old_block != block
@@ -195,6 +204,7 @@ impl ChunkSection {
         let bits_per_entry = data.bits_per_block as u8;
         let palette = data.palette.into_iter().map(|x| x as u32).collect();
         let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
+
         ChunkSection {
             buffer,
             block_count: data.block_count as u32,
@@ -210,6 +220,7 @@ impl ChunkSection {
             .into_iter()
             .map(|x| x as i64)
             .collect();
+
         let palette: Vec<i32> = self
             .buffer
             .palette
@@ -217,6 +228,7 @@ impl ChunkSection {
             .into_iter()
             .map(|x| x as i32)
             .collect();
+
         ChunkSectionData {
             data: longs,
             palette,
@@ -264,6 +276,7 @@ pub struct Chunk {
 impl Chunk {
     pub fn encode_packet(&self, full_chunk: bool) -> PacketEncoder {
         let mut heightmap_buffer = BitBuffer::create(9, 256);
+
         for x in 0..16 {
             for z in 0..16 {
                 heightmap_buffer
@@ -273,10 +286,12 @@ impl Chunk {
 
         let mut chunk_sections = Vec::new();
         let mut bitmask = 0;
+
         for (section_y, section) in &self.sections {
             bitmask |= 1 << section_y;
             chunk_sections.push(section.encode_packet());
         }
+
         let mut heightmaps = nbt::Blob::new();
         let heightmap_longs: Vec<i64> = heightmap_buffer
             .longs
@@ -286,6 +301,7 @@ impl Chunk {
         heightmaps
             .insert("MOTION_BLOCKING", heightmap_longs)
             .unwrap();
+
         let mut block_entities = Vec::new();
         self.block_entities
             .iter()
@@ -299,6 +315,7 @@ impl Chunk {
                     .map(|blob| block_entities.push(blob))
             })
             .for_each(drop);
+            
         C22ChunkData {
             // Use `bool_to_option` feature when stabalized
             // Tracking issue: https://github.com/rust-lang/rust/issues/64260

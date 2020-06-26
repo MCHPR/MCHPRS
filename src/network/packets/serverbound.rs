@@ -1,3 +1,4 @@
+
 use super::{DecodeResult, PacketDecoder, SlotData};
 
 pub trait ServerBoundPacket {
@@ -274,13 +275,17 @@ pub struct S2CPlayerBlockPlacemnt {
 
 impl ServerBoundPacket for S2CPlayerBlockPlacemnt {
     fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+
         let hand = decoder.read_varint()?;
         let location = decoder.read_position()?;
         let face = decoder.read_varint()?;
+
         let cursor_x = decoder.read_float()?;
         let cursor_y = decoder.read_float()?;
         let cursor_z = decoder.read_float()?;
+
         let inside_block = decoder.read_bool()?;
+        
         Ok(S2CPlayerBlockPlacemnt {
             x: location.0,
             y: location.1,

@@ -1,3 +1,4 @@
+
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
 
@@ -109,9 +110,11 @@ impl RedstoneWire {
                 self.east = RedstoneWire::get_side(plot, pos, BlockDirection::East);
                 self.west = RedstoneWire::get_side(plot, pos, BlockDirection::West);
             }
+
             BlockFace::North => {
                 self.south = RedstoneWire::get_side(plot, pos, BlockDirection::South)
             }
+            
             BlockFace::South => {
                 self.north = RedstoneWire::get_side(plot, pos, BlockDirection::North)
             }
