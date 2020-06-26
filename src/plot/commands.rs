@@ -121,6 +121,13 @@ impl Plot {
                     );
                 }
             }
+            "//stack" => {
+                if args.len() != 1 {
+                    self.players[player].send_error_message("//stack <amount>");
+                    return false;
+                }
+                self.worldedit_stack(player, args[0].parse::<u32>().unwrap());
+            }
             "//replace" => {
                 if args.len() < 2 {
                     self.players[player].send_error_message("Wrong number of arguments!");
@@ -301,7 +308,7 @@ lazy_static! {
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32],
+                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34],
                 redirect_node: None,
                 name: None,
                 parser: None,
@@ -569,8 +576,25 @@ lazy_static! {
                 redirect_node: None,
                 name: Some("speed"),
                 //A Parser::Float would be needed here (command still executes with floats though)
+                parser: Some(Parser::Float(0.0, 10.0)),
+            },
+            // 34: //stack
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![35],
+                redirect_node: None,
+                name: Some("/stack"),
+                parser: None,
+            },
+            // 35: //stack [amount]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("amount"),
+                //A Parser::Float would be needed here (command still executes with floats though)
                 parser: Some(Parser::Integer(0, 35000)),
-            }
+            },
         ],
         root_index: 0
     }.encode();

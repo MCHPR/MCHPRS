@@ -491,7 +491,8 @@ impl MinecraftServer {
                         world_age: 0,
                         // Noon
                         time_of_day: -6000,
-                    }.encode();
+                    }
+                    .encode();
                     player.client.send_packet(&time_update);
 
                     self.plot_sender

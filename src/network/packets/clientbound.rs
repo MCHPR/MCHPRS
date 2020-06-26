@@ -195,6 +195,7 @@ pub enum C12DeclareCommandsNodeParser {
     Entity(i8),
     Vec3,
     Integer(i32, i32),
+    Float(f32, f32),
     BlockPos,
     BlockState,
 }
@@ -215,6 +216,12 @@ impl C12DeclareCommandsNodeParser {
                 buf.write_byte(3); // Supply min and max value
                 buf.write_int(*min);
                 buf.write_int(*max);
+            }
+            Float(min, max) => {
+                buf.write_string(32767, "brigadier:float");
+                buf.write_byte(3);
+                buf.write_float(*min);
+                buf.write_float(*max);
             }
         }
     }
