@@ -1038,47 +1038,47 @@ impl Block {
 
     pub fn is_valid_position(self, plot: &Plot, pos: BlockPos) -> bool {
         match self {
-            Block::RedstoneWire(_)
-            | Block::RedstoneComparator(_)
-            | Block::RedstoneRepeater(_)
-            | Block::RedstoneTorch(_) => {
-                let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
-                bottom_block.is_cube()
-            }
-            Block::RedstoneWallTorch(_, direction) => {
-                let parent_block = plot.get_block(pos.offset(direction.opposite().block_face()));
-                parent_block.is_cube()
-            }
-            Block::Lever(lever) => match lever.face {
-                LeverFace::Floor => {
-                    let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
-                    bottom_block.is_cube()
-                }
-                LeverFace::Ceiling => {
-                    let top_block = plot.get_block(pos.offset(BlockFace::Top));
-                    top_block.is_cube()
-                }
-                LeverFace::Wall => {
-                    let parent_block =
-                        plot.get_block(pos.offset(lever.facing.opposite().block_face()));
-                    parent_block.is_cube()
-                }
-            },
-            Block::StoneButton(button) => match button.face {
-                ButtonFace::Floor => {
-                    let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
-                    bottom_block.is_cube()
-                }
-                ButtonFace::Ceiling => {
-                    let top_block = plot.get_block(pos.offset(BlockFace::Top));
-                    top_block.is_cube()
-                }
-                ButtonFace::Wall => {
-                    let parent_block =
-                        plot.get_block(pos.offset(button.facing.opposite().block_face()));
-                    parent_block.is_cube()
-                }
-            },
+            // Block::RedstoneWire(_)
+            // | Block::RedstoneComparator(_)
+            // | Block::RedstoneRepeater(_)
+            // | Block::RedstoneTorch(_) => {
+            //     let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
+            //     bottom_block.is_cube()
+            // }
+            // Block::RedstoneWallTorch(_, direction) => {
+            //     let parent_block = plot.get_block(pos.offset(direction.opposite().block_face()));
+            //     parent_block.is_cube()
+            // }
+            // Block::Lever(lever) => match lever.face {
+            //     LeverFace::Floor => {
+            //         let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
+            //         bottom_block.is_cube()
+            //     }
+            //     LeverFace::Ceiling => {
+            //         let top_block = plot.get_block(pos.offset(BlockFace::Top));
+            //         top_block.is_cube()
+            //     }
+            //     LeverFace::Wall => {
+            //         let parent_block =
+            //             plot.get_block(pos.offset(lever.facing.opposite().block_face()));
+            //         parent_block.is_cube()
+            //     }
+            // },
+            // Block::StoneButton(button) => match button.face {
+            //     ButtonFace::Floor => {
+            //         let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
+            //         bottom_block.is_cube()
+            //     }
+            //     ButtonFace::Ceiling => {
+            //         let top_block = plot.get_block(pos.offset(BlockFace::Top));
+            //         top_block.is_cube()
+            //     }
+            //     ButtonFace::Wall => {
+            //         let parent_block =
+            //             plot.get_block(pos.offset(button.facing.opposite().block_face()));
+            //         parent_block.is_cube()
+            //     }
+            // },
             _ => true,
         }
     }

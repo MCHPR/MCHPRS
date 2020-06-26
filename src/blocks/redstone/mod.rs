@@ -17,7 +17,11 @@ impl Block {
             Block::RedstoneRepeater(repeater)
                 if repeater.facing.block_face() == side && repeater.powered =>
             {
-                15
+                if repeater.locked {
+                    1
+                } else {
+                    15
+                }
             }
             Block::RedstoneComparator(comparator) if comparator.facing.block_face() == side => {
                 if let Some(BlockEntity::Comparator { output_strength }) =
@@ -185,18 +189,23 @@ impl RedstoneRepeater {
 
     fn should_be_locked(facing: BlockDirection, plot: &Plot, pos: BlockPos) -> bool {
         let right_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate());
-        let left_side = RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate_ccw());
+        let left_side = 0; // RedstoneRepeater::get_power_on_side(plot, pos, facing.rotate_ccw());
         cmp::max(right_side, left_side) > 0
     }
 
     fn get_power_on_side(plot: &Plot, pos: BlockPos, side: BlockDirection) -> u8 {
         let side_pos = pos.offset(side.block_face());
         let side_block = plot.get_block(side_pos);
-        if side_block.is_diode() {
-            side_block.get_weak_power(plot, side_pos, side.block_face(), false)
+        if let Block::RedstoneWire(wire) = side_block {
+            wire.power
         } else {
-            0
+            side_block.get_weak_power(plot, side_pos, side.block_face(), false)
         }
+        // if side_block.is_diode() {
+        //     side_block.get_weak_power(plot, side_pos, side.block_face(), false)
+        // } else {
+        //     0
+        // }
     }
 
     fn on_state_change(self, plot: &mut Plot, pos: BlockPos) {
@@ -340,7 +349,7 @@ impl RedstoneComparator {
 
     fn max_power_on_sides(self, plot: &Plot, pos: BlockPos) -> u8 {
         let right_side = RedstoneComparator::get_power_on_side(plot, pos, self.facing.rotate());
-        let left_side = RedstoneComparator::get_power_on_side(plot, pos, self.facing.rotate_ccw());
+        let left_side = 0; // RedstoneComparator::get_power_on_side(plot, pos, self.facing.rotate_ccw());
         cmp::max(right_side, left_side)
     }
 

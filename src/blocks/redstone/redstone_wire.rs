@@ -210,19 +210,56 @@ impl RedstoneWire {
                 block_power.max(neighbor.get_redstone_power_no_dust(plot, neighbor_pos, *side));
             if side.is_horizontal() {
                 if !up_block.is_solid() && !neighbor.is_transparent() {
-                    wire_power = RedstoneWire::max_wire_power(
-                        wire_power,
-                        plot,
-                        neighbor_pos.offset(BlockFace::Top),
-                    );
+                    if let Block::RedstoneRepeater(repeater) = neighbor {
+                        if repeater.facing.rotate() == side.to_direction() {
+                            wire_power = RedstoneWire::max_wire_power(
+                                wire_power,
+                                plot,
+                                neighbor_pos.offset(BlockFace::Top),
+                            );
+                        }
+                    } else if let Block::RedstoneComparator(repeater) = neighbor {
+                        if repeater.facing.rotate() == side.to_direction() {
+                            wire_power = RedstoneWire::max_wire_power(
+                                wire_power,
+                                plot,
+                                neighbor_pos.offset(BlockFace::Top),
+                            );
+                        }
+                    } else {
+                        wire_power = RedstoneWire::max_wire_power(
+                            wire_power,
+                            plot,
+                            neighbor_pos.offset(BlockFace::Top),
+                        );
+                    }
+                    
                 }
 
                 if !neighbor.is_solid() {
-                    wire_power = RedstoneWire::max_wire_power(
-                        wire_power,
-                        plot,
-                        neighbor_pos.offset(BlockFace::Bottom),
-                    );
+                    if let Block::RedstoneRepeater(repeater) = neighbor {
+                        if repeater.facing.rotate_ccw() == side.to_direction() {
+                            wire_power = RedstoneWire::max_wire_power(
+                                wire_power,
+                                plot,
+                                neighbor_pos.offset(BlockFace::Bottom),
+                            );
+                        } 
+                    } else if let Block::RedstoneComparator(repeater) = neighbor {
+                        if repeater.facing.rotate() == side.to_direction() {
+                            wire_power = RedstoneWire::max_wire_power(
+                                wire_power,
+                                plot,
+                                neighbor_pos.offset(BlockFace::Bottom),
+                            );
+                        }
+                    } else {
+                        wire_power = RedstoneWire::max_wire_power(
+                            wire_power,
+                            plot,
+                            neighbor_pos.offset(BlockFace::Bottom),
+                        );
+                    }
                 }
             }
         }
