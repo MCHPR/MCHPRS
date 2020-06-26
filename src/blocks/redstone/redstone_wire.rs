@@ -142,6 +142,7 @@ impl RedstoneWire {
             | Block::RedstoneWallTorch(_, _)
             | Block::PressurePlate(_)
             | Block::TripwireHook(_)
+            | Block::StoneButton(_)
             | Block::Lever(_) => true,
             Block::RedstoneRepeater(repeater) => {
                 repeater.facing == side || repeater.facing == side.opposite()
