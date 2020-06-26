@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/MCHPR/MCHPRS.svg?branch=master)](https://travis-ci.org/MCHPR/MCHPRS) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Crates.io](https://img.shields.io/crates/v/mchprs?colorB=319e8c)](https://crates.io/crates/mchprs)
 
-A minecraft creative server built for redstone. Each 256x256 plot runs on its own thread, allowing for less lag, more concurrency, and many awesome extra features!
+A minecraft creative server built for redstone. Each 256^2 plot runs on its own thread, allowing for less lag, more concurrency, and many extra awesome features!
 
 MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers simply don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
@@ -43,26 +43,21 @@ Once complete, the optimized executable will be located at `./target/release/mch
 - [@DavidGarland](https://github.com/DavidGarland) for a faster and overall better implementation of `get_entry` in the in-memory storage. This simple function runs 30% of the runtime for redstone.
 
 ## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Pull requests are generally welcome. For major changes, please open an issue first to discuss what you would like to change.
 
 ## Under the hood
-
 When the server starts up, the main thread, which will from now on be referred to as the server thread, loads the `Config.toml` file and starts the networking thread. Threads communicate using message passing.
 
 ### Server thread
-
 The server thread handles the initialization process of the server and the login/ping procedure for connecting clients. If a client completes the login procedure, a `Player` struct will be loaded containing the client.
 
 ### Networking thread
-
 The networking thread handles all incoming clients. When there is a new client, a client thread is created. The client is then sent to the server thread through message passing.
 
 ### Client thread
-
 The client thread manages the TCP connection between the Minecraft client and this server. The client thread sends incoming packets to the server thread or a plot thread depending on its state.
 
 ### Plot thread
-
 The plot thread handles most of the logic for the server. This is where the real magic happens. Player movment, player rotation, worldedit, command handling, world saving/loading, etc. is all handled by this thread. If this thread crashes somehow, the player will be sent back to the server thread to be moved to another plot*.
 
 ## License
