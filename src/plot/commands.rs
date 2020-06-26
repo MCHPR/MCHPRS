@@ -1,7 +1,7 @@
 use super::{database, Plot};
 use crate::network::packets::clientbound::{
     C12DeclareCommands, C12DeclareCommandsNode as Node, C12DeclareCommandsNodeParser as Parser,
-    ClientBoundPacket, C32PlayerAbilities,
+    C32PlayerAbilities, ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
@@ -253,30 +253,29 @@ impl Plot {
                 self.handle_plot_command(player, command, args);
             }
             "/speed" => {
-                if args.len() == 1 {
-                    if let Ok(speed_arg) = args[0].parse::<f32>() {
-                        if speed_arg < 0.0 {
-                            self.players[player].send_error_message("Silly child, you can't have a negative flyspeed");
-                            return false;
-                        }
-                        else if speed_arg > 10.0 {
-                            self.players[player].send_error_message("You cannot have a flyspeed greater than 10");
-                            return false;
-                        }
-                        let player_abilities = C32PlayerAbilities {
-                            flags: 0x0F,
-                            fly_speed: 0.05 * speed_arg,
-                            fov_modifier: 0.1
-                        }.encode();
-                        self.players[player].client.send_packet(&player_abilities);
-                    }
-                    else {
-                        self.players[player].send_error_message("Unable to parse speed value");
-                    }
-                }
-                else {
+                if args.len() != 1 {
                     self.players[player].send_error_message("/speed <0-10>");
                     return false;
+                }
+                if let Ok(speed_arg) = args[0].parse::<f32>() {
+                    if speed_arg < 0.0 {
+                        self.players[player]
+                            .send_error_message("Silly child, you can't have a negative flyspeed");
+                        return false;
+                    } else if speed_arg > 10.0 {
+                        self.players[player]
+                            .send_error_message("You cannot have a flyspeed greater than 10");
+                        return false;
+                    }
+                    let player_abilities = C32PlayerAbilities {
+                        flags: 0x0F,
+                        fly_speed: 0.05 * speed_arg,
+                        fov_modifier: 0.1,
+                    }
+                    .encode();
+                    self.players[player].client.send_packet(&player_abilities);
+                } else {
+                    self.players[player].send_error_message("Unable to parse speed value");
                 }
             }
             _ => self.players[player].send_error_message("Command not found!"),
