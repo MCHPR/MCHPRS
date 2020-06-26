@@ -519,6 +519,22 @@ impl ClientBoundPacket for C2CEntityMovement {
     }
 }
 
+pub struct C32PlayerAbilities {
+    pub flags: u8,
+    pub fly_speed: f32,
+    pub fov_modifier: f32,
+}
+
+impl ClientBoundPacket for C32PlayerAbilities {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_unsigned_byte(self.flags);
+        buf.write_float(self.fly_speed);
+        buf.write_float(self.fov_modifier);
+        PacketEncoder::new(buf, 0x32)
+    }
+}
+
 pub struct C34PlayerInfoAddPlayerProperty {
     name: String,
     value: String,
