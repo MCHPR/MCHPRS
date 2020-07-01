@@ -76,7 +76,8 @@ impl PacketDecoder {
                         packet_id: packet_id.0 as u32,
                     });
                 } else {
-                    // Even though compression is enabled, packet is not compressed
+                    // Even though compression is enabled, packet is not compressed because the compression 
+                    // threshold has not been reached
                     let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf)?;
                     i += packet_id.1 as usize;
                     let data = &buf
@@ -351,7 +352,7 @@ impl PacketEncoder {
     pub fn compressed(&self) -> Vec<u8> {
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
         let data = [&packet_id[..], &self.buffer[..]].concat();
-        if self.buffer.len() < 500 {
+        if self.buffer.len() < 256 {
             let data_length = PacketEncoder::varint(0);
             let packet_length = PacketEncoder::varint((data_length.len() + data.len()) as i32);
             [&packet_length[..], &data_length[..], &data[..]].concat()

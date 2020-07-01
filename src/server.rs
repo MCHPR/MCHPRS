@@ -383,7 +383,7 @@ impl MinecraftServer {
                 if packet.packet_id == 0x00 {
                     let login_start = S00LoginStart::decode(packet).unwrap();
                     clients[client].username = Some(login_start.name);
-                    let set_compression = C03SetCompression { threshold: 500 }.encode();
+                    let set_compression = C03SetCompression { threshold: 256 }.encode();
                     clients[client].send_packet(&set_compression);
                     clients[client].compressed = true;
                     let username = if let Some(name) = &clients[client].username {
