@@ -147,18 +147,20 @@ impl Plot {
         }
         if let Some(nbt) = block_entity.to_nbt(pos) {
             let block_entity_data = C0ABlockEntityData {
-                x: pos.x, y: pos.y as i32, z: pos.z,
+                x: pos.x,
+                y: pos.y as i32,
+                z: pos.z,
                 // For now the only nbt we send to the client is sign data
                 action: 9,
                 nbt,
-            }.encode();
+            }
+            .encode();
             for player in &mut self.players {
                 player.client.send_packet(&block_entity_data);
             }
         }
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity);
-
     }
 
     pub fn broadcast_chat_message(&mut self, message: String) {
@@ -197,11 +199,7 @@ impl Plot {
     }
 
     fn enter_plot(&mut self, mut player: Player) {
-        debug!("Player enter plot!");
         self.save();
-        for chunk in &self.chunks {
-            player.client.send_packet(&chunk.encode_packet(true));
-        }
         let spawn_player = C05SpawnPlayer {
             entity_id: player.entity_id as i32,
             uuid: player.uuid,
@@ -287,6 +285,80 @@ impl Plot {
 
         player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
+        self.update_view_pos_for_player(self.players.len() - 1, true);
+    }
+
+    fn get_chunk_distance(x1: i32, z1: i32, x2: i32, z2: i32) -> u32 {
+        let x = x1 - x2;
+        let z = z1 - z2;
+        x.abs().max(z.abs()) as u32
+    }
+
+    fn set_chunk_loaded_at_player(
+        &mut self,
+        player_idx: usize,
+        chunk_x: i32,
+        chunk_z: i32,
+        was_loaded: bool,
+        should_be_loaded: bool,
+    ) {
+        if was_loaded && !should_be_loaded {
+            let unload_chunk = C1EUnloadChunk { chunk_x, chunk_z }.encode();
+            self.players[player_idx].client.send_packet(&unload_chunk);
+        } else if !was_loaded && should_be_loaded {
+            if !Plot::chunk_in_plot_bounds(self.x, self.z, chunk_x, chunk_z) {
+                self.players[player_idx]
+                    .client
+                    .send_packet(&Chunk::empty(chunk_x, chunk_z).encode_packet(true))
+            } else {
+                let chunk_data = self.chunks[self.get_chunk_index_for_chunk(chunk_x, chunk_z)]
+                    .encode_packet(true);
+                self.players[player_idx].client.send_packet(&chunk_data);
+            }
+        }
+    }
+
+    pub fn update_view_pos_for_player(&mut self, player_idx: usize, force_load: bool) {
+        let view_distance = 8;
+        let chunk_x = self.players[player_idx].x as i32 >> 4;
+        let chunk_z = self.players[player_idx].z as i32 >> 4;
+        let last_chunk_x = self.players[player_idx].last_chunk_x;
+        let last_chunk_z = self.players[player_idx].last_chunk_z;
+
+        let update_view = C41UpdateViewPosition { chunk_x, chunk_z }.encode();
+        self.players[player_idx].client.send_packet(&update_view);
+
+        if ((last_chunk_x - chunk_x).abs() <= view_distance * 2
+            && (last_chunk_z - chunk_z).abs() <= view_distance * 2)
+            && !force_load
+        {
+            let nx = chunk_x.min(last_chunk_x) - view_distance;
+            let nz = chunk_z.min(last_chunk_z) - view_distance;
+            let px = chunk_x.max(last_chunk_x) + view_distance;
+            let pz = chunk_z.max(last_chunk_z) + view_distance;
+            for x in nx..=px {
+                for z in nz..=pz {
+                    let was_loaded = Self::get_chunk_distance(x, z, last_chunk_x, last_chunk_z)
+                        <= view_distance as u32;
+                    let should_be_loaded =
+                        Self::get_chunk_distance(x, z, chunk_x, chunk_z) <= view_distance as u32;
+                    self.set_chunk_loaded_at_player(player_idx, x, z, was_loaded, should_be_loaded);
+                }
+            }
+        } else {
+            for x in last_chunk_x - view_distance..last_chunk_x + view_distance {
+                for z in last_chunk_z - view_distance..last_chunk_z + view_distance {
+                    self.set_chunk_loaded_at_player(player_idx, x, z, true, false);
+                }
+            }
+            for x in chunk_x - view_distance..chunk_x + view_distance {
+                for z in chunk_z - view_distance..chunk_z + view_distance {
+                    self.set_chunk_loaded_at_player(player_idx, x, z, false, true);
+                }
+            }
+        }
+        self.players[player_idx].last_chunk_x = chunk_x;
+        self.players[player_idx].last_chunk_z = chunk_z;
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
@@ -320,6 +392,13 @@ impl Plot {
         }
         self.destroy_entity(player.entity_id);
         player
+    }
+
+    fn chunk_in_plot_bounds(plot_x: i32, plot_z: i32, chunk_x: i32, chunk_z: i32) -> bool {
+        chunk_x >= plot_x * 16
+            && chunk_x < (plot_x + 1) * 16
+            && chunk_z >= plot_z * 16
+            && chunk_z < (plot_z + 1) * 16
     }
 
     fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
@@ -416,12 +495,14 @@ impl Plot {
             }
         }
         // Update players
-        for player in &mut self.players {
-            player.update();
+        for player_idx in 0..self.players.len() {
+            if self.players[player_idx].update() {
+                self.update_view_pos_for_player(player_idx, false);
+            }
         }
         // Handle received packets
-        for player in 0..self.players.len() {
-            if self.handle_packets_for_player(player) {
+        for player_idx in 0..self.players.len() {
+            if self.handle_packets_for_player(player_idx) {
                 // This is a really stupid hack
                 return;
             }

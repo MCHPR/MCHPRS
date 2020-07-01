@@ -3,6 +3,7 @@ use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::WorldEditClipboard;
+use crate::plot::Plot;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -162,11 +163,11 @@ impl Player {
             username,
             skin_parts: Default::default(),
             selected_slot: 0,
-            x: 64f64,
-            y: 64f64,
-            z: 64f64,
-            last_chunk_x: 4,
-            last_chunk_z: 4,
+            x: 128f64,
+            y: 128f64,
+            z: 128f64,
+            last_chunk_x: 8,
+            last_chunk_z: 8,
             yaw: 0f32,
             pitch: 0f32,
             entity_id: client.id,
@@ -224,31 +225,21 @@ impl Player {
         file.write_all(&data).unwrap();
     }
 
-    pub fn update_view_pos(&mut self) {
-        let chunk_x = self.x as i32 >> 4;
-        let chunk_z = self.z as i32 >> 4;
-        if chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z {
-            let update_view = C41UpdateViewPosition { chunk_x, chunk_z }.encode();
-            self.client.send_packet(&update_view);
-        }
-        self.last_chunk_x = chunk_x;
-        self.last_chunk_z = chunk_z;
-    }
-
-    pub fn update(&mut self) {
+    pub fn update(&mut self) -> bool {
         if self.last_keep_alive_received.elapsed().as_secs() > 30 {
             self.kick("Timed out".to_string());
         }
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
         }
-        self.update_view_pos();
         if let Err(err) = self.client.update() {
             self.kick(
                 json!({ "text": format!("There was an error reading a packet header: {:?}", err) })
                     .to_string(),
             );
         }
+        // Return true if the view position should be updated
+        self.x as i32 >> 4 != self.last_chunk_x || self.z as i32 >> 4 != self.last_chunk_z
     }
 
     pub fn send_keep_alive(&mut self) {
@@ -288,7 +279,6 @@ impl Player {
         self.y = y;
         self.z = z;
         self.client.send_packet(&player_position_and_look);
-        self.update_view_pos();
     }
 
     pub fn send_raw_chat(&mut self, message: String) {

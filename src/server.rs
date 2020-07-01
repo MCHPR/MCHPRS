@@ -437,8 +437,6 @@ impl MinecraftServer {
                     .encode();
                     player.client.send_packet(&player_pos_and_look);
 
-                    player.update_view_pos();
-
                     let mut add_player_list = Vec::new();
                     for player in &self.online_players {
                         add_player_list.push(C34PlayerInfoAddPlayer {
@@ -491,7 +489,8 @@ impl MinecraftServer {
                         world_age: 0,
                         // Noon
                         time_of_day: -6000,
-                    }.encode();
+                    }
+                    .encode();
                     player.client.send_packet(&time_update);
 
                     self.plot_sender
