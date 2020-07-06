@@ -121,6 +121,13 @@ impl Plot {
                     );
                 }
             }
+            "//flip" | "//f" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Wrong number of arguments!");
+                    return false;
+                }
+                self.worldedit_flip(player, &args[0])
+            }
             "//replace" => {
                 if args.len() < 2 {
                     self.players[player].send_error_message("Wrong number of arguments!");

@@ -541,6 +541,93 @@ impl Plot {
         }
     }
 
+    pub(super) fn worldedit_flip(&mut self, player: usize, axis: &str) {
+        let start_time = Instant::now();
+        
+        if axis == "x" || axis == "y" || axis == "z" {
+            // Start the operation just to verify the positions
+            if self.players[player].worldedit_clipboard.is_some() {
+
+                let clipboard = &self.players[player].worldedit_clipboard.as_ref().unwrap();
+                let size_x = clipboard.size_x;
+                let size_y = clipboard.size_y;
+                let size_z = clipboard.size_z;
+
+                let volume = size_x * size_y * size_z;
+                
+                let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
+
+                let mut c_x = 0;
+                let mut c_y = 0;
+                let mut c_z = 0;
+
+                for i in 0..volume {
+                    let n_x;
+                    let n_y;
+                    let n_z;
+
+                    if axis == "x" {
+                        n_x = size_x-1-c_x;
+                    } else {
+                        n_x = c_x.clone();
+                    }
+
+                    if axis == "y" {
+                        n_y = size_y-1-c_y;
+                    } else {
+                        n_y = c_y.clone();
+                    }
+
+                    if axis == "z" {
+                        n_z = size_z-1-c_z;
+                    } else {
+                        n_z = c_z.clone();
+                    }
+
+                    let n_i = (n_y * size_x * size_z) + (n_z * size_x) + n_x;
+                    newcpdata.set_entry(n_i as usize, clipboard.data.get_entry(i as usize));
+
+                    // Ok now lets increment the coordinates for the next block
+                    c_x = c_x + 1;
+
+                    if c_x == size_x{
+                        c_x = 0;
+                        c_z = c_z + 1;
+
+                        if c_z == size_z{
+                            c_z = 0;
+                            c_y = c_y + 1;
+                        }
+                    }
+                }
+
+                let mut cb = WorldEditClipboard {
+                    offset_x: clipboard.offset_x,
+                    offset_y: clipboard.offset_y,
+                    offset_z: clipboard.offset_z,
+                    size_x,
+                    size_y,
+                    size_z,
+                    data: newcpdata,
+                    // TODO: Get the block entities in the selection
+                    block_entities: HashMap::new(), 
+                };
+                
+                self.players[player].worldedit_clipboard = Some(cb);
+                
+                self.players[player].send_worldedit_message(&format!(
+                    "Your selection was flipped oh the {:?} axis. ({:?})",
+                    axis,
+                    start_time.elapsed()
+                ));
+            } else {
+                self.players[player].send_system_message("Your clipboard is empty!");
+            }
+        } else {
+            self.players[player].send_system_message("//flip only works on the axises 'x', 'y', and 'z'");
+        }
+    }
+
     pub(super) fn worldedit_paste(&mut self, player: usize) {
         let start_time = Instant::now();
 
