@@ -11,7 +11,7 @@ MCHPRS is very different from traditional servers. Because this server is tailor
 If the Rust compiler is not already installed, you can find out how [on their official website](https://www.rust-lang.org/tools/install).
 
 ```shell
-git clone https://github.com/StackDoubleFlow/MCHPRS.git
+git clone https://github.com/MCHPR/MCHPRS.git
 cd MCHPRS
 cargo build --release
 ```
