@@ -1,10 +1,10 @@
-# Minecraft High Performance Redstone Server
+# Minecraft High-Performance Redstone Server
 
 [![Build Status](https://travis-ci.org/MCHPR/MCHPRS.svg?branch=master)](https://travis-ci.org/MCHPR/MCHPRS) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Crates.io](https://img.shields.io/crates/v/mchprs?colorB=319e8c)](https://crates.io/crates/mchprs)
 
-A minecraft creative server built for redstone. Each 256x256 plot runs on its own thread, allowing for less lag, more concurrency, and many awesome extra features!
+A Minecraft creative server built for redstone. Each 256x256 plot runs on a separate thread, allowing for less lag, more concurrency, and many awesome extra features!
 
-MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers simply don't exist here. That being said, MCHPRS comes with many of its own unique features.
+MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
 ## Building
 
@@ -62,15 +62,11 @@ The server thread handles the initialization process of the server and the login
 
 ### Networking thread
 
-The networking thread handles all incoming clients. When there is a new client, a client thread is created. The client is then sent to the server thread through message passing.
-
-### Client thread
-
-The client thread manages the TCP connection between the Minecraft client and this server. The client thread sends incoming packets to the server thread or a plot thread depending on its state.
+The networking thread handles all incoming clients. The client is then sent to the server thread through message passing.
 
 ### Plot thread
 
-The plot thread handles most of the logic for the server. This is where the real magic happens. Player movment, player rotation, worldedit, command handling, world saving/loading, etc. is all handled by this thread. If this thread crashes somehow, the player will be sent back to the server thread to be moved to another plot*.
+The plot thread handles most of the logic for the server. The plot thread is where the real magic happens. Player movement, player rotation, WorldEdit, command handling, world-saving/loading, etc. are all handled by this thread. If this thread crashes somehow, the player will be sent back to the server thread to be moved to another plot*.
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
