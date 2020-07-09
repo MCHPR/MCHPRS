@@ -120,12 +120,7 @@ impl MinecraftServer {
         std::panic::set_hook(Box::new(|panic_info| {
             error!("{}", panic_info.to_string());
             let backtrace = Backtrace::new();
-            for frame in backtrace.frames() {
-                for symbol in frame.symbols() {
-                    // TODO: Make prettier
-                    error!("{:?}", symbol);
-                }
-            }
+            error!("{}\n{:?}", panic_info.to_string(), backtrace);
         }));
 
         info!("Starting server...");
