@@ -18,6 +18,7 @@ pub struct UseOnBlockContext {
     pub block_face: BlockFace,
     pub player_crouching: bool,
     pub player_direction: BlockDirection,
+    /// The index of the player in the plot's player array
     pub player_idx: usize,
 }
 
@@ -78,9 +79,10 @@ impl ItemStack {
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Item {
-    /// BlockItem represents an item that can be placed down. The u32 is the id of the item,
-    /// it is NOT a block state id.
+    /// Represents an item that can be placed down. It contains the id of the item,
+    /// NOT the block state id.
     BlockItem(u32),
+    /// This is hardcoded to be the wooden axe.
     WEWand,
     Snowball,
     TotemOfUndying,

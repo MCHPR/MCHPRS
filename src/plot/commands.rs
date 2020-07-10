@@ -10,6 +10,7 @@ use log::info;
 use std::time::{Duration, Instant};
 
 impl Plot {
+    /// Handles a command that starts with `/plot` or `/p`
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
@@ -295,7 +296,10 @@ bitflags! {
 }
 
 lazy_static! {
-    // In the future I plan on creating a DSL for this purpose
+    // In the future a DSL or some type of generation would be much better.
+    // For more information, see https://wiki.vg/Command_Data
+    /// The DeclareCommands packet that is sent when the player joins.
+    /// This is used for command autocomplete.
     pub static ref DECLARE_COMMANDS: PacketEncoder = C12DeclareCommands {
         nodes: vec![
             // 0: Root Node

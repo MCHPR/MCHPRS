@@ -86,7 +86,9 @@ impl Plot {
         chunk.set_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32, block)
     }
 
-    /// Returns true if a block was changed
+    /// Sets the block at `pos`.
+    /// If the block was changed it will be sent to all players
+    /// and the function will return true.
     pub fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
         let changed = self.set_block_raw(pos, block_id);
@@ -96,6 +98,7 @@ impl Plot {
         changed
     }
 
+    /// Returns the block state id of the block at `pos`
     pub fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
@@ -109,6 +112,7 @@ impl Plot {
         Block::from_block_state(self.get_block_raw(pos))
     }
 
+    /// Send a block change to all connected players
     pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
         let block_change = C0CBlockChange {
             block_id: id as i32,

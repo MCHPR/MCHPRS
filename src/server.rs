@@ -8,7 +8,6 @@ use crate::network::packets::serverbound::{
 };
 use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
-//use crate::permissions::Permissions;
 use crate::player::Player;
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
 use backtrace::Backtrace;
@@ -23,12 +22,13 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 use toml::Value;
 
-/// Messages get passed between plot threads, the server thread, and the networking thread.
-/// These messages are used to communicate when a player joins, leaves, or moves into another plot,
-/// as well as to communicate chat messages.
+/// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
 pub enum Message {
+    /// This message is sent to the server thread when a player sends a chat message,
+    /// It contains the name of the player and the raw message the player sent.
     ChatInfo(String, String),
+    /// This message is sent to the server thread when a player joins the s
     PlayerJoined(Player),
     PlayerLeft(u128),
     PlayerLeavePlot(Player),
@@ -37,20 +37,35 @@ pub enum Message {
     Shutdown,
 }
 
+/// `BroadcastMessage` gets broadcasted from the server thread to all the plot threads.
+/// This happens when there is a chat message, a player joins or leaves, or the server
+/// shuts down.
 #[derive(Debug, Clone)]
 pub enum BroadcastMessage {
+    /// This message is broadcasted for chat messages. It contains the raw json data to
+    /// send to the clients.
     Chat(String),
+    /// This message is broadcasted when a player joins the server. It is used to update
+    /// the tab-list on all connected clients.
     PlayerJoinedInfo(PlayerJoinInfo),
+    /// This message is broadcasted when a player leaves the server. It is used to update
+    /// the tab-list on all connected clients.
     PlayerLeft(u128),
+    /// This message is broadcasted when the server is stopping, either through the stop
+    /// command or through the ctrl+c handler.
     Shutdown,
 }
 
+/// `PrivMessage` gets send from the server thread directly to a plot thread.
+/// This only happens when a player is getting transfered to a plot.
 #[derive(Debug)]
 pub enum PrivMessage {
     PlayerEnterPlot(Player),
     PlayerTeleportOther(Player, String),
 }
 
+/// This is the data that gets sent in the `PlayerJoinedInfo` broadcast message.
+/// It contains imformation such as the player's username, uuid, and skin.
 #[derive(Debug, Clone)]
 pub struct PlayerJoinInfo {
     pub username: String,
@@ -89,12 +104,14 @@ pub struct MinecraftServer {
     debug_plot_receiver: BusReader<BroadcastMessage>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
-    //permissions: Arc<Mutex<Permissions>>,
     online_players: Vec<PlayerListEntry>,
     running_plots: Vec<PlotListEntry>,
 }
 
 impl MinecraftServer {
+    /// Setup logging, set the panic hook,
+    /// create the world if it does not exist,
+    /// load the config, and then finally start the server.
     pub fn run() {
         // Setup logging
         let colors_level = ColoredLevelConfig::new()
@@ -132,55 +149,10 @@ impl MinecraftServer {
 
         plot::database::init();
 
-        // Load config
-        let default_config = ServerConfig {
-            bind_address: "0.0.0.0:25565".to_string(),
-            motd: "Minecraft High Performace Redstone Server".to_string(),
-            chat_format: "<{username}> {message}".to_string(),
-            max_players: 99999,
-        };
-        let config: ServerConfig =
-            toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
-                let config_string = toml::to_string(&default_config).unwrap();
-                fs::write("Config.toml", &config_string);
-                config_string
-            }))
-            .unwrap_or_else(|_| {
-                let config_string = read_to_string("Config.toml").unwrap();
-                let config_map = config_string.parse::<Value>().unwrap();
-                let merged_config = ServerConfig {
-                    bind_address: config_map
-                        .get("bind_address")
-                        .map(toml::value::Value::as_str)
-                        .map(|pp| pp.unwrap_or(&default_config.bind_address))
-                        .unwrap_or(&default_config.bind_address)
-                        .to_string(),
-                    motd: config_map
-                        .get("motd")
-                        .map(toml::value::Value::as_str)
-                        .map(|pp| pp.unwrap_or(&default_config.motd))
-                        .unwrap_or(&default_config.motd)
-                        .to_string(),
-                    chat_format: config_map
-                        .get("chat_format")
-                        .map(toml::value::Value::as_str)
-                        .map(|pp| pp.unwrap_or(&default_config.chat_format))
-                        .unwrap_or(&default_config.chat_format)
-                        .to_string(),
-                    max_players: config_map
-                        .get("max_players")
-                        .map(toml::value::Value::as_integer)
-                        .map(|pp| pp.unwrap_or(default_config.max_players))
-                        .unwrap_or(default_config.max_players),
-                };
-                let config_string = toml::to_string(&merged_config).unwrap();
-                fs::write("Config.toml", &config_string);
-                merged_config
-            });
+        let config: ServerConfig = MinecraftServer::load_config();
 
         let bind_addr = config.bind_address.clone();
 
-        //let permissions = Arc::new(Mutex::new(Permissions::new(&config)));
         // Create thread messaging structs
         let (plot_tx, server_rx) = mpsc::channel();
         let mut bus = Bus::new(100);
@@ -200,7 +172,6 @@ impl MinecraftServer {
             receiver: server_rx,
             plot_sender: plot_tx,
             debug_plot_receiver,
-            // permissions,
             online_players: Vec::new(),
             running_plots: Vec::new(),
         };
@@ -231,6 +202,53 @@ impl MinecraftServer {
         }
     }
 
+    fn load_config() -> ServerConfig {
+        let default_config = ServerConfig {
+            bind_address: "0.0.0.0:25565".to_string(),
+            motd: "Minecraft High Performace Redstone Server".to_string(),
+            chat_format: "<{username}> {message}".to_string(),
+            max_players: 99999,
+        };
+        toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
+            let config_string = toml::to_string(&default_config).unwrap();
+            fs::write("Config.toml", &config_string);
+            config_string
+        }))
+        .unwrap_or_else(|_| {
+            let config_string = read_to_string("Config.toml").unwrap();
+            let config_map = config_string.parse::<Value>().unwrap();
+            let merged_config = ServerConfig {
+                bind_address: config_map
+                    .get("bind_address")
+                    .map(toml::value::Value::as_str)
+                    .map(|pp| pp.unwrap_or(&default_config.bind_address))
+                    .unwrap_or(&default_config.bind_address)
+                    .to_string(),
+                motd: config_map
+                    .get("motd")
+                    .map(toml::value::Value::as_str)
+                    .map(|pp| pp.unwrap_or(&default_config.motd))
+                    .unwrap_or(&default_config.motd)
+                    .to_string(),
+                chat_format: config_map
+                    .get("chat_format")
+                    .map(toml::value::Value::as_str)
+                    .map(|pp| pp.unwrap_or(&default_config.chat_format))
+                    .unwrap_or(&default_config.chat_format)
+                    .to_string(),
+                max_players: config_map
+                    .get("max_players")
+                    .map(toml::value::Value::as_integer)
+                    .map(|pp| pp.unwrap_or(default_config.max_players))
+                    .unwrap_or(default_config.max_players),
+            };
+            let config_string = toml::to_string(&merged_config).unwrap();
+            fs::write("Config.toml", &config_string);
+            merged_config
+        })
+    }
+
+    /// Updates the player's location on the `online_players` list
     fn update_player_entry(&mut self, uuid: u128, plot_x: i32, plot_z: i32) {
         let player = self.online_players.iter_mut().find(|p| p.uuid == uuid);
         if let Some(player) = player {
@@ -239,6 +257,7 @@ impl MinecraftServer {
         }
     }
 
+    /// Removes the plot entry from the `running_plots` list
     fn handle_plot_unload(&mut self, plot_x: i32, plot_z: i32) {
         let index = self
             .running_plots
@@ -313,10 +332,135 @@ impl MinecraftServer {
         }
     }
 
-    fn handle_packet(&mut self, client: usize, packet: PacketDecoder) {
+    fn handle_player_login(&mut self, client_idx: usize, login_start: S00LoginStart) {
         let clients = &mut self.network.handshaking_clients;
-        match clients[client].state {
+        clients[client_idx].username = Some(login_start.name);
+        let set_compression = C03SetCompression { threshold: 256 }.encode();
+        clients[client_idx].send_packet(&set_compression);
+        clients[client_idx].compressed = true;
+        let username = if let Some(name) = &clients[client_idx].username {
+            name.clone()
+        } else {
+            Default::default()
+        };
+        let uuid = Player::generate_offline_uuid(&username);
+
+        let login_success = C02LoginSuccess {
+            uuid,
+            username: username.clone(),
+        }
+        .encode();
+        clients[client_idx].send_packet(&login_success);
+
+        clients[client_idx].state = NetworkState::Play;
+        let mut client = clients.remove(client_idx);
+
+        let join_game = C26JoinGame {
+            entity_id: client.id as i32,
+            gamemode: 1,
+            dimention: 0,
+            hash_seed: 0,
+            max_players: 0,
+            level_type: "flat".to_string(),
+            view_distance: 8,
+            reduced_debug_info: false,
+            enable_respawn_screen: false,
+        }
+        .encode();
+        client.send_packet(&join_game);
+
+        // Sends the custom brand name to the player
+        // (This can be seen in the f3 debug menu in-game)
+        let brand = C19PluginMessageBrand {
+            brand: "Minecraft High Performace Redstone".to_string(),
+        }
+        .encode();
+        client.send_packet(&brand);
+
+        let mut player = Player::load_player(uuid, username.clone(), client);
+
+        // Send the player's position and rotation.
+        let player_pos_and_look = C36PlayerPositionAndLook {
+            x: player.x,
+            y: player.y,
+            z: player.z,
+            yaw: player.yaw,
+            pitch: player.pitch,
+            flags: 0,
+            teleport_id: 0,
+        }
+        .encode();
+        player.client.send_packet(&player_pos_and_look);
+
+        // Send the player list to the newly connected player.
+        // (This is the list you see when you press tab in-game)
+        let mut add_player_list = Vec::new();
+        for player in &self.online_players {
+            add_player_list.push(C34PlayerInfoAddPlayer {
+                uuid: player.uuid,
+                name: player.username.clone(),
+                display_name: None,
+                gamemode: 1,
+                ping: 0,
+                properties: Vec::new(),
+            });
+        }
+        add_player_list.push(C34PlayerInfoAddPlayer {
+            uuid: player.uuid,
+            name: player.username.clone(),
+            display_name: None,
+            gamemode: 1,
+            ping: 0,
+            properties: Vec::new(),
+        });
+        let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
+        player.client.send_packet(&player_info);
+
+        // Send the player's inventory
+        let slot_data: Vec<Option<SlotData>> = player
+            .inventory
+            .iter()
+            .map(|op| {
+                op.as_ref().map(|item| SlotData {
+                    item_count: item.count as i8,
+                    item_id: item.item_type.get_id() as i32,
+                    nbt: item.nbt.clone(),
+                })
+            })
+            .collect();
+        let window_items = C15WindowItems {
+            window_id: 0,
+            slot_data,
+        }
+        .encode();
+        player.client.send_packet(&window_items);
+
+        // Send the player's selected item slot
+        let held_item_change = C40HeldItemChange {
+            slot: player.selected_slot as i8,
+        }
+        .encode();
+        player.client.send_packet(&held_item_change);
+
+        player.client.send_packet(&DECLARE_COMMANDS);
+
+        let time_update = C4FTimeUpdate {
+            world_age: 0,
+            // Noon
+            time_of_day: -6000,
+        }
+        .encode();
+        player.client.send_packet(&time_update);
+
+        self.plot_sender
+            .send(Message::PlayerJoined(player))
+            .unwrap();
+    }
+
+    fn handle_packet(&mut self, client: usize, packet: PacketDecoder) {
+        match self.network.handshaking_clients[client].state {
             NetworkState::Handshake => {
+                let clients = &mut self.network.handshaking_clients;
                 if packet.packet_id == 0x00 {
                     let handshake = S00Handshake::decode(packet).unwrap();
                     let client = &mut clients[client];
@@ -340,7 +484,7 @@ impl MinecraftServer {
                 }
             }
             NetworkState::Status => {
-                let client = &mut clients[client];
+                let client = &mut self.network.handshaking_clients[client];
                 match packet.packet_id {
                     0x00 => {
                         let response = C00Response {
@@ -377,120 +521,7 @@ impl MinecraftServer {
             NetworkState::Login => {
                 if packet.packet_id == 0x00 {
                     let login_start = S00LoginStart::decode(packet).unwrap();
-                    clients[client].username = Some(login_start.name);
-                    let set_compression = C03SetCompression { threshold: 256 }.encode();
-                    clients[client].send_packet(&set_compression);
-                    clients[client].compressed = true;
-                    let username = if let Some(name) = &clients[client].username {
-                        name.clone()
-                    } else {
-                        Default::default()
-                    };
-                    let uuid = Player::generate_offline_uuid(&username);
-
-                    let login_success = C02LoginSuccess {
-                        uuid,
-                        username: username.clone(),
-                    }
-                    .encode();
-                    clients[client].send_packet(&login_success);
-
-                    clients[client].state = NetworkState::Play;
-                    let mut client = clients.remove(client);
-
-                    let join_game = C26JoinGame {
-                        entity_id: client.id as i32,
-                        gamemode: 1,
-                        dimention: 0,
-                        hash_seed: 0,
-                        max_players: 0,
-                        level_type: "flat".to_string(),
-                        view_distance: 8,
-                        reduced_debug_info: false,
-                        enable_respawn_screen: false,
-                    }
-                    .encode();
-                    client.send_packet(&join_game);
-
-                    let brand = C19PluginMessageBrand {
-                        brand: "Minecraft High Performace Redstone".to_string(),
-                    }
-                    .encode();
-                    client.send_packet(&brand);
-
-                    let mut player = Player::load_player(uuid, username.clone(), client);
-
-                    let player_pos_and_look = C36PlayerPositionAndLook {
-                        x: player.x,
-                        y: player.y,
-                        z: player.z,
-                        yaw: player.yaw,
-                        pitch: player.pitch,
-                        flags: 0,
-                        teleport_id: 0,
-                    }
-                    .encode();
-                    player.client.send_packet(&player_pos_and_look);
-
-                    let mut add_player_list = Vec::new();
-                    for player in &self.online_players {
-                        add_player_list.push(C34PlayerInfoAddPlayer {
-                            uuid: player.uuid,
-                            name: player.username.clone(),
-                            display_name: None,
-                            gamemode: 1,
-                            ping: 0,
-                            properties: Vec::new(),
-                        });
-                    }
-                    add_player_list.push(C34PlayerInfoAddPlayer {
-                        uuid: player.uuid,
-                        name: player.username.clone(),
-                        display_name: None,
-                        gamemode: 1,
-                        ping: 0,
-                        properties: Vec::new(),
-                    });
-                    let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
-                    player.client.send_packet(&player_info);
-
-                    let slot_data: Vec<Option<SlotData>> = player
-                        .inventory
-                        .iter()
-                        .map(|op| {
-                            op.as_ref().map(|item| SlotData {
-                                item_count: item.count as i8,
-                                item_id: item.item_type.get_id() as i32,
-                                nbt: item.nbt.clone(),
-                            })
-                        })
-                        .collect();
-                    let window_items = C15WindowItems {
-                        window_id: 0,
-                        slot_data,
-                    }
-                    .encode();
-                    player.client.send_packet(&window_items);
-
-                    let held_item_change = C40HeldItemChange {
-                        slot: player.selected_slot as i8,
-                    }
-                    .encode();
-                    player.client.send_packet(&held_item_change);
-
-                    player.client.send_packet(&DECLARE_COMMANDS);
-
-                    let time_update = C4FTimeUpdate {
-                        world_age: 0,
-                        // Noon
-                        time_of_day: -6000,
-                    }
-                    .encode();
-                    player.client.send_packet(&time_update);
-
-                    self.plot_sender
-                        .send(Message::PlayerJoined(player))
-                        .unwrap();
+                    self.handle_player_login(client, login_start);
                 }
             }
             NetworkState::Play => {}

@@ -76,7 +76,7 @@ impl PacketDecoder {
                         packet_id: packet_id.0 as u32,
                     });
                 } else {
-                    // Even though compression is enabled, packet is not compressed because the compression 
+                    // Even though compression is enabled, packet is not compressed because the compression
                     // threshold has not been reached
                     let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf)?;
                     i += packet_id.1 as usize;
