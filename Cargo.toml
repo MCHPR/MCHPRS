@@ -1,6 +1,6 @@
 [package]
 name = "mchprs"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["StackDoubleFlow <ojaslandge@gmail.com>"]
 edition = "2018"
 description = "A multithreaded minecraft server built for redstone."
