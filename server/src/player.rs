@@ -3,6 +3,7 @@ use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::WorldEditClipboard;
+use bitflags::bitflags;
 use crate::plot::Plot;
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};

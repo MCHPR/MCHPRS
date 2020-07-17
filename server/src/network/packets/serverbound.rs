@@ -1,4 +1,5 @@
 use super::{DecodeResult, PacketDecoder, SlotData};
+use bitflags::bitflags;
 
 pub trait ServerBoundPacket {
     fn decode(decoder: PacketDecoder) -> DecodeResult<Self>
