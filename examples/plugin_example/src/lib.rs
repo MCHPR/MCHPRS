@@ -6,4 +6,7 @@ fn example_event_handler() {
 
 }
 
-register_plugin!();
+register_plugin!(
+    name: "example",
+    version: "0.1"
+);
