@@ -177,12 +177,12 @@ impl Plot {
                         .send_error_message("The rtps cannot go higher than 35000!");
                     return false;
                 }
-                self.lag_time = Duration::from_millis(0);
-                if tps > 0 {
+                if tps > 10 {
                     self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
                 } else {
                     self.sleep_time = Duration::from_millis(2);
                 }
+                self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
