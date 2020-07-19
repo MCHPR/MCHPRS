@@ -1,5 +1,6 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
+use crate::world::World;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ActionResult {
@@ -62,7 +63,7 @@ impl ItemStack {
         if let Item::BlockItem(item_id) = self.item_type {
             if plot.get_block(block_pos).can_place_block_in() {
                 let block = Block::get_state_for_placement(plot, block_pos, item_id, &context);
-                block.place_in_plot(plot, block_pos, &self.nbt);
+                block.place_in_world(plot, block_pos, &self.nbt);
             }
         } else {
             // This is to make sure the client doesn't place a block

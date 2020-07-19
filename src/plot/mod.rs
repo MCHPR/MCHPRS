@@ -1,7 +1,6 @@
 pub mod commands;
 pub mod database;
-mod packets;
-mod storage;
+mod packet_handlers;
 pub mod worldedit;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};
@@ -9,6 +8,8 @@ use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::Player;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
+use crate::world::storage::{Chunk, ChunkData};
+use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
@@ -19,28 +20,13 @@ use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime};
-use storage::{Chunk, ChunkData, PlotData};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TickPriority {
-    Highest,
-    Higher,
-    High,
-    Normal,
-}
-
-impl TickPriority {
-    fn values() -> [TickPriority; 4] {
-        use TickPriority::*;
-        [Highest, Higher, High, Normal]
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TickEntry {
-    ticks_left: u32,
-    tick_priority: TickPriority,
-    pos: BlockPos,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PlotData {
+    pub tps: u32,
+    pub show_redstone: bool,
+    pub chunk_data: Vec<ChunkData>,
+    pub pending_ticks: Vec<TickEntry>,
 }
 
 pub struct Plot {
@@ -63,19 +49,7 @@ pub struct Plot {
     chunks: Vec<Chunk>,
 }
 
-impl Plot {
-    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
-        let local_x = chunk_x - self.x * 16;
-        let local_z = chunk_z - self.z * 16;
-        (local_x * 16 + local_z).abs() as usize
-    }
-
-    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - (self.x << 8)) >> 4;
-        let chunk_z = (block_z - (self.z << 8)) >> 4;
-        ((chunk_x << 4) + chunk_z).abs() as usize
-    }
-
+impl World for Plot {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
@@ -89,7 +63,7 @@ impl Plot {
     /// Sets the block at `pos`.
     /// If the block was changed it will be sent to all players
     /// and the function will return true.
-    pub fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
+    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
         let changed = self.set_block_raw(pos, block_id);
         if changed {
@@ -99,7 +73,7 @@ impl Plot {
     }
 
     /// Returns the block state id of the block at `pos`
-    pub fn get_block_raw(&self, pos: BlockPos) -> u32 {
+    fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return 0;
@@ -108,25 +82,11 @@ impl Plot {
         chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32)
     }
 
-    pub fn get_block(&self, pos: BlockPos) -> Block {
+    fn get_block(&self, pos: BlockPos) -> Block {
         Block::from_block_state(self.get_block_raw(pos))
     }
 
-    /// Send a block change to all connected players
-    pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
-        let block_change = C0CBlockChange {
-            block_id: id as i32,
-            x: pos.x,
-            y: pos.y as i32,
-            z: pos.z,
-        }
-        .encode();
-        for player in &mut self.players {
-            player.client.send_packet(&block_change);
-        }
-    }
-
-    pub fn delete_block_entity(&mut self, pos: BlockPos) {
+    fn delete_block_entity(&mut self, pos: BlockPos) {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return;
@@ -135,7 +95,7 @@ impl Plot {
         chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
-    pub fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
+    fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return None;
@@ -144,7 +104,7 @@ impl Plot {
         chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
-    pub fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
+    fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return;
@@ -167,29 +127,13 @@ impl Plot {
         chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity);
     }
 
-    pub fn broadcast_chat_message(&mut self, message: String) {
-        let broadcast_message = Message::ChatInfo(format!("Plot {}-{}", self.x, self.z), message);
-        self.message_sender.send(broadcast_message).unwrap();
+    fn get_chunk(&self, x: i32, z: i32) -> &Chunk {
+        &self.chunks[self.get_chunk_index_for_chunk(x, z)]
     }
 
-    pub fn broadcast_plot_chat_message(&mut self, message: String) {
-        for player in &mut self.players {
-            player.send_chat_message(message.clone());
-        }
-    }
-
-    pub fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
-        self.to_be_ticked.push(TickEntry {
-            pos,
-            ticks_left: delay,
-            tick_priority: priority,
-        });
-        self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
-    }
-
-    pub fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
-        self.to_be_ticked.iter().any(|e| e.pos == pos)
+    fn get_chunk_mut(&mut self, x: i32, z: i32) -> &mut Chunk {
+        let chunk_idx = self.get_chunk_index_for_chunk(x, z);
+        &mut self.chunks[chunk_idx]
     }
 
     fn tick(&mut self) {
@@ -199,6 +143,59 @@ impl Plot {
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
             let entry = self.to_be_ticked.remove(0);
             self.get_block(entry.pos).tick(self, entry.pos);
+        }
+    }
+
+    fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
+        self.to_be_ticked.push(TickEntry {
+            pos,
+            ticks_left: delay,
+            tick_priority: priority,
+        });
+        self.to_be_ticked
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
+    }
+
+    fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
+        self.to_be_ticked.iter().any(|e| e.pos == pos)
+    }
+}
+
+impl Plot {
+    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
+        let local_x = chunk_x - self.x * 16;
+        let local_z = chunk_z - self.z * 16;
+        (local_x * 16 + local_z).abs() as usize
+    }
+
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+        let chunk_x = (block_x - (self.x << 8)) >> 4;
+        let chunk_z = (block_z - (self.z << 8)) >> 4;
+        ((chunk_x << 4) + chunk_z).abs() as usize
+    }
+
+    /// Send a block change to all connected players
+    pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
+        let block_change = C0CBlockChange {
+            block_id: id as i32,
+            x: pos.x,
+            y: pos.y as i32,
+            z: pos.z,
+        }
+        .encode();
+        for player in &mut self.players {
+            player.client.send_packet(&block_change);
+        }
+    }
+
+    pub fn broadcast_chat_message(&mut self, message: String) {
+        let broadcast_message = Message::ChatInfo(format!("Plot {}-{}", self.x, self.z), message);
+        self.message_sender.send(broadcast_message).unwrap();
+    }
+
+    pub fn broadcast_plot_chat_message(&mut self, message: String) {
+        for player in &mut self.players {
+            player.send_chat_message(message.clone());
         }
     }
 

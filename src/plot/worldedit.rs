@@ -1,7 +1,8 @@
-use super::storage::PalettedBitBuffer;
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::network::packets::clientbound::*;
+use crate::world::storage::PalettedBitBuffer;
+use crate::world::World;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;

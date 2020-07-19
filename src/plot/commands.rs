@@ -5,6 +5,7 @@ use crate::network::packets::clientbound::{
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
+use crate::world::World;
 use log::info;
 
 use std::time::{Duration, Instant};

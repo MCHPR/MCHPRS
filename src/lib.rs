@@ -5,6 +5,7 @@ mod items;
 mod player;
 mod plot;
 pub mod server;
+mod world;
 
 #[macro_use]
 extern crate bitflags;
