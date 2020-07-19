@@ -124,11 +124,19 @@ impl Plot {
                 }
             }
             "//stack" => {
-                if args.len() != 1 {
-                    self.players[player].send_error_message("//stack <amount>");
-                    return false;
-                }
-                self.worldedit_stack(player, args[0].parse::<u32>().unwrap());
+                let stack_amt = if !args.is_empty() {
+                    if let Ok(amt) = args[0].parse::<u32>() {
+                        amt
+                    } else {
+                        self.players[player].send_error_message(
+                            "Unable to parse stack amount.",
+                        );
+                        return false;
+                    }
+                } else {
+                    1
+                };
+                self.worldedit_stack(player, stack_amt);
             }
             "//replace" => {
                 if args.len() < 2 {
