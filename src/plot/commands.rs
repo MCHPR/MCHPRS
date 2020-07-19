@@ -587,7 +587,6 @@ lazy_static! {
                 children: vec![],
                 redirect_node: None,
                 name: Some("speed"),
-                //A Parser::Float would be needed here (command still executes with floats though)
                 parser: Some(Parser::Float(0.0, 10.0)),
             },
             // 34: //stack
@@ -604,8 +603,7 @@ lazy_static! {
                 children: vec![],
                 redirect_node: None,
                 name: Some("amount"),
-                //A Parser::Float would be needed here (command still executes with floats though)
-                parser: Some(Parser::Integer(0, 35000)),
+                parser: Some(Parser::Integer(0, 256)),
             },
             // 36: //undo
             Node {
