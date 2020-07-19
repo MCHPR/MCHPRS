@@ -30,10 +30,12 @@ pub trait World {
     fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity);
 
     /// Returns an immutable reference to the chunk at `x` and `z` chunk coordinates.
-    fn get_chunk(&self, x: i32, z: i32) -> &Chunk;
+    /// Returns None if the chunk does not exist in this world.
+    fn get_chunk(&self, x: i32, z: i32) -> Option<&Chunk>;
 
     /// Returns a mutable reference to the chunk at `x` and `z` chunk coordinates.
-    fn get_chunk_mut(&mut self, x: i32, z: i32) -> &mut Chunk;
+    /// Returns None if the chunk does not exist in this world.
+    fn get_chunk_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk>;
 
     /// Ticks the world. This should run each tick entry in order of it's priority.
     fn tick(&mut self);

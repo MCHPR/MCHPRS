@@ -127,13 +127,13 @@ impl World for Plot {
         chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity);
     }
 
-    fn get_chunk(&self, x: i32, z: i32) -> &Chunk {
-        &self.chunks[self.get_chunk_index_for_chunk(x, z)]
+    fn get_chunk(&self, x: i32, z: i32) -> Option<&Chunk> {
+        self.chunks.get(self.get_chunk_index_for_chunk(x, z))
     }
 
-    fn get_chunk_mut(&mut self, x: i32, z: i32) -> &mut Chunk {
+    fn get_chunk_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk> {
         let chunk_idx = self.get_chunk_index_for_chunk(x, z);
-        &mut self.chunks[chunk_idx]
+        self.chunks.get_mut(chunk_idx)
     }
 
     fn tick(&mut self) {
