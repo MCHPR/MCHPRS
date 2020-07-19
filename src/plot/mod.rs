@@ -53,7 +53,7 @@ impl World for Plot {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
+        if chunk_index >= 256 || pos.y > 256 {
             return false;
         }
         let chunk = &mut self.chunks[chunk_index];
