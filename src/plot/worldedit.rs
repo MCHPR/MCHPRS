@@ -339,6 +339,11 @@ impl Plot {
         let pattern = WorldEditPattern::from_str(pattern_str)?;
 
         if let Some(mut operation) = self.worldedit_start_operation(player) {
+            self.capture_undo(
+                player,
+                self.players[player].first_position.unwrap(),
+                self.players[player].second_position.unwrap(),
+            );
             for x in operation.x_range() {
                 for y in operation.y_range() {
                     for z in operation.z_range() {
@@ -376,6 +381,11 @@ impl Plot {
         let pattern = WorldEditPattern::from_str(pattern_str)?;
 
         if let Some(mut operation) = self.worldedit_start_operation(player) {
+            self.capture_undo(
+                player,
+                self.players[player].first_position.unwrap(),
+                self.players[player].second_position.unwrap(),
+            );
             for x in operation.x_range() {
                 for y in operation.y_range() {
                     for z in operation.z_range() {
@@ -518,28 +528,37 @@ impl Plot {
         }
     }
 
+    fn capture_undo(&mut self, player: usize, first_pos: BlockPos, second_pos: BlockPos) {
+        let origin = first_pos.min(second_pos);
+        let cb = self.create_clipboard(origin, first_pos, second_pos);
+        self.players[player].worldedit_undo.push((origin, cb));
+    }
+
     pub(super) fn worldedit_copy(&mut self, player: usize) {
         let start_time = Instant::now();
 
-        // Start the operation just to verify the positions
-        if self.worldedit_start_operation(player).is_some() {
-            let origin = BlockPos::new(
-                self.players[player].x.floor() as i32,
-                self.players[player].y.floor() as u32,
-                self.players[player].z.floor() as i32,
-            );
-            let clipboard = self.create_clipboard(
-                origin,
-                self.players[player].first_position.unwrap(),
-                self.players[player].second_position.unwrap(),
-            );
-            self.players[player].worldedit_clipboard = Some(clipboard);
-
-            self.players[player].send_worldedit_message(&format!(
-                "Your selection was copied. ({:?})",
-                start_time.elapsed()
-            ));
+        if self.players[player].first_position.is_none()
+            || self.players[player].second_position.is_none()
+        {
+            self.players[player].send_system_message("You must make a selection first!");
+            return;
         }
+        let origin = BlockPos::new(
+            self.players[player].x.floor() as i32,
+            self.players[player].y.floor() as u32,
+            self.players[player].z.floor() as i32,
+        );
+        let clipboard = self.create_clipboard(
+            origin,
+            self.players[player].first_position.unwrap(),
+            self.players[player].second_position.unwrap(),
+        );
+        self.players[player].worldedit_clipboard = Some(clipboard);
+
+        self.players[player].send_worldedit_message(&format!(
+            "Your selection was copied. ({:?})",
+            start_time.elapsed()
+        ));
     }
 
     pub(super) fn worldedit_paste(&mut self, player: usize) {
@@ -552,6 +571,18 @@ impl Plot {
                 self.players[player].x.floor() as i32,
                 self.players[player].y.floor() as u32,
                 self.players[player].z.floor() as i32,
+            );
+            let offset_x = pos.x - cb.offset_x;
+            let offset_y = pos.y as i32 - cb.offset_y;
+            let offset_z = pos.z - cb.offset_z;
+            self.capture_undo(
+                player,
+                BlockPos::new(offset_x, offset_y as u32, offset_z),
+                BlockPos::new(
+                    offset_x + cb.size_x as i32,
+                    offset_y as u32 + cb.size_y,
+                    offset_z + cb.size_z as i32,
+                ),
             );
             self.paste_clipboard(cb, pos);
             self.players[player].send_worldedit_message(&format!(
@@ -687,5 +718,19 @@ impl Plot {
             "Your clipboard was stacked. ({:?})",
             start_time.elapsed()
         ));
+    }
+
+    pub(super) fn worldedit_undo(&mut self, player: usize) {
+        if self.players[player].worldedit_undo.is_empty() {
+            self.players[player].send_error_message("There is nothing left to undo.");
+            return;
+        }
+        let (undo_pos, undo_clipboard) = self.players[player].worldedit_undo.pop().unwrap();
+        if !Self::in_plot_bounds(self.x, self.z, undo_pos.x, undo_pos.z) {
+            self.players[player].send_error_message("Cannot undo outside of your current plot.");
+            return;
+        }
+
+        self.paste_clipboard(&undo_clipboard, undo_pos);
     }
 }

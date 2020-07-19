@@ -84,6 +84,8 @@ pub struct Player {
     pub second_position: Option<BlockPos>,
     /// The worldedit current clipboard.
     pub worldedit_clipboard: Option<WorldEditClipboard>,
+    /// The saved sections used for worldedit //undo
+    pub worldedit_undo: Vec<(BlockPos, WorldEditClipboard)>,
 }
 
 impl fmt::Debug for Player {
@@ -161,6 +163,7 @@ impl Player {
                 first_position: None,
                 second_position: None,
                 worldedit_clipboard: None,
+                worldedit_undo: Vec::new(),
             }
         } else {
             Player::create_player(uuid, username, client)
@@ -197,6 +200,7 @@ impl Player {
             first_position: None,
             second_position: None,
             worldedit_clipboard: None,
+            worldedit_undo: Vec::new(),
         }
     }
 

@@ -128,9 +128,7 @@ impl Plot {
                     if let Ok(amt) = args[0].parse::<u32>() {
                         amt
                     } else {
-                        self.players[player].send_error_message(
-                            "Unable to parse stack amount.",
-                        );
+                        self.players[player].send_error_message("Unable to parse stack amount.");
                         return false;
                     }
                 } else {
@@ -176,6 +174,7 @@ impl Plot {
                 }
                 self.worldedit_load(player, &args[0])
             }
+            "//undo" => self.worldedit_undo(player),
             "/rtps" => {
                 if args.is_empty() {
                     self.players[player]
@@ -321,7 +320,7 @@ lazy_static! {
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34],
+                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36],
                 redirect_node: None,
                 name: None,
                 parser: None,
@@ -593,7 +592,7 @@ lazy_static! {
             },
             // 34: //stack
             Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![35],
                 redirect_node: None,
                 name: Some("/stack"),
@@ -607,6 +606,14 @@ lazy_static! {
                 name: Some("amount"),
                 //A Parser::Float would be needed here (command still executes with floats though)
                 parser: Some(Parser::Integer(0, 35000)),
+            },
+            // 36: //undo
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("/undo"),
+                parser: None,
             },
         ],
         root_index: 0
