@@ -350,13 +350,13 @@ impl Plot {
                 }
             }
         } else {
-            for x in last_chunk_x - view_distance..last_chunk_x + view_distance {
-                for z in last_chunk_z - view_distance..last_chunk_z + view_distance {
+            for x in last_chunk_x - view_distance..=last_chunk_x + view_distance {
+                for z in last_chunk_z - view_distance..=last_chunk_z + view_distance {
                     self.set_chunk_loaded_at_player(player_idx, x, z, true, false);
                 }
             }
-            for x in chunk_x - view_distance..chunk_x + view_distance {
-                for z in chunk_z - view_distance..chunk_z + view_distance {
+            for x in chunk_x - view_distance..=chunk_x + view_distance {
+                for z in chunk_z - view_distance..=chunk_z + view_distance {
                     self.set_chunk_loaded_at_player(player_idx, x, z, false, true);
                 }
             }
