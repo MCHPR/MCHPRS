@@ -603,4 +603,89 @@ impl Plot {
                 .send_worldedit_message(&format!("Done. ({:?})", start_time.elapsed()));
         }
     }
+
+    pub(super) fn worldedit_stack(&mut self, player: usize, stack_amt: u32) {
+        let start_time = Instant::now();
+
+        if self.players[player].first_position.is_none()
+            || self.players[player].second_position.is_none()
+        {
+            self.players[player].send_system_message("You must make a selection first!");
+            return;
+        }
+        let pos1 = self.players[player].first_position.unwrap();
+        let clipboard =
+            self.create_clipboard(pos1, pos1, self.players[player].second_position.unwrap());
+        let pitch = self.players[player].pitch;
+        let yaw = self.players[player].yaw.rem_euclid(360.0);
+        let mut all_pos: Vec<BlockPos> = Vec::new();
+
+        //Facing upward
+        if pitch <= -70.0 {
+            for i in 0..stack_amt {
+                all_pos.push(BlockPos::new(
+                    pos1.x,
+                    pos1.y as u32 + (clipboard.size_y * (i + 1)),
+                    pos1.z,
+                ));
+            }
+        }
+        //Facing the ground
+        else if pitch >= 70.0 {
+            for i in 0..stack_amt {
+                all_pos.push(BlockPos::new(
+                    pos1.x,
+                    pos1.y as u32 - (clipboard.size_y * (i + 1)),
+                    pos1.z,
+                ));
+            }
+        }
+        //Facing -x
+        else if yaw >= 45.0 && yaw <= 135.0 {
+            for i in 0..stack_amt {
+                all_pos.push(BlockPos::new(
+                    pos1.x - ((clipboard.size_x * (i + 1)) as i32),
+                    pos1.y,
+                    pos1.z,
+                ));
+            }
+        }
+        //Facing -z
+        else if yaw >= 135.0 && yaw <= 225.0 {
+            for i in 0..stack_amt {
+                all_pos.push(BlockPos::new(
+                    pos1.x,
+                    pos1.y,
+                    pos1.z - ((clipboard.size_z * (i + 1)) as i32),
+                ));
+            }
+        }
+        //Facing +x
+        else if yaw >= 225.0 && yaw <= 315.0 {
+            for i in 0..stack_amt {
+                all_pos.push(BlockPos::new(
+                    pos1.x + ((clipboard.size_x * (i + 1)) as i32),
+                    pos1.y,
+                    pos1.z,
+                ));
+            }
+        }
+        //Facing +z
+        else if yaw >= 315.0 || yaw <= 45.0 {
+            for i in 0..stack_amt {
+                all_pos.push(BlockPos::new(
+                    pos1.x,
+                    pos1.y,
+                    pos1.z + ((clipboard.size_z * (i + 1)) as i32),
+                ));
+            }
+        }
+        for block_pos in all_pos {
+            self.paste_clipboard(&clipboard, block_pos);
+        }
+        self.players[player].send_worldedit_message(&format!(
+            "Your clipboard was stacked. ({:?})",
+            start_time.elapsed()
+        ));
+    }
 }
