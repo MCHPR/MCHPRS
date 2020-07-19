@@ -1,7 +1,5 @@
-/.idea
-target
-test_proxy
-world
-generators/reports
-schems
-output.log
+.idea/
+run/
+target/
+test_proxy/
+generators/reports/
