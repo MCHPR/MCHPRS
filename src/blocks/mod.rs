@@ -1,7 +1,8 @@
 mod redstone;
 
 use crate::items::{ActionResult, Item, UseOnBlockContext};
-use crate::plot::{Plot, TickPriority};
+use crate::world::TickPriority;
+use crate::world::World;
 use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -393,12 +394,12 @@ impl Block {
         }
     }
 
-    fn get_comparator_override(self, plot: &Plot, pos: BlockPos) -> u8 {
+    fn get_comparator_override(self, world: &dyn World, pos: BlockPos) -> u8 {
         match self {
             Block::Container(_) => {
                 if let Some(BlockEntity::Container {
                     comparator_override,
-                }) = plot.get_block_entity(pos)
+                }) = world.get_block_entity(pos)
                 {
                     *comparator_override
                 } else {
@@ -712,7 +713,7 @@ impl Block {
 
     pub fn on_use(
         self,
-        plot: &mut Plot,
+        world: &mut dyn World,
         pos: BlockPos,
         item_in_hand: Option<Item>,
     ) -> ActionResult {
@@ -723,29 +724,29 @@ impl Block {
                 if repeater.delay > 4 {
                     repeater.delay -= 4;
                 }
-                plot.set_block(pos, Block::RedstoneRepeater(repeater));
+                world.set_block(pos, Block::RedstoneRepeater(repeater));
                 ActionResult::Success
             }
             Block::RedstoneComparator(comparator) => {
                 let mut comparator = comparator;
                 comparator.mode = comparator.mode.toggle();
-                comparator.tick(plot, pos);
-                plot.set_block(pos, Block::RedstoneComparator(comparator));
+                comparator.tick(world, pos);
+                world.set_block(pos, Block::RedstoneComparator(comparator));
                 ActionResult::Success
             }
             Block::Lever(mut lever) => {
                 lever.powered = !lever.powered;
-                plot.set_block(pos, Block::Lever(lever));
-                Block::update_surrounding_blocks(plot, pos);
+                world.set_block(pos, Block::Lever(lever));
+                Block::update_surrounding_blocks(world, pos);
                 match lever.face {
                     LeverFace::Ceiling => {
-                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top))
+                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top))
                     }
                     LeverFace::Floor => {
-                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom))
+                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom))
                     }
                     LeverFace::Wall => Block::update_surrounding_blocks(
-                        plot,
+                        world,
                         pos.offset(lever.facing.opposite().block_face()),
                     ),
                 }
@@ -754,18 +755,18 @@ impl Block {
             Block::StoneButton(mut button) => {
                 if !button.powered {
                     button.powered = true;
-                    plot.set_block(pos, Block::StoneButton(button));
-                    plot.schedule_tick(pos, 10, TickPriority::Normal);
-                    Block::update_surrounding_blocks(plot, pos);
+                    world.set_block(pos, Block::StoneButton(button));
+                    world.schedule_tick(pos, 10, TickPriority::Normal);
+                    Block::update_surrounding_blocks(world, pos);
                     match button.face {
                         ButtonFace::Ceiling => {
-                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top))
                         }
                         ButtonFace::Floor => {
-                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom))
                         }
                         ButtonFace::Wall => Block::update_surrounding_blocks(
-                            plot,
+                            world,
                             pos.offset(button.facing.opposite().block_face()),
                         ),
                     }
@@ -775,7 +776,7 @@ impl Block {
             Block::SeaPickle(pickles) => {
                 if let Some(Item::BlockItem(80)) = item_in_hand {
                     if pickles < 4 {
-                        plot.set_block(pos, Block::SeaPickle(pickles + 1));
+                        world.set_block(pos, Block::SeaPickle(pickles + 1));
                     }
                 }
                 ActionResult::Success
@@ -785,7 +786,7 @@ impl Block {
     }
 
     pub fn get_state_for_placement(
-        plot: &Plot,
+        world: &dyn World,
         pos: BlockPos,
         item_id: u32,
         context: &UseOnBlockContext,
@@ -836,7 +837,7 @@ impl Block {
                 Block::StoneButton(StoneButton::new(button_face, facing, false))
             }
             // Redstone Lamp
-            234 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(plot, pos)),
+            234 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(world, pos)),
             // Redstone Block
             272 => Block::RedstoneBlock,
             // Hopper
@@ -847,7 +848,7 @@ impl Block {
             413..=428 => Block::Solid(item_id + 8489),
             // Redstone Repeater
             513 => Block::RedstoneRepeater(RedstoneRepeater::get_state_for_placement(
-                plot,
+                world,
                 pos,
                 context.player_direction.opposite(),
             )),
@@ -858,24 +859,24 @@ impl Block {
                 false,
             )),
             // Redstone Wire
-            600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(plot, pos)),
+            600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(world, pos)),
             // Barrel
             865 => Block::Container(11136),
             _ => Block::Air,
         };
-        if block.is_valid_position(plot, pos) {
+        if block.is_valid_position(world, pos) {
             block
         } else {
             Block::Air
         }
     }
 
-    pub fn place_in_plot(self, plot: &mut Plot, pos: BlockPos, nbt: &Option<nbt::Blob>) {
+    pub fn place_in_world(self, world: &mut dyn World, pos: BlockPos, nbt: &Option<nbt::Blob>) {
         if self.has_block_entity() {
             if let Some(nbt) = nbt {
                 if let nbt::Value::Compound(compound) = &nbt["BlockEntityTag"] {
                     if let Some(block_entity) = BlockEntity::from_nbt(compound) {
-                        plot.set_block_entity(pos, block_entity);
+                        world.set_block_entity(pos, block_entity);
                     }
                 }
             };
@@ -883,150 +884,150 @@ impl Block {
         match self {
             Block::RedstoneRepeater(_) => {
                 // TODO: Queue repeater tick
-                plot.set_block(pos, self);
-                Block::change_surrounding_blocks(plot, pos);
-                Block::update_surrounding_blocks(plot, pos);
+                world.set_block(pos, self);
+                Block::change_surrounding_blocks(world, pos);
+                Block::update_surrounding_blocks(world, pos);
             }
             Block::RedstoneWire(_) => {
-                plot.set_block(pos, self);
-                Block::change_surrounding_blocks(plot, pos);
-                Block::update_wire_neighbors(plot, pos);
+                world.set_block(pos, self);
+                Block::change_surrounding_blocks(world, pos);
+                Block::update_wire_neighbors(world, pos);
             }
             _ => {
-                plot.set_block(pos, self);
-                Block::change_surrounding_blocks(plot, pos);
-                Block::update_surrounding_blocks(plot, pos);
+                world.set_block(pos, self);
+                Block::change_surrounding_blocks(world, pos);
+                Block::update_surrounding_blocks(world, pos);
             }
         }
     }
 
-    pub fn destroy(self, plot: &mut Plot, pos: BlockPos) {
+    pub fn destroy(self, world: &mut dyn World, pos: BlockPos) {
         if self.has_block_entity() {
-            plot.delete_block_entity(pos);
+            world.delete_block_entity(pos);
         }
 
         match self {
             Block::RedstoneWire(_) => {
-                plot.set_block(pos, Block::Air);
-                Block::change_surrounding_blocks(plot, pos);
-                Block::update_wire_neighbors(plot, pos);
+                world.set_block(pos, Block::Air);
+                Block::change_surrounding_blocks(world, pos);
+                Block::update_wire_neighbors(world, pos);
             }
             Block::Lever(lever) => {
-                plot.set_block(pos, Block::Air);
+                world.set_block(pos, Block::Air);
                 // This is a horrible idea, don't do this.
                 // One day this will be fixed, but for now... too bad!
                 match lever.face {
                     LeverFace::Ceiling => {
-                        Block::change_surrounding_blocks(plot, pos.offset(BlockFace::Top));
-                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top));
+                        Block::change_surrounding_blocks(world, pos.offset(BlockFace::Top));
+                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
                     }
                     LeverFace::Floor => {
-                        Block::change_surrounding_blocks(plot, pos.offset(BlockFace::Bottom));
-                        Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom));
+                        Block::change_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
+                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
                     }
                     LeverFace::Wall => {
                         Block::change_surrounding_blocks(
-                            plot,
+                            world,
                             pos.offset(lever.facing.opposite().block_face()),
                         );
                         Block::update_surrounding_blocks(
-                            plot,
+                            world,
                             pos.offset(lever.facing.opposite().block_face()),
                         );
                     }
                 }
             }
             _ => {
-                plot.set_block(pos, Block::Air);
-                Block::change_surrounding_blocks(plot, pos);
-                Block::update_surrounding_blocks(plot, pos);
+                world.set_block(pos, Block::Air);
+                Block::change_surrounding_blocks(world, pos);
+                Block::update_surrounding_blocks(world, pos);
             }
         }
     }
 
-    fn update(self, plot: &mut Plot, pos: BlockPos) {
+    fn update(self, world: &mut dyn World, pos: BlockPos) {
         match self {
             Block::RedstoneWire(wire) => {
-                wire.on_neighbor_updated(plot, pos);
+                wire.on_neighbor_updated(world, pos);
             }
             Block::RedstoneTorch(lit) => {
-                if lit == Block::torch_should_be_off(plot, pos) && !plot.pending_tick_at(pos) {
-                    plot.schedule_tick(pos, 1, TickPriority::Normal);
+                if lit == Block::torch_should_be_off(world, pos) && !world.pending_tick_at(pos) {
+                    world.schedule_tick(pos, 1, TickPriority::Normal);
                 }
             }
             Block::RedstoneWallTorch(lit, facing) => {
-                if lit == Block::wall_torch_should_be_off(plot, pos, facing)
-                    && !plot.pending_tick_at(pos)
+                if lit == Block::wall_torch_should_be_off(world, pos, facing)
+                    && !world.pending_tick_at(pos)
                 {
-                    plot.schedule_tick(pos, 1, TickPriority::Normal);
+                    world.schedule_tick(pos, 1, TickPriority::Normal);
                 }
             }
             Block::RedstoneRepeater(repeater) => {
-                repeater.on_neighbor_updated(plot, pos);
+                repeater.on_neighbor_updated(world, pos);
             }
             Block::RedstoneComparator(comparator) => {
-                comparator.update(plot, pos);
+                comparator.update(world, pos);
             }
             Block::RedstoneLamp(lit) => {
-                let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
+                let should_be_lit = Block::redstone_lamp_should_be_lit(world, pos);
                 if lit && !should_be_lit {
-                    plot.schedule_tick(pos, 2, TickPriority::Normal);
+                    world.schedule_tick(pos, 2, TickPriority::Normal);
                 } else if !lit && should_be_lit {
-                    plot.set_block(pos, Block::RedstoneLamp(true));
+                    world.set_block(pos, Block::RedstoneLamp(true));
                 }
             }
             _ => {}
         }
     }
 
-    pub fn tick(self, plot: &mut Plot, pos: BlockPos) {
+    pub fn tick(self, world: &mut dyn World, pos: BlockPos) {
         match self {
             Block::RedstoneRepeater(repeater) => {
-                repeater.tick(plot, pos);
+                repeater.tick(world, pos);
             }
             Block::RedstoneComparator(comparator) => {
-                comparator.tick(plot, pos);
+                comparator.tick(world, pos);
             }
             Block::RedstoneTorch(powered) => {
-                let should_be_off = Block::torch_should_be_off(plot, pos);
+                let should_be_off = Block::torch_should_be_off(world, pos);
                 if powered && should_be_off {
-                    plot.set_block(pos, Block::RedstoneTorch(false));
-                    Block::update_surrounding_blocks(plot, pos);
+                    world.set_block(pos, Block::RedstoneTorch(false));
+                    Block::update_surrounding_blocks(world, pos);
                 } else if !powered && !should_be_off {
-                    plot.set_block(pos, Block::RedstoneTorch(true));
-                    Block::update_surrounding_blocks(plot, pos);
+                    world.set_block(pos, Block::RedstoneTorch(true));
+                    Block::update_surrounding_blocks(world, pos);
                 }
             }
             Block::RedstoneWallTorch(powered, direction) => {
-                let should_be_off = Block::wall_torch_should_be_off(plot, pos, direction);
+                let should_be_off = Block::wall_torch_should_be_off(world, pos, direction);
                 if powered && should_be_off {
-                    plot.set_block(pos, Block::RedstoneWallTorch(false, direction));
-                    Block::update_surrounding_blocks(plot, pos);
+                    world.set_block(pos, Block::RedstoneWallTorch(false, direction));
+                    Block::update_surrounding_blocks(world, pos);
                 } else if !powered && !should_be_off {
-                    plot.set_block(pos, Block::RedstoneWallTorch(true, direction));
-                    Block::update_surrounding_blocks(plot, pos);
+                    world.set_block(pos, Block::RedstoneWallTorch(true, direction));
+                    Block::update_surrounding_blocks(world, pos);
                 }
             }
             Block::RedstoneLamp(lit) => {
-                let should_be_lit = Block::redstone_lamp_should_be_lit(plot, pos);
+                let should_be_lit = Block::redstone_lamp_should_be_lit(world, pos);
                 if lit && !should_be_lit {
-                    plot.set_block(pos, Block::RedstoneLamp(false));
+                    world.set_block(pos, Block::RedstoneLamp(false));
                 }
             }
             Block::StoneButton(mut button) => {
                 if button.powered {
                     button.powered = false;
-                    plot.set_block(pos, Block::StoneButton(button));
-                    Block::update_surrounding_blocks(plot, pos);
+                    world.set_block(pos, Block::StoneButton(button));
+                    Block::update_surrounding_blocks(world, pos);
                     match button.face {
                         ButtonFace::Ceiling => {
-                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Top))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top))
                         }
                         ButtonFace::Floor => {
-                            Block::update_surrounding_blocks(plot, pos.offset(BlockFace::Bottom))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom))
                         }
                         ButtonFace::Wall => Block::update_surrounding_blocks(
-                            plot,
+                            world,
                             pos.offset(button.facing.opposite().block_face()),
                         ),
                     }
@@ -1036,46 +1037,46 @@ impl Block {
         }
     }
 
-    pub fn is_valid_position(self, plot: &Plot, pos: BlockPos) -> bool {
+    pub fn is_valid_position(self, world: &dyn World, pos: BlockPos) -> bool {
         match self {
             Block::RedstoneWire(_)
             | Block::RedstoneComparator(_)
             | Block::RedstoneRepeater(_)
             | Block::RedstoneTorch(_) => {
-                let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
+                let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
                 bottom_block.is_cube()
             }
             Block::RedstoneWallTorch(_, direction) => {
-                let parent_block = plot.get_block(pos.offset(direction.opposite().block_face()));
+                let parent_block = world.get_block(pos.offset(direction.opposite().block_face()));
                 parent_block.is_cube()
             }
             Block::Lever(lever) => match lever.face {
                 LeverFace::Floor => {
-                    let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
+                    let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
                     bottom_block.is_cube()
                 }
                 LeverFace::Ceiling => {
-                    let top_block = plot.get_block(pos.offset(BlockFace::Top));
+                    let top_block = world.get_block(pos.offset(BlockFace::Top));
                     top_block.is_cube()
                 }
                 LeverFace::Wall => {
                     let parent_block =
-                        plot.get_block(pos.offset(lever.facing.opposite().block_face()));
+                        world.get_block(pos.offset(lever.facing.opposite().block_face()));
                     parent_block.is_cube()
                 }
             },
             Block::StoneButton(button) => match button.face {
                 ButtonFace::Floor => {
-                    let bottom_block = plot.get_block(pos.offset(BlockFace::Bottom));
+                    let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
                     bottom_block.is_cube()
                 }
                 ButtonFace::Ceiling => {
-                    let top_block = plot.get_block(pos.offset(BlockFace::Top));
+                    let top_block = world.get_block(pos.offset(BlockFace::Top));
                     top_block.is_cube()
                 }
                 ButtonFace::Wall => {
                     let parent_block =
-                        plot.get_block(pos.offset(button.facing.opposite().block_face()));
+                        world.get_block(pos.offset(button.facing.opposite().block_face()));
                     parent_block.is_cube()
                 }
             },
@@ -1083,68 +1084,68 @@ impl Block {
         }
     }
 
-    fn change(self, plot: &mut Plot, pos: BlockPos, direction: BlockFace) {
-        if !self.is_valid_position(plot, pos) {
-            self.destroy(plot, pos);
+    fn change(self, world: &mut dyn World, pos: BlockPos, direction: BlockFace) {
+        if !self.is_valid_position(world, pos) {
+            self.destroy(world, pos);
             return;
         }
         match self {
             Block::RedstoneWire(wire) => {
-                let new_state = wire.on_neighbor_changed(plot, pos, direction);
-                if plot.set_block(pos, Block::RedstoneWire(new_state)) {
-                    Block::update_wire_neighbors(plot, pos);
+                let new_state = wire.on_neighbor_changed(world, pos, direction);
+                if world.set_block(pos, Block::RedstoneWire(new_state)) {
+                    Block::update_wire_neighbors(world, pos);
                 }
             }
             _ => {}
         }
     }
 
-    fn update_wire_neighbors(plot: &mut Plot, pos: BlockPos) {
+    fn update_wire_neighbors(world: &mut dyn World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
-            let block = plot.get_block(neighbor_pos);
-            block.update(plot, neighbor_pos);
+            let block = world.get_block(neighbor_pos);
+            block.update(world, neighbor_pos);
             for n_direction in &BlockFace::values() {
                 let n_neighbor_pos = neighbor_pos.offset(*n_direction);
-                let block = plot.get_block(n_neighbor_pos);
-                block.update(plot, n_neighbor_pos);
+                let block = world.get_block(n_neighbor_pos);
+                block.update(world, n_neighbor_pos);
             }
         }
     }
 
-    fn update_surrounding_blocks(plot: &mut Plot, pos: BlockPos) {
+    fn update_surrounding_blocks(world: &mut dyn World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
-            let block = plot.get_block(neighbor_pos);
-            block.update(plot, neighbor_pos);
+            let block = world.get_block(neighbor_pos);
+            block.update(world, neighbor_pos);
 
             // Also update diagonal blocks
 
             let up_pos = neighbor_pos.offset(BlockFace::Top);
-            let up_block = plot.get_block(up_pos);
-            up_block.update(plot, up_pos);
+            let up_block = world.get_block(up_pos);
+            up_block.update(world, up_pos);
 
             let down_pos = neighbor_pos.offset(BlockFace::Bottom);
-            let down_block = plot.get_block(down_pos);
-            down_block.update(plot, down_pos);
+            let down_block = world.get_block(down_pos);
+            down_block.update(world, down_pos);
         }
     }
 
-    fn change_surrounding_blocks(plot: &mut Plot, pos: BlockPos) {
+    fn change_surrounding_blocks(world: &mut dyn World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
-            let block = plot.get_block(neighbor_pos);
-            block.change(plot, neighbor_pos, *direction);
+            let block = world.get_block(neighbor_pos);
+            block.change(world, neighbor_pos, *direction);
 
             // Also change diagonal blocks
 
             let up_pos = neighbor_pos.offset(BlockFace::Top);
-            let up_block = plot.get_block(up_pos);
-            up_block.change(plot, up_pos, *direction);
+            let up_block = world.get_block(up_pos);
+            up_block.change(world, up_pos, *direction);
 
             let down_pos = neighbor_pos.offset(BlockFace::Bottom);
-            let down_block = plot.get_block(down_pos);
-            down_block.change(plot, down_pos, *direction);
+            let down_block = world.get_block(down_pos);
+            down_block.change(world, down_pos, *direction);
         }
     }
 

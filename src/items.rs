@@ -1,5 +1,6 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
+use crate::world::World;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ActionResult {
@@ -18,6 +19,7 @@ pub struct UseOnBlockContext {
     pub block_face: BlockFace,
     pub player_crouching: bool,
     pub player_direction: BlockDirection,
+    /// The index of the player in the plot's player array
     pub player_idx: usize,
 }
 
@@ -61,7 +63,7 @@ impl ItemStack {
         if let Item::BlockItem(item_id) = self.item_type {
             if plot.get_block(block_pos).can_place_block_in() {
                 let block = Block::get_state_for_placement(plot, block_pos, item_id, &context);
-                block.place_in_plot(plot, block_pos, &self.nbt);
+                block.place_in_world(plot, block_pos, &self.nbt);
             }
         } else {
             // This is to make sure the client doesn't place a block
@@ -78,9 +80,10 @@ impl ItemStack {
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Item {
-    /// BlockItem represents an item that can be placed down. The u32 is the id of the item,
-    /// it is NOT a block state id.
+    /// Represents an item that can be placed down. It contains the id of the item,
+    /// NOT the block state id.
     BlockItem(u32),
+    /// This is hardcoded to be the wooden axe.
     WEWand,
     Snowball,
     TotemOfUndying,

@@ -1,7 +1,8 @@
-use super::storage::PalettedBitBuffer;
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::network::packets::clientbound::*;
+use crate::world::storage::PalettedBitBuffer;
+use crate::world::World;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
@@ -286,8 +287,7 @@ impl Plot {
     fn worldedit_send_operation(&mut self, operation: WorldEditOperation) {
         for packet in operation.records {
             // if packet.records.len() >= 8192 {
-            let chunk_index = self.get_chunk_index_for_chunk(packet.chunk_x, packet.chunk_z);
-            let chunk = &self.chunks[chunk_index];
+            let chunk = self.get_chunk(packet.chunk_x, packet.chunk_z).unwrap();
             let chunk_data = chunk.encode_packet(false);
             for player in &mut self.players {
                 player.client.send_packet(&chunk_data);
@@ -500,10 +500,11 @@ impl Plot {
             (offset_z - (self.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (self.z << 8)) >> 4;
         for chunk_x in chunk_x_range {
             for chunk_z in chunk_z_range.clone() {
-                let chunk = &self.chunks[((chunk_x << 4) + chunk_z) as usize];
-                let chunk_data = chunk.encode_packet(false);
-                for player in &mut self.players {
-                    player.client.send_packet(&chunk_data);
+                if let Some(chunk) = self.get_chunk(chunk_x, chunk_z) {
+                    let chunk_data = chunk.encode_packet(false);
+                    for player in &mut self.players {
+                        player.client.send_packet(&chunk_data);
+                    }
                 }
             }
         }

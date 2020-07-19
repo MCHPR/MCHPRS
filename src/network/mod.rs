@@ -6,6 +6,7 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::mpsc;
 use std::thread;
 
+/// The minecraft protocol has these 4 different states.
 #[derive(PartialEq, Clone)]
 pub enum NetworkState {
     Handshake,
@@ -14,9 +15,10 @@ pub enum NetworkState {
     Play,
 }
 
-/// This struct represents a TCP Client
+/// This handles the TCP stream.
 pub struct NetworkClient {
-    /// All NetworkClients are identified by this id
+    /// All NetworkClients are identified by this id.
+    /// If the client is a player, the player's entitiy id becomes the same.
     pub id: u32,
     reader: BufReader<TcpStream>,
     stream: TcpStream,

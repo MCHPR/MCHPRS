@@ -5,11 +5,13 @@ use crate::network::packets::clientbound::{
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
+use crate::world::World;
 use log::info;
 
 use std::time::{Duration, Instant};
 
 impl Plot {
+    /// Handles a command that starts with `/plot` or `/p`
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
@@ -183,12 +185,12 @@ impl Plot {
                         .send_error_message("The rtps cannot go higher than 35000!");
                     return false;
                 }
-                self.lag_time = Duration::from_millis(0);
-                if tps > 0 {
+                if tps > 10 {
                     self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
                 } else {
                     self.sleep_time = Duration::from_millis(2);
                 }
+                self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
@@ -302,7 +304,10 @@ bitflags! {
 }
 
 lazy_static! {
-    // In the future I plan on creating a DSL for this purpose
+    // In the future a DSL or some type of generation would be much better.
+    // For more information, see https://wiki.vg/Command_Data
+    /// The DeclareCommands packet that is sent when the player joins.
+    /// This is used for command autocomplete.
     pub static ref DECLARE_COMMANDS: PacketEncoder = C12DeclareCommands {
         nodes: vec![
             // 0: Root Node

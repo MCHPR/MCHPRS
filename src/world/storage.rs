@@ -1,18 +1,9 @@
-use super::TickEntry;
 use crate::blocks::{BlockEntity, BlockPos};
 use crate::network::packets::clientbound::{C22ChunkData, C22ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::mem;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct PlotData {
-    pub tps: u32,
-    pub show_redstone: bool,
-    pub chunk_data: Vec<ChunkData>,
-    pub pending_ticks: Vec<TickEntry>,
-}
 
 #[derive(Debug, Clone)]
 struct BitBuffer {
