@@ -175,6 +175,13 @@ impl Plot {
                 self.worldedit_load(player, &args[0])
             }
             "//undo" => self.worldedit_undo(player),
+            "//sel" => {
+                self.players[player].first_position = None;
+                self.players[player].second_position = None;
+                self.players[player].send_worldedit_message(
+                    "Selection cleared.",
+                );
+            }
             "/rtps" => {
                 if args.is_empty() {
                     self.players[player]
@@ -611,6 +618,14 @@ lazy_static! {
                 children: vec![],
                 redirect_node: None,
                 name: Some("/undo"),
+                parser: None,
+            },
+            // 37: //sel
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("/sel"),
                 parser: None,
             },
         ],
