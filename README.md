@@ -42,6 +42,9 @@ rusqlite = {version="0.23.1", features=["bundled"]}
 | `//replace [oldblock] [newblock]` | None | Replaces all of the `[oldblock]` in your selection with `[newblock]`. |
 | `//copy` | `//c` | Copies your selection into your clipboard. |
 | `//paste` | `//p` | Pastes your clipboard into the world. |
+| `//undo` | None | Undos the last operation. |
+| `//sel` | None | Clears your worldedit first and second positions. |
+| `//stack` | None | Stacks your selection in the direction you are facing. |
 | `//count [block]` | None | Counts all `[block]` in your selection. |
 | `//load` | None | Loads a schematic from the `./schems/` folder. Make sure the schematic in the Sponge format if there are any issues. |
 
