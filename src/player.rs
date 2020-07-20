@@ -2,7 +2,7 @@ use crate::blocks::{BlockDirection, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
-use crate::plot::worldedit::WorldEditClipboard;
+use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -85,7 +85,8 @@ pub struct Player {
     /// The worldedit current clipboard.
     pub worldedit_clipboard: Option<WorldEditClipboard>,
     /// The saved sections used for worldedit //undo
-    pub worldedit_undo: Vec<(BlockPos, WorldEditClipboard)>,
+    /// Each entry stores the plot coords and the clipboard
+    pub worldedit_undo: Vec<WorldEditUndo>,
 }
 
 impl fmt::Debug for Player {

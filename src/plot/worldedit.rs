@@ -37,6 +37,14 @@ pub struct WorldEditClipboard {
     pub block_entities: HashMap<BlockPos, BlockEntity>,
 }
 
+#[derive(Clone, Debug)]
+pub struct WorldEditUndo {
+    clipboard: WorldEditClipboard,
+    pos: BlockPos,
+    plot_x: i32,
+    plot_z: i32,
+}
+
 impl WorldEditClipboard {
     fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
         // I greaty dislike this
@@ -531,7 +539,13 @@ impl Plot {
     fn capture_undo(&mut self, player: usize, first_pos: BlockPos, second_pos: BlockPos) {
         let origin = first_pos.min(second_pos);
         let cb = self.create_clipboard(origin, first_pos, second_pos);
-        self.players[player].worldedit_undo.push((origin, cb));
+        let undo = WorldEditUndo {
+            clipboard: cb,
+            pos: origin,
+            plot_x: self.x,
+            plot_z: self.z,
+        };
+        self.players[player].worldedit_undo.push(undo);
     }
 
     pub(super) fn worldedit_copy(&mut self, player: usize) {
@@ -725,12 +739,11 @@ impl Plot {
             self.players[player].send_error_message("There is nothing left to undo.");
             return;
         }
-        let (undo_pos, undo_clipboard) = self.players[player].worldedit_undo.pop().unwrap();
-        if !Self::in_plot_bounds(self.x, self.z, undo_pos.x, undo_pos.z) {
+        let undo = self.players[player].worldedit_undo.pop().unwrap();
+        if undo.plot_x != self.x || undo.plot_z != self.z {
             self.players[player].send_error_message("Cannot undo outside of your current plot.");
             return;
         }
-
-        self.paste_clipboard(&undo_clipboard, undo_pos);
+        self.paste_clipboard(&undo.clipboard, undo.pos);
     }
 }
