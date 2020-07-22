@@ -1237,7 +1237,7 @@ fn repeater_id_test() {
     let original =
         Block::RedstoneRepeater(RedstoneRepeater::new(3, BlockDirection::West, true, false));
     let id = original.get_id();
-    assert_eq!(id, 4058);
+    assert_eq!(id, 4072);
     let new = Block::from_block_state(id);
     assert_eq!(new, original);
 }
@@ -1250,7 +1250,7 @@ fn comparator_id_test() {
         false,
     ));
     let id = original.get_id();
-    assert_eq!(id, 6153);
+    assert_eq!(id, 6689);
     let new = Block::from_block_state(id);
     assert_eq!(new, original);
 }
