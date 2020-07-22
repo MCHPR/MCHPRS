@@ -29,12 +29,17 @@ pub enum Message {
     /// This message is sent to the server thread when a player sends a chat message,
     /// It contains the uuid and name of the player and the raw message the player sent.
     ChatInfo(u128, String, String),
-    /// This message is sent to the server thread when a player joins the s
+    /// This message is sent to the server thread when a player joins the server.
     PlayerJoined(Player),
+    /// This message is sent to the server thread when a player leaves the server.
     PlayerLeft(u128),
+    /// This message is sent to the server thread when a player goes outside of their plot.
     PlayerLeavePlot(Player),
+    /// This message is sent to the server thread when a player runs /tp <name>.
     PlayerTeleportOther(Player, String),
+    /// This message is sent to the server thread when a plot unloads itself.
     PlotUnload(i32, i32),
+    /// This message is sent to the server thread when a player runs /stop.
     Shutdown,
 }
 
