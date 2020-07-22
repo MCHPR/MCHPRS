@@ -706,6 +706,7 @@ impl Block {
             "acacia_wall_sign" => Some(Block::WallSign(4, BlockDirection::default())),
             "dark_oak_wall_sign" => Some(Block::WallSign(5, BlockDirection::default())),
             "stone_button" => Some(Block::StoneButton(StoneButton::default())),
+            "gold_block" => Some(Block::Solid(1427)),
             "hopper" => Some(Block::Container(6729)),
             _ => None,
         }
@@ -793,15 +794,15 @@ impl Block {
     ) -> Block {
         let block = match item_id {
             // Glass
-            77 => Block::Transparent(230),
+            77 => Block::Transparent(231),
             // Sandstone
             81 => Block::Solid(246),
             // Sea Pickle
             93 => Block::SeaPickle(1),
             // Wool
-            95..=110 => Block::Solid(item_id + 1301),
+            95..=110 => Block::Solid(item_id + 1289),
             // Furnace
-            185 => Block::Container(3372),
+            185 => Block::Container(3374),
             // Lever
             189 => {
                 let lever_face = match context.block_face {
@@ -823,7 +824,7 @@ impl Block {
                 face => Block::RedstoneWallTorch(true, face.to_direction()),
             },
             // Stone Button
-            274 => {
+            304 => {
                 let button_face = match context.block_face {
                     BlockFace::Top => ButtonFace::Floor,
                     BlockFace::Bottom => ButtonFace::Ceiling,
@@ -837,7 +838,7 @@ impl Block {
                 Block::StoneButton(StoneButton::new(button_face, facing, false))
             }
             // Redstone Lamp
-            304 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(world, pos)),
+            274 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(world, pos)),
             // Redstone Block
             321 => Block::RedstoneBlock,
             // Hopper
