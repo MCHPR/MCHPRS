@@ -218,7 +218,7 @@ impl WorldEditPattern {
 }
 
 struct WorldEditOperation {
-    pub records: Vec<C10MultiBlockChange>,
+    pub records: Vec<C0FMultiBlockChange>,
     x_range: RangeInclusive<i32>,
     y_range: RangeInclusive<u32>,
     z_range: RangeInclusive<i32>,
@@ -229,11 +229,11 @@ impl WorldEditOperation {
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
 
-        let mut records: Vec<C10MultiBlockChange> = Vec::new();
+        let mut records: Vec<C0FMultiBlockChange> = Vec::new();
 
         for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
             for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
-                records.push(C10MultiBlockChange {
+                records.push(C0FMultiBlockChange {
                     chunk_x,
                     chunk_z,
                     records: Vec::new(),
@@ -261,7 +261,7 @@ impl WorldEditOperation {
             .iter_mut()
             .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z)
         {
-            packet.records.push(C10MultiBlockChangeRecord {
+            packet.records.push(C0FMultiBlockChangeRecord {
                 x: (block_pos.x >> 4) as i8,
                 y: (block_pos.y >> 4) as u8,
                 z: (block_pos.z >> 4) as i8,

@@ -1,5 +1,5 @@
 use crate::blocks::{BlockEntity, BlockPos};
-use crate::network::packets::clientbound::{C22ChunkData, C22ChunkDataSection, ClientBoundPacket};
+use crate::network::packets::clientbound::{C21ChunkData, C21ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -8,18 +8,22 @@ use std::mem;
 #[derive(Debug, Clone)]
 struct BitBuffer {
     bits_per_entry: u8,
+    entries_per_long: u8,
     entries: usize,
     longs: Vec<u64>,
 }
 
 impl BitBuffer {
     fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
-        let longs_len = (entries * bits_per_entry as usize + 63) / 64;
+        let entries_per_long = 64 / bits_per_entry;
+        // Rounding up div
+        let longs_len = (entries + entries_per_long as usize - 1) / entries_per_long as usize;
         let longs = vec![0; longs_len];
         BitBuffer {
             bits_per_entry,
             longs,
             entries,
+            entries_per_long
         }
     }
 
@@ -29,40 +33,27 @@ impl BitBuffer {
             bits_per_entry,
             longs,
             entries,
+            entries_per_long: 64 / bits_per_entry,
         }
     }
 
     fn get_entry(&self, word_idx: usize) -> u32 {
         // Find the set of indices.
-        let abs_idx = word_idx * self.bits_per_entry as usize;
-        let arr_idx = abs_idx >> 6;
-        let sub_idx = abs_idx & 0x3f;
-        // Find (at least) the lower half of the word, if not the full thing.
+        let arr_idx = word_idx / self.entries_per_long as usize;
+        let sub_idx = (word_idx as u64 % self.entries_per_long as u64) * self.bits_per_entry as u64;
+        // Find the word.
         let mask = (1 << self.bits_per_entry) - 1;
         let word = (self.longs[arr_idx] >> sub_idx) & mask;
-        // If it's not on a boundary, we can early exit; there's no top half to fill in.
-        if sub_idx + self.bits_per_entry as usize <= 64 {
-            return word as u32;
-        }
-        // Otherwise, we need to get a little tricky.
-        let bits_we_have = 64 - sub_idx;
-        let next = self.longs[arr_idx + 1] << bits_we_have;
-        ((word | next) & mask) as u32
+        word as u32
     }
 
-    fn set_entry(&mut self, index: usize, val: u32) {
-        let long_index = (self.bits_per_entry as usize * index) >> 6;
-        let index_in_long = (self.bits_per_entry as usize * index) & 0x3F;
-        let bitmask = ((1u128 << self.bits_per_entry) - 1) << index_in_long;
-
-        self.longs[long_index] = (self.longs[long_index] & !(bitmask as u64)) // Remove old value
-            | ((val as u128) << index_in_long as u128) as u64; // Insert new value, TODO: use a better way than `as u128`
-
-        // Check if the value overlaps into the next long
-        if index_in_long + self.bits_per_entry as usize > 64 {
-            self.longs[long_index + 1] = (self.longs[long_index + 1] & !(bitmask >> 64) as u64) // Remove old value
-                | (val >> (64 - index_in_long)) as u64; // Insert new value
-        }
+    fn set_entry(&mut self, word_idx: usize, word: u32) {
+        // Find the set of indices.
+        let arr_idx = word_idx / self.entries_per_long as usize;
+        let sub_idx = (word_idx as u64 % self.entries_per_long as u64) * self.bits_per_entry as u64;
+        // Set the word.
+        let mask = !(((1 << self.bits_per_entry) - 1) << sub_idx);
+        self.longs[arr_idx] = (self.longs[arr_idx] & mask) | ((word as u64) << sub_idx);
     }
 }
 
@@ -223,8 +214,8 @@ impl ChunkSection {
         }
     }
 
-    fn encode_packet(&self) -> C22ChunkDataSection {
-        C22ChunkDataSection {
+    fn encode_packet(&self) -> C21ChunkDataSection {
+        C21ChunkDataSection {
             bits_per_block: self.buffer.data.bits_per_entry,
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
@@ -290,7 +281,7 @@ impl Chunk {
                     .map(|blob| block_entities.push(blob))
             })
             .for_each(drop);
-        C22ChunkData {
+        C21ChunkData {
             // Use `bool_to_option` feature when stabalized
             // Tracking issue: https://github.com/rust-lang/rust/issues/64260
             biomes: if full_chunk {
@@ -298,6 +289,7 @@ impl Chunk {
             } else {
                 None
             },
+            ignore_old_data: true,
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,
@@ -407,9 +399,9 @@ impl Chunk {
                         || (block_x + 1) % 256 == 0
                         || (block_z + 1) % 256 == 0
                     {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 4481); // Stone Bricks
+                        chunk.set_block(rx as u32, ry as u32, rz as u32, 4495); // Stone Bricks
                     } else {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 245); // Sandstone
+                        chunk.set_block(rx as u32, ry as u32, rz as u32, 246); // Sandstone
                     }
                 }
             }

@@ -2,6 +2,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use serde::Serialize;
 use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
 
 pub mod clientbound;
@@ -314,6 +315,10 @@ pub trait PacketEncoderExt: Write {
     }
 
     fn write_nbt_blob(&mut self, blob: nbt::Blob);
+
+    fn write_nbt<T: Serialize>(&mut self, nbt: T) {
+        nbt::to_writer(self, &nbt, None);
+    }
 }
 
 impl PacketEncoderExt for Vec<u8> {

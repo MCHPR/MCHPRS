@@ -43,25 +43,25 @@ impl Plot {
             0x03 => return Ok(self.handle_chat_message(player, S03ChatMessage::decode(packet)?)),
             0x05 => self.handle_client_settings(player, S05ClientSettings::decode(packet)?),
             0x0B => self.handle_plugin_message(player, S0BPluginMessage::decode(packet)?),
-            0x0F => self.players[player].last_keep_alive_received = Instant::now(), // Keep Alive
-            0x11 => self.handle_player_position(player, S11PlayerPosition::decode(packet)?),
-            0x12 => self.handle_player_position_and_rotation(
+            0x10 => self.players[player].last_keep_alive_received = Instant::now(), // Keep Alive
+            0x12 => self.handle_player_position(player, S12PlayerPosition::decode(packet)?),
+            0x13 => self.handle_player_position_and_rotation(
                 player,
-                S12PlayerPositionAndRotation::decode(packet)?,
+                S13PlayerPositionAndRotation::decode(packet)?,
             ),
-            0x13 => self.handle_player_rotation(player, S13PlayerRotation::decode(packet)?),
-            0x14 => self.handle_player_movement(player, S14PlayerMovement::decode(packet)?),
-            0x19 => self.handle_player_abilities(player, S19PlayerAbilities::decode(packet)?),
-            0x1A => self.handle_player_digging(player, S1APlayerDigging::decode(packet)?),
-            0x1B => self.handle_entity_action(player, S1BEntityAction::decode(packet)?),
-            0x23 => self.handle_held_item_change(player, S23HeldItemChange::decode(packet)?),
-            0x26 => self.handle_creative_inventory_action(
+            0x14 => self.handle_player_rotation(player, S14PlayerRotation::decode(packet)?),
+            0x15 => self.handle_player_movement(player, S15PlayerMovement::decode(packet)?),
+            0x1A => self.handle_player_abilities(player, S1APlayerAbilities::decode(packet)?),
+            0x1B => self.handle_player_digging(player, S1BPlayerDigging::decode(packet)?),
+            0x1C => self.handle_entity_action(player, S1CEntityAction::decode(packet)?),
+            0x24 => self.handle_held_item_change(player, S24HeldItemChange::decode(packet)?),
+            0x27 => self.handle_creative_inventory_action(
                 player,
-                S26CreativeInventoryAction::decode(packet)?,
+                S27CreativeInventoryAction::decode(packet)?,
             ),
-            0x2A => self.handle_animation(player, S2AAnimation::decode(packet)?),
-            0x2C => {
-                self.handle_player_block_placement(player, S2CPlayerBlockPlacemnt::decode(packet)?)
+            0x2B => self.handle_animation(player, S2BAnimation::decode(packet)?),
+            0x2D => {
+                self.handle_player_block_placement(player, S2DPlayerBlockPlacemnt::decode(packet)?)
             }
             id => {
                 debug!("Unhandled packet: {:02X}", id);
@@ -73,7 +73,7 @@ impl Plot {
     fn handle_creative_inventory_action(
         &mut self,
         player: usize,
-        creative_inventory_action: S26CreativeInventoryAction,
+        creative_inventory_action: S27CreativeInventoryAction,
     ) {
         if let Some(slot_data) = creative_inventory_action.clicked_item {
             if creative_inventory_action.slot < 0 || creative_inventory_action.slot >= 46 {
@@ -89,14 +89,17 @@ impl Plot {
             if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
                 let entity_equipment = C47EntityEquipment {
                     entity_id: self.players[player].entity_id as i32,
-                    slot: 0, // Main hand
-                    item: self.players[player].inventory[creative_inventory_action.slot as usize]
-                        .as_ref()
-                        .map(|item| SlotData {
-                            item_count: item.count as i8,
-                            item_id: item.item_type.get_id() as i32,
-                            nbt: item.nbt.clone(),
-                        }),
+                    equipment: vec![C47EntityEquipmentEquipment {
+                        slot: 0, // Main hand
+                        item: self.players[player].inventory
+                            [creative_inventory_action.slot as usize]
+                            .as_ref()
+                            .map(|item| SlotData {
+                                item_count: item.count as i8,
+                                item_id: item.item_type.get_id() as i32,
+                                nbt: item.nbt.clone(),
+                            }),
+                    }],
                 }
                 .encode();
                 for other_player in 0..self.players.len() {
@@ -113,19 +116,17 @@ impl Plot {
         }
     }
 
-    fn handle_player_abilities(&mut self, player: usize, player_abilities: S19PlayerAbilities) {
-        self.players[player].flying = player_abilities
-            .flags
-            .contains(S19PlayerAbilitiesFlags::IS_FLYING);
+    fn handle_player_abilities(&mut self, player: usize, player_abilities: S1APlayerAbilities) {
+        self.players[player].flying = player_abilities.is_flying;
     }
 
-    fn handle_animation(&mut self, player: usize, animation: S2AAnimation) {
+    fn handle_animation(&mut self, player: usize, animation: S2BAnimation) {
         let animation_id = match animation.hand {
             0 => 0,
             1 => 3,
             _ => 0,
         };
-        let entity_animation = C06EntityAnimation {
+        let entity_animation = C05EntityAnimation {
             entity_id: self.players[player].entity_id as i32,
             animation: animation_id,
         }
@@ -143,7 +144,7 @@ impl Plot {
     fn handle_player_block_placement(
         &mut self,
         player: usize,
-        player_block_placement: S2CPlayerBlockPlacemnt,
+        player_block_placement: S2DPlayerBlockPlacemnt,
     ) {
         let block_face = BlockFace::from_id(player_block_placement.face as u32);
 
@@ -194,7 +195,8 @@ impl Plot {
             self.handle_command(player, command, args)
         } else {
             let player = &self.players[player];
-            let broadcast_message = Message::ChatInfo(player.username.to_owned(), message);
+            let broadcast_message =
+                Message::ChatInfo(player.uuid, player.username.to_owned(), message);
             self.message_sender.send(broadcast_message).unwrap();
             false
         }
@@ -226,7 +228,7 @@ impl Plot {
         );
     }
 
-    fn handle_player_position(&mut self, player: usize, player_position: S11PlayerPosition) {
+    fn handle_player_position(&mut self, player: usize, player_position: S12PlayerPosition) {
         let old_x = self.players[player].x;
         let old_y = self.players[player].y;
         let old_z = self.players[player].z;
@@ -241,7 +243,7 @@ impl Plot {
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
         {
-            C57EntityTeleport {
+            C56EntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
                 x: new_x,
                 y: new_y,
@@ -255,7 +257,7 @@ impl Plot {
             let delta_x = ((player_position.x * 32.0 - old_x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            C29EntityPosition {
+            C28EntityPosition {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -275,7 +277,7 @@ impl Plot {
     fn handle_player_position_and_rotation(
         &mut self,
         player: usize,
-        player_position_and_rotation: S12PlayerPositionAndRotation,
+        player_position_and_rotation: S13PlayerPositionAndRotation,
     ) {
         // This is beautiful
         let old_x = self.players[player].x;
@@ -294,7 +296,7 @@ impl Plot {
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
         {
-            C57EntityTeleport {
+            C56EntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
                 x: new_x,
                 y: new_y,
@@ -308,7 +310,7 @@ impl Plot {
             let delta_x = ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            C2AEntityPositionAndRotation {
+            C29EntityPositionAndRotation {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -319,7 +321,7 @@ impl Plot {
             }
             .encode()
         };
-        let entity_head_look = C3CEntityHeadLook {
+        let entity_head_look = C3BEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_position_and_rotation.yaw,
         }
@@ -335,18 +337,18 @@ impl Plot {
         }
     }
 
-    fn handle_player_rotation(&mut self, player: usize, player_rotation: S13PlayerRotation) {
+    fn handle_player_rotation(&mut self, player: usize, player_rotation: S14PlayerRotation) {
         self.players[player].yaw = player_rotation.yaw;
         self.players[player].pitch = player_rotation.pitch;
         self.players[player].on_ground = player_rotation.on_ground;
-        let rotation_packet = C2BEntityRotation {
+        let rotation_packet = C2AEntityRotation {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
             pitch: player_rotation.pitch,
             on_ground: player_rotation.on_ground,
         }
         .encode();
-        let entity_head_look = C3CEntityHeadLook {
+        let entity_head_look = C3BEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
         }
@@ -364,9 +366,9 @@ impl Plot {
         }
     }
 
-    fn handle_player_movement(&mut self, player: usize, player_movement: S14PlayerMovement) {
+    fn handle_player_movement(&mut self, player: usize, player_movement: S15PlayerMovement) {
         self.players[player].on_ground = player_movement.on_ground;
-        let packet = C2CEntityMovement {
+        let packet = C2BEntityMovement {
             entity_id: self.players[player].entity_id as i32,
         }
         .encode();
@@ -378,7 +380,7 @@ impl Plot {
         }
     }
 
-    fn handle_player_digging(&mut self, player: usize, player_digging: S1APlayerDigging) {
+    fn handle_player_digging(&mut self, player: usize, player_digging: S1BPlayerDigging) {
         if player_digging.status == 0 {
             let block_pos =
                 BlockPos::new(player_digging.x, player_digging.y as u32, player_digging.z);
@@ -413,7 +415,7 @@ impl Plot {
             let other_block = self.get_block(block_pos);
             other_block.destroy(self, block_pos);
 
-            let effect = C23Effect {
+            let effect = C22Effect {
                 effect_id: 2001,
                 x: player_digging.x,
                 y: player_digging.y,
@@ -445,7 +447,7 @@ impl Plot {
         }
     }
 
-    fn handle_entity_action(&mut self, player: usize, entity_action: S1BEntityAction) {
+    fn handle_entity_action(&mut self, player: usize, entity_action: S1CEntityAction) {
         match entity_action.action_id {
             0 => self.players[player].crouching = true,
             1 => self.players[player].crouching = false,
@@ -486,17 +488,19 @@ impl Plot {
         }
     }
 
-    fn handle_held_item_change(&mut self, player: usize, held_item_change: S23HeldItemChange) {
+    fn handle_held_item_change(&mut self, player: usize, held_item_change: S24HeldItemChange) {
         let entity_equipment = C47EntityEquipment {
             entity_id: self.players[player].entity_id as i32,
-            slot: 0, // Main hand
-            item: self.players[player].inventory[held_item_change.slot as usize + 36]
-                .as_ref()
-                .map(|item| SlotData {
-                    item_count: item.count as i8,
-                    item_id: item.item_type.get_id() as i32,
-                    nbt: item.nbt.clone(),
-                }),
+            equipment: vec![C47EntityEquipmentEquipment {
+                slot: 0, // Main hand
+                item: self.players[player].inventory[held_item_change.slot as usize + 36]
+                    .as_ref()
+                    .map(|item| SlotData {
+                        item_count: item.count as i8,
+                        item_id: item.item_type.get_id() as i32,
+                        nbt: item.nbt.clone(),
+                    }),
+            }],
         }
         .encode();
         for other_player in 0..self.players.len() {

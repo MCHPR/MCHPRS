@@ -248,7 +248,8 @@ impl Player {
     /// Manages keep alives and packet reading. Return true if the view position should be updated.
     pub fn update(&mut self) -> bool {
         if self.last_keep_alive_received.elapsed().as_secs() > 30 {
-            self.kick("Timed out".to_string());
+            self.kick(json!({ "text": "Timed out." })
+            .to_string());
         }
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
@@ -264,7 +265,7 @@ impl Player {
 
     /// Sends the keep alive packet to the client and updates `last_keep_alive_sent`
     pub fn send_keep_alive(&mut self) {
-        let keep_alive = C21KeepAlive {
+        let keep_alive = C20KeepAlive {
             id: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
@@ -286,7 +287,7 @@ impl Player {
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
-        let player_position_and_look = C36PlayerPositionAndLook {
+        let player_position_and_look = C35PlayerPositionAndLook {
             x,
             y,
             z,
@@ -304,9 +305,10 @@ impl Player {
 
     /// Sends the ChatMessage packet containing the raw json data.
     /// Position 0: chat (chat box)
-    pub fn send_raw_chat(&mut self, message: String) {
-        let chat_message = C0FChatMessage {
+    pub fn send_raw_chat(&mut self, sender: u128, message: String) {
+        let chat_message = C0EChatMessage {
             message,
+            sender,
             position: 0,
         }
         .encode();
@@ -316,8 +318,9 @@ impl Player {
     /// Sends the ChatMessage packet containing the raw json data.
     /// Position 1: system message (chat box)
     pub fn send_raw_system_message(&mut self, message: String) {
-        let chat_message = C0FChatMessage {
+        let chat_message = C0EChatMessage {
             message,
+            sender: 0,
             position: 1,
         }
         .encode();
@@ -325,8 +328,8 @@ impl Player {
     }
 
     /// Sends a regular chat message to the player (`message` is not in json format)
-    pub fn send_chat_message(&mut self, message: String) {
-        self.send_raw_chat(json!({ "text": message }).to_string());
+    pub fn send_chat_message(&mut self, sender: u128, message: String) {
+        self.send_raw_chat(sender, json!({ "text": message }).to_string());
     }
 
     /// Sends the player a yellow system message (`message` is not in json format)
@@ -374,7 +377,7 @@ impl Player {
 
     /// Sends the player the disconnect packet, it is still up to the player to end the network stream.
     pub fn kick(&mut self, reason: String) {
-        let disconnect = C1BDisconnect { reason }.encode();
+        let disconnect = C1ADisconnect { reason }.encode();
         self.client.send_packet(&disconnect);
     }
 }

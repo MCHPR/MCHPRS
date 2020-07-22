@@ -1,7 +1,8 @@
 use crate::network::packets::clientbound::{
-    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C15WindowItems,
-    C19PluginMessageBrand, C26JoinGame, C34PlayerInfo, C34PlayerInfoAddPlayer,
-    C36PlayerPositionAndLook, C40HeldItemChange, C4FTimeUpdate, ClientBoundPacket,
+    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C14WindowItems,
+    C18PluginMessageBrand, C25JoinGame, C25JoinGameDimensionCodec,
+    C25JoinGameDimensionCodecDimension, C33PlayerInfo, C33PlayerInfoAddPlayer,
+    C35PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
@@ -26,8 +27,8 @@ use toml::Value;
 #[derive(Debug)]
 pub enum Message {
     /// This message is sent to the server thread when a player sends a chat message,
-    /// It contains the name of the player and the raw message the player sent.
-    ChatInfo(String, String),
+    /// It contains the uuid and name of the player and the raw message the player sent.
+    ChatInfo(u128, String, String),
     /// This message is sent to the server thread when a player joins the s
     PlayerJoined(Player),
     PlayerLeft(u128),
@@ -42,9 +43,9 @@ pub enum Message {
 /// shuts down.
 #[derive(Debug, Clone)]
 pub enum BroadcastMessage {
-    /// This message is broadcasted for chat messages. It contains the raw json data to
-    /// send to the clients.
-    Chat(String),
+    /// This message is broadcasted for chat messages. It contains the uuid of the player and
+    /// the raw json data to send to the clients.
+    Chat(u128, String),
     /// This message is broadcasted when a player joins the server. It is used to update
     /// the tab-list on all connected clients.
     PlayerJoinedInfo(PlayerJoinInfo),
@@ -355,23 +356,46 @@ impl MinecraftServer {
         clients[client_idx].state = NetworkState::Play;
         let mut client = clients.remove(client_idx);
 
-        let join_game = C26JoinGame {
+        let join_game = C25JoinGame {
             entity_id: client.id as i32,
             gamemode: 1,
-            dimention: 0,
-            hash_seed: 0,
+            previous_gamemode: 1,
+            world_count: 1,
+            world_names: vec!["minecraft:overworld".to_owned()],
+            dimention_codec: C25JoinGameDimensionCodec {
+                dimension: vec![C25JoinGameDimensionCodecDimension {
+                    name: "minecraft:overworld".to_owned(),
+                    natural: 1,
+                    ambient_light: 1.0,
+                    has_ceiling: 0,
+                    has_skylight: 1,
+                    fixed_time: 6000,
+                    shrunk: 0,
+                    ultrawarm: 0,
+                    has_raids: 0,
+                    respawn_anchor_works: 0,
+                    bed_works: 0,
+                    piglin_safe: 0,
+                    logical_height: 256,
+                    infiniburn: "".to_owned(),
+                }],
+            },
+            dimention: "minecraft:overworld".to_owned(),
+            world_name: "minecraft:overworld".to_owned(),
+            hashed_seed: 0,
             max_players: 0,
-            level_type: "flat".to_string(),
             view_distance: 8,
             reduced_debug_info: false,
             enable_respawn_screen: false,
+            is_debug: false,
+            is_flat: true,
         }
         .encode();
         client.send_packet(&join_game);
 
         // Sends the custom brand name to the player
         // (This can be seen in the f3 debug menu in-game)
-        let brand = C19PluginMessageBrand {
+        let brand = C18PluginMessageBrand {
             brand: "Minecraft High Performace Redstone".to_string(),
         }
         .encode();
@@ -380,7 +404,7 @@ impl MinecraftServer {
         let mut player = Player::load_player(uuid, username.clone(), client);
 
         // Send the player's position and rotation.
-        let player_pos_and_look = C36PlayerPositionAndLook {
+        let player_pos_and_look = C35PlayerPositionAndLook {
             x: player.x,
             y: player.y,
             z: player.z,
@@ -396,7 +420,7 @@ impl MinecraftServer {
         // (This is the list you see when you press tab in-game)
         let mut add_player_list = Vec::new();
         for player in &self.online_players {
-            add_player_list.push(C34PlayerInfoAddPlayer {
+            add_player_list.push(C33PlayerInfoAddPlayer {
                 uuid: player.uuid,
                 name: player.username.clone(),
                 display_name: None,
@@ -405,7 +429,7 @@ impl MinecraftServer {
                 properties: Vec::new(),
             });
         }
-        add_player_list.push(C34PlayerInfoAddPlayer {
+        add_player_list.push(C33PlayerInfoAddPlayer {
             uuid: player.uuid,
             name: player.username.clone(),
             display_name: None,
@@ -413,7 +437,7 @@ impl MinecraftServer {
             ping: 0,
             properties: Vec::new(),
         });
-        let player_info = C34PlayerInfo::AddPlayer(add_player_list).encode();
+        let player_info = C33PlayerInfo::AddPlayer(add_player_list).encode();
         player.client.send_packet(&player_info);
 
         // Send the player's inventory
@@ -428,7 +452,7 @@ impl MinecraftServer {
                 })
             })
             .collect();
-        let window_items = C15WindowItems {
+        let window_items = C14WindowItems {
             window_id: 0,
             slot_data,
         }
@@ -436,7 +460,7 @@ impl MinecraftServer {
         player.client.send_packet(&window_items);
 
         // Send the player's selected item slot
-        let held_item_change = C40HeldItemChange {
+        let held_item_change = C3FHeldItemChange {
             slot: player.selected_slot as i8,
         }
         .encode();
@@ -444,7 +468,7 @@ impl MinecraftServer {
 
         player.client.send_packet(&DECLARE_COMMANDS);
 
-        let time_update = C4FTimeUpdate {
+        let time_update = C4ETimeUpdate {
             world_age: 0,
             // Noon
             time_of_day: -6000,
@@ -469,11 +493,11 @@ impl MinecraftServer {
                         2 => client.state = NetworkState::Login,
                         _ => {}
                     }
-                    if client.state == NetworkState::Login && handshake.protocol_version != 578 {
+                    if client.state == NetworkState::Login && handshake.protocol_version != 736 {
                         warn!("A player tried to connect using the wrong version");
                         let disconnect = C00DisconnectLogin {
                             reason: json!({
-                                "text": "Version mismatch, I'm on 1.15.2!"
+                                "text": "Version mismatch, I'm on 1.16.1!"
                             })
                             .to_string(),
                         }
@@ -491,7 +515,7 @@ impl MinecraftServer {
                             json_response: json!({
                                 "version": {
                                     "name": "1.15.2",
-                                    "protocol": 578
+                                    "protocol": 736
                                 },
                                 "players": {
                                     "max": self.config.max_players,
@@ -551,8 +575,9 @@ impl MinecraftServer {
                     .broadcast(BroadcastMessage::PlayerLeft(uuid));
             }
             Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
-            Message::ChatInfo(username, message) => {
+            Message::ChatInfo(uuid, username, message) => {
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
+                    uuid,
                     json!({
                         "text": self.config.chat_format
                             .replace("{username}", &username)

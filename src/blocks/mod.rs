@@ -466,10 +466,10 @@ impl Block {
         match id {
             0 => Block::Air,
             // Glass
-            230 => Block::Transparent(id),
+            231 => Block::Transparent(id),
             // Redstone Wire
-            2056..=3351 => {
-                let id = id - 2056;
+            2058..=3353 => {
+                let id = id - 2058;
                 let west = RedstoneWireSide::from_id(id % 3);
                 let south = RedstoneWireSide::from_id(id % 9 / 3);
                 let power = id % 144 / 9;
@@ -478,48 +478,48 @@ impl Block {
                 Block::RedstoneWire(RedstoneWire::new(north, south, east, west, power as u8))
             }
             // Furnace
-            3372 => Block::Container(id),
+            3374 => Block::Container(id),
             // Signs
-            3380..=3570 => {
-                let id = id - 3380;
+            3381..=3571 => {
+                let id = id - 3381;
                 Block::Sign(id >> 5, (id & 0b11110) >> 1)
             }
             // Wall Signs
-            3734..=3780 => {
-                let id = id - 3734;
+            3735..=3781 => {
+                let id = id - 3735;
                 Block::WallSign(id >> 3, BlockDirection::from_id((id & 0b110) >> 1))
             }
             // Lever
-            3781..=3804 => {
-                let id = id - 3781;
+            3783..=3806 => {
+                let id = id - 3783;
                 let face = LeverFace::from_id(id >> 3);
                 let facing = BlockDirection::from_id((id >> 1) & 0b11);
                 let powered = (id & 1) == 0;
                 Block::Lever(Lever::new(face, facing, powered))
             }
             // Stone Button
-            3895..=3918 => {
-                let id = id - 3895;
+            3897..=3920 => {
+                let id = id - 3897;
                 let face = ButtonFace::from_id(id >> 3);
                 let facing = BlockDirection::from_id((id >> 1) & 0b11);
                 let powered = (id & 1) == 0;
                 Block::StoneButton(StoneButton::new(face, facing, powered))
             }
             // Stone Pressure Plate
-            3806 => Block::PressurePlate(id),
+            3808 => Block::PressurePlate(id),
             // Redstone Torch
-            3885 => Block::RedstoneTorch(true),
-            3886 => Block::RedstoneTorch(false),
+            3887 => Block::RedstoneTorch(true),
+            3888 => Block::RedstoneTorch(false),
             // Redstone Wall Torch
-            3887..=3894 => {
-                let id = id - 3887;
+            3889..=3896 => {
+                let id = id - 3889;
                 let lit = (id & 1) == 0;
                 let facing = BlockDirection::from_id(id >> 1);
                 Block::RedstoneWallTorch(lit, facing)
             }
             // Redstone Repeater
-            4017..=4080 => {
-                let id = id - 4017;
+            4031..=4084 => {
+                let id = id - 4031;
                 let powered = (id & 1) == 0;
                 let locked = ((id >> 1) & 1) == 0;
                 let facing = BlockDirection::from_id((id >> 2) & 3);
@@ -527,38 +527,38 @@ impl Block {
                 Block::RedstoneRepeater(RedstoneRepeater::new(delay, facing, locked, powered))
             }
             // Redstone Lamp
-            5140 => Block::RedstoneLamp(true),
-            5141 => Block::RedstoneLamp(false),
+            5156 => Block::RedstoneLamp(true),
+            5157 => Block::RedstoneLamp(false),
             // Tripwire Hooks
-            5252 => Block::TripwireHook(BlockDirection::North),
-            5254 => Block::TripwireHook(BlockDirection::South),
-            5256 => Block::TripwireHook(BlockDirection::West),
-            5258 => Block::TripwireHook(BlockDirection::East),
+            5268 => Block::TripwireHook(BlockDirection::North),
+            5270 => Block::TripwireHook(BlockDirection::South),
+            5272 => Block::TripwireHook(BlockDirection::West),
+            5274 => Block::TripwireHook(BlockDirection::East),
             // Redstone Comparator
-            6142..=6157 => {
-                let id = id - 6142;
+            6678..=6693 => {
+                let id = id - 6678;
                 let powered = (id & 1) == 0;
                 let mode = ComparatorMode::from_id((id >> 1) & 1);
                 let facing = BlockDirection::from_id(id >> 2);
                 Block::RedstoneComparator(RedstoneComparator::new(facing, mode, powered))
             }
-            6190 => Block::RedstoneBlock,
+            6726 => Block::RedstoneBlock,
             // Hopper
-            6198 => Block::Container(id),
+            6733 => Block::Container(id),
             // Smooth Stone Slab
-            7807 => Block::Transparent(id),
+            8343 => Block::Transparent(id),
             // Quartz Slab
-            7855 => Block::Transparent(id),
+            8391 => Block::Transparent(id),
             // Observer
-            8725..=8735 => {
-                let id = id - 8725;
+            9260..=9271 => {
+                let id = id - 9260;
                 let facing = BlockFacing::from_id(id >> 1);
                 Block::Observer(facing)
             }
             // Sea Pickles
-            9105..=9111 => Block::SeaPickle(((id - 9105) >> 1) as u8 + 1),
+            9641..=9647 => Block::SeaPickle(((id - 9641) >> 1) as u8 + 1),
             // Barrel
-            11136 => Block::Container(id),
+            14792 => Block::Container(id),
             _ => Block::Solid(id),
         }
     }
@@ -572,49 +572,49 @@ impl Block {
                     + wire.power as u32 * 9
                     + wire.south.get_id() * 3
                     + wire.west.get_id()
-                    + 2056
+                    + 2058
             }
             Block::Lever(lever) => {
                 (lever.face.get_id() << 3)
                     + (lever.facing.get_id() << 1)
                     + !lever.powered as u32
-                    + 3781
+                    + 3783
             }
             Block::StoneButton(button) => {
                 (button.face.get_id() << 3)
                     + (button.facing.get_id() << 1)
                     + !button.powered as u32
-                    + 3895
+                    + 3897
             }
-            Block::Sign(sign_type, rotation) => (sign_type << 5) + (rotation << 1) + 3380,
-            Block::RedstoneTorch(true) => 3885,
-            Block::RedstoneTorch(false) => 3886,
-            Block::RedstoneWallTorch(lit, facing) => (facing.get_id() << 1) + (!lit as u32) + 3887,
+            Block::Sign(sign_type, rotation) => (sign_type << 5) + (rotation << 1) + 3382,
+            Block::RedstoneTorch(true) => 3887,
+            Block::RedstoneTorch(false) => 3888,
+            Block::RedstoneWallTorch(lit, facing) => (facing.get_id() << 1) + (!lit as u32) + 3889,
             Block::RedstoneRepeater(repeater) => {
                 (repeater.delay as u32 - 1) * 16
                     + repeater.facing.get_id() * 4
                     + !repeater.locked as u32 * 2
                     + !repeater.powered as u32
-                    + 4017
+                    + 4031
             }
-            Block::RedstoneLamp(true) => 5140,
-            Block::RedstoneLamp(false) => 5141,
+            Block::RedstoneLamp(true) => 5156,
+            Block::RedstoneLamp(false) => 5157,
             // I might make tripwire calculate id at some point,
             // This is easier though
-            Block::TripwireHook(BlockDirection::North) => 5252,
-            Block::TripwireHook(BlockDirection::South) => 5254,
-            Block::TripwireHook(BlockDirection::West) => 5256,
-            Block::TripwireHook(BlockDirection::East) => 5258,
+            Block::TripwireHook(BlockDirection::North) => 5268,
+            Block::TripwireHook(BlockDirection::South) => 5270,
+            Block::TripwireHook(BlockDirection::West) => 5272,
+            Block::TripwireHook(BlockDirection::East) => 5274,
             Block::RedstoneComparator(comparator) => {
                 comparator.facing.get_id() * 4
                     + comparator.mode.get_id() * 2
                     + !comparator.powered as u32
-                    + 6142
+                    + 6678
             }
-            Block::RedstoneBlock => 6190,
-            Block::Observer(facing) => (facing.get_id() << 1) + 8725,
-            Block::WallSign(sign_type, facing) => (sign_type << 3) + (facing.get_id() << 1) + 3734,
-            Block::SeaPickle(pickles) => ((pickles - 1) << 1) as u32 + 9105,
+            Block::RedstoneBlock => 6726,
+            Block::Observer(facing) => (facing.get_id() << 1) + 9261,
+            Block::WallSign(sign_type, facing) => (sign_type << 3) + (facing.get_id() << 1) + 3736,
+            Block::SeaPickle(pickles) => ((pickles - 1) << 1) as u32 + 9641,
             Block::PressurePlate(id) => id,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
@@ -625,62 +625,62 @@ impl Block {
     pub fn from_name(name: &str) -> Option<Block> {
         match name {
             "air" => Some(Block::Air),
-            "glass" => Some(Block::Transparent(230)),
-            "quartz_slab" => Some(Block::Transparent(7855)),
-            "smooth_stone_slab" => Some(Block::Transparent(7807)),
-            "quartz_block" => Some(Block::Solid(6202)),
-            "sandstone" => Some(Block::Solid(245)),
-            "stone_pressure_plate" => Some(Block::PressurePlate(3806)),
-            "white_wool" => Some(Block::Solid(1383)),
-            "orange_wool" => Some(Block::Solid(1384)),
-            "megenta_wool" => Some(Block::Solid(1385)),
-            "light_blue_wool" => Some(Block::Solid(1386)),
-            "yellow_wool" => Some(Block::Solid(1387)),
-            "lime_wool" => Some(Block::Solid(1388)),
-            "pink_wool" => Some(Block::Solid(1389)),
-            "gray_wool" => Some(Block::Solid(1390)),
-            "light_gray_wool" => Some(Block::Solid(1391)),
-            "cyan_wool" => Some(Block::Solid(1392)),
-            "purple_wool" => Some(Block::Solid(1393)),
-            "blue_wool" => Some(Block::Solid(1394)),
-            "brown_wool" => Some(Block::Solid(1395)),
-            "green_wool" => Some(Block::Solid(1396)),
-            "red_wool" => Some(Block::Solid(1397)),
-            "black_wool" => Some(Block::Solid(1398)),
-            "iron_block" => Some(Block::Solid(1427)),
-            "stone_bricks" => Some(Block::Solid(4481)),
-            "white_terracotta" => Some(Block::Solid(6311)),
-            "orange_terracotta" => Some(Block::Solid(6312)),
-            "megenta_terracotta" => Some(Block::Solid(6313)),
-            "light_blue_terracotta" => Some(Block::Solid(6314)),
-            "yellow_terracotta" => Some(Block::Solid(6315)),
-            "lime_terracotta" => Some(Block::Solid(6316)),
-            "pink_terracotta" => Some(Block::Solid(6317)),
-            "gray_terracotta" => Some(Block::Solid(6318)),
-            "light_gray_terracotta" => Some(Block::Solid(6319)),
-            "cyan_terracotta" => Some(Block::Solid(6320)),
-            "purple_terracotta" => Some(Block::Solid(6321)),
-            "blue_terracotta" => Some(Block::Solid(6322)),
-            "brown_terracotta" => Some(Block::Solid(6323)),
-            "green_terracotta" => Some(Block::Solid(6324)),
-            "red_terracotta" => Some(Block::Solid(6325)),
-            "black_terracotta" => Some(Block::Solid(6326)),
-            "white_concrete" => Some(Block::Solid(8902)),
-            "orange_concrete" => Some(Block::Solid(8903)),
-            "megenta_concrete" => Some(Block::Solid(8904)),
-            "light_blue_concrete" => Some(Block::Solid(8905)),
-            "yellow_concrete" => Some(Block::Solid(8906)),
-            "lime_concrete" => Some(Block::Solid(8907)),
-            "pink_concrete" => Some(Block::Solid(8908)),
-            "gray_concrete" => Some(Block::Solid(8909)),
-            "light_gray_concrete" => Some(Block::Solid(8910)),
-            "cyan_concrete" => Some(Block::Solid(8911)),
-            "purple_concrete" => Some(Block::Solid(8912)),
-            "blue_concrete" => Some(Block::Solid(8913)),
-            "brown_concrete" => Some(Block::Solid(8914)),
-            "green_concrete" => Some(Block::Solid(8915)),
-            "red_concrete" => Some(Block::Solid(8916)),
-            "black_concrete" => Some(Block::Solid(8917)),
+            "glass" => Some(Block::Transparent(231)),
+            "quartz_slab" => Some(Block::Transparent(8391)),
+            "smooth_stone_slab" => Some(Block::Transparent(8343)),
+            "quartz_block" => Some(Block::Solid(6738)),
+            "sandstone" => Some(Block::Solid(246)),
+            "stone_pressure_plate" => Some(Block::PressurePlate(3808)),
+            "white_wool" => Some(Block::Solid(1384)),
+            "orange_wool" => Some(Block::Solid(1385)),
+            "megenta_wool" => Some(Block::Solid(1386)),
+            "light_blue_wool" => Some(Block::Solid(1387)),
+            "yellow_wool" => Some(Block::Solid(1388)),
+            "lime_wool" => Some(Block::Solid(1389)),
+            "pink_wool" => Some(Block::Solid(1390)),
+            "gray_wool" => Some(Block::Solid(1391)),
+            "light_gray_wool" => Some(Block::Solid(1392)),
+            "cyan_wool" => Some(Block::Solid(1393)),
+            "purple_wool" => Some(Block::Solid(1394)),
+            "blue_wool" => Some(Block::Solid(1395)),
+            "brown_wool" => Some(Block::Solid(1396)),
+            "green_wool" => Some(Block::Solid(1397)),
+            "red_wool" => Some(Block::Solid(1398)),
+            "black_wool" => Some(Block::Solid(1399)),
+            "iron_block" => Some(Block::Solid(1428)),
+            "stone_bricks" => Some(Block::Solid(4495)),
+            "white_terracotta" => Some(Block::Solid(6847)),
+            "orange_terracotta" => Some(Block::Solid(6848)),
+            "megenta_terracotta" => Some(Block::Solid(6849)),
+            "light_blue_terracotta" => Some(Block::Solid(6850)),
+            "yellow_terracotta" => Some(Block::Solid(6851)),
+            "lime_terracotta" => Some(Block::Solid(6852)),
+            "pink_terracotta" => Some(Block::Solid(6853)),
+            "gray_terracotta" => Some(Block::Solid(6854)),
+            "light_gray_terracotta" => Some(Block::Solid(6855)),
+            "cyan_terracotta" => Some(Block::Solid(6856)),
+            "purple_terracotta" => Some(Block::Solid(6857)),
+            "blue_terracotta" => Some(Block::Solid(6858)),
+            "brown_terracotta" => Some(Block::Solid(6859)),
+            "green_terracotta" => Some(Block::Solid(6860)),
+            "red_terracotta" => Some(Block::Solid(6861)),
+            "black_terracotta" => Some(Block::Solid(6862)),
+            "white_concrete" => Some(Block::Solid(9438)),
+            "orange_concrete" => Some(Block::Solid(9439)),
+            "megenta_concrete" => Some(Block::Solid(9440)),
+            "light_blue_concrete" => Some(Block::Solid(9441)),
+            "yellow_concrete" => Some(Block::Solid(9442)),
+            "lime_concrete" => Some(Block::Solid(9443)),
+            "pink_concrete" => Some(Block::Solid(9444)),
+            "gray_concrete" => Some(Block::Solid(9445)),
+            "light_gray_concrete" => Some(Block::Solid(9446)),
+            "cyan_concrete" => Some(Block::Solid(9447)),
+            "purple_concrete" => Some(Block::Solid(9448)),
+            "blue_concrete" => Some(Block::Solid(9449)),
+            "brown_concrete" => Some(Block::Solid(9450)),
+            "green_concrete" => Some(Block::Solid(9451)),
+            "red_concrete" => Some(Block::Solid(9452)),
+            "black_concrete" => Some(Block::Solid(9453)),
             "redstone_wire" => Some(Block::RedstoneWire(RedstoneWire::default())),
             "redstone_torch" => Some(Block::RedstoneTorch(true)),
             "redstone_wall_torch" => Some(Block::RedstoneWallTorch(true, BlockDirection::West)),
@@ -688,8 +688,8 @@ impl Block {
             "redstone_lamp" => Some(Block::RedstoneLamp(false)),
             "repeater" => Some(Block::RedstoneRepeater(RedstoneRepeater::default())),
             "comparator" => Some(Block::RedstoneComparator(RedstoneComparator::default())),
-            "furnace" => Some(Block::Container(3372)),
-            "barrel" => Some(Block::Container(11136)),
+            "furnace" => Some(Block::Container(3374)),
+            "barrel" => Some(Block::Container(14792)),
             "lever" => Some(Block::Lever(Lever::default())),
             "tripwire_hook" => Some(Block::TripwireHook(BlockDirection::default())),
             "observer" => Some(Block::Observer(BlockFacing::default())),
@@ -706,7 +706,7 @@ impl Block {
             "acacia_wall_sign" => Some(Block::WallSign(4, BlockDirection::default())),
             "dark_oak_wall_sign" => Some(Block::WallSign(5, BlockDirection::default())),
             "stone_button" => Some(Block::StoneButton(StoneButton::default())),
-            "hopper" => Some(Block::Container(6198)),
+            "hopper" => Some(Block::Container(6729)),
             _ => None,
         }
     }
@@ -793,17 +793,17 @@ impl Block {
     ) -> Block {
         let block = match item_id {
             // Glass
-            64 => Block::Transparent(230),
+            77 => Block::Transparent(230),
             // Sandstone
-            68 => Block::Solid(245),
+            81 => Block::Solid(246),
             // Sea Pickle
-            80 => Block::SeaPickle(1),
+            93 => Block::SeaPickle(1),
             // Wool
-            82..=97 => Block::Solid(item_id + 1301),
+            95..=110 => Block::Solid(item_id + 1301),
             // Furnace
-            160 => Block::Container(3372),
+            185 => Block::Container(3372),
             // Lever
-            164 => {
+            189 => {
                 let lever_face = match context.block_face {
                     BlockFace::Top => LeverFace::Floor,
                     BlockFace::Bottom => LeverFace::Ceiling,
@@ -817,13 +817,13 @@ impl Block {
                 Block::Lever(Lever::new(lever_face, facing, false))
             }
             // Redstone Torch
-            173 => match context.block_face {
+            201 => match context.block_face {
                 BlockFace::Top => Block::RedstoneTorch(true),
                 BlockFace::Bottom => Block::RedstoneTorch(true),
                 face => Block::RedstoneWallTorch(true, face.to_direction()),
             },
             // Stone Button
-            174 => {
+            274 => {
                 let button_face = match context.block_face {
                     BlockFace::Top => ButtonFace::Floor,
                     BlockFace::Bottom => ButtonFace::Ceiling,
@@ -837,31 +837,31 @@ impl Block {
                 Block::StoneButton(StoneButton::new(button_face, facing, false))
             }
             // Redstone Lamp
-            234 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(world, pos)),
+            304 => Block::RedstoneLamp(Block::redstone_lamp_should_be_lit(world, pos)),
             // Redstone Block
-            272 => Block::RedstoneBlock,
+            321 => Block::RedstoneBlock,
             // Hopper
-            274 => Block::Container(6198),
+            323 => Block::Container(6198),
             // Terracotta
-            281..=296 => Block::Solid(item_id + 6030),
+            331..=346 => Block::Solid(item_id + 6516),
             // Concrete
-            413..=428 => Block::Solid(item_id + 8489),
+            464..=479 => Block::Solid(item_id + 8974),
             // Redstone Repeater
-            513 => Block::RedstoneRepeater(RedstoneRepeater::get_state_for_placement(
+            566 => Block::RedstoneRepeater(RedstoneRepeater::get_state_for_placement(
                 world,
                 pos,
                 context.player_direction.opposite(),
             )),
             // Redstone Comparator
-            514 => Block::RedstoneComparator(RedstoneComparator::new(
+            567 => Block::RedstoneComparator(RedstoneComparator::new(
                 context.player_direction.opposite(),
                 ComparatorMode::Compare,
                 false,
             )),
             // Redstone Wire
-            600 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(world, pos)),
+            665 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(world, pos)),
             // Barrel
-            865 => Block::Container(11136),
+            936 => Block::Container(11136),
             _ => Block::Air,
         };
         if block.is_valid_position(world, pos) {
