@@ -21,6 +21,8 @@ pub struct InventoryEntry {
     nbt: Option<Vec<u8>>,
 }
 
+/// This structure represents how the player will be
+/// serialized when saved to it's file.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlayerData {
     on_ground: bool,
