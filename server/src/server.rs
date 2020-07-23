@@ -113,7 +113,7 @@ pub struct MinecraftServer {
     plot_sender: Sender<Message>,
     online_players: Vec<PlayerListEntry>,
     running_plots: Vec<PlotListEntry>,
-    plugin_manager: ServerPluginManager,
+    pub plugin_manager: ServerPluginManager,
 }
 
 impl MinecraftServer {
@@ -587,6 +587,7 @@ impl MinecraftServer {
             }
             Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
             Message::ChatInfo(uuid, username, message) => {
+                ServerPluginManager::trigger_chat_event(self);
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
                     json!({

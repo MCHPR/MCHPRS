@@ -2,23 +2,25 @@
 //!
 //! This documentation will guide you through creating your first plugin.
 
-pub use mchprs_plugin_proc_macro::*;
-use std::ffi::{CStr, CString};
-use std::os::raw::c_char;
+pub mod event;
 
-pub type InitFn = extern "C" fn();
+use std::os::raw::{c_char, c_int};
+use event::ServerEventHandlerType;
+use std::ffi::{CStr, CString};
+use std::slice;
 
 #[repr(C)]
 pub struct CPluginDetails {
     pub name: *const c_char,
     pub version: *const c_char,
-    pub init_fn: InitFn,
+    pub event_handlers_len: c_int,
+    pub event_handlers: *const ServerEventHandlerType,
 }
 
 pub struct PluginDetails {
     pub name: &'static str,
     pub version: &'static str,
-    pub init_fn: InitFn,
+    pub event_handlers: &'static [ServerEventHandlerType],
 }
 
 impl Into<CPluginDetails> for PluginDetails {
@@ -30,7 +32,8 @@ impl Into<CPluginDetails> for PluginDetails {
             version: CString::new(self.version)
                 .expect("CString::new failed")
                 .into_raw(),
-            init_fn: self.init_fn,
+            event_handlers_len: self.event_handlers.len() as i32,
+            event_handlers: self.event_handlers.as_ptr(),
         }
     }
 }
@@ -40,7 +43,7 @@ impl From<CPluginDetails> for PluginDetails {
         Self {
             name: unsafe { CStr::from_ptr(c.name).to_str().unwrap() },
             version: unsafe { CStr::from_ptr(c.version).to_str().unwrap() },
-            init_fn: c.init_fn,
+            event_handlers: unsafe { slice::from_raw_parts(c.event_handlers, c.event_handlers_len as usize) },
         }
     }
 }
@@ -52,7 +55,7 @@ macro_rules! register_plugin {
         use mchprs_plugin::{CPluginDetails, PluginDetails};
         #[no_mangle]
         extern "C" fn _register_plugin() -> CPluginDetails {
-            use mchprs_plugin::{CPluginDetails, PluginDetails};
+            use mchprs_plugin::event::ServerEventHandlerType::*;
             let details: PluginDetails = PluginDetails {
                 $( $detail_key: $detail_val, )*
             };
