@@ -1,6 +1,6 @@
 use proc_macro::{Span, TokenStream};
 use quote::quote;
-use syn::{parse_macro_input, Abi, ItemFn, LitStr, token::Extern};
+use syn::{parse_macro_input, token::Extern, Abi, ItemFn, LitStr};
 
 #[proc_macro_attribute]
 pub fn event_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -9,7 +9,7 @@ pub fn event_handler(_attr: TokenStream, item: TokenStream) -> TokenStream {
         extern_token: Extern {
             span: Span::call_site().into(),
         },
-        name: Some(LitStr::new("C", Span::call_site().into()))
+        name: Some(LitStr::new("C", Span::call_site().into())),
     });
     let result = quote! {
         #item

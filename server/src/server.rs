@@ -11,6 +11,7 @@ use crate::network::packets::{PacketDecoder, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::Player;
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
+use crate::plugin::ServerPluginManager;
 use backtrace::Backtrace;
 use bus::{Bus, BusReader};
 use fern::colors::{Color, ColoredLevelConfig};
@@ -112,6 +113,7 @@ pub struct MinecraftServer {
     plot_sender: Sender<Message>,
     online_players: Vec<PlayerListEntry>,
     running_plots: Vec<PlotListEntry>,
+    plugin_manager: ServerPluginManager,
 }
 
 impl MinecraftServer {
@@ -170,6 +172,9 @@ impl MinecraftServer {
         })
         .expect("There was an error setting the ctrlc handler");
 
+        // Load plugins
+        let plugin_manager = ServerPluginManager::load_plugins();
+
         // Create server struct
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
@@ -180,6 +185,7 @@ impl MinecraftServer {
             debug_plot_receiver,
             online_players: Vec::new(),
             running_plots: Vec::new(),
+            plugin_manager,
         };
 
         // Load the spawn area plot on server start
@@ -651,5 +657,10 @@ impl MinecraftServer {
                 self.handle_packet(client, packet);
             }
         }
+    }
+
+    pub fn broadcast_raw_chat(&mut self, message: String) {
+        self.broadcaster
+            .broadcast(BroadcastMessage::Chat(0, message));
     }
 }

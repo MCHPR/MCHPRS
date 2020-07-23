@@ -4,6 +4,7 @@ mod blocks;
 mod items;
 mod player;
 mod plot;
+mod plugin;
 pub mod server;
 mod world;
 

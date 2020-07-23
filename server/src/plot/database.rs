@@ -1,6 +1,6 @@
+use lazy_static::lazy_static;
 use rusqlite::{params, Connection, NO_PARAMS};
 use std::sync::{Mutex, MutexGuard};
-use lazy_static::lazy_static;
 
 lazy_static! {
     static ref CONN: Mutex<Connection> =
