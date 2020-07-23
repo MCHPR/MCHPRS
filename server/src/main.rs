@@ -5,7 +5,7 @@ mod items;
 mod player;
 mod plot;
 mod server;
-mod plugins;
+mod plugin;
 
 use server::MinecraftServer;
 
