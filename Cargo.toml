@@ -1,7 +1,7 @@
 [workspace]
 members = [
     "server",
-    "plugin/core",
+    "plugin/api",
     "plugin/proc-macro"
 ]
 exclude = [
