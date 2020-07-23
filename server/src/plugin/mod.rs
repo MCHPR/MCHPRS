@@ -1,17 +1,17 @@
 use crate::server::MinecraftServer;
 use libloading::{Library, Symbol};
 use log::info;
+use mchprs_plugin::event::{ChatEvent, ChatEventHandler, ServerEventHandlerType};
 use mchprs_plugin::{CPluginDetails, PluginDetails};
-use mchprs_plugin::event::{ServerEventHandlerType, ChatEventHandler, ChatEvent};
 use std::ffi::CStr;
 use std::fs;
-use std::os::raw::c_char;
 use std::mem;
+use std::os::raw::c_char;
 
 #[repr(C)]
 struct ServerEventContext {
     server: *mut MinecraftServer,
-    broadcast_raw_chat: extern fn(ctx: *mut ServerEventContext, raw_message: *mut c_char),
+    broadcast_raw_chat: extern "C" fn(ctx: *mut ServerEventContext, raw_message: *mut c_char),
 }
 
 impl ServerEventContext {
@@ -64,7 +64,10 @@ impl ServerPluginManager {
             for event_handler in plugin_details.event_handlers {
                 match *event_handler {
                     ServerEventHandlerType::ChatEvent(handler) => {
-                        plugin_manager.event_manager.chat_event_handlers.push(handler);
+                        plugin_manager
+                            .event_manager
+                            .chat_event_handlers
+                            .push(handler);
                     }
                 }
             }
@@ -73,14 +76,26 @@ impl ServerPluginManager {
     }
 
     pub fn trigger_chat_event(server: &mut MinecraftServer) {
-        let handlers = server.plugin_manager.event_manager.chat_event_handlers.clone();
+        let handlers = server
+            .plugin_manager
+            .event_manager
+            .chat_event_handlers
+            .clone();
         if handlers.is_empty() {
             return;
         }
         let context: *mut ServerEventContext = &mut ServerEventContext::new(server);
         for handler in handlers {
             // I don't like this one bit
-            unsafe { handler(mem::transmute::<*mut ServerEventContext, mchprs_plugin::event::ServerEventContext>(context), ChatEvent {}) };
+            unsafe {
+                handler(
+                    mem::transmute::<
+                        *mut ServerEventContext,
+                        mchprs_plugin::event::ServerEventContext,
+                    >(context),
+                    ChatEvent {},
+                )
+            };
         }
     }
 }

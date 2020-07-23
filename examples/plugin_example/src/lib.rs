@@ -1,6 +1,5 @@
-
-use mchprs_plugin::register_plugin;
 use mchprs_plugin::event::*;
+use mchprs_plugin::register_plugin;
 
 #[event_handler]
 fn handle_chat_event(mut ctx: ServerEventContext, event: ChatEvent) {

@@ -4,9 +4,9 @@
 
 pub mod event;
 
-use std::os::raw::{c_char, c_int};
 use event::ServerEventHandlerType;
 use std::ffi::{CStr, CString};
+use std::os::raw::{c_char, c_int};
 use std::slice;
 
 #[repr(C)]
@@ -43,7 +43,9 @@ impl From<CPluginDetails> for PluginDetails {
         Self {
             name: unsafe { CStr::from_ptr(c.name).to_str().unwrap() },
             version: unsafe { CStr::from_ptr(c.version).to_str().unwrap() },
-            event_handlers: unsafe { slice::from_raw_parts(c.event_handlers, c.event_handlers_len as usize) },
+            event_handlers: unsafe {
+                slice::from_raw_parts(c.event_handlers, c.event_handlers_len as usize)
+            },
         }
     }
 }
