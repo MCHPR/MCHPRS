@@ -6,7 +6,12 @@ fn example_event_handler() {
 
 }
 
+extern "C" fn init() {
+
+}
+
 register_plugin!(
     name: "example",
-    version: "0.1"
+    version: "0.1",
+    init_fn: init,
 );

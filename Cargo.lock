@@ -354,8 +354,13 @@ dependencies = [
 name = "mchprs_plugin"
 version = "0.1.0"
 dependencies = [
+ "mchprs_plugin_ffi",
  "mchprs_plugin_proc_macro",
 ]
+
+[[package]]
+name = "mchprs_plugin_ffi"
+version = "0.1.0"
 
 [[package]]
 name = "mchprs_plugin_proc_macro"
