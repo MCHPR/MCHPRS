@@ -1,17 +1,18 @@
 use super::{database, Plot};
 use crate::network::packets::clientbound::{
-    C12DeclareCommands, C12DeclareCommandsNode as Node, C12DeclareCommandsNodeParser as Parser,
-    C32PlayerAbilities, ClientBoundPacket,
+    C11DeclareCommands, C11DeclareCommandsNode as Node, C11DeclareCommandsNodeParser as Parser,
+    C31PlayerAbilities, ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
-use bitflags::bitflags;
+use crate::world::World;
 use log::info;
 use lazy_static::lazy_static;
 
 use std::time::{Duration, Instant};
 
 impl Plot {
+    /// Handles a command that starts with `/plot` or `/p`
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
@@ -123,6 +124,19 @@ impl Plot {
                     );
                 }
             }
+            "//stack" => {
+                let stack_amt = if !args.is_empty() {
+                    if let Ok(amt) = args[0].parse::<u32>() {
+                        amt
+                    } else {
+                        self.players[player].send_error_message("Unable to parse stack amount.");
+                        return false;
+                    }
+                } else {
+                    1
+                };
+                self.worldedit_stack(player, stack_amt);
+            }
             "//replace" => {
                 if args.len() < 2 {
                     self.players[player].send_error_message("Wrong number of arguments!");
@@ -161,6 +175,12 @@ impl Plot {
                 }
                 self.worldedit_load(player, &args[0])
             }
+            "//undo" => self.worldedit_undo(player),
+            "//sel" => {
+                self.players[player].first_position = None;
+                self.players[player].second_position = None;
+                self.players[player].send_worldedit_message("Selection cleared.");
+            }
             "/rtps" => {
                 if args.is_empty() {
                     self.players[player]
@@ -178,12 +198,12 @@ impl Plot {
                         .send_error_message("The rtps cannot go higher than 35000!");
                     return false;
                 }
-                self.lag_time = Duration::from_millis(0);
-                if tps > 0 {
+                if tps > 10 {
                     self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
                 } else {
                     self.sleep_time = Duration::from_millis(2);
                 }
+                self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
@@ -269,7 +289,7 @@ impl Plot {
                             .send_error_message("You cannot have a flyspeed greater than 10");
                         return false;
                     }
-                    let player_abilities = C32PlayerAbilities {
+                    let player_abilities = C31PlayerAbilities {
                         flags: 0x0F,
                         fly_speed: 0.05 * speed_arg,
                         fov_modifier: 0.1,
@@ -297,13 +317,16 @@ bitflags! {
 }
 
 lazy_static! {
-    // In the future I plan on creating a DSL for this purpose
-    pub static ref DECLARE_COMMANDS: PacketEncoder = C12DeclareCommands {
+    // In the future a DSL or some type of generation would be much better.
+    // For more information, see https://wiki.vg/Command_Data
+    /// The DeclareCommands packet that is sent when the player joins.
+    /// This is used for command autocomplete.
+    pub static ref DECLARE_COMMANDS: PacketEncoder = C11DeclareCommands {
         nodes: vec![
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32],
+                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36],
                 redirect_node: None,
                 name: None,
                 parser: None,
@@ -570,9 +593,40 @@ lazy_static! {
                 children: vec![],
                 redirect_node: None,
                 name: Some("speed"),
-                //A Parser::Float would be needed here (command still executes with floats though)
-                parser: Some(Parser::Integer(0, 35000)),
-            }
+                parser: Some(Parser::Float(0.0, 10.0)),
+            },
+            // 34: //stack
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![35],
+                redirect_node: None,
+                name: Some("/stack"),
+                parser: None,
+            },
+            // 35: //stack [amount]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("amount"),
+                parser: Some(Parser::Integer(0, 256)),
+            },
+            // 36: //undo
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("/undo"),
+                parser: None,
+            },
+            // 37: //sel
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("/sel"),
+                parser: None,
+            },
         ],
         root_index: 0
     }.encode();

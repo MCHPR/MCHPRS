@@ -1,5 +1,6 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
 use crate::plot::Plot;
+use crate::world::World;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ActionResult {
@@ -18,6 +19,7 @@ pub struct UseOnBlockContext {
     pub block_face: BlockFace,
     pub player_crouching: bool,
     pub player_direction: BlockDirection,
+    /// The index of the player in the plot's player array
     pub player_idx: usize,
 }
 
@@ -61,7 +63,7 @@ impl ItemStack {
         if let Item::BlockItem(item_id) = self.item_type {
             if plot.get_block(block_pos).can_place_block_in() {
                 let block = Block::get_state_for_placement(plot, block_pos, item_id, &context);
-                block.place_in_plot(plot, block_pos, &self.nbt);
+                block.place_in_world(plot, block_pos, &self.nbt);
             }
         } else {
             // This is to make sure the client doesn't place a block
@@ -78,9 +80,10 @@ impl ItemStack {
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum Item {
-    /// BlockItem represents an item that can be placed down. The u32 is the id of the item,
-    /// it is NOT a block state id.
+    /// Represents an item that can be placed down. It contains the id of the item,
+    /// NOT the block state id.
     BlockItem(u32),
+    /// This is hardcoded to be the wooden axe.
     WEWand,
     Snowball,
     TotemOfUndying,
@@ -90,34 +93,34 @@ pub enum Item {
 impl Item {
     pub fn from_id(id: u32) -> Item {
         match id {
-            64 => Item::BlockItem(id),
-            68 => Item::BlockItem(id),
-            80 => Item::BlockItem(id),
-            82..=97 => Item::BlockItem(id),
-            160 => Item::BlockItem(id),
-            164 => Item::BlockItem(id),
-            173 => Item::BlockItem(id),
-            174 => Item::BlockItem(id),
-            234 => Item::BlockItem(id),
-            272 => Item::BlockItem(id),
+            77 => Item::BlockItem(id),
+            81 => Item::BlockItem(id),
+            93 => Item::BlockItem(id),
+            95..=110 => Item::BlockItem(id),
+            185 => Item::BlockItem(id),
+            189 => Item::BlockItem(id),
+            201 => Item::BlockItem(id),
             274 => Item::BlockItem(id),
-            281..=296 => Item::BlockItem(id),
-            413..=428 => Item::BlockItem(id),
-            513..=514 => Item::BlockItem(id),
-            536 => Item::WEWand,
-            600 => Item::BlockItem(id),
-            601 => Item::Snowball,
-            836 => Item::TotemOfUndying,
-            865 => Item::BlockItem(id),
+            304 => Item::BlockItem(id),
+            321 => Item::BlockItem(id),
+            323 => Item::BlockItem(id),
+            331..=346 => Item::BlockItem(id),
+            464..=479 => Item::BlockItem(id),
+            566..=567 => Item::BlockItem(id),
+            590 => Item::WEWand,
+            665 => Item::BlockItem(id),
+            666 => Item::Snowball,
+            903 => Item::TotemOfUndying,
+            936 => Item::BlockItem(id),
             _ => Item::Unknown(id),
         }
     }
 
     pub fn get_id(self) -> u32 {
         match self {
-            Item::WEWand => 536,
-            Item::Snowball => 601,
-            Item::TotemOfUndying => 836,
+            Item::WEWand => 590,
+            Item::Snowball => 666,
+            Item::TotemOfUndying => 903,
             Item::BlockItem(id) => id,
             Item::Unknown(id) => id,
         }

@@ -1,5 +1,5 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
-use crate::plot::Plot;
+use crate::world::World;
 
 // Redstone wires are extremely inefficient.
 // Here we are updating many blocks which don't
@@ -85,51 +85,51 @@ impl RedstoneWire {
         }
     }
 
-    pub fn get_state_for_placement(plot: &Plot, pos: BlockPos) -> RedstoneWire {
+    pub fn get_state_for_placement(world: &dyn World, pos: BlockPos) -> RedstoneWire {
         RedstoneWire {
-            power: RedstoneWire::calculate_power(plot, pos),
-            north: RedstoneWire::get_side(plot, pos, BlockDirection::North),
-            south: RedstoneWire::get_side(plot, pos, BlockDirection::South),
-            east: RedstoneWire::get_side(plot, pos, BlockDirection::East),
-            west: RedstoneWire::get_side(plot, pos, BlockDirection::West),
+            power: RedstoneWire::calculate_power(world, pos),
+            north: RedstoneWire::get_side(world, pos, BlockDirection::North),
+            south: RedstoneWire::get_side(world, pos, BlockDirection::South),
+            east: RedstoneWire::get_side(world, pos, BlockDirection::East),
+            west: RedstoneWire::get_side(world, pos, BlockDirection::West),
         }
     }
 
     pub fn on_neighbor_changed(
         mut self,
-        plot: &Plot,
+        world: &dyn World,
         pos: BlockPos,
         side: BlockFace,
     ) -> RedstoneWire {
         match side {
             BlockFace::Top => {}
             BlockFace::Bottom => {
-                self.north = RedstoneWire::get_side(plot, pos, BlockDirection::North);
-                self.south = RedstoneWire::get_side(plot, pos, BlockDirection::South);
-                self.east = RedstoneWire::get_side(plot, pos, BlockDirection::East);
-                self.west = RedstoneWire::get_side(plot, pos, BlockDirection::West);
+                self.north = RedstoneWire::get_side(world, pos, BlockDirection::North);
+                self.south = RedstoneWire::get_side(world, pos, BlockDirection::South);
+                self.east = RedstoneWire::get_side(world, pos, BlockDirection::East);
+                self.west = RedstoneWire::get_side(world, pos, BlockDirection::West);
             }
             BlockFace::North => {
-                self.south = RedstoneWire::get_side(plot, pos, BlockDirection::South)
+                self.south = RedstoneWire::get_side(world, pos, BlockDirection::South)
             }
             BlockFace::South => {
-                self.north = RedstoneWire::get_side(plot, pos, BlockDirection::North)
+                self.north = RedstoneWire::get_side(world, pos, BlockDirection::North)
             }
 
-            BlockFace::East => self.west = RedstoneWire::get_side(plot, pos, BlockDirection::West),
-            BlockFace::West => self.east = RedstoneWire::get_side(plot, pos, BlockDirection::East),
+            BlockFace::East => self.west = RedstoneWire::get_side(world, pos, BlockDirection::West),
+            BlockFace::West => self.east = RedstoneWire::get_side(world, pos, BlockDirection::East),
         }
         self
     }
 
-    pub fn on_neighbor_updated(mut self, plot: &mut Plot, pos: BlockPos) {
-        let new_power = RedstoneWire::calculate_power(plot, pos);
+    pub fn on_neighbor_updated(mut self, world: &mut dyn World, pos: BlockPos) {
+        let new_power = RedstoneWire::calculate_power(world, pos);
 
         if self.power != new_power {
             self.power = new_power;
-            plot.set_block(pos, Block::RedstoneWire(self));
+            world.set_block(pos, Block::RedstoneWire(self));
 
-            Block::update_wire_neighbors(plot, pos);
+            Block::update_wire_neighbors(world, pos);
         }
     }
 
@@ -159,26 +159,26 @@ impl RedstoneWire {
         }
     }
 
-    pub fn get_side(plot: &Plot, pos: BlockPos, side: BlockDirection) -> RedstoneWireSide {
+    pub fn get_side(world: &dyn World, pos: BlockPos, side: BlockDirection) -> RedstoneWireSide {
         let neighbor_pos = pos.offset(side.block_face());
-        let neighbor = plot.get_block(neighbor_pos);
+        let neighbor = world.get_block(neighbor_pos);
 
         if RedstoneWire::can_connect_to(neighbor, side) {
             return RedstoneWireSide::Side;
         }
 
         let up_pos = pos.offset(BlockFace::Top);
-        let up = plot.get_block(up_pos);
+        let up = world.get_block(up_pos);
 
         if !up.is_solid()
             && RedstoneWire::can_connect_diagonal_to(
-                plot.get_block(neighbor_pos.offset(BlockFace::Top)),
+                world.get_block(neighbor_pos.offset(BlockFace::Top)),
             )
         {
             RedstoneWireSide::Up
         } else if !neighbor.is_solid()
             && RedstoneWire::can_connect_diagonal_to(
-                plot.get_block(neighbor_pos.offset(BlockFace::Bottom)),
+                world.get_block(neighbor_pos.offset(BlockFace::Bottom)),
             )
         {
             RedstoneWireSide::Side
@@ -187,8 +187,8 @@ impl RedstoneWire {
         }
     }
 
-    fn max_wire_power(wire_power: u8, plot: &Plot, pos: BlockPos) -> u8 {
-        let block = plot.get_block(pos);
+    fn max_wire_power(wire_power: u8, world: &dyn World, pos: BlockPos) -> u8 {
+        let block = world.get_block(pos);
         if let Block::RedstoneWire(wire) = block {
             wire_power.max(wire.power)
         } else {
@@ -196,24 +196,24 @@ impl RedstoneWire {
         }
     }
 
-    fn calculate_power(plot: &Plot, pos: BlockPos) -> u8 {
+    fn calculate_power(world: &dyn World, pos: BlockPos) -> u8 {
         let mut block_power = 0;
         let mut wire_power = 0;
 
         let up_pos = pos.offset(BlockFace::Top);
-        let up_block = plot.get_block(up_pos);
+        let up_block = world.get_block(up_pos);
 
         for side in &BlockFace::values() {
             let neighbor_pos = pos.offset(*side);
-            wire_power = RedstoneWire::max_wire_power(wire_power, plot, neighbor_pos);
-            let neighbor = plot.get_block(neighbor_pos);
+            wire_power = RedstoneWire::max_wire_power(wire_power, world, neighbor_pos);
+            let neighbor = world.get_block(neighbor_pos);
             block_power =
-                block_power.max(neighbor.get_redstone_power_no_dust(plot, neighbor_pos, *side));
+                block_power.max(neighbor.get_redstone_power_no_dust(world, neighbor_pos, *side));
             if side.is_horizontal() {
                 if !up_block.is_solid() && !neighbor.is_transparent() {
                     wire_power = RedstoneWire::max_wire_power(
                         wire_power,
-                        plot,
+                        world,
                         neighbor_pos.offset(BlockFace::Top),
                     );
                 }
@@ -221,7 +221,7 @@ impl RedstoneWire {
                 if !neighbor.is_solid() {
                     wire_power = RedstoneWire::max_wire_power(
                         wire_power,
-                        plot,
+                        world,
                         neighbor_pos.offset(BlockFace::Bottom),
                     );
                 }

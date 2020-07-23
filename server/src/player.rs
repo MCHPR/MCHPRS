@@ -2,9 +2,7 @@ use crate::blocks::{BlockDirection, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
-use crate::plot::worldedit::WorldEditClipboard;
-use bitflags::bitflags;
-use crate::plot::Plot;
+use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use byteorder::{BigEndian, ReadBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -13,6 +11,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Write};
 use std::time::{Instant, SystemTime};
 
+/// This is a single item in the player's inventory
 #[derive(Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
     id: u32,
@@ -22,6 +21,8 @@ pub struct InventoryEntry {
     nbt: Option<Vec<u8>>,
 }
 
+/// This structure represents how the player will be
+/// serialized when saved to it's file.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlayerData {
     on_ground: bool,
@@ -53,13 +54,18 @@ pub struct Player {
     pub username: String,
     pub skin_parts: SkinParts,
     pub inventory: Vec<Option<ItemStack>>,
+    /// The selected slot of the player's hotbar (1-9)
     pub selected_slot: u32,
     pub x: f64,
     pub y: f64,
     pub z: f64,
+    /// The last X chunk the player was in. This is used for updated view position.
     pub last_chunk_x: i32,
+    /// The last Z chunk the player was in. This is used for updated view position.
     pub last_chunk_z: i32,
+    /// The player's head yaw rotation.
     pub yaw: f32,
+    /// The player's head pitch rotation.
     pub pitch: f32,
     pub flying: bool,
     pub sprinting: bool,
@@ -68,14 +74,21 @@ pub struct Player {
     pub fly_speed: f32,
     pub walk_speed: f32,
     pub entity_id: u32,
-    // Networking
+    /// Packets are sent through the client.
     pub client: NetworkClient,
+    /// The last time the keep alive packet was received.
     pub last_keep_alive_received: Instant,
+    /// The last time the keep alive packet was sent.
     last_keep_alive_sent: Instant,
-    // Worldedit
+    /// The worldedit first position.
     pub first_position: Option<BlockPos>,
+    /// The worldedit second position.
     pub second_position: Option<BlockPos>,
+    /// The worldedit current clipboard.
     pub worldedit_clipboard: Option<WorldEditClipboard>,
+    /// The saved sections used for worldedit //undo
+    /// Each entry stores the plot coords and the clipboard
+    pub worldedit_undo: Vec<WorldEditUndo>,
 }
 
 impl fmt::Debug for Player {
@@ -106,11 +119,14 @@ impl Player {
         hex
     }
 
+    /// This will load the player from the file. If the file does not exist,
+    /// It will be created.
     pub fn load_player(uuid: u128, username: String, client: NetworkClient) -> Player {
         if let Ok(data) = fs::read(format!("./world/players/{:032x}", uuid)) {
             // TODO: Handle format error
             let player_data: PlayerData = bincode::deserialize(&data).unwrap();
 
+            // Load inventory
             let mut inventory: Vec<Option<ItemStack>> = vec![];
             inventory.resize_with(46, || None);
             for entry in player_data.inventory {
@@ -150,12 +166,14 @@ impl Player {
                 first_position: None,
                 second_position: None,
                 worldedit_clipboard: None,
+                worldedit_undo: Vec::new(),
             }
         } else {
             Player::create_player(uuid, username, client)
         }
     }
 
+    /// Returns the default player struct
     fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
         let mut inventory: Vec<Option<ItemStack>> = vec![];
         inventory.resize_with(46, || None);
@@ -185,9 +203,12 @@ impl Player {
             first_position: None,
             second_position: None,
             worldedit_clipboard: None,
+            worldedit_undo: Vec::new(),
         }
     }
 
+    /// Saves the player to `./world/players/{uuid}`. This will create
+    /// the file if it does not already exist.
     pub fn save(&self) {
         let mut file = OpenOptions::new()
             .write(true)
@@ -226,9 +247,11 @@ impl Player {
         file.write_all(&data).unwrap();
     }
 
+    /// Manages keep alives and packet reading. Return true if the view position should be updated.
     pub fn update(&mut self) -> bool {
         if self.last_keep_alive_received.elapsed().as_secs() > 30 {
-            self.kick("Timed out".to_string());
+            self.kick(json!({ "text": "Timed out." })
+            .to_string());
         }
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
@@ -239,12 +262,12 @@ impl Player {
                     .to_string(),
             );
         }
-        // Return true if the view position should be updated
         self.x as i32 >> 4 != self.last_chunk_x || self.z as i32 >> 4 != self.last_chunk_z
     }
 
+    /// Sends the keep alive packet to the client and updates `last_keep_alive_sent`
     pub fn send_keep_alive(&mut self) {
-        let keep_alive = C21KeepAlive {
+        let keep_alive = C20KeepAlive {
             id: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
@@ -266,7 +289,7 @@ impl Player {
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
-        let player_position_and_look = C36PlayerPositionAndLook {
+        let player_position_and_look = C35PlayerPositionAndLook {
             x,
             y,
             z,
@@ -282,28 +305,36 @@ impl Player {
         self.client.send_packet(&player_position_and_look);
     }
 
-    pub fn send_raw_chat(&mut self, message: String) {
-        let chat_message = C0FChatMessage {
+    /// Sends the ChatMessage packet containing the raw json data.
+    /// Position 0: chat (chat box)
+    pub fn send_raw_chat(&mut self, sender: u128, message: String) {
+        let chat_message = C0EChatMessage {
             message,
+            sender,
             position: 0,
         }
         .encode();
         self.client.send_packet(&chat_message);
     }
 
+    /// Sends the ChatMessage packet containing the raw json data.
+    /// Position 1: system message (chat box)
     pub fn send_raw_system_message(&mut self, message: String) {
-        let chat_message = C0FChatMessage {
+        let chat_message = C0EChatMessage {
             message,
+            sender: 0,
             position: 1,
         }
         .encode();
         self.client.send_packet(&chat_message);
     }
 
-    pub fn send_chat_message(&mut self, message: String) {
-        self.send_raw_chat(json!({ "text": message }).to_string());
+    /// Sends a regular chat message to the player (`message` is not in json format)
+    pub fn send_chat_message(&mut self, sender: u128, message: String) {
+        self.send_raw_chat(sender, json!({ "text": message }).to_string());
     }
 
+    /// Sends the player a yellow system message (`message` is not in json format)
     pub fn send_system_message(&mut self, message: &str) {
         self.send_raw_system_message(
             json!({
@@ -314,6 +345,7 @@ impl Player {
         );
     }
 
+    /// Sends the player a red system message (`message` is not in json format)
     pub fn send_error_message(&mut self, message: &str) {
         self.send_raw_system_message(
             json!({
@@ -324,6 +356,7 @@ impl Player {
         );
     }
 
+    /// Sends the player a light purple system message (`message` is not in json format)
     pub fn send_worldedit_message(&mut self, message: &str) {
         self.send_raw_system_message(
             json!({
@@ -344,8 +377,9 @@ impl Player {
         self.second_position = Some(BlockPos::new(x, y, z));
     }
 
+    /// Sends the player the disconnect packet, it is still up to the player to end the network stream.
     pub fn kick(&mut self, reason: String) {
-        let disconnect = C1BDisconnect { reason }.encode();
+        let disconnect = C1ADisconnect { reason }.encode();
         self.client.send_packet(&disconnect);
     }
 }

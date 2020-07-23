@@ -1,7 +1,6 @@
 pub mod commands;
 pub mod database;
-mod packets;
-mod storage;
+mod packet_handlers;
 pub mod worldedit;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};
@@ -9,6 +8,8 @@ use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::Player;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
+use crate::world::storage::{Chunk, ChunkData};
+use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
@@ -19,28 +20,13 @@ use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime};
-use storage::{Chunk, ChunkData, PlotData};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TickPriority {
-    Highest,
-    Higher,
-    High,
-    Normal,
-}
-
-impl TickPriority {
-    fn values() -> [TickPriority; 4] {
-        use TickPriority::*;
-        [Highest, Higher, High, Normal]
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TickEntry {
-    ticks_left: u32,
-    tick_priority: TickPriority,
-    pos: BlockPos,
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PlotData {
+    pub tps: u32,
+    pub show_redstone: bool,
+    pub chunk_data: Vec<ChunkData>,
+    pub pending_ticks: Vec<TickEntry>,
 }
 
 pub struct Plot {
@@ -63,31 +49,21 @@ pub struct Plot {
     chunks: Vec<Chunk>,
 }
 
-impl Plot {
-    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
-        let local_x = chunk_x - self.x * 16;
-        let local_z = chunk_z - self.z * 16;
-        (local_x * 16 + local_z).abs() as usize
-    }
-
-    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - (self.x << 8)) >> 4;
-        let chunk_z = (block_z - (self.z << 8)) >> 4;
-        ((chunk_x << 4) + chunk_z).abs() as usize
-    }
-
+impl World for Plot {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
+        if chunk_index >= 256 || pos.y > 256 {
             return false;
         }
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32, block)
     }
 
-    /// Returns true if a block was changed
-    pub fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
+    /// Sets the block at `pos`.
+    /// If the block was changed it will be sent to all players
+    /// and the function will return true.
+    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
         let changed = self.set_block_raw(pos, block_id);
         if changed {
@@ -96,7 +72,8 @@ impl Plot {
         changed
     }
 
-    pub fn get_block_raw(&self, pos: BlockPos) -> u32 {
+    /// Returns the block state id of the block at `pos`
+    fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return 0;
@@ -105,24 +82,11 @@ impl Plot {
         chunk.get_block((pos.x & 0xF) as u32, pos.y, (pos.z & 0xF) as u32)
     }
 
-    pub fn get_block(&self, pos: BlockPos) -> Block {
+    fn get_block(&self, pos: BlockPos) -> Block {
         Block::from_block_state(self.get_block_raw(pos))
     }
 
-    pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
-        let block_change = C0CBlockChange {
-            block_id: id as i32,
-            x: pos.x,
-            y: pos.y as i32,
-            z: pos.z,
-        }
-        .encode();
-        for player in &mut self.players {
-            player.client.send_packet(&block_change);
-        }
-    }
-
-    pub fn delete_block_entity(&mut self, pos: BlockPos) {
+    fn delete_block_entity(&mut self, pos: BlockPos) {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return;
@@ -131,7 +95,7 @@ impl Plot {
         chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
-    pub fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
+    fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return None;
@@ -140,13 +104,13 @@ impl Plot {
         chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
-    pub fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
+    fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
         if chunk_index >= 256 {
             return;
         }
         if let Some(nbt) = block_entity.to_nbt(pos) {
-            let block_entity_data = C0ABlockEntityData {
+            let block_entity_data = C09BlockEntityData {
                 x: pos.x,
                 y: pos.y as i32,
                 z: pos.z,
@@ -163,29 +127,13 @@ impl Plot {
         chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity);
     }
 
-    pub fn broadcast_chat_message(&mut self, message: String) {
-        let broadcast_message = Message::ChatInfo(format!("Plot {}-{}", self.x, self.z), message);
-        self.message_sender.send(broadcast_message).unwrap();
+    fn get_chunk(&self, x: i32, z: i32) -> Option<&Chunk> {
+        self.chunks.get(self.get_chunk_index_for_chunk(x, z))
     }
 
-    pub fn broadcast_plot_chat_message(&mut self, message: String) {
-        for player in &mut self.players {
-            player.send_chat_message(message.clone());
-        }
-    }
-
-    pub fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
-        self.to_be_ticked.push(TickEntry {
-            pos,
-            ticks_left: delay,
-            tick_priority: priority,
-        });
-        self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
-    }
-
-    pub fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
-        self.to_be_ticked.iter().any(|e| e.pos == pos)
+    fn get_chunk_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk> {
+        let chunk_idx = self.get_chunk_index_for_chunk(x, z);
+        self.chunks.get_mut(chunk_idx)
     }
 
     fn tick(&mut self) {
@@ -198,9 +146,63 @@ impl Plot {
         }
     }
 
+    fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
+        self.to_be_ticked.push(TickEntry {
+            pos,
+            ticks_left: delay,
+            tick_priority: priority,
+        });
+        self.to_be_ticked
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
+    }
+
+    fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
+        self.to_be_ticked.iter().any(|e| e.pos == pos)
+    }
+}
+
+impl Plot {
+    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
+        let local_x = chunk_x - self.x * 16;
+        let local_z = chunk_z - self.z * 16;
+        (local_x * 16 + local_z).abs() as usize
+    }
+
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+        let chunk_x = (block_x - (self.x << 8)) >> 4;
+        let chunk_z = (block_z - (self.z << 8)) >> 4;
+        ((chunk_x << 4) + chunk_z).abs() as usize
+    }
+
+    /// Send a block change to all connected players
+    pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
+        let block_change = C0BBlockChange {
+            block_id: id as i32,
+            x: pos.x,
+            y: pos.y as i32,
+            z: pos.z,
+        }
+        .encode();
+        for player in &mut self.players {
+            player.client.send_packet(&block_change);
+        }
+    }
+
+    pub fn broadcast_chat_message(&mut self, message: String) {
+        let broadcast_message =
+            Message::ChatInfo(0, format!("Plot {}-{}", self.x, self.z), message);
+        self.message_sender.send(broadcast_message).unwrap();
+    }
+
+    pub fn broadcast_plot_chat_message(&mut self, message: String) {
+        for player in &mut self.players {
+            player.send_chat_message(0, message.clone());
+        }
+    }
+
     fn enter_plot(&mut self, mut player: Player) {
         self.save();
-        let spawn_player = C05SpawnPlayer {
+        let spawn_player = C04SpawnPlayer {
             entity_id: player.entity_id as i32,
             uuid: player.uuid,
             on_ground: player.on_ground,
@@ -226,7 +228,7 @@ impl Plot {
             other_player.client.send_packet(&spawn_player);
             other_player.client.send_packet(&metadata);
 
-            let spawn_other_player = C05SpawnPlayer {
+            let spawn_other_player = C04SpawnPlayer {
                 entity_id: other_player.entity_id as i32,
                 uuid: other_player.uuid,
                 on_ground: other_player.on_ground,
@@ -242,12 +244,14 @@ impl Plot {
             if let Some(item) = &other_player.inventory[other_player.selected_slot as usize + 36] {
                 let other_entity_equipment = C47EntityEquipment {
                     entity_id: other_player.entity_id as i32,
-                    slot: 0, // Main hand
-                    item: Some(SlotData {
-                        item_count: item.count as i8,
-                        item_id: item.item_type.get_id() as i32,
-                        nbt: item.nbt.clone(),
-                    }),
+                    equipment: vec![C47EntityEquipmentEquipment {
+                        slot: 0, // Main hand
+                        item: Some(SlotData {
+                            item_count: item.count as i8,
+                            item_id: item.item_type.get_id() as i32,
+                            nbt: item.nbt.clone(),
+                        }),
+                    }],
                 }
                 .encode();
                 player.client.send_packet(&other_entity_equipment);
@@ -270,12 +274,14 @@ impl Plot {
         if let Some(item) = &player.inventory[player.selected_slot as usize + 36] {
             let entity_equipment = C47EntityEquipment {
                 entity_id: player.entity_id as i32,
-                slot: 0, // Main hand
-                item: Some(SlotData {
-                    item_count: item.count as i8,
-                    item_id: item.item_type.get_id() as i32,
-                    nbt: item.nbt.clone(),
-                }),
+                equipment: vec![C47EntityEquipmentEquipment {
+                    slot: 0, // Main hand
+                    item: Some(SlotData {
+                        item_count: item.count as i8,
+                        item_id: item.item_type.get_id() as i32,
+                        nbt: item.nbt.clone(),
+                    }),
+                }],
             }
             .encode();
             for other_player in &mut self.players {
@@ -303,7 +309,7 @@ impl Plot {
         should_be_loaded: bool,
     ) {
         if was_loaded && !should_be_loaded {
-            let unload_chunk = C1EUnloadChunk { chunk_x, chunk_z }.encode();
+            let unload_chunk = C1DUnloadChunk { chunk_x, chunk_z }.encode();
             self.players[player_idx].client.send_packet(&unload_chunk);
         } else if !was_loaded && should_be_loaded {
             if !Plot::chunk_in_plot_bounds(self.x, self.z, chunk_x, chunk_z) {
@@ -325,7 +331,7 @@ impl Plot {
         let last_chunk_x = self.players[player_idx].last_chunk_x;
         let last_chunk_z = self.players[player_idx].last_chunk_z;
 
-        let update_view = C41UpdateViewPosition { chunk_x, chunk_z }.encode();
+        let update_view = C40UpdateViewPosition { chunk_x, chunk_z }.encode();
         self.players[player_idx].client.send_packet(&update_view);
 
         if ((last_chunk_x - chunk_x).abs() <= view_distance * 2
@@ -346,13 +352,13 @@ impl Plot {
                 }
             }
         } else {
-            for x in last_chunk_x - view_distance..last_chunk_x + view_distance {
-                for z in last_chunk_z - view_distance..last_chunk_z + view_distance {
+            for x in last_chunk_x - view_distance..=last_chunk_x + view_distance {
+                for z in last_chunk_z - view_distance..=last_chunk_z + view_distance {
                     self.set_chunk_loaded_at_player(player_idx, x, z, true, false);
                 }
             }
-            for x in chunk_x - view_distance..chunk_x + view_distance {
-                for z in chunk_z - view_distance..chunk_z + view_distance {
+            for x in chunk_x - view_distance..=chunk_x + view_distance {
+                for z in chunk_z - view_distance..=chunk_z + view_distance {
                     self.set_chunk_loaded_at_player(player_idx, x, z, false, true);
                 }
             }
@@ -362,7 +368,7 @@ impl Plot {
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
-        let destroy_entities = C38DestroyEntities {
+        let destroy_entities = C37DestroyEntities {
             entity_ids: vec![entity_id as i32],
         }
         .encode();
@@ -377,13 +383,13 @@ impl Plot {
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
         }
-        let destroy_other_entities = C38DestroyEntities { entity_ids }.encode();
+        let destroy_other_entities = C37DestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.x << 4;
         let chunk_offset_z = self.z << 4;
         for chunk in &self.chunks {
             player.client.send_packet(
-                &C1EUnloadChunk {
+                &C1DUnloadChunk {
                     chunk_x: chunk_offset_x + chunk.x,
                     chunk_z: chunk_offset_z + chunk.z,
                 }
@@ -409,13 +415,13 @@ impl Plot {
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
-                BroadcastMessage::Chat(message) => {
+                BroadcastMessage::Chat(sender, message) => {
                     for player in &mut self.players {
-                        player.send_raw_chat(message.clone());
+                        player.send_raw_chat(sender, message.clone());
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
-                    let player_info = C34PlayerInfo::AddPlayer(vec![C34PlayerInfoAddPlayer {
+                    let player_info = C33PlayerInfo::AddPlayer(vec![C33PlayerInfoAddPlayer {
                         name: player_join_info.username,
                         properties: Vec::new(),
                         gamemode: 1,
@@ -429,7 +435,7 @@ impl Plot {
                     }
                 }
                 BroadcastMessage::PlayerLeft(uuid) => {
-                    let player_info = C34PlayerInfo::RemovePlayer(vec![uuid]).encode();
+                    let player_info = C33PlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
@@ -707,6 +713,8 @@ impl Drop for Plot {
                     r#"{ "text": "The plot you were previously in has crashed!", "color": "red" }"#
                         .to_owned(),
                 );
+                // Remove the player from the player list
+                self.message_sender.send(Message::PlayerLeft(player.uuid)).unwrap();
             }
         }
         self.save();
