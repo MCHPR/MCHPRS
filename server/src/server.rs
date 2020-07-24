@@ -587,7 +587,9 @@ impl MinecraftServer {
             }
             Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
             Message::ChatInfo(uuid, username, message) => {
-                ServerPluginManager::trigger_chat_event(self);
+                if ServerPluginManager::trigger_chat_event(self, uuid, username.clone(), message.clone()) {
+                    return;
+                }
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
                     json!({
@@ -663,5 +665,12 @@ impl MinecraftServer {
     pub fn broadcast_raw_chat(&mut self, message: String) {
         self.broadcaster
             .broadcast(BroadcastMessage::Chat(0, message));
+    }
+
+    pub fn broadcast_chat(&mut self, message: String) {
+        self.broadcaster
+            .broadcast(BroadcastMessage::Chat(0, json!({
+                "text": message,
+            }).to_string()));
     }
 }

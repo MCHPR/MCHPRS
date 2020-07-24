@@ -3,7 +3,7 @@ use libloading::{Library, Symbol};
 use log::info;
 use mchprs_plugin::event::{ChatEvent, ChatEventHandler, ServerEventHandlerType};
 use mchprs_plugin::{CPluginDetails, PluginDetails};
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::fs;
 use std::mem;
 use std::os::raw::c_char;
@@ -12,6 +12,7 @@ use std::os::raw::c_char;
 struct ServerEventContext {
     server: *mut MinecraftServer,
     broadcast_raw_chat: extern "C" fn(ctx: *mut ServerEventContext, raw_message: *mut c_char),
+    broadcast_chat: extern "C" fn(ctx: *mut ServerEventContext, raw_message: *mut c_char),
 }
 
 impl ServerEventContext {
@@ -19,6 +20,7 @@ impl ServerEventContext {
         ServerEventContext {
             server,
             broadcast_raw_chat,
+            broadcast_chat,
         }
     }
 }
@@ -27,6 +29,12 @@ extern "C" fn broadcast_raw_chat(ctx: *mut ServerEventContext, raw_message: *mut
     let server: &mut MinecraftServer = unsafe { (*ctx).server.as_mut().unwrap() };
     let message = unsafe { CStr::from_ptr(raw_message).to_str().unwrap().to_owned() };
     server.broadcast_raw_chat(message);
+}
+
+extern "C" fn broadcast_chat(ctx: *mut ServerEventContext, raw_message: *mut c_char) {
+    let server: &mut MinecraftServer = unsafe { (*ctx).server.as_mut().unwrap() };
+    let message = unsafe { CStr::from_ptr(raw_message).to_str().unwrap().to_owned() };
+    server.broadcast_chat(message);
 }
 
 #[derive(Default)]
@@ -75,16 +83,19 @@ impl ServerPluginManager {
         plugin_manager
     }
 
-    pub fn trigger_chat_event(server: &mut MinecraftServer) {
+    pub fn trigger_chat_event(server: &mut MinecraftServer, sender_uuid: u128, sender_username: String, message: String) -> bool {
         let handlers = server
             .plugin_manager
             .event_manager
             .chat_event_handlers
             .clone();
         if handlers.is_empty() {
-            return;
+            return false;
         }
         let context: *mut ServerEventContext = &mut ServerEventContext::new(server);
+        let c_sender_username = CString::new(sender_username).unwrap();
+        let c_message = CString::new(message).unwrap();
+        let mut event = ChatEvent::new(sender_uuid.to_be_bytes(), c_sender_username.as_ptr(), c_message.as_ptr());
         for handler in handlers {
             // I don't like this one bit
             unsafe {
@@ -93,10 +104,11 @@ impl ServerPluginManager {
                         *mut ServerEventContext,
                         mchprs_plugin::event::ServerEventContext,
                     >(context),
-                    ChatEvent {},
+                    &mut event,
                 )
             };
         }
+        event.cancelled
     }
 }
 
