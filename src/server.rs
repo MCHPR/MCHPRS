@@ -519,7 +519,7 @@ impl MinecraftServer {
                         let response = C00Response {
                             json_response: json!({
                                 "version": {
-                                    "name": "1.15.2",
+                                    "name": "1.16.1",
                                     "protocol": 736
                                 },
                                 "players": {

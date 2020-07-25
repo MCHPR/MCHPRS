@@ -250,8 +250,7 @@ impl Player {
     /// Manages keep alives and packet reading. Return true if the view position should be updated.
     pub fn update(&mut self) -> bool {
         if self.last_keep_alive_received.elapsed().as_secs() > 30 {
-            self.kick(json!({ "text": "Timed out." })
-            .to_string());
+            self.kick(json!({ "text": "Timed out." }).to_string());
         }
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();

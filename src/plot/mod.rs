@@ -714,7 +714,9 @@ impl Drop for Plot {
                         .to_owned(),
                 );
                 // Remove the player from the player list
-                self.message_sender.send(Message::PlayerLeft(player.uuid)).unwrap();
+                self.message_sender
+                    .send(Message::PlayerLeft(player.uuid))
+                    .unwrap();
             }
         }
         self.save();

@@ -23,7 +23,7 @@ impl BitBuffer {
             bits_per_entry,
             longs,
             entries,
-            entries_per_long
+            entries_per_long,
         }
     }
 
