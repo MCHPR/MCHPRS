@@ -6,53 +6,55 @@ use std::collections::{BTreeMap, HashMap};
 use std::mem;
 
 #[derive(Debug, Clone)]
-struct BitBuffer {
-    bits_per_entry: u8,
-    entries_per_long: u8,
+pub struct BitBuffer {
+    bits_per_entry: u64,
+    entries_per_long: u64,
     entries: usize,
+    mask: u64,
     longs: Vec<u64>,
 }
 
 impl BitBuffer {
-    fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
-        let entries_per_long = 64 / bits_per_entry;
+    pub fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
+        let entries_per_long = 64 / bits_per_entry as u64;
         // Rounding up div
         let longs_len = (entries + entries_per_long as usize - 1) / entries_per_long as usize;
         let longs = vec![0; longs_len];
         BitBuffer {
-            bits_per_entry,
+            bits_per_entry: bits_per_entry as u64,
             longs,
             entries,
             entries_per_long,
+            mask: (1 << bits_per_entry) - 1,
         }
     }
 
     fn load(bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
         let entries = longs.len() * 64 / bits_per_entry as usize;
         BitBuffer {
-            bits_per_entry,
+            bits_per_entry: bits_per_entry as u64,
             longs,
             entries,
-            entries_per_long: 64 / bits_per_entry,
+            entries_per_long: 64 / bits_per_entry as u64,
+            mask: (1 << bits_per_entry) - 1,
         }
     }
 
-    fn get_entry(&self, word_idx: usize) -> u32 {
+    pub fn get_entry(&self, word_idx: usize) -> u32 {
         // Find the set of indices.
         let arr_idx = word_idx / self.entries_per_long as usize;
-        let sub_idx = (word_idx as u64 % self.entries_per_long as u64) * self.bits_per_entry as u64;
+        let sub_idx = (word_idx as u64 % self.entries_per_long) * self.bits_per_entry;
         // Find the word.
-        let mask = (1 << self.bits_per_entry) - 1;
-        let word = (self.longs[arr_idx] >> sub_idx) & mask;
+        let word = (self.longs[arr_idx] >> sub_idx) & self.mask;
         word as u32
     }
 
-    fn set_entry(&mut self, word_idx: usize, word: u32) {
+    pub fn set_entry(&mut self, word_idx: usize, word: u32) {
         // Find the set of indices.
         let arr_idx = word_idx / self.entries_per_long as usize;
-        let sub_idx = (word_idx as u64 % self.entries_per_long as u64) * self.bits_per_entry as u64;
+        let sub_idx = (word_idx as u64 % self.entries_per_long) * self.bits_per_entry;
         // Set the word.
-        let mask = !(((1 << self.bits_per_entry) - 1) << sub_idx);
+        let mask = !(self.mask << sub_idx);
         self.longs[arr_idx] = (self.longs[arr_idx] & mask) | ((word as u64) << sub_idx);
     }
 }
@@ -102,7 +104,7 @@ impl PalettedBitBuffer {
             }
             self.use_palette = false;
         } else {
-            let mut old_buffer = BitBuffer::create(old_bits_per_entry + 1, self.data.entries);
+            let mut old_buffer = BitBuffer::create(old_bits_per_entry as u8 + 1, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
             self.max_entries <<= 1;
             for entry_idx in 0..old_buffer.entries {
@@ -216,7 +218,7 @@ impl ChunkSection {
 
     fn encode_packet(&self) -> C21ChunkDataSection {
         C21ChunkDataSection {
-            bits_per_block: self.buffer.data.bits_per_entry,
+            bits_per_block: self.buffer.data.bits_per_entry as u8,
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
             palette: if self.buffer.use_palette {
