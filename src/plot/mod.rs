@@ -411,6 +411,21 @@ impl Plot {
         x >= plot_x * 256 && x < (plot_x + 1) * 256 && z >= plot_z * 256 && z < (plot_z + 1) * 256
     }
 
+    fn handle_commands(&mut self) {
+        let mut removal_offset = 0;
+        for player_idx in 0..self.players.len() {
+            let player_idx = player_idx - removal_offset;
+            let commands: Vec<String> = self.players[player_idx].command_queue.drain(..).collect();
+            for command in commands {
+                let mut args: Vec<&str> = command.split(' ').collect();
+                let command = args.remove(0);
+                if self.handle_command(player_idx, command, args) {
+                    removal_offset += 1;
+                }
+            }
+        }
+    }
+
     fn update(&mut self) {
         // Handle messages from the message channel
         while let Ok(message) = self.message_receiver.try_recv() {
@@ -508,11 +523,10 @@ impl Plot {
         }
         // Handle received packets
         for player_idx in 0..self.players.len() {
-            if self.handle_packets_for_player(player_idx) {
-                // This is a really stupid hack
-                return;
-            }
+            self.handle_packets_for_player(player_idx);
         }
+        // Handle commands
+        self.handle_commands();
 
         let message_sender = &mut self.message_sender;
 

@@ -1,9 +1,12 @@
 pub mod packets;
 
-use packets::{DecodeResult, PacketDecoder, PacketEncoder};
+use packets::{read_packet, serverbound::ServerBoundPacket, DecodeResult, PacketEncoder};
 use std::io::{self, BufRead, BufReader, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::sync::mpsc;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    mpsc, Arc,
+};
 use std::thread;
 
 /// The minecraft protocol has these 4 different states.
@@ -20,48 +23,53 @@ pub struct NetworkClient {
     /// All NetworkClients are identified by this id.
     /// If the client is a player, the player's entitiy id becomes the same.
     pub id: u32,
-    reader: BufReader<TcpStream>,
     stream: TcpStream,
     pub state: NetworkState,
-    pub packets: Vec<PacketDecoder>,
+    packets: mpsc::Receiver<Box<dyn ServerBoundPacket>>,
     pub username: Option<String>,
     pub alive: bool,
-    pub compressed: bool,
+    compressed: Arc<AtomicBool>,
 }
 
 impl NetworkClient {
-    pub fn update(&mut self) -> DecodeResult<()> {
-        if !self.alive {
-            return Ok(());
-        };
-        let mut would_block = false;
-        let incoming_data = Vec::from(match self.reader.fill_buf() {
-            Ok(data) => data,
-            Err(e) => match e.kind() {
-                io::ErrorKind::WouldBlock => {
-                    would_block = true;
-                    &[]
-                }
+    fn listen(
+        mut stream: TcpStream,
+        sender: mpsc::Sender<Box<dyn ServerBoundPacket>>,
+        compressed: Arc<AtomicBool>,
+    ) {
+        let mut state = NetworkState::Handshake;
+        loop {
+            let packet = match read_packet(&mut stream, &compressed, &mut state) {
+                Ok(packet) => packet,
+                // This will cause the client to disconnect
+                Err(_) => return,
+            };
+            sender.send(packet).unwrap();
+        }
+    }
+
+    pub fn receive_packets(&mut self) -> Vec<Box<dyn ServerBoundPacket>> {
+        let mut packets = Vec::new();
+        loop {
+            let packet = self.packets.try_recv();
+            match packet {
+                Ok(packet) => packets.push(packet),
+                Err(mpsc::TryRecvError::Empty) => break,
                 _ => {
                     self.alive = false;
-                    return Ok(());
+                    break;
                 }
-            },
-        });
-        let data_length = incoming_data.len();
-        let mut incoming_packets = PacketDecoder::decode(self.compressed, incoming_data)?;
-        if !incoming_packets.is_empty() {
-            self.packets.append(&mut incoming_packets);
+            }
         }
-        self.reader.consume(data_length);
-        if !would_block && data_length == 0 {
-            self.alive = false;
-        }
-        Ok(())
+        packets
+    }
+
+    pub fn set_compressed(&mut self, compressed: bool) {
+        self.compressed.store(compressed, Ordering::Relaxed);
     }
 
     pub fn send_packet(&mut self, data: &PacketEncoder) {
-        if self.compressed {
+        if self.compressed.load(Ordering::Relaxed) {
             self.stream.write_all(&data.compressed());
         } else {
             self.stream.write_all(&data.uncompressed());
@@ -87,18 +95,23 @@ impl NetworkServer {
 
         for (index, stream) in listener.incoming().enumerate() {
             let stream = stream.unwrap();
-            stream.set_nonblocking(true).unwrap();
+            let (packet_sender, packet_receiver) = mpsc::channel();
+            let compressed = Arc::new(AtomicBool::new(false));
+            let client_stream = stream.try_clone().unwrap();
+            let client_compressed = compressed.clone();
+            thread::spawn(move || {
+                NetworkClient::listen(client_stream, packet_sender, client_compressed)
+            });
             sender
                 .send(NetworkClient {
-                    // The index will increment after each client making it unique. We'll just use this as the id.
+                    // The index will increment after each client making it unique. We'll just use this as the enitity id.
                     id: index as u32,
-                    reader: BufReader::new(stream.try_clone().unwrap()),
                     stream,
                     state: NetworkState::Handshake,
-                    packets: Vec::new(),
+                    packets: packet_receiver,
                     username: None,
                     alive: true,
-                    compressed: false,
+                    compressed,
                 })
                 .unwrap();
         }
@@ -123,9 +136,6 @@ impl NetworkServer {
                     panic!("Client receiver channel disconnected!")
                 }
             }
-        }
-        for client in self.handshaking_clients.iter_mut() {
-            client.update();
         }
     }
 }

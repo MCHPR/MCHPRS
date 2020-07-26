@@ -1,9 +1,61 @@
-use super::{DecodeResult, PacketDecoder, SlotData};
+use super::{DecodeResult, PacketDecoderExt, SlotData};
 
-pub trait ServerBoundPacket {
-    fn decode(decoder: PacketDecoder) -> DecodeResult<Self>
+pub trait ServerBoundPacketHandler {
+    fn handle_handshake(&mut self, _packet: S00Handshake, _player_idx: usize) {}
+    fn handle_request(&mut self, _packet: S00Request, _player_idx: usize) {}
+    fn handle_ping(&mut self, _packet: S01Ping, _player_idx: usize) {}
+    fn handle_login_start(&mut self, _packet: S00LoginStart, _player_idx: usize) {}
+    fn handle_chat_message(&mut self, _packet: S03ChatMessage, _player_idx: usize) {}
+    fn handle_client_settings(&mut self, _packet: S05ClientSettings, _player_idx: usize) {}
+    fn handle_plugin_message(&mut self, _packet: S0BPluginMessage, _player_idx: usize) {}
+    fn handle_keep_alive(&mut self, _packet: S10KeepAlive, _player_idx: usize) {}
+    fn handle_player_position(&mut self, _packet: S12PlayerPosition, _player_idx: usize) {}
+    fn handle_player_position_and_rotation(
+        &mut self,
+        _packet: S13PlayerPositionAndRotation,
+        _player_idx: usize,
+    ) {
+    }
+    fn handle_player_rotation(&mut self, _packet: S14PlayerRotation, _player_idx: usize) {}
+    fn handle_player_movement(&mut self, _packet: S15PlayerMovement, _player_idx: usize) {}
+    fn handle_player_abilities(&mut self, _packet: S1APlayerAbilities, _player_idx: usize) {}
+    fn handle_player_digging(&mut self, _packet: S1BPlayerDigging, _player_idx: usize) {}
+    fn handle_entity_action(&mut self, _packet: S1CEntityAction, _player_idx: usize) {}
+    fn handle_animation(&mut self, _packet: S2BAnimation, _player_idx: usize) {}
+    fn handle_player_block_placement(
+        &mut self,
+        _packet: S2DPlayerBlockPlacemnt,
+        _player_idx: usize,
+    ) {
+    }
+    fn handle_held_item_change(&mut self, _packet: S24HeldItemChange, _player_idx: usize) {}
+    fn handle_creative_inventory_action(
+        &mut self,
+        _packet: S27CreativeInventoryAction,
+        _player_idx: usize,
+    ) {
+    }
+    fn handle_unknown(&mut self, _packet: SUnknown, __player_idx: usize) {}
+}
+
+pub trait ServerBoundPacket: Send {
+    fn decode<T: PacketDecoderExt>(reader: &mut T) -> DecodeResult<Self>
     where
         Self: Sized;
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize);
+}
+
+pub struct SUnknown;
+
+impl ServerBoundPacket for SUnknown {
+    fn decode<T: PacketDecoderExt>(_: &mut T) -> DecodeResult<Self> {
+        Ok(SUnknown)
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_unknown(*self, player_idx);
+    }
 }
 
 pub struct S00Handshake {
@@ -14,7 +66,7 @@ pub struct S00Handshake {
 }
 
 impl ServerBoundPacket for S00Handshake {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S00Handshake {
             protocol_version: decoder.read_varint()?,
             server_address: decoder.read_string()?,
@@ -22,25 +74,37 @@ impl ServerBoundPacket for S00Handshake {
             next_state: decoder.read_varint()?,
         })
     }
-}
 
-pub struct S00Request {}
-
-impl ServerBoundPacket for S00Request {
-    fn decode(mut _decoder: PacketDecoder) -> DecodeResult<Self> {
-        Ok(S00Request {})
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_handshake(*self, player_idx);
     }
 }
 
-pub struct S00Ping {
+pub struct S00Request;
+
+impl ServerBoundPacket for S00Request {
+    fn decode<T: PacketDecoderExt>(_decoder: &mut T) -> DecodeResult<Self> {
+        Ok(S00Request)
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_request(*self, player_idx);
+    }
+}
+
+pub struct S01Ping {
     pub payload: i64,
 }
 
-impl ServerBoundPacket for S00Ping {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
-        Ok(S00Ping {
+impl ServerBoundPacket for S01Ping {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        Ok(S01Ping {
             payload: decoder.read_long()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_ping(*self, player_idx);
     }
 }
 
@@ -49,10 +113,14 @@ pub struct S00LoginStart {
 }
 
 impl ServerBoundPacket for S00LoginStart {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S00LoginStart {
             name: decoder.read_string()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_login_start(*self, player_idx);
     }
 }
 
@@ -61,10 +129,14 @@ pub struct S03ChatMessage {
 }
 
 impl ServerBoundPacket for S03ChatMessage {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S03ChatMessage {
             message: decoder.read_string()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_chat_message(*self, player_idx);
     }
 }
 
@@ -78,7 +150,7 @@ pub struct S05ClientSettings {
 }
 
 impl ServerBoundPacket for S05ClientSettings {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S05ClientSettings {
             locale: decoder.read_string()?,
             view_distance: decoder.read_byte()?,
@@ -88,6 +160,10 @@ impl ServerBoundPacket for S05ClientSettings {
             main_hand: decoder.read_varint()?,
         })
     }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_client_settings(*self, player_idx);
+    }
 }
 
 pub struct S0BPluginMessage {
@@ -96,11 +172,15 @@ pub struct S0BPluginMessage {
 }
 
 impl ServerBoundPacket for S0BPluginMessage {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S0BPluginMessage {
             channel: decoder.read_string()?,
-            data: decoder.read_to_end()?,
+            data: PacketDecoderExt::read_to_end(decoder)?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_plugin_message(*self, player_idx);
     }
 }
 
@@ -109,10 +189,14 @@ pub struct S10KeepAlive {
 }
 
 impl ServerBoundPacket for S10KeepAlive {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S10KeepAlive {
             id: decoder.read_long()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_keep_alive(*self, player_idx);
     }
 }
 
@@ -124,13 +208,17 @@ pub struct S12PlayerPosition {
 }
 
 impl ServerBoundPacket for S12PlayerPosition {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S12PlayerPosition {
             x: decoder.read_double()?,
             y: decoder.read_double()?,
             z: decoder.read_double()?,
             on_ground: decoder.read_bool()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_position(*self, player_idx);
     }
 }
 
@@ -144,7 +232,7 @@ pub struct S13PlayerPositionAndRotation {
 }
 
 impl ServerBoundPacket for S13PlayerPositionAndRotation {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S13PlayerPositionAndRotation {
             x: decoder.read_double()?,
             y: decoder.read_double()?,
@@ -153,6 +241,10 @@ impl ServerBoundPacket for S13PlayerPositionAndRotation {
             pitch: decoder.read_float()?,
             on_ground: decoder.read_bool()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_position_and_rotation(*self, player_idx);
     }
 }
 
@@ -163,12 +255,16 @@ pub struct S14PlayerRotation {
 }
 
 impl ServerBoundPacket for S14PlayerRotation {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S14PlayerRotation {
             yaw: decoder.read_float()?,
             pitch: decoder.read_float()?,
             on_ground: decoder.read_bool()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_rotation(*self, player_idx);
     }
 }
 
@@ -177,10 +273,14 @@ pub struct S15PlayerMovement {
 }
 
 impl ServerBoundPacket for S15PlayerMovement {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S15PlayerMovement {
             on_ground: decoder.read_bool()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_movement(*self, player_idx);
     }
 }
 
@@ -189,10 +289,14 @@ pub struct S1APlayerAbilities {
 }
 
 impl ServerBoundPacket for S1APlayerAbilities {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S1APlayerAbilities {
             is_flying: decoder.read_byte()? != 0,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_abilities(*self, player_idx);
     }
 }
 
@@ -205,7 +309,7 @@ pub struct S1BPlayerDigging {
 }
 
 impl ServerBoundPacket for S1BPlayerDigging {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let status = decoder.read_varint()?;
         let location = decoder.read_position()?;
         let face = decoder.read_byte()?;
@@ -217,6 +321,10 @@ impl ServerBoundPacket for S1BPlayerDigging {
             face,
         })
     }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_digging(*self, player_idx);
+    }
 }
 
 pub struct S1CEntityAction {
@@ -226,12 +334,16 @@ pub struct S1CEntityAction {
 }
 
 impl ServerBoundPacket for S1CEntityAction {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S1CEntityAction {
             entity_id: decoder.read_varint()?,
             action_id: decoder.read_varint()?,
             jump_boost: decoder.read_varint()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_entity_action(*self, player_idx);
     }
 }
 
@@ -240,10 +352,14 @@ pub struct S2BAnimation {
 }
 
 impl ServerBoundPacket for S2BAnimation {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S2BAnimation {
             hand: decoder.read_varint()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_animation(*self, player_idx);
     }
 }
 
@@ -260,7 +376,7 @@ pub struct S2DPlayerBlockPlacemnt {
 }
 
 impl ServerBoundPacket for S2DPlayerBlockPlacemnt {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let hand = decoder.read_varint()?;
         let location = decoder.read_position()?;
         let face = decoder.read_varint()?;
@@ -280,6 +396,10 @@ impl ServerBoundPacket for S2DPlayerBlockPlacemnt {
             inside_block,
         })
     }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_block_placement(*self, player_idx);
+    }
 }
 
 pub struct S24HeldItemChange {
@@ -287,10 +407,14 @@ pub struct S24HeldItemChange {
 }
 
 impl ServerBoundPacket for S24HeldItemChange {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(S24HeldItemChange {
             slot: decoder.read_short()?,
         })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_held_item_change(*self, player_idx);
     }
 }
 
@@ -300,7 +424,7 @@ pub struct S27CreativeInventoryAction {
 }
 
 impl ServerBoundPacket for S27CreativeInventoryAction {
-    fn decode(mut decoder: PacketDecoder) -> DecodeResult<Self> {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let slot = decoder.read_short()?;
         let clicked_item = if decoder.read_bool()? {
             Some(SlotData {
@@ -312,5 +436,9 @@ impl ServerBoundPacket for S27CreativeInventoryAction {
             None
         };
         Ok(S27CreativeInventoryAction { slot, clicked_item })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_creative_inventory_action(*self, player_idx);
     }
 }

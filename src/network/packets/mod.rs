@@ -1,12 +1,19 @@
+pub mod clientbound;
+pub mod serverbound;
+
+use super::NetworkState;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use serde::Serialize;
-use std::io::{self, Cursor, Read, Seek, SeekFrom, Write};
-
-pub mod clientbound;
-pub mod serverbound;
+use serverbound::*;
+use std::io::{self, Cursor, Read, Write};
+use std::net::TcpStream;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 #[derive(Debug)]
 pub struct SlotData {
@@ -46,122 +53,124 @@ impl From<std::string::FromUtf8Error> for PacketDecodeError {
 #[derive(Debug)]
 pub enum PacketEncodeError {}
 
-pub struct PacketDecoder {
-    buffer: Cursor<Vec<u8>>,
-    pub packet_id: u32,
+fn read_compressed<T: PacketDecoderExt>(
+    reader: &mut T,
+    network_state: &mut NetworkState,
+) -> DecodeResult<Box<dyn ServerBoundPacket>> {
+    let decompressed_length = reader.read_varint()? as usize;
+    let data = PacketDecoderExt::read_to_end(reader)?;
+    // `data` is not compressed if `decompressed_length` is 0
+    if decompressed_length == 0 {
+        read_decompressed(&mut Cursor::new(data), network_state)
+    } else {
+        let mut decompresser = ZlibDecoder::new(data.as_slice());
+        let mut decompressed_data = Vec::with_capacity(decompressed_length);
+        decompresser.read_to_end(&mut decompressed_data)?;
+        read_decompressed(&mut Cursor::new(decompressed_data), network_state)
+    }
 }
 
-impl PacketDecoder {
-    pub fn decode(compression: bool, buf: Vec<u8>) -> DecodeResult<Vec<PacketDecoder>> {
-        let mut decoders = Vec::new();
-        let mut i = 0;
-        while i < buf.len() {
-            let length = PacketDecoder::read_varint_from_buffer(i, &buf)?;
-            i += length.1 as usize;
-            if compression {
-                // Compression is enabled
-                let data_length = PacketDecoder::read_varint_from_buffer(i, &buf)?;
-                i += data_length.1 as usize;
-                if data_length.0 > 0 {
-                    let mut data = Vec::new();
-                    // Decompress data
-                    ZlibDecoder::new(&buf[i..i + (length.0 - data_length.1) as usize])
-                        .read_to_end(&mut data)
-                        .unwrap();
-                    i += (length.0 - data_length.1) as usize;
-                    let packet_id = PacketDecoder::read_varint_from_buffer(0, &data)?;
-                    decoders.push(PacketDecoder {
-                        buffer: Cursor::new(Vec::from(
-                            &data[packet_id.1 as usize..data_length.0 as usize],
-                        )),
-                        packet_id: packet_id.0 as u32,
-                    });
-                } else {
-                    // Even though compression is enabled, packet is not compressed because the compression
-                    // threshold has not been reached
-                    let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf)?;
-                    i += packet_id.1 as usize;
-                    let data = &buf
-                        [i..i + length.0 as usize - data_length.1 as usize - packet_id.1 as usize];
-                    decoders.push(PacketDecoder {
-                        buffer: Cursor::new(Vec::from(data)),
-                        packet_id: packet_id.0 as u32,
-                    });
-                    i += length.0 as usize - data_length.1 as usize - packet_id.1 as usize;
-                }
-            } else {
-                // Compression is disabled
-                let packet_id = PacketDecoder::read_varint_from_buffer(i, &buf)?;
-                decoders.push(PacketDecoder {
-                    buffer: Cursor::new(Vec::from(&buf[i + 1..i + length.0 as usize])),
-                    packet_id: packet_id.0 as u32,
-                });
-                i += length.0 as usize;
+fn read_decompressed<T: PacketDecoderExt>(
+    reader: &mut T,
+    state: &mut NetworkState,
+) -> DecodeResult<Box<dyn ServerBoundPacket>> {
+    let packet_id = reader.read_varint()?;
+    Ok(match *state {
+        NetworkState::Handshake if packet_id == 0x00 => {
+            let handshake = S00Handshake::decode(reader)?;
+            match handshake.next_state {
+                1 => *state = NetworkState::Status,
+                2 => *state = NetworkState::Login,
+                _ => {}
             }
+            Box::new(handshake)
         }
-        Ok(decoders)
-    }
+        NetworkState::Status if packet_id == 0x00 => Box::new(S00Request::decode(reader)?),
+        NetworkState::Status if packet_id == 0x01 => Box::new(S01Ping::decode(reader)?),
+        NetworkState::Login if packet_id == 0x00 => {
+            *state = NetworkState::Play;
+            Box::new(S00LoginStart::decode(reader)?)
+        }
+        _ => match packet_id {
+            0x03 => Box::new(S03ChatMessage::decode(reader)?),
+            0x05 => Box::new(S05ClientSettings::decode(reader)?),
+            0x0B => Box::new(S0BPluginMessage::decode(reader)?),
+            0x10 => Box::new(S10KeepAlive::decode(reader)?),
+            0x12 => Box::new(S12PlayerPosition::decode(reader)?),
+            0x13 => Box::new(S13PlayerPositionAndRotation::decode(reader)?),
+            0x14 => Box::new(S14PlayerRotation::decode(reader)?),
+            0x15 => Box::new(S15PlayerMovement::decode(reader)?),
+            0x1A => Box::new(S1APlayerAbilities::decode(reader)?),
+            0x1B => Box::new(S1BPlayerDigging::decode(reader)?),
+            0x1C => Box::new(S1CEntityAction::decode(reader)?),
+            0x24 => Box::new(S24HeldItemChange::decode(reader)?),
+            0x27 => Box::new(S27CreativeInventoryAction::decode(reader)?),
+            0x2B => Box::new(S2BAnimation::decode(reader)?),
+            0x2D => Box::new(S2DPlayerBlockPlacemnt::decode(reader)?),
+            _ => Box::new(SUnknown),
+        },
+    })
+}
 
+pub fn read_packet<T: PacketDecoderExt>(
+    reader: &mut T,
+    compressed: &Arc<AtomicBool>,
+    network_state: &mut NetworkState,
+) -> DecodeResult<Box<dyn ServerBoundPacket>> {
+    let length = reader.read_varint()?;
+    let data = reader.read_bytes(length as usize)?;
+    let mut cursor = Cursor::new(data);
+    if compressed.load(Ordering::Relaxed) {
+        read_compressed(&mut cursor, network_state)
+    } else {
+        read_decompressed(&mut cursor, network_state)
+    }
+}
+
+impl<T: std::convert::AsRef<[u8]>> PacketDecoderExt for Cursor<T> {}
+impl PacketDecoderExt for TcpStream {}
+
+pub trait PacketDecoderExt: Read + Sized {
     fn read_unsigned_byte(&mut self) -> DecodeResult<u8> {
-        Ok(self.buffer.read_u8()?)
+        Ok(self.read_u8()?)
     }
 
     fn read_byte(&mut self) -> DecodeResult<i8> {
-        Ok(self.buffer.read_i8()?)
+        Ok(self.read_i8()?)
     }
 
     fn read_bytes(&mut self, bytes: usize) -> DecodeResult<Vec<u8>> {
         let mut read = vec![0; bytes];
-        self.buffer.read_exact(&mut read)?;
+        self.read_exact(&mut read)?;
         Ok(read)
     }
 
     fn read_long(&mut self) -> DecodeResult<i64> {
-        Ok(self.buffer.read_i64::<BigEndian>()?)
+        Ok(self.read_i64::<BigEndian>()?)
     }
 
     fn read_int(&mut self) -> DecodeResult<i32> {
-        Ok(self.buffer.read_i32::<BigEndian>()?)
+        Ok(self.read_i32::<BigEndian>()?)
     }
 
     fn read_short(&mut self) -> DecodeResult<i16> {
-        Ok(self.buffer.read_i16::<BigEndian>()?)
+        Ok(self.read_i16::<BigEndian>()?)
     }
 
     fn read_unsigned_short(&mut self) -> DecodeResult<u16> {
-        Ok(self.buffer.read_u16::<BigEndian>()?)
+        Ok(self.read_u16::<BigEndian>()?)
     }
 
     fn read_double(&mut self) -> DecodeResult<f64> {
-        Ok(self.buffer.read_f64::<BigEndian>()?)
+        Ok(self.read_f64::<BigEndian>()?)
     }
 
     fn read_float(&mut self) -> DecodeResult<f32> {
-        Ok(self.buffer.read_f32::<BigEndian>()?)
+        Ok(self.read_f32::<BigEndian>()?)
     }
 
     fn read_bool(&mut self) -> DecodeResult<bool> {
-        Ok(self.buffer.read_u8()? == 1)
-    }
-
-    fn read_varint_from_buffer(offset: usize, buf: &[u8]) -> DecodeResult<(i32, i32)> {
-        let mut num_read = 0;
-        let mut result = 0i32;
-        let mut read;
-        loop {
-            read = buf[offset + num_read as usize] as u8;
-            let value = (read & 0b0111_1111) as i32;
-            result |= value << (7 * num_read);
-
-            num_read += 1;
-            if num_read > 5 {
-                panic!("VarInt is too big!");
-            }
-            if read & 0b1000_0000 == 0 {
-                break;
-            }
-        }
-        Ok((result, num_read))
+        Ok(self.read_u8()? == 1)
     }
 
     fn read_varint(&mut self) -> DecodeResult<i32> {
@@ -211,7 +220,7 @@ impl PacketDecoder {
 
     fn read_to_end(&mut self) -> DecodeResult<Vec<u8>> {
         let mut data = Vec::new();
-        self.buffer.read_to_end(&mut data)?;
+        Read::read_to_end(self, &mut data);
         Ok(data)
     }
 
@@ -227,11 +236,11 @@ impl PacketDecoder {
     }
 
     fn read_nbt_blob(&mut self) -> DecodeResult<Option<nbt::Blob>> {
-        if self.buffer.read_u8()? == 0x00 {
-            return Ok(None);
+        match nbt::Blob::from_reader(self) {
+            Ok(nbt) => Ok(Some(nbt)),
+            Err(nbt::Error::NoRootCompound) => Ok(None),
+            Err(err) => Err(err.into()),
         }
-        self.buffer.seek(SeekFrom::Current(-1))?;
-        Ok(Some(nbt::Blob::from_reader(&mut self.buffer)?))
     }
 }
 

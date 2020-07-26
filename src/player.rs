@@ -89,6 +89,8 @@ pub struct Player {
     /// The saved sections used for worldedit //undo
     /// Each entry stores the plot coords and the clipboard
     pub worldedit_undo: Vec<WorldEditUndo>,
+    /// Commands are stored so they can be handled after packets
+    pub command_queue: Vec<String>,
 }
 
 impl fmt::Debug for Player {
@@ -167,6 +169,7 @@ impl Player {
                 second_position: None,
                 worldedit_clipboard: None,
                 worldedit_undo: Vec::new(),
+                command_queue: Vec::new(),
             }
         } else {
             Player::create_player(uuid, username, client)
@@ -204,6 +207,7 @@ impl Player {
             second_position: None,
             worldedit_clipboard: None,
             worldedit_undo: Vec::new(),
+            command_queue: Vec::new(),
         }
     }
 
@@ -254,12 +258,6 @@ impl Player {
         }
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
-        }
-        if let Err(err) = self.client.update() {
-            self.kick(
-                json!({ "text": format!("There was an error reading a packet header: {:?}", err) })
-                    .to_string(),
-            );
         }
         self.x as i32 >> 4 != self.last_chunk_x || self.z as i32 >> 4 != self.last_chunk_z
     }

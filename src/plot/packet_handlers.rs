@@ -3,7 +3,7 @@ use crate::blocks::{BlockFace, BlockPos};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
-use crate::network::packets::{DecodeResult, PacketDecoder, SlotData};
+use crate::network::packets::SlotData;
 use crate::player::SkinParts;
 use crate::server::Message;
 use crate::world::World;
@@ -12,68 +12,22 @@ use serde_json::json;
 use std::time::Instant;
 
 impl Plot {
-    pub(super) fn handle_packets_for_player(&mut self, player: usize) -> bool {
-        let packets: Vec<PacketDecoder> = self.players[player].client.packets.drain(..).collect();
+    pub(super) fn handle_packets_for_player(&mut self, player: usize) {
+        let packets = self.players[player].client.receive_packets();
         for packet in packets {
-            let id = packet.packet_id;
-            match self.handle_packet(player, packet) {
-                Ok(true) => return true,
-                Err(err) => {
-                    self.players[player].kick(
-                        json!({
-                            "text":
-                                format!(
-                                    "There was an error handling packet 0x{:02X}: {:?}",
-                                    id, err
-                                )
-                        })
-                        .to_string(),
-                    );
-                    return true;
-                }
-                _ => {}
-            }
+            packet.handle(self, player);
         }
-        false
     }
-
-    // Returns true if packets should stop being handled
-    fn handle_packet(&mut self, player: usize, packet: PacketDecoder) -> DecodeResult<bool> {
-        match packet.packet_id {
-            0x03 => return Ok(self.handle_chat_message(player, S03ChatMessage::decode(packet)?)),
-            0x05 => self.handle_client_settings(player, S05ClientSettings::decode(packet)?),
-            0x0B => self.handle_plugin_message(player, S0BPluginMessage::decode(packet)?),
-            0x10 => self.players[player].last_keep_alive_received = Instant::now(), // Keep Alive
-            0x12 => self.handle_player_position(player, S12PlayerPosition::decode(packet)?),
-            0x13 => self.handle_player_position_and_rotation(
-                player,
-                S13PlayerPositionAndRotation::decode(packet)?,
-            ),
-            0x14 => self.handle_player_rotation(player, S14PlayerRotation::decode(packet)?),
-            0x15 => self.handle_player_movement(player, S15PlayerMovement::decode(packet)?),
-            0x1A => self.handle_player_abilities(player, S1APlayerAbilities::decode(packet)?),
-            0x1B => self.handle_player_digging(player, S1BPlayerDigging::decode(packet)?),
-            0x1C => self.handle_entity_action(player, S1CEntityAction::decode(packet)?),
-            0x24 => self.handle_held_item_change(player, S24HeldItemChange::decode(packet)?),
-            0x27 => self.handle_creative_inventory_action(
-                player,
-                S27CreativeInventoryAction::decode(packet)?,
-            ),
-            0x2B => self.handle_animation(player, S2BAnimation::decode(packet)?),
-            0x2D => {
-                self.handle_player_block_placement(player, S2DPlayerBlockPlacemnt::decode(packet)?)
-            }
-            id => {
-                debug!("Unhandled packet: {:02X}", id);
-            }
-        }
-        Ok(false)
+}
+impl ServerBoundPacketHandler for Plot {
+    fn handle_keep_alive(&mut self, _keep_alive: S10KeepAlive, player_idx: usize) {
+        self.players[player_idx].last_keep_alive_received = Instant::now();
     }
 
     fn handle_creative_inventory_action(
         &mut self,
-        player: usize,
         creative_inventory_action: S27CreativeInventoryAction,
+        player: usize,
     ) {
         if let Some(slot_data) = creative_inventory_action.clicked_item {
             if creative_inventory_action.slot < 0 || creative_inventory_action.slot >= 46 {
@@ -116,11 +70,11 @@ impl Plot {
         }
     }
 
-    fn handle_player_abilities(&mut self, player: usize, player_abilities: S1APlayerAbilities) {
+    fn handle_player_abilities(&mut self, player_abilities: S1APlayerAbilities, player: usize) {
         self.players[player].flying = player_abilities.is_flying;
     }
 
-    fn handle_animation(&mut self, player: usize, animation: S2BAnimation) {
+    fn handle_animation(&mut self, animation: S2BAnimation, player: usize) {
         let animation_id = match animation.hand {
             0 => 0,
             1 => 3,
@@ -143,8 +97,8 @@ impl Plot {
 
     fn handle_player_block_placement(
         &mut self,
-        player: usize,
         player_block_placement: S2DPlayerBlockPlacemnt,
+        player: usize,
     ) {
         let block_face = BlockFace::from_id(player_block_placement.face as u32);
 
@@ -187,22 +141,19 @@ impl Plot {
     }
 
     // Returns true if packets should stop being handled
-    fn handle_chat_message(&mut self, player: usize, chat_message: S03ChatMessage) -> bool {
+    fn handle_chat_message(&mut self, chat_message: S03ChatMessage, player: usize) {
         let message = chat_message.message;
         if message.starts_with('/') {
-            let mut args: Vec<&str> = message.split(' ').collect();
-            let command = args.remove(0);
-            self.handle_command(player, command, args)
+            self.players[player].command_queue.push(message);
         } else {
             let player = &self.players[player];
             let broadcast_message =
                 Message::ChatInfo(player.uuid, player.username.to_owned(), message);
             self.message_sender.send(broadcast_message).unwrap();
-            false
         }
     }
 
-    fn handle_client_settings(&mut self, player: usize, client_settings: S05ClientSettings) {
+    fn handle_client_settings(&mut self, client_settings: S05ClientSettings, player: usize) {
         let player = &mut self.players[player];
         player.skin_parts =
             SkinParts::from_bits_truncate(client_settings.displayed_skin_parts as u32);
@@ -221,14 +172,14 @@ impl Plot {
         }
     }
 
-    fn handle_plugin_message(&mut self, _player: usize, plugin_message: S0BPluginMessage) {
+    fn handle_plugin_message(&mut self, plugin_message: S0BPluginMessage, _player: usize) {
         debug!(
             "Client initiated plugin channel: {:?}",
             plugin_message.channel
         );
     }
 
-    fn handle_player_position(&mut self, player: usize, player_position: S12PlayerPosition) {
+    fn handle_player_position(&mut self, player_position: S12PlayerPosition, player: usize) {
         let old_x = self.players[player].x;
         let old_y = self.players[player].y;
         let old_z = self.players[player].z;
@@ -276,8 +227,8 @@ impl Plot {
 
     fn handle_player_position_and_rotation(
         &mut self,
-        player: usize,
         player_position_and_rotation: S13PlayerPositionAndRotation,
+        player: usize,
     ) {
         // This is beautiful
         let old_x = self.players[player].x;
@@ -337,7 +288,7 @@ impl Plot {
         }
     }
 
-    fn handle_player_rotation(&mut self, player: usize, player_rotation: S14PlayerRotation) {
+    fn handle_player_rotation(&mut self, player_rotation: S14PlayerRotation, player: usize) {
         self.players[player].yaw = player_rotation.yaw;
         self.players[player].pitch = player_rotation.pitch;
         self.players[player].on_ground = player_rotation.on_ground;
@@ -366,7 +317,7 @@ impl Plot {
         }
     }
 
-    fn handle_player_movement(&mut self, player: usize, player_movement: S15PlayerMovement) {
+    fn handle_player_movement(&mut self, player_movement: S15PlayerMovement, player: usize) {
         self.players[player].on_ground = player_movement.on_ground;
         let packet = C2BEntityMovement {
             entity_id: self.players[player].entity_id as i32,
@@ -380,7 +331,7 @@ impl Plot {
         }
     }
 
-    fn handle_player_digging(&mut self, player: usize, player_digging: S1BPlayerDigging) {
+    fn handle_player_digging(&mut self, player_digging: S1BPlayerDigging, player: usize) {
         if player_digging.status == 0 {
             let block_pos =
                 BlockPos::new(player_digging.x, player_digging.y as u32, player_digging.z);
@@ -447,7 +398,7 @@ impl Plot {
         }
     }
 
-    fn handle_entity_action(&mut self, player: usize, entity_action: S1CEntityAction) {
+    fn handle_entity_action(&mut self, entity_action: S1CEntityAction, player: usize) {
         match entity_action.action_id {
             0 => self.players[player].crouching = true,
             1 => self.players[player].crouching = false,
@@ -488,7 +439,7 @@ impl Plot {
         }
     }
 
-    fn handle_held_item_change(&mut self, player: usize, held_item_change: S24HeldItemChange) {
+    fn handle_held_item_change(&mut self, held_item_change: S24HeldItemChange, player: usize) {
         let entity_equipment = C47EntityEquipment {
             entity_id: self.players[player].entity_id as i32,
             equipment: vec![C47EntityEquipmentEquipment {

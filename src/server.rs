@@ -5,9 +5,9 @@ use crate::network::packets::clientbound::{
     C35PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
-    S00Handshake, S00LoginStart, S00Ping, ServerBoundPacket,
+    S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
 };
-use crate::network::packets::{PacketDecoder, SlotData};
+use crate::network::packets::SlotData;
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::Player;
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
@@ -343,7 +343,7 @@ impl MinecraftServer {
         clients[client_idx].username = Some(login_start.name);
         let set_compression = C03SetCompression { threshold: 256 }.encode();
         clients[client_idx].send_packet(&set_compression);
-        clients[client_idx].compressed = true;
+        clients[client_idx].set_compressed(true);
         let username = if let Some(name) = &clients[client_idx].username {
             name.clone()
         } else {
@@ -486,77 +486,6 @@ impl MinecraftServer {
             .unwrap();
     }
 
-    fn handle_packet(&mut self, client: usize, packet: PacketDecoder) {
-        match self.network.handshaking_clients[client].state {
-            NetworkState::Handshake => {
-                let clients = &mut self.network.handshaking_clients;
-                if packet.packet_id == 0x00 {
-                    let handshake = S00Handshake::decode(packet).unwrap();
-                    let client = &mut clients[client];
-                    match handshake.next_state {
-                        1 => client.state = NetworkState::Status,
-                        2 => client.state = NetworkState::Login,
-                        _ => {}
-                    }
-                    if client.state == NetworkState::Login && handshake.protocol_version != 736 {
-                        warn!("A player tried to connect using the wrong version");
-                        let disconnect = C00DisconnectLogin {
-                            reason: json!({
-                                "text": "Version mismatch, I'm on 1.16.1!"
-                            })
-                            .to_string(),
-                        }
-                        .encode();
-                        client.send_packet(&disconnect);
-                        client.close_connection();
-                    }
-                }
-            }
-            NetworkState::Status => {
-                let client = &mut self.network.handshaking_clients[client];
-                match packet.packet_id {
-                    0x00 => {
-                        let response = C00Response {
-                            json_response: json!({
-                                "version": {
-                                    "name": "1.16.1",
-                                    "protocol": 736
-                                },
-                                "players": {
-                                    "max": self.config.max_players,
-                                    "online": self.online_players.len(),
-                                    "sample": []
-                                },
-                                "description": {
-                                    "text": self.config.motd
-                                }
-                            })
-                            .to_string(),
-                        }
-                        .encode();
-                        client.send_packet(&response);
-                    }
-                    0x01 => {
-                        let ping = S00Ping::decode(packet).unwrap();
-                        let pong = C01Pong {
-                            payload: ping.payload,
-                        }
-                        .encode();
-                        client.send_packet(&pong);
-                    }
-                    _ => {}
-                }
-            }
-            NetworkState::Login => {
-                if packet.packet_id == 0x00 {
-                    let login_start = S00LoginStart::decode(packet).unwrap();
-                    self.handle_player_login(client, login_start);
-                }
-            }
-            NetworkState::Play => {}
-        }
-    }
-
     fn handle_message(&mut self, message: Message) {
         debug!("Main thread received message: {:#?}", message);
         match message {
@@ -643,13 +572,70 @@ impl MinecraftServer {
         }
         self.network.update();
         for client in 0..self.network.handshaking_clients.len() {
-            let packets: Vec<PacketDecoder> = self.network.handshaking_clients[client]
-                .packets
-                .drain(..)
-                .collect();
+            let packets = self.network.handshaking_clients[client].receive_packets();
             for packet in packets {
-                self.handle_packet(client, packet);
+                packet.handle(self, client);
             }
         }
+    }
+}
+
+impl ServerBoundPacketHandler for MinecraftServer {
+    fn handle_handshake(&mut self, handshake: S00Handshake, client_idx: usize) {
+        let clients = &mut self.network.handshaking_clients;
+        let client = &mut clients[client_idx];
+        match handshake.next_state {
+            1 => client.state = NetworkState::Status,
+            2 => client.state = NetworkState::Login,
+            _ => {}
+        }
+        if client.state == NetworkState::Login && handshake.protocol_version != 736 {
+            warn!("A player tried to connect using the wrong version");
+            let disconnect = C00DisconnectLogin {
+                reason: json!({
+                    "text": "Version mismatch, I'm on 1.16.1!"
+                })
+                .to_string(),
+            }
+            .encode();
+            client.send_packet(&disconnect);
+            client.close_connection();
+        }
+    }
+
+    fn handle_request(&mut self, request: S00Request, client_idk: usize) {
+        let client = &mut self.network.handshaking_clients[client_idk];
+        let response = C00Response {
+            json_response: json!({
+                "version": {
+                    "name": "1.16.1",
+                    "protocol": 736
+                },
+                "players": {
+                    "max": self.config.max_players,
+                    "online": self.online_players.len(),
+                    "sample": []
+                },
+                "description": {
+                    "text": self.config.motd
+                }
+            })
+            .to_string(),
+        }
+        .encode();
+        client.send_packet(&response);
+    }
+
+    fn handle_ping(&mut self, ping: S01Ping, client_idx: usize) {
+        let client = &mut self.network.handshaking_clients[client_idx];
+        let pong = C01Pong {
+            payload: ping.payload,
+        }
+        .encode();
+        client.send_packet(&pong);
+    }
+
+    fn handle_login_start(&mut self, login_start: S00LoginStart, client_idx: usize) {
+        self.handle_player_login(client_idx, login_start);
     }
 }
