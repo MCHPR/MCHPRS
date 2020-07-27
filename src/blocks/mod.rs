@@ -667,7 +667,7 @@ impl Block {
             "black_terracotta" => Some(Block::Solid(6862)),
             "white_concrete" => Some(Block::Solid(9438)),
             "orange_concrete" => Some(Block::Solid(9439)),
-            "megenta_concrete" => Some(Block::Solid(9440)),
+            "magenta_concrete" => Some(Block::Solid(9440)),
             "light_blue_concrete" => Some(Block::Solid(9441)),
             "yellow_concrete" => Some(Block::Solid(9442)),
             "lime_concrete" => Some(Block::Solid(9443)),
