@@ -295,7 +295,10 @@ impl Plot {
     fn worldedit_send_operation(&mut self, operation: WorldEditOperation) {
         for packet in operation.records {
             // if packet.records.len() >= 8192 {
-            let chunk = self.get_chunk(packet.chunk_x, packet.chunk_z).unwrap();
+            let chunk = match self.get_chunk(packet.chunk_x, packet.chunk_z) {
+                Some(chunk) => chunk,
+                None => continue
+            };
             let chunk_data = chunk.encode_packet(false);
             for player in &mut self.players {
                 player.client.send_packet(&chunk_data);
