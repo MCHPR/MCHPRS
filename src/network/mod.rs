@@ -44,7 +44,9 @@ impl NetworkClient {
                 // This will cause the client to disconnect
                 Err(_) => return,
             };
-            sender.send(packet).unwrap();
+            if sender.send(packet).is_err() {
+                return;
+            }
         }
     }
 

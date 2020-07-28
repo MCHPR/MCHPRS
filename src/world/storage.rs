@@ -30,12 +30,13 @@ impl BitBuffer {
     }
 
     fn load(bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
-        let entries = longs.len() * 64 / bits_per_entry as usize;
+        let entries_per_long = 64 / bits_per_entry as u64;
+        let entries = longs.len()  * entries_per_long as usize;
         BitBuffer {
             bits_per_entry: bits_per_entry as u64,
             longs,
             entries,
-            entries_per_long: 64 / bits_per_entry as u64,
+            entries_per_long,
             mask: (1 << bits_per_entry) - 1,
         }
     }
@@ -291,7 +292,7 @@ impl Chunk {
             } else {
                 None
             },
-            ignore_old_data: true,
+            ignore_old_data: false,
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,
@@ -306,7 +307,7 @@ impl Chunk {
     fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
         let mut top_most = 0;
         for (section_y, section) in &self.sections {
-            for y in (0..15).rev() {
+            for y in (0..16).rev() {
                 let block_state = section.get_block(x, y, z);
                 if block_state != 0 && top_most < y + *section_y as u32 * 16 {
                     top_most = *section_y as u32 * 16;
