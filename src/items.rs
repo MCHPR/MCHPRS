@@ -111,7 +111,7 @@ impl Item {
             665 => Item::BlockItem(id),
             666 => Item::Snowball,
             903 => Item::TotemOfUndying,
-            936 => Item::BlockItem(id),
+            935 => Item::BlockItem(id),
             _ => Item::Unknown(id),
         }
     }

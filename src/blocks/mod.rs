@@ -518,7 +518,7 @@ impl Block {
                 Block::RedstoneWallTorch(lit, facing)
             }
             // Redstone Repeater
-            4031..=4084 => {
+            4031..=4094 => {
                 let id = id - 4031;
                 let powered = (id & 1) == 0;
                 let locked = ((id >> 1) & 1) == 0;
@@ -862,7 +862,7 @@ impl Block {
             // Redstone Wire
             665 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(world, pos)),
             // Barrel
-            936 => Block::Container(11136),
+            935 => Block::Container(14792),
             _ => Block::Air,
         };
         if block.is_valid_position(world, pos) {
