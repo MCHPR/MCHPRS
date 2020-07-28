@@ -19,7 +19,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, Instant};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {
@@ -503,11 +503,20 @@ impl Plot {
                     warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
                     self.lag_time = Duration::from_secs(0);
                 }
-
+                // let start_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
                     self.tick();
                     self.lag_time -= dur_per_tick;
                 }
+                // if ticks > 0 {
+                //     let tick_time = start_time.elapsed().as_micros();
+                //     let time_per_tick = tick_time / ticks;
+                //     if time_per_tick > (1_000_000 / self.tps) as u128 {
+                //         let new_tps = 1_000_000 / time_per_tick;
+                //         self.broadcast_plot_chat_message(format!("Plot is overloaded, setting rtps down to {}", new_tps));
+                //         self.tps = new_tps as u32;
+                //     }
+                // }
             }
         } else {
             // Unload plot after 600 seconds unless the plot should be always loaded

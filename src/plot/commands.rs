@@ -182,8 +182,7 @@ impl Plot {
             }
             "/rtps" => {
                 if args.is_empty() {
-                    self.players[player]
-                        .send_error_message("Please specify the rtps you want to set to.");
+                    self.players[player].send_system_message(&format!("The rtps is currently set to {}", self.tps));
                     return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
@@ -420,7 +419,7 @@ lazy_static! {
             },
             // 12: /rtps
             Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![13],
                 redirect_node: None,
                 name: Some("rtps"),
