@@ -72,6 +72,74 @@ impl ClientBoundPacket for C03SetCompression {
     }
 }
 
+pub struct C00SpawnEntity {
+    pub entity_id: i32,
+    pub object_uuid: u128,
+    pub entity_type: i32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub data: i32,
+    pub velocity_x: i16,
+    pub velocity_y: i16,
+    pub velocity_z: i16,
+}
+
+impl ClientBoundPacket for C00SpawnEntity {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_uuid(self.object_uuid);
+        buf.write_varint(self.entity_type);
+        buf.write_double(self.x);
+        buf.write_double(self.y);
+        buf.write_double(self.z);
+        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_int(self.data);
+        buf.write_short(self.velocity_x);
+        buf.write_short(self.velocity_y);
+        buf.write_short(self.velocity_z);
+        PacketEncoder::new(buf, 0x00)
+    }
+}
+
+pub struct C02SpawnLivingEntity {
+    pub entity_id: i32,
+    pub entity_uuid: u128,
+    pub entity_type: i32,
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub yaw: f32,
+    pub pitch: f32,
+    pub head_pitch: f32,
+    pub velocity_x: i16,
+    pub velocity_y: i16,
+    pub velocity_z: i16,
+}
+
+impl ClientBoundPacket for C02SpawnLivingEntity {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        buf.write_uuid(self.entity_uuid);
+        buf.write_varint(self.entity_type);
+        buf.write_double(self.x);
+        buf.write_double(self.y);
+        buf.write_double(self.z);
+        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte((self.head_pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_short(self.velocity_x);
+        buf.write_short(self.velocity_y);
+        buf.write_short(self.velocity_z);
+        PacketEncoder::new(buf, 0x02)
+    }
+}
+
 pub struct C04SpawnPlayer {
     pub entity_id: i32,
     pub uuid: u128,
