@@ -1,4 +1,4 @@
-use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
+use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos, ActionResult};
 use crate::world::World;
 
 // Redstone wires are extremely inefficient.
@@ -69,6 +69,15 @@ pub struct RedstoneWire {
 }
 
 impl RedstoneWire {
+
+    const CROSS: RedstoneWire = RedstoneWire {
+        north: RedstoneWireSide::Side,
+        south: RedstoneWireSide::Side,
+        east: RedstoneWireSide::Side,
+        west: RedstoneWireSide::Side,
+        power: 0
+    };
+
     pub fn new(
         north: RedstoneWireSide,
         south: RedstoneWireSide,
@@ -86,13 +95,15 @@ impl RedstoneWire {
     }
 
     pub fn get_state_for_placement(world: &dyn World, pos: BlockPos) -> RedstoneWire {
-        RedstoneWire {
-            power: RedstoneWire::calculate_power(world, pos),
-            north: RedstoneWire::get_side(world, pos, BlockDirection::North),
-            south: RedstoneWire::get_side(world, pos, BlockDirection::South),
-            east: RedstoneWire::get_side(world, pos, BlockDirection::East),
-            west: RedstoneWire::get_side(world, pos, BlockDirection::West),
+        let mut wire = RedstoneWire::default();
+        wire.power = RedstoneWire::calculate_power(world, pos);
+        wire = wire.get_regulated_sides(world, pos);
+        if wire.is_dot() {
+            let mut cross = RedstoneWire::CROSS;
+            cross.power = wire.power;
+            wire = cross;
         }
+        wire
     }
 
     pub fn on_neighbor_changed(
@@ -101,23 +112,42 @@ impl RedstoneWire {
         pos: BlockPos,
         side: BlockFace,
     ) -> RedstoneWire {
+        let old_state = self;
+        let new_side;
         match side {
-            BlockFace::Top => {}
+            BlockFace::Top => return self,
             BlockFace::Bottom => {
-                self.north = RedstoneWire::get_side(world, pos, BlockDirection::North);
-                self.south = RedstoneWire::get_side(world, pos, BlockDirection::South);
-                self.east = RedstoneWire::get_side(world, pos, BlockDirection::East);
-                self.west = RedstoneWire::get_side(world, pos, BlockDirection::West);
+                return self.get_regulated_sides(world, pos);
             }
             BlockFace::North => {
-                self.south = RedstoneWire::get_side(world, pos, BlockDirection::South)
+                self.south = RedstoneWire::get_side(world, pos, BlockDirection::South);
+                new_side = self.south;
             }
             BlockFace::South => {
-                self.north = RedstoneWire::get_side(world, pos, BlockDirection::North)
+                self.north = RedstoneWire::get_side(world, pos, BlockDirection::North);
+                new_side = self.north;
             }
 
-            BlockFace::East => self.west = RedstoneWire::get_side(world, pos, BlockDirection::West),
-            BlockFace::West => self.east = RedstoneWire::get_side(world, pos, BlockDirection::East),
+            BlockFace::East => {
+                self.west = RedstoneWire::get_side(world, pos, BlockDirection::West);
+                new_side = self.west
+            },
+            BlockFace::West => {
+                self.east = RedstoneWire::get_side(world, pos, BlockDirection::East);
+                new_side = self.east;
+            },
+        }
+        self = self.get_regulated_sides(world, pos);
+        if old_state.is_cross() && new_side.is_none() {
+            // Don't mess up the cross
+            return old_state;
+        }
+        if !old_state.is_dot() && self.is_dot() {
+            // Save the power until the transformation into cross is complete
+            let power = self.power;
+            // Become the cross it always wanted to be
+            self = RedstoneWire::CROSS;
+            self.power = power;
         }
         self
     }
@@ -133,6 +163,24 @@ impl RedstoneWire {
         }
     }
 
+    pub fn on_use(self, world: &mut dyn World, pos: BlockPos) -> ActionResult {
+        if self.is_dot() || self.is_cross() {
+            let mut new_wire = if self.is_cross() {
+                RedstoneWire::default()
+            } else {
+                RedstoneWire::CROSS
+            };
+            new_wire.power = self.power;
+            new_wire = new_wire.get_regulated_sides(world, pos);
+            if self != new_wire {
+                world.set_block(pos, Block::RedstoneWire(new_wire));
+                Block::update_wire_neighbors(world, pos);
+                return ActionResult::Success;
+            }
+        }
+        ActionResult::Pass
+    }
+
     fn can_connect_to(block: Block, side: BlockDirection) -> bool {
         match block {
             Block::RedstoneWire(_)
@@ -143,6 +191,7 @@ impl RedstoneWire {
             | Block::PressurePlate(_)
             | Block::TripwireHook(_)
             | Block::StoneButton(_)
+            | Block::Target
             | Block::Lever(_) => true,
             Block::RedstoneRepeater(repeater) => {
                 repeater.facing == side || repeater.facing == side.opposite()
@@ -156,6 +205,16 @@ impl RedstoneWire {
         match block {
             Block::RedstoneWire(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn get_current_side(self, side: BlockDirection) -> RedstoneWireSide {
+        use BlockDirection::*;
+        match side {
+            North => self.north,
+            South => self.south,
+            East => self.east,
+            West => self.west,
         }
     }
 
@@ -185,6 +244,55 @@ impl RedstoneWire {
         } else {
             RedstoneWireSide::None
         }
+    }
+
+    fn get_all_sides(mut self, world: &dyn World, pos: BlockPos) -> RedstoneWire {
+        self.north = Self::get_side(world, pos, BlockDirection::North);
+        self.south = Self::get_side(world, pos, BlockDirection::South);
+        self.east = Self::get_side(world, pos, BlockDirection::East);
+        self.west = Self::get_side(world, pos, BlockDirection::West);
+        self
+    }
+
+    pub fn get_regulated_sides(self, world: &dyn World, pos: BlockPos) -> RedstoneWire {
+        let is_dot = self.is_dot();
+        let mut state = self.get_all_sides(world, pos);
+        if is_dot && state.is_dot() {
+            return state;
+        }
+        let north_none = state.north.is_none();
+        let south_none = state.south.is_none();
+        let east_none = state.east.is_none();
+        let west_none = state.west.is_none();
+        let north_south_none = north_none && south_none;
+        let east_west_none = east_none && west_none;
+        if north_none && east_west_none {
+            state.north = RedstoneWireSide::Side;
+        }
+        if south_none && east_west_none {
+            state.south = RedstoneWireSide::Side;
+        }
+        if east_none && north_south_none {
+            state.east = RedstoneWireSide::Side;
+        }
+        if west_none && north_south_none {
+            state.west = RedstoneWireSide::Side;
+        }
+        state
+    }
+
+    fn is_dot(self) -> bool {
+        self.north == RedstoneWireSide::None &&
+        self.south == RedstoneWireSide::None &&
+        self.east == RedstoneWireSide::None &&
+        self.west == RedstoneWireSide::None
+    }
+
+    fn is_cross(self) -> bool {
+        self.north == RedstoneWireSide::Side &&
+        self.south == RedstoneWireSide::Side &&
+        self.east == RedstoneWireSide::Side &&
+        self.west == RedstoneWireSide::Side
     }
 
     fn max_wire_power(wire_power: u8, world: &dyn World, pos: BlockPos) -> u8 {
