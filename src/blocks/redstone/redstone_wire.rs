@@ -1,4 +1,4 @@
-use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos, ActionResult};
+use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos};
 use crate::world::World;
 
 // Redstone wires are extremely inefficient.
@@ -69,13 +69,12 @@ pub struct RedstoneWire {
 }
 
 impl RedstoneWire {
-
     const CROSS: RedstoneWire = RedstoneWire {
         north: RedstoneWireSide::Side,
         south: RedstoneWireSide::Side,
         east: RedstoneWireSide::Side,
         west: RedstoneWireSide::Side,
-        power: 0
+        power: 0,
     };
 
     pub fn new(
@@ -131,11 +130,11 @@ impl RedstoneWire {
             BlockFace::East => {
                 self.west = RedstoneWire::get_side(world, pos, BlockDirection::West);
                 new_side = self.west
-            },
+            }
             BlockFace::West => {
                 self.east = RedstoneWire::get_side(world, pos, BlockDirection::East);
                 new_side = self.east;
-            },
+            }
         }
         self = self.get_regulated_sides(world, pos);
         if old_state.is_cross() && new_side.is_none() {
@@ -282,17 +281,17 @@ impl RedstoneWire {
     }
 
     fn is_dot(self) -> bool {
-        self.north == RedstoneWireSide::None &&
-        self.south == RedstoneWireSide::None &&
-        self.east == RedstoneWireSide::None &&
-        self.west == RedstoneWireSide::None
+        self.north == RedstoneWireSide::None
+            && self.south == RedstoneWireSide::None
+            && self.east == RedstoneWireSide::None
+            && self.west == RedstoneWireSide::None
     }
 
     fn is_cross(self) -> bool {
-        self.north == RedstoneWireSide::Side &&
-        self.south == RedstoneWireSide::Side &&
-        self.east == RedstoneWireSide::Side &&
-        self.west == RedstoneWireSide::Side
+        self.north == RedstoneWireSide::Side
+            && self.south == RedstoneWireSide::Side
+            && self.east == RedstoneWireSide::Side
+            && self.west == RedstoneWireSide::Side
     }
 
     fn max_wire_power(wire_power: u8, world: &dyn World, pos: BlockPos) -> u8 {

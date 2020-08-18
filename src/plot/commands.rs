@@ -182,7 +182,8 @@ impl Plot {
             }
             "/rtps" => {
                 if args.is_empty() {
-                    self.players[player].send_system_message(&format!("The rtps is currently set to {}", self.tps));
+                    self.players[player]
+                        .send_system_message(&format!("The rtps is currently set to {}", self.tps));
                     return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {

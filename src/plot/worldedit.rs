@@ -297,7 +297,7 @@ impl Plot {
             // if packet.records.len() >= 8192 {
             let chunk = match self.get_chunk(packet.chunk_x, packet.chunk_z) {
                 Some(chunk) => chunk,
-                None => continue
+                None => continue,
             };
             let chunk_data = chunk.encode_packet(false);
             for player in &mut self.players {

@@ -31,7 +31,7 @@ impl BitBuffer {
 
     fn load(bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
         let entries_per_long = 64 / bits_per_entry as u64;
-        let entries = longs.len()  * entries_per_long as usize;
+        let entries = longs.len() * entries_per_long as usize;
         BitBuffer {
             bits_per_entry: bits_per_entry as u64,
             longs,

@@ -39,7 +39,11 @@ impl Block {
                 BlockFace::Bottom => 0,
                 _ => {
                     let direction = side.to_direction();
-                    if wire.get_regulated_sides(world, pos).get_current_side(direction.opposite()).is_none() {
+                    if wire
+                        .get_regulated_sides(world, pos)
+                        .get_current_side(direction.opposite())
+                        .is_none()
+                    {
                         0
                     } else {
                         wire.power
