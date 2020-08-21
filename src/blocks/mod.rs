@@ -107,12 +107,12 @@ impl BlockEntity {
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Hash)]
 pub struct BlockPos {
     pub x: i32,
-    pub y: u32,
+    pub y: i32,
     pub z: i32,
 }
 
 impl BlockPos {
-    pub fn new(x: i32, y: u32, z: i32) -> BlockPos {
+    pub fn new(x: i32, y: i32, z: i32) -> BlockPos {
         BlockPos { x, y, z }
     }
 
@@ -638,7 +638,7 @@ impl Block {
             "stone_pressure_plate" => Some(Block::PressurePlate(3808)),
             "white_wool" => Some(Block::Solid(1384)),
             "orange_wool" => Some(Block::Solid(1385)),
-            "megenta_wool" => Some(Block::Solid(1386)),
+            "magenta_wool" => Some(Block::Solid(1386)),
             "light_blue_wool" => Some(Block::Solid(1387)),
             "yellow_wool" => Some(Block::Solid(1388)),
             "lime_wool" => Some(Block::Solid(1389)),
@@ -656,7 +656,7 @@ impl Block {
             "stone_bricks" => Some(Block::Solid(4495)),
             "white_terracotta" => Some(Block::Solid(6847)),
             "orange_terracotta" => Some(Block::Solid(6848)),
-            "megenta_terracotta" => Some(Block::Solid(6849)),
+            "magenta_terracotta" => Some(Block::Solid(6849)),
             "light_blue_terracotta" => Some(Block::Solid(6850)),
             "yellow_terracotta" => Some(Block::Solid(6851)),
             "lime_terracotta" => Some(Block::Solid(6852)),
