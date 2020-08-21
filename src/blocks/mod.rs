@@ -107,12 +107,12 @@ impl BlockEntity {
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Hash)]
 pub struct BlockPos {
     pub x: i32,
-    pub y: u32,
+    pub y: i32,
     pub z: i32,
 }
 
 impl BlockPos {
-    pub fn new(x: i32, y: u32, z: i32) -> BlockPos {
+    pub fn new(x: i32, y: i32, z: i32) -> BlockPos {
         BlockPos { x, y, z }
     }
 

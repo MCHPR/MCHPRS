@@ -364,12 +364,12 @@ impl Player {
         );
     }
 
-    pub fn worldedit_set_first_position(&mut self, x: i32, y: u32, z: i32) {
+    pub fn worldedit_set_first_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("First position set to ({}, {}, {})", x, y, z));
         self.first_position = Some(BlockPos::new(x, y, z));
     }
 
-    pub fn worldedit_set_second_position(&mut self, x: i32, y: u32, z: i32) {
+    pub fn worldedit_set_second_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("Second position set to ({}, {}, {})", x, y, z));
         self.second_position = Some(BlockPos::new(x, y, z));
     }
