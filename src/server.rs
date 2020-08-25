@@ -603,7 +603,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
         }
     }
 
-    fn handle_request(&mut self, request: S00Request, client_idk: usize) {
+    fn handle_request(&mut self, _request: S00Request, client_idk: usize) {
         let client = &mut self.network.handshaking_clients[client_idk];
         let response = C00Response {
             json_response: json!({

@@ -8,7 +8,6 @@ use crate::player::SkinParts;
 use crate::server::Message;
 use crate::world::World;
 use log::debug;
-use serde_json::json;
 use std::time::Instant;
 
 impl Plot {
@@ -111,7 +110,7 @@ impl ServerBoundPacketHandler for Plot {
 
         let block_pos = BlockPos::new(
             player_block_placement.x,
-            player_block_placement.y as u32,
+            player_block_placement.y,
             player_block_placement.z,
         );
 
@@ -334,7 +333,7 @@ impl ServerBoundPacketHandler for Plot {
     fn handle_player_digging(&mut self, player_digging: S1BPlayerDigging, player: usize) {
         if player_digging.status == 0 {
             let block_pos =
-                BlockPos::new(player_digging.x, player_digging.y as u32, player_digging.z);
+                BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
 
             if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
                 self.players[player].send_system_message("Can't break blocks outside of plot");

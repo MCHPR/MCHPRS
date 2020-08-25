@@ -39,14 +39,14 @@ impl Block {
                 BlockFace::Bottom => 0,
                 _ => {
                     let direction = side.to_direction();
-                    let right_side =
-                        RedstoneWire::get_side(world, pos, direction.rotate()).is_none();
-                    let left_side =
-                        RedstoneWire::get_side(world, pos, direction.rotate_ccw()).is_none();
-                    if right_side && left_side {
-                        wire.power
-                    } else {
+                    if wire
+                        .get_regulated_sides(world, pos)
+                        .get_current_side(direction.opposite())
+                        .is_none()
+                    {
                         0
+                    } else {
+                        wire.power
                     }
                 }
             },

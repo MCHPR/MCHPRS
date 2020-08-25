@@ -10,6 +10,7 @@ use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Write};
 use std::time::{Instant, SystemTime};
+use log::warn;
 
 /// This is a single item in the player's inventory
 #[derive(Debug, Serialize, Deserialize)]
@@ -125,8 +126,13 @@ impl Player {
     /// It will be created.
     pub fn load_player(uuid: u128, username: String, client: NetworkClient) -> Player {
         if let Ok(data) = fs::read(format!("./world/players/{:032x}", uuid)) {
-            // TODO: Handle format error
-            let player_data: PlayerData = bincode::deserialize(&data).unwrap();
+            let player_data: PlayerData = match bincode::deserialize(&data) {
+                Ok(data) => data,
+                Err(_) => {
+                    warn!("There was an error loading the player data for {}, player data will be reset.", username);
+                    return Player::create_player(uuid, username, client);
+                }
+            };
 
             // Load inventory
             let mut inventory: Vec<Option<ItemStack>> = vec![];
@@ -364,12 +370,12 @@ impl Player {
         );
     }
 
-    pub fn worldedit_set_first_position(&mut self, x: i32, y: u32, z: i32) {
+    pub fn worldedit_set_first_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("First position set to ({}, {}, {})", x, y, z));
         self.first_position = Some(BlockPos::new(x, y, z));
     }
 
-    pub fn worldedit_set_second_position(&mut self, x: i32, y: u32, z: i32) {
+    pub fn worldedit_set_second_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("Second position set to ({}, {}, {})", x, y, z));
         self.second_position = Some(BlockPos::new(x, y, z));
     }

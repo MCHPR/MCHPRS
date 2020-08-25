@@ -114,7 +114,7 @@ impl WorldEditClipboard {
             let pos_array = nbt_unwrap_val!(&val["Pos"], Value::IntArray);
             let pos = BlockPos {
                 x: pos_array[0],
-                y: pos_array[1] as u32,
+                y: pos_array[1],
                 z: pos_array[2],
             };
             if let Some(parsed) = BlockEntity::from_nbt(val) {
@@ -220,7 +220,7 @@ impl WorldEditPattern {
 struct WorldEditOperation {
     pub records: Vec<C0FMultiBlockChange>,
     x_range: RangeInclusive<i32>,
-    y_range: RangeInclusive<u32>,
+    y_range: RangeInclusive<i32>,
     z_range: RangeInclusive<i32>,
 }
 
@@ -242,7 +242,7 @@ impl WorldEditOperation {
         }
 
         let x_range = start_pos.x..=end_pos.x;
-        let y_range = (start_pos.y as u32)..=(end_pos.y as u32);
+        let y_range = start_pos.y..=end_pos.y;
         let z_range = start_pos.z..=end_pos.z;
         WorldEditOperation {
             records,
@@ -283,7 +283,7 @@ impl WorldEditOperation {
     fn x_range(&self) -> RangeInclusive<i32> {
         self.x_range.to_owned()
     }
-    fn y_range(&self) -> RangeInclusive<u32> {
+    fn y_range(&self) -> RangeInclusive<i32> {
         self.y_range.to_owned()
     }
     fn z_range(&self) -> RangeInclusive<i32> {
@@ -297,7 +297,7 @@ impl Plot {
             // if packet.records.len() >= 8192 {
             let chunk = match self.get_chunk(packet.chunk_x, packet.chunk_z) {
                 Some(chunk) => chunk,
-                None => continue
+                None => continue,
             };
             let chunk_data = chunk.encode_packet(false);
             for player in &mut self.players {
@@ -358,7 +358,7 @@ impl Plot {
             for x in operation.x_range() {
                 for y in operation.y_range() {
                     for z in operation.z_range() {
-                        let block_pos = BlockPos::new(x, y as u32, z);
+                        let block_pos = BlockPos::new(x, y, z);
                         let block_id = pattern.pick().get_id();
 
                         if self.set_block_raw(block_pos, block_id) {
@@ -400,7 +400,7 @@ impl Plot {
             for x in operation.x_range() {
                 for y in operation.y_range() {
                     for z in operation.z_range() {
-                        let block_pos = BlockPos::new(x, y as u32, z);
+                        let block_pos = BlockPos::new(x, y, z);
 
                         if filter.matches(self.get_block(block_pos)) {
                             let block_id = pattern.pick().get_id();
@@ -440,7 +440,7 @@ impl Plot {
             for x in operation.x_range() {
                 for y in operation.y_range() {
                     for z in operation.z_range() {
-                        let block_pos = BlockPos::new(x, y as u32, z);
+                        let block_pos = BlockPos::new(x, y, z);
                         if filter.matches(self.get_block(block_pos)) {
                             blocks_counted += 1;
                         }
@@ -466,7 +466,7 @@ impl Plot {
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
         let size_x = (end_pos.x - start_pos.x) as u32 + 1;
-        let size_y = end_pos.y - start_pos.y + 1;
+        let size_y = (end_pos.y - start_pos.y) as u32 + 1;
         let size_z = (end_pos.z - start_pos.z) as u32 + 1;
         let mut cb = WorldEditClipboard {
             offset_x: origin.x - start_pos.x,
@@ -510,7 +510,7 @@ impl Plot {
                     if i >= entries {
                         break 'top_loop;
                     }
-                    self.set_block_raw(BlockPos::new(x, y as u32, z), cb.data.get_entry(i));
+                    self.set_block_raw(BlockPos::new(x, y, z), cb.data.get_entry(i));
                     i += 1;
                 }
             }
@@ -532,7 +532,7 @@ impl Plot {
         for (pos, block_entity) in &cb.block_entities {
             let new_pos = BlockPos {
                 x: pos.x + offset_x,
-                y: pos.y + offset_y as u32,
+                y: pos.y + offset_y,
                 z: pos.z + offset_z,
             };
             self.set_block_entity(new_pos, block_entity.clone());
@@ -562,7 +562,7 @@ impl Plot {
         }
         let origin = BlockPos::new(
             self.players[player].x.floor() as i32,
-            self.players[player].y.floor() as u32,
+            self.players[player].y.floor() as i32,
             self.players[player].z.floor() as i32,
         );
         let clipboard = self.create_clipboard(
@@ -586,18 +586,18 @@ impl Plot {
             let cb = &self.players[player].worldedit_clipboard.clone().unwrap();
             let pos = BlockPos::new(
                 self.players[player].x.floor() as i32,
-                self.players[player].y.floor() as u32,
+                self.players[player].y.floor() as i32,
                 self.players[player].z.floor() as i32,
             );
             let offset_x = pos.x - cb.offset_x;
-            let offset_y = pos.y as i32 - cb.offset_y;
+            let offset_y = pos.y - cb.offset_y;
             let offset_z = pos.z - cb.offset_z;
             self.capture_undo(
                 player,
-                BlockPos::new(offset_x, offset_y as u32, offset_z),
+                BlockPos::new(offset_x, offset_y, offset_z),
                 BlockPos::new(
                     offset_x + cb.size_x as i32,
-                    offset_y as u32 + cb.size_y,
+                    offset_y + cb.size_y as i32,
                     offset_z + cb.size_z as i32,
                 ),
             );
@@ -637,7 +637,7 @@ impl Plot {
             for x in operation.x_range() {
                 for y in operation.y_range() {
                     for z in operation.z_range() {
-                        let block_pos = BlockPos::new(x, y as u32, z);
+                        let block_pos = BlockPos::new(x, y, z);
                         if self.get_block_raw(block_pos) == block_id {
                             self.players[player].send_worldedit_message(&format!(
                                 "The block was found at {:?}",
@@ -673,7 +673,7 @@ impl Plot {
             for i in 0..stack_amt {
                 all_pos.push(BlockPos::new(
                     pos1.x,
-                    pos1.y as u32 + (clipboard.size_y * (i + 1)),
+                    pos1.y + ((clipboard.size_y * (i + 1)) as i32),
                     pos1.z,
                 ));
             }
@@ -683,7 +683,7 @@ impl Plot {
             for i in 0..stack_amt {
                 all_pos.push(BlockPos::new(
                     pos1.x,
-                    pos1.y as u32 - (clipboard.size_y * (i + 1)),
+                    pos1.y - ((clipboard.size_y * (i + 1)) as i32),
                     pos1.z,
                 ));
             }

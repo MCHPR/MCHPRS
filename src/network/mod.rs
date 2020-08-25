@@ -1,7 +1,7 @@
 pub mod packets;
 
-use packets::{read_packet, serverbound::ServerBoundPacket, DecodeResult, PacketEncoder};
-use std::io::{self, BufRead, BufReader, Write};
+use packets::{read_packet, serverbound::ServerBoundPacket, PacketEncoder};
+use std::io::Write;
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{
     atomic::{AtomicBool, Ordering},

@@ -107,12 +107,12 @@ impl BlockEntity {
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Hash)]
 pub struct BlockPos {
     pub x: i32,
-    pub y: u32,
+    pub y: i32,
     pub z: i32,
 }
 
 impl BlockPos {
-    pub fn new(x: i32, y: u32, z: i32) -> BlockPos {
+    pub fn new(x: i32, y: i32, z: i32) -> BlockPos {
         BlockPos { x, y, z }
     }
 
@@ -367,6 +367,7 @@ pub enum Block {
     RedstoneLamp(bool),
     Lever(Lever),
     RedstoneBlock,
+    Target,
     Container(u32),
     PressurePlate(u32),
     TripwireHook(BlockDirection),
@@ -422,6 +423,7 @@ impl Block {
             Block::RedstoneLamp(_) | Block::Solid(_) => true,
             // Hoppers are transparent
             Block::Container(id) if id != 6198 => true,
+            Block::Target => true,
             _ => false,
         }
     }
@@ -559,6 +561,8 @@ impl Block {
             9641..=9647 => Block::SeaPickle(((id - 9641) >> 1) as u8 + 1),
             // Barrel
             14792 => Block::Container(id),
+            // Target
+            15760 => Block::Target,
             _ => Block::Solid(id),
         }
     }
@@ -615,6 +619,7 @@ impl Block {
             Block::Observer(facing) => (facing.get_id() << 1) + 9261,
             Block::WallSign(sign_type, facing) => (sign_type << 3) + (facing.get_id() << 1) + 3736,
             Block::SeaPickle(pickles) => ((pickles - 1) << 1) as u32 + 9641,
+            Block::Target => 15760,
             Block::PressurePlate(id) => id,
             Block::Solid(id) => id,
             Block::Transparent(id) => id,
@@ -633,7 +638,7 @@ impl Block {
             "stone_pressure_plate" => Some(Block::PressurePlate(3808)),
             "white_wool" => Some(Block::Solid(1384)),
             "orange_wool" => Some(Block::Solid(1385)),
-            "megenta_wool" => Some(Block::Solid(1386)),
+            "magenta_wool" => Some(Block::Solid(1386)),
             "light_blue_wool" => Some(Block::Solid(1387)),
             "yellow_wool" => Some(Block::Solid(1388)),
             "lime_wool" => Some(Block::Solid(1389)),
@@ -651,7 +656,7 @@ impl Block {
             "stone_bricks" => Some(Block::Solid(4495)),
             "white_terracotta" => Some(Block::Solid(6847)),
             "orange_terracotta" => Some(Block::Solid(6848)),
-            "megenta_terracotta" => Some(Block::Solid(6849)),
+            "magenta_terracotta" => Some(Block::Solid(6849)),
             "light_blue_terracotta" => Some(Block::Solid(6850)),
             "yellow_terracotta" => Some(Block::Solid(6851)),
             "lime_terracotta" => Some(Block::Solid(6852)),
@@ -708,6 +713,7 @@ impl Block {
             "stone_button" => Some(Block::StoneButton(StoneButton::default())),
             "gold_block" => Some(Block::Solid(1427)),
             "hopper" => Some(Block::Container(6729)),
+            "target" => Some(Block::Target),
             _ => None,
         }
     }
@@ -774,6 +780,7 @@ impl Block {
                 }
                 ActionResult::Success
             }
+            Block::RedstoneWire(wire) => wire.on_use(world, pos),
             Block::SeaPickle(pickles) => {
                 if let Some(Item::BlockItem(80)) = item_in_hand {
                     if pickles < 4 {
@@ -863,6 +870,8 @@ impl Block {
             665 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(world, pos)),
             // Barrel
             935 => Block::Container(14792),
+            // Target
+            960 => Block::Target,
             _ => Block::Air,
         };
         if block.is_valid_position(world, pos) {

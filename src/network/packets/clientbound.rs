@@ -1,5 +1,4 @@
 use super::{PacketEncoder, PacketEncoderExt, SlotData};
-use crate::player::Player;
 use serde::Serialize;
 
 pub trait ClientBoundPacket {
