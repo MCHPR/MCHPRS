@@ -44,7 +44,8 @@ impl BitBuffer {
     pub fn get_entry(&self, word_idx: usize) -> u32 {
         // Find the set of indices.
         let arr_idx = word_idx / self.entries_per_long as usize;
-        let sub_idx = (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
+        let sub_idx =
+            (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
         // Find the word.
         let word = (self.longs[arr_idx] >> sub_idx) & self.mask;
         word as u32
@@ -53,7 +54,8 @@ impl BitBuffer {
     pub fn set_entry(&mut self, word_idx: usize, word: u32) {
         // Find the set of indices.
         let arr_idx = word_idx / self.entries_per_long as usize;
-        let sub_idx = (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
+        let sub_idx =
+            (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
         // Set the word.
         let mask = !(self.mask << sub_idx);
         self.longs[arr_idx] = (self.longs[arr_idx] & mask) | ((word as u64) << sub_idx);

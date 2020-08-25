@@ -1,4 +1,4 @@
-use super::{database, Plot};
+use super::{database, worldedit, Plot};
 use crate::network::packets::clientbound::{
     C11DeclareCommands, C11DeclareCommandsNode as Node, C11DeclareCommandsNodeParser as Parser,
     C31PlayerAbilities, ClientBoundPacket,
@@ -51,134 +51,18 @@ impl Plot {
             command,
             args.join(" ")
         );
+        // Handle worldedit commands
+        if command.starts_with("//") {
+            worldedit::execute_command(self, player, command.trim_start_matches("//"), &args);
+        }
+
         match command {
-            "//1" | "//pos1" => {
-                let player = &mut self.players[player];
-
-                let mut x = player.x as i32;
-                let mut y = player.y as i32;
-                let mut z = player.z as i32;
-
-                if args.len() >= 3 {
-                    if let Ok(x_arg) = args[0].parse::<i32>() {
-                        x = x_arg;
-                    } else {
-                        player.send_error_message("Unable to parse x coordinate!");
-                        return false;
-                    }
-                    if let Ok(y_arg) = args[1].parse::<i32>() {
-                        y = y_arg;
-                    } else {
-                        player.send_error_message("Unable to parse y coordinate!");
-                        return false;
-                    }
-                    if let Ok(z_arg) = args[2].parse::<i32>() {
-                        z = z_arg;
-                    } else {
-                        player.send_error_message("Unable to parse z coordinate!");
-                        return false;
-                    }
-                }
-
-                player.worldedit_set_first_position(x, y, z);
-            }
-            "//2" | "//pos2" => {
-                let player = &mut self.players[player];
-
-                let mut x = player.x as i32;
-                let mut y = player.y as i32;
-                let mut z = player.z as i32;
-
-                if args.len() >= 3 {
-                    if let Ok(x_arg) = args[0].parse::<i32>() {
-                        x = x_arg;
-                    } else {
-                        player.send_error_message("Unable to parse x coordinate!");
-                        return false;
-                    }
-                    if let Ok(y_arg) = args[1].parse::<i32>() {
-                        y = y_arg;
-                    } else {
-                        player.send_error_message("Unable to parse y coordinate!");
-                        return false;
-                    }
-                    if let Ok(z_arg) = args[2].parse::<i32>() {
-                        z = z_arg;
-                    } else {
-                        player.send_error_message("Unable to parse z coordinate!");
-                        return false;
-                    }
-                }
-
-                player.worldedit_set_second_position(x, y, z);
-            }
-            "//set" => {
-                if args.is_empty() {
-                    self.players[player].send_error_message("Wrong number of arguments!");
-                    return false;
-                }
-                if self.worldedit_set(player, &args[0]).is_err() {
-                    self.players[player].send_error_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
-            }
-            "//stack" => {
-                let stack_amt = if !args.is_empty() {
-                    if let Ok(amt) = args[0].parse::<u32>() {
-                        amt
-                    } else {
-                        self.players[player].send_error_message("Unable to parse stack amount.");
-                        return false;
-                    }
-                } else {
-                    1
-                };
-                self.worldedit_stack(player, stack_amt);
-            }
-            "//replace" => {
-                if args.len() < 2 {
-                    self.players[player].send_error_message("Wrong number of arguments!");
-                    return false;
-                }
-                if self.worldedit_replace(player, &args[0], &args[1]).is_err() {
-                    self.players[player].send_error_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
-            }
-            "//find" => {
-                if args.is_empty() {
-                    self.players[player].send_error_message("Wrong number of arguments!");
-                    return false;
-                }
-                self.worldedit_find(player, args[0].parse::<u32>().unwrap())
-            }
-            "//copy" | "//c" => self.worldedit_copy(player),
-            "//paste" | "//p" => self.worldedit_paste(player),
-            "//count" => {
-                if args.is_empty() {
-                    self.players[player].send_error_message("Wrong number of arguments!");
-                    return false;
-                }
-                if self.worldedit_count(player, &args[0]).is_err() {
-                    self.players[player].send_error_message(
-                        "Invalid block. Note that not all blocks are supported.",
-                    );
-                }
-            }
             "//load" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Wrong number of arguments!");
                     return false;
                 }
-                self.worldedit_load(player, &args[0])
-            }
-            "//undo" => self.worldedit_undo(player),
-            "//sel" => {
-                self.players[player].first_position = None;
-                self.players[player].second_position = None;
-                self.players[player].send_worldedit_message("Selection cleared.");
+                worldedit::execute_load(self, player, &args[0])
             }
             "/rtps" => {
                 if args.is_empty() {
