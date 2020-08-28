@@ -1,5 +1,5 @@
 use crate::blocks::{BlockEntity, BlockPos};
-use crate::network::packets::clientbound::{C21ChunkData, C21ChunkDataSection, ClientBoundPacket};
+use crate::network::packets::clientbound::{C20ChunkData, C20ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -217,8 +217,8 @@ impl ChunkSection {
         }
     }
 
-    fn encode_packet(&self) -> C21ChunkDataSection {
-        C21ChunkDataSection {
+    fn encode_packet(&self) -> C20ChunkDataSection {
+        C20ChunkDataSection {
             bits_per_block: self.buffer.data.bits_per_entry as u8,
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
@@ -284,7 +284,7 @@ impl Chunk {
                     .map(|blob| block_entities.push(blob))
             })
             .for_each(drop);
-        C21ChunkData {
+        C20ChunkData {
             // Use `bool_to_option` feature when stabalized
             // Tracking issue: https://github.com/rust-lang/rust/issues/64260
             biomes: if full_chunk {
@@ -292,7 +292,6 @@ impl Chunk {
             } else {
                 None
             },
-            ignore_old_data: false,
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,

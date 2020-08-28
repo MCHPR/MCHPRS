@@ -1,7 +1,7 @@
 use super::{database, Plot};
 use crate::network::packets::clientbound::{
-    C11DeclareCommands, C11DeclareCommandsNode as Node, C11DeclareCommandsNodeParser as Parser,
-    C31PlayerAbilities, ClientBoundPacket,
+    C10DeclareCommands, C10DeclareCommandsNode as Node, C10DeclareCommandsNodeParser as Parser,
+    C30PlayerAbilities, ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
@@ -288,7 +288,7 @@ impl Plot {
                             .send_error_message("You cannot have a flyspeed greater than 10");
                         return false;
                     }
-                    let player_abilities = C31PlayerAbilities {
+                    let player_abilities = C30PlayerAbilities {
                         flags: 0x0F,
                         fly_speed: 0.05 * speed_arg,
                         fov_modifier: 0.1,
@@ -320,7 +320,7 @@ lazy_static! {
     // For more information, see https://wiki.vg/Command_Data
     /// The DeclareCommands packet that is sent when the player joins.
     /// This is used for command autocomplete.
-    pub static ref DECLARE_COMMANDS: PacketEncoder = C11DeclareCommands {
+    pub static ref DECLARE_COMMANDS: PacketEncoder = C10DeclareCommands {
         nodes: vec![
             // 0: Root Node
             Node {

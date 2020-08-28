@@ -21,17 +21,17 @@ pub trait ServerBoundPacketHandler {
     fn handle_player_abilities(&mut self, _packet: S1APlayerAbilities, _player_idx: usize) {}
     fn handle_player_digging(&mut self, _packet: S1BPlayerDigging, _player_idx: usize) {}
     fn handle_entity_action(&mut self, _packet: S1CEntityAction, _player_idx: usize) {}
-    fn handle_animation(&mut self, _packet: S2BAnimation, _player_idx: usize) {}
+    fn handle_animation(&mut self, _packet: S2CAnimation, _player_idx: usize) {}
     fn handle_player_block_placement(
         &mut self,
-        _packet: S2DPlayerBlockPlacemnt,
+        _packet: S2EPlayerBlockPlacemnt,
         _player_idx: usize,
     ) {
     }
-    fn handle_held_item_change(&mut self, _packet: S24HeldItemChange, _player_idx: usize) {}
+    fn handle_held_item_change(&mut self, _packet: S25HeldItemChange, _player_idx: usize) {}
     fn handle_creative_inventory_action(
         &mut self,
-        _packet: S27CreativeInventoryAction,
+        _packet: S28CreativeInventoryAction,
         _player_idx: usize,
     ) {
     }
@@ -347,13 +347,13 @@ impl ServerBoundPacket for S1CEntityAction {
     }
 }
 
-pub struct S2BAnimation {
+pub struct S2CAnimation {
     pub hand: i32,
 }
 
-impl ServerBoundPacket for S2BAnimation {
+impl ServerBoundPacket for S2CAnimation {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
-        Ok(S2BAnimation {
+        Ok(S2CAnimation {
             hand: decoder.read_varint()?,
         })
     }
@@ -363,7 +363,7 @@ impl ServerBoundPacket for S2BAnimation {
     }
 }
 
-pub struct S2DPlayerBlockPlacemnt {
+pub struct S2EPlayerBlockPlacemnt {
     pub hand: i32,
     pub x: i32,
     pub y: i32,
@@ -375,7 +375,7 @@ pub struct S2DPlayerBlockPlacemnt {
     pub inside_block: bool,
 }
 
-impl ServerBoundPacket for S2DPlayerBlockPlacemnt {
+impl ServerBoundPacket for S2EPlayerBlockPlacemnt {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let hand = decoder.read_varint()?;
         let location = decoder.read_position()?;
@@ -384,7 +384,7 @@ impl ServerBoundPacket for S2DPlayerBlockPlacemnt {
         let cursor_y = decoder.read_float()?;
         let cursor_z = decoder.read_float()?;
         let inside_block = decoder.read_bool()?;
-        Ok(S2DPlayerBlockPlacemnt {
+        Ok(S2EPlayerBlockPlacemnt {
             x: location.0,
             y: location.1,
             z: location.2,
@@ -402,13 +402,13 @@ impl ServerBoundPacket for S2DPlayerBlockPlacemnt {
     }
 }
 
-pub struct S24HeldItemChange {
+pub struct S25HeldItemChange {
     pub slot: i16,
 }
 
-impl ServerBoundPacket for S24HeldItemChange {
+impl ServerBoundPacket for S25HeldItemChange {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
-        Ok(S24HeldItemChange {
+        Ok(S25HeldItemChange {
             slot: decoder.read_short()?,
         })
     }
@@ -418,12 +418,12 @@ impl ServerBoundPacket for S24HeldItemChange {
     }
 }
 
-pub struct S27CreativeInventoryAction {
+pub struct S28CreativeInventoryAction {
     pub slot: i16,
     pub clicked_item: Option<SlotData>,
 }
 
-impl ServerBoundPacket for S27CreativeInventoryAction {
+impl ServerBoundPacket for S28CreativeInventoryAction {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let slot = decoder.read_short()?;
         let clicked_item = if decoder.read_bool()? {
@@ -435,7 +435,7 @@ impl ServerBoundPacket for S27CreativeInventoryAction {
         } else {
             None
         };
-        Ok(S27CreativeInventoryAction { slot, clicked_item })
+        Ok(S28CreativeInventoryAction { slot, clicked_item })
     }
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {

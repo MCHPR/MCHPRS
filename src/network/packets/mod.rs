@@ -103,10 +103,10 @@ fn read_decompressed<T: PacketDecoderExt>(
             0x1A => Box::new(S1APlayerAbilities::decode(reader)?),
             0x1B => Box::new(S1BPlayerDigging::decode(reader)?),
             0x1C => Box::new(S1CEntityAction::decode(reader)?),
-            0x24 => Box::new(S24HeldItemChange::decode(reader)?),
-            0x27 => Box::new(S27CreativeInventoryAction::decode(reader)?),
-            0x2B => Box::new(S2BAnimation::decode(reader)?),
-            0x2D => Box::new(S2DPlayerBlockPlacemnt::decode(reader)?),
+            0x24 => Box::new(S25HeldItemChange::decode(reader)?),
+            0x27 => Box::new(S28CreativeInventoryAction::decode(reader)?),
+            0x2B => Box::new(S2CAnimation::decode(reader)?),
+            0x2D => Box::new(S2EPlayerBlockPlacemnt::decode(reader)?),
             _ => Box::new(SUnknown),
         },
     })
@@ -343,6 +343,7 @@ pub struct PacketEncoder {
 
 impl PacketEncoder {
     fn new(buffer: Vec<u8>, packet_id: u32) -> PacketEncoder {
+        dbg!(packet_id);
         PacketEncoder { buffer, packet_id }
     }
 

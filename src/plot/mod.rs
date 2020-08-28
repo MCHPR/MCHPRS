@@ -309,7 +309,7 @@ impl Plot {
         should_be_loaded: bool,
     ) {
         if was_loaded && !should_be_loaded {
-            let unload_chunk = C1DUnloadChunk { chunk_x, chunk_z }.encode();
+            let unload_chunk = C1CUnloadChunk { chunk_x, chunk_z }.encode();
             self.players[player_idx].client.send_packet(&unload_chunk);
         } else if !was_loaded && should_be_loaded {
             if !Plot::chunk_in_plot_bounds(self.x, self.z, chunk_x, chunk_z) {
@@ -368,7 +368,7 @@ impl Plot {
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
-        let destroy_entities = C37DestroyEntities {
+        let destroy_entities = C36DestroyEntities {
             entity_ids: vec![entity_id as i32],
         }
         .encode();
@@ -383,13 +383,13 @@ impl Plot {
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
         }
-        let destroy_other_entities = C37DestroyEntities { entity_ids }.encode();
+        let destroy_other_entities = C36DestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.x << 4;
         let chunk_offset_z = self.z << 4;
         for chunk in &self.chunks {
             player.client.send_packet(
-                &C1DUnloadChunk {
+                &C1CUnloadChunk {
                     chunk_x: chunk_offset_x + chunk.x,
                     chunk_z: chunk_offset_z + chunk.z,
                 }
@@ -436,7 +436,7 @@ impl Plot {
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
-                    let player_info = C33PlayerInfo::AddPlayer(vec![C33PlayerInfoAddPlayer {
+                    let player_info = C32PlayerInfo::AddPlayer(vec![C32PlayerInfoAddPlayer {
                         name: player_join_info.username,
                         properties: Vec::new(),
                         gamemode: 1,
@@ -450,7 +450,7 @@ impl Plot {
                     }
                 }
                 BroadcastMessage::PlayerLeft(uuid) => {
-                    let player_info = C33PlayerInfo::RemovePlayer(vec![uuid]).encode();
+                    let player_info = C32PlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }

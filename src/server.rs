@@ -1,8 +1,8 @@
 use crate::network::packets::clientbound::{
-    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C14WindowItems,
-    C18PluginMessageBrand, C25JoinGame, C25JoinGameDimensionCodec,
-    C25JoinGameDimensionCodecDimension, C33PlayerInfo, C33PlayerInfoAddPlayer,
-    C35PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate, ClientBoundPacket,
+    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C13WindowItems,
+    C17PluginMessageBrand, C24JoinGame, C24JoinGameDimensionCodec,
+    C24JoinGameDimensionCodecDimension, C32PlayerInfo, C32PlayerInfoAddPlayer,
+    C34PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
@@ -361,14 +361,15 @@ impl MinecraftServer {
         clients[client_idx].state = NetworkState::Play;
         let mut client = clients.remove(client_idx);
 
-        let join_game = C25JoinGame {
+        let join_game = C24JoinGame {
             entity_id: client.id as i32,
+            is_hardcore: false,
             gamemode: 1,
             previous_gamemode: 1,
             world_count: 1,
             world_names: vec!["minecraft:overworld".to_owned()],
-            dimention_codec: C25JoinGameDimensionCodec {
-                dimension: vec![C25JoinGameDimensionCodecDimension {
+            dimention_codec: C24JoinGameDimensionCodec {
+                dimension: vec![C24JoinGameDimensionCodecDimension {
                     name: "minecraft:overworld".to_owned(),
                     natural: 1,
                     ambient_light: 1.0,
@@ -400,7 +401,7 @@ impl MinecraftServer {
 
         // Sends the custom brand name to the player
         // (This can be seen in the f3 debug menu in-game)
-        let brand = C18PluginMessageBrand {
+        let brand = C17PluginMessageBrand {
             brand: "Minecraft High Performace Redstone".to_string(),
         }
         .encode();
@@ -409,7 +410,7 @@ impl MinecraftServer {
         let mut player = Player::load_player(uuid, username.clone(), client);
 
         // Send the player's position and rotation.
-        let player_pos_and_look = C35PlayerPositionAndLook {
+        let player_pos_and_look = C34PlayerPositionAndLook {
             x: player.x,
             y: player.y,
             z: player.z,
@@ -425,7 +426,7 @@ impl MinecraftServer {
         // (This is the list you see when you press tab in-game)
         let mut add_player_list = Vec::new();
         for player in &self.online_players {
-            add_player_list.push(C33PlayerInfoAddPlayer {
+            add_player_list.push(C32PlayerInfoAddPlayer {
                 uuid: player.uuid,
                 name: player.username.clone(),
                 display_name: None,
@@ -434,7 +435,7 @@ impl MinecraftServer {
                 properties: Vec::new(),
             });
         }
-        add_player_list.push(C33PlayerInfoAddPlayer {
+        add_player_list.push(C32PlayerInfoAddPlayer {
             uuid: player.uuid,
             name: player.username.clone(),
             display_name: None,
@@ -442,7 +443,7 @@ impl MinecraftServer {
             ping: 0,
             properties: Vec::new(),
         });
-        let player_info = C33PlayerInfo::AddPlayer(add_player_list).encode();
+        let player_info = C32PlayerInfo::AddPlayer(add_player_list).encode();
         player.client.send_packet(&player_info);
 
         // Send the player's inventory
@@ -457,7 +458,7 @@ impl MinecraftServer {
                 })
             })
             .collect();
-        let window_items = C14WindowItems {
+        let window_items = C13WindowItems {
             window_id: 0,
             slot_data,
         }
@@ -589,11 +590,11 @@ impl ServerBoundPacketHandler for MinecraftServer {
             2 => client.state = NetworkState::Login,
             _ => {}
         }
-        if client.state == NetworkState::Login && handshake.protocol_version != 736 {
+        if client.state == NetworkState::Login && handshake.protocol_version != 751 {
             warn!("A player tried to connect using the wrong version");
             let disconnect = C00DisconnectLogin {
                 reason: json!({
-                    "text": "Version mismatch, I'm on 1.16.1!"
+                    "text": "Version mismatch, I'm on 1.16.2!"
                 })
                 .to_string(),
             }
@@ -608,8 +609,8 @@ impl ServerBoundPacketHandler for MinecraftServer {
         let response = C00Response {
             json_response: json!({
                 "version": {
-                    "name": "1.16.1",
-                    "protocol": 736
+                    "name": "1.16.2",
+                    "protocol": 751
                 },
                 "players": {
                     "max": self.config.max_players,
