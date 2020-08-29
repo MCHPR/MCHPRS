@@ -515,10 +515,9 @@ impl Plot {
                 }
             }
         }
-        let chunk_x_range =
-            (offset_x - (self.x << 8)) >> 4..=(offset_x + cb.size_x as i32 - (self.x << 8)) >> 4;
-        let chunk_z_range =
-            (offset_z - (self.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (self.z << 8)) >> 4;
+        // Calculate the ranges of chunks that might have been modified
+        let chunk_x_range = offset_x >> 4..=(offset_x + cb.size_x as i32) >> 4;
+        let chunk_z_range = offset_z >> 4..=(offset_z + cb.size_z as i32) >> 4;
         for chunk_x in chunk_x_range {
             for chunk_z in chunk_z_range.clone() {
                 if let Some(chunk) = self.get_chunk(chunk_x, chunk_z) {
@@ -581,34 +580,35 @@ impl Plot {
     pub(super) fn worldedit_paste(&mut self, player: usize) {
         let start_time = Instant::now();
 
-        if self.players[player].worldedit_clipboard.is_some() {
-            // Here I am cloning the clipboard. This is bad. Don't do this.
-            let cb = &self.players[player].worldedit_clipboard.clone().unwrap();
-            let pos = BlockPos::new(
-                self.players[player].x.floor() as i32,
-                self.players[player].y.floor() as i32,
-                self.players[player].z.floor() as i32,
-            );
-            let offset_x = pos.x - cb.offset_x;
-            let offset_y = pos.y - cb.offset_y;
-            let offset_z = pos.z - cb.offset_z;
-            self.capture_undo(
-                player,
-                BlockPos::new(offset_x, offset_y, offset_z),
-                BlockPos::new(
-                    offset_x + cb.size_x as i32,
-                    offset_y + cb.size_y as i32,
-                    offset_z + cb.size_z as i32,
-                ),
-            );
-            self.paste_clipboard(cb, pos);
-            self.players[player].send_worldedit_message(&format!(
-                "Your clipboard was pasted. ({:?})",
-                start_time.elapsed()
-            ));
-        } else {
+        if self.players[player].worldedit_clipboard.is_none() {
             self.players[player].send_system_message("Your clipboard is empty!");
+            return;
         }
+
+        // Here I am cloning the clipboard. This is bad. Don't do this.
+        let cb = &self.players[player].worldedit_clipboard.clone().unwrap();
+        let pos = BlockPos::new(
+            self.players[player].x.floor() as i32,
+            self.players[player].y.floor() as i32,
+            self.players[player].z.floor() as i32,
+        );
+        let offset_x = pos.x - cb.offset_x;
+        let offset_y = pos.y - cb.offset_y;
+        let offset_z = pos.z - cb.offset_z;
+        self.capture_undo(
+            player,
+            BlockPos::new(offset_x, offset_y, offset_z),
+            BlockPos::new(
+                offset_x + cb.size_x as i32,
+                offset_y + cb.size_y as i32,
+                offset_z + cb.size_z as i32,
+            ),
+        );
+        self.paste_clipboard(cb, pos);
+        self.players[player].send_worldedit_message(&format!(
+            "Your clipboard was pasted. ({:?})",
+            start_time.elapsed()
+        ));
     }
 
     pub(super) fn worldedit_load(&mut self, player: usize, file_name: &str) {
