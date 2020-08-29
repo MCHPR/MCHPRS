@@ -852,9 +852,9 @@ impl Block {
             // Hopper
             323 => Block::Container(6738),
             // Terracotta
-            331..=346 => Block::Solid(item_id + 7555),
+            331..=346 => Block::Solid(6851 + (item_id - 331)),
             // Concrete
-            464..=479 => Block::Solid(item_id + 8974),
+            464..=479 => Block::Solid(9442 + (item_id - 464)),
             // Redstone Repeater
             566 => Block::RedstoneRepeater(RedstoneRepeater::get_state_for_placement(
                 world,
