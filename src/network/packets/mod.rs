@@ -23,7 +23,6 @@ pub struct SlotData {
 }
 
 pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
-pub type EncodeResult<T> = std::result::Result<T, PacketEncodeError>;
 
 #[derive(Debug)]
 pub enum PacketDecodeError {
@@ -220,7 +219,7 @@ pub trait PacketDecoderExt: Read + Sized {
 
     fn read_to_end(&mut self) -> DecodeResult<Vec<u8>> {
         let mut data = Vec::new();
-        Read::read_to_end(self, &mut data);
+        let _ = Read::read_to_end(self, &mut data);
         Ok(data)
     }
 
@@ -252,7 +251,7 @@ pub trait PacketEncoderExt: Write {
         self.write_all(&val).unwrap();
     }
     fn write_varint(&mut self, val: i32) {
-        self.write_all(&PacketEncoder::varint(val));
+        let _ = self.write_all(&PacketEncoder::varint(val));
     }
 
     fn write_varlong(&mut self, mut val: i64) {
@@ -326,7 +325,7 @@ pub trait PacketEncoderExt: Write {
     fn write_nbt_blob(&mut self, blob: nbt::Blob);
 
     fn write_nbt<T: Serialize>(&mut self, nbt: T) {
-        nbt::to_writer(self, &nbt, None);
+        let _ = nbt::to_writer(self, &nbt, None);
     }
 }
 

@@ -86,19 +86,19 @@ impl BlockEntity {
             BlockEntity::Sign(sign) => Some({
                 let mut blob = nbt::Blob::new();
                 let [r1, r2, r3, r4] = sign.rows.clone();
-                blob.insert("Text1", Value::String(r1));
-                blob.insert("Text2", Value::String(r2));
-                blob.insert("Text3", Value::String(r3));
-                blob.insert("Text4", Value::String(r4));
-                blob.insert("id", Value::String("minecraft:sign".to_owned()));
+                let _ = blob.insert("Text1", Value::String(r1));
+                let _ = blob.insert("Text2", Value::String(r2));
+                let _ = blob.insert("Text3", Value::String(r3));
+                let _ = blob.insert("Text4", Value::String(r4));
+                let _ = blob.insert("id", Value::String("minecraft:sign".to_owned()));
                 blob
             }),
             _ => None,
         };
         blob.map(|mut nbt| {
-            nbt.insert("x", Value::Int(pos.x));
-            nbt.insert("y", Value::Int(pos.y as i32));
-            nbt.insert("z", Value::Int(pos.z));
+            let _ = nbt.insert("x", Value::Int(pos.x));
+            let _ = nbt.insert("y", Value::Int(pos.y as i32));
+            let _ = nbt.insert("z", Value::Int(pos.z));
             nbt
         })
     }
@@ -193,11 +193,6 @@ impl BlockDirection {
             East => BlockFacing::East,
             West => BlockFacing::West,
         }
-    }
-
-    fn values() -> [BlockDirection; 4] {
-        use BlockDirection::*;
-        [North, South, East, West]
     }
 
     pub fn from_id(id: u32) -> BlockDirection {

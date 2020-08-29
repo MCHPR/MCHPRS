@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
-    fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+    fn handle_plot_command(&mut self, player: usize, command: &str, _args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
         match command {
@@ -254,7 +254,7 @@ impl Plot {
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     let player = self.leave_plot(player);
-                    self.message_sender
+                    let _ = self.message_sender
                         .send(Message::PlayerTeleportOther(player, args[0].to_string()));
                     return true;
                 } else {
@@ -263,7 +263,7 @@ impl Plot {
                 }
             }
             "/stop" => {
-                self.message_sender.send(Message::Shutdown);
+                let _ = self.message_sender.send(Message::Shutdown);
             }
             "/plot" | "/p" => {
                 if args.is_empty() {

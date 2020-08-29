@@ -218,7 +218,7 @@ impl MinecraftServer {
         };
         toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
             let config_string = toml::to_string(&default_config).unwrap();
-            fs::write("Config.toml", &config_string);
+            let _ = fs::write("Config.toml", &config_string);
             config_string
         }))
         .unwrap_or_else(|_| {
@@ -250,7 +250,7 @@ impl MinecraftServer {
                     .unwrap_or(default_config.max_players),
             };
             let config_string = toml::to_string(&merged_config).unwrap();
-            fs::write("Config.toml", &config_string);
+            fs::write("Config.toml", &config_string).expect("Error writing config");
             merged_config
         })
     }
@@ -333,7 +333,7 @@ impl MinecraftServer {
                 .iter()
                 .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
                 .unwrap();
-            plot_list_entry
+                let _ = plot_list_entry
                 .priv_message_sender
                 .send(PrivMessage::PlayerEnterPlot(player));
         }
@@ -612,7 +612,7 @@ impl MinecraftServer {
                             .iter()
                             .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
                             .unwrap();
-                        plot_list_entry
+                            let _ = plot_list_entry
                             .priv_message_sender
                             .send(PrivMessage::PlayerTeleportOther(player, other_username));
                     }

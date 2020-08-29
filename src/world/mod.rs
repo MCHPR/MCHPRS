@@ -55,13 +55,6 @@ pub enum TickPriority {
     Normal,
 }
 
-impl TickPriority {
-    fn values() -> [TickPriority; 4] {
-        use TickPriority::*;
-        [Highest, Higher, High, Normal]
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TickEntry {
     pub ticks_left: u32,

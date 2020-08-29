@@ -10,15 +10,6 @@ use std::fs::File;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
-// TODO: Actually use the multiblock change record.
-// Right now I'm just resending the whole chunk no
-// matter how big or small the operation is.
-pub struct MultiBlockChangeRecord {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
-    pub block_id: u32,
-}
 
 pub struct WorldEditPatternPart {
     pub weight: f32,
@@ -294,7 +285,6 @@ impl WorldEditOperation {
 impl Plot {
     fn worldedit_send_operation(&mut self, operation: WorldEditOperation) {
         for packet in operation.records {
-            // if packet.records.len() >= 8192 {
             let chunk = match self.get_chunk(packet.chunk_x, packet.chunk_z) {
                 Some(chunk) => chunk,
                 None => continue,
@@ -303,13 +293,6 @@ impl Plot {
             for player in &mut self.players {
                 player.client.send_packet(&chunk_data);
             }
-            // } else {
-            //     let multi_block_change = &packet.encode();
-
-            //     for player in &mut self.players {
-            //         player.client.send_packet(&multi_block_change);
-            //     }
-            // }
         }
     }
 
