@@ -1,5 +1,7 @@
 use super::{PacketEncoder, PacketEncoderExt, SlotData};
+use crate::utils::NBTMap;
 use serde::Serialize;
+use std::collections::HashMap;
 
 pub trait ClientBoundPacket {
     fn encode(self) -> PacketEncoder;
@@ -397,8 +399,7 @@ impl ClientBoundPacket for C21Effect {
 }
 
 #[derive(Serialize)]
-pub struct C24JoinGameDimensionCodecDimension {
-    pub name: String,
+pub struct C24JoinGameDimensionElement {
     pub natural: i8,
     pub ambient_light: f32,
     pub has_ceiling: i8,
@@ -410,31 +411,68 @@ pub struct C24JoinGameDimensionCodecDimension {
     pub respawn_anchor_works: i8,
     pub bed_works: i8,
     pub piglin_safe: i8,
+    pub coordinate_scale: f32,
     pub logical_height: i32,
     pub infiniburn: String,
 }
 
 #[derive(Serialize)]
-pub struct C24JoinGameDimensionCodecBiome {
-    pub name: String,
-    pub natural: i8,
-    pub ambient_light: f32,
-    pub has_ceiling: i8,
-    pub has_skylight: i8,
-    pub fixed_time: i64,
-    pub shrunk: i8,
-    pub ultrawarm: i8,
-    pub has_raids: i8,
-    pub respawn_anchor_works: i8,
-    pub bed_works: i8,
-    pub piglin_safe: i8,
-    pub logical_height: i32,
-    pub infiniburn: String,
+pub struct C24JoinGameBiomeEffectsMoodSound {
+    pub tick_delay: i32,
+    pub offset: f32,
+    pub sound: String,
+    pub block_search_extent: i32,
 }
 
 #[derive(Serialize)]
+pub struct C24JoinGameBiomeEffects {
+    pub sky_color: i32,
+    pub water_fog_color: i32,
+    pub fog_color: i32,
+    pub water_color: i32,
+    pub mood_sound: C24JoinGameBiomeEffectsMoodSound,
+}
+
+#[derive(Serialize)]
+pub struct C24JoinGameBiomeElement {
+    pub depth: f32,
+    pub temperature: f32,
+    pub downfall: f32,
+    pub precipitation: String,
+    pub category: String,
+    pub scale: f32,
+    pub effects: C24JoinGameBiomeEffects,
+}
+
 pub struct C24JoinGameDimensionCodec {
-    pub dimension: Vec<C24JoinGameDimensionCodecDimension>,
+    pub dimensions: HashMap<String, C24JoinGameDimensionElement>,
+    pub biomes: HashMap<String, C24JoinGameBiomeElement>,
+}
+
+#[derive(Serialize)]
+struct C24JoinGameDimensionCodecInner {
+    #[serde(rename = "minecraft:dimention_type")]
+    pub dimensions: NBTMap<C24JoinGameDimensionElement>,
+    #[serde(rename = "minecraft:worldgen/biome")]
+    pub biomes: NBTMap<C24JoinGameBiomeElement>,
+}
+
+impl C24JoinGameDimensionCodec {
+    fn encode(self, buf: &mut Vec<u8>) {
+        let mut dimention_map = NBTMap::new("minecraft:dimension_type".to_owned());
+        for (name, element) in self.dimensions {
+            dimention_map.push_element(name, element);
+        }
+        let mut biome_map = NBTMap::new("minecraft:worldgen/biome".to_owned());
+        for (name, element) in self.biomes {
+            biome_map.push_element(name, element);
+        }
+        let codec = C24JoinGameDimensionCodecInner {
+            dimensions: dimention_map,
+            biomes: biome_map,
+        };
+        buf.write_nbt(codec);
+    }
 }
 
 pub struct C24JoinGame {
@@ -445,7 +483,7 @@ pub struct C24JoinGame {
     pub world_count: i32,
     pub world_names: Vec<String>,
     pub dimention_codec: C24JoinGameDimensionCodec,
-    pub dimention: String,
+    pub dimention: C24JoinGameDimensionElement,
     pub world_name: String,
     pub hashed_seed: i64,
     pub max_players: i32,
@@ -467,8 +505,8 @@ impl ClientBoundPacket for C24JoinGame {
         for world_name in self.world_names {
             buf.write_string(32767, &world_name);
         }
-        buf.write_nbt(self.dimention_codec);
-        buf.write_string(32767, &self.dimention);
+        self.dimention_codec.encode(&mut buf);
+        buf.write_nbt(self.dimention);
         buf.write_string(32767, &self.world_name);
         buf.write_long(self.hashed_seed);
         buf.write_varint(self.max_players);
@@ -650,7 +688,7 @@ impl ClientBoundPacket for C34PlayerPositionAndLook {
         buf.write_float(self.pitch);
         buf.write_unsigned_byte(self.flags);
         buf.write_varint(self.teleport_id);
-        PacketEncoder::new(buf, 0x35)
+        PacketEncoder::new(buf, 0x34)
     }
 }
 

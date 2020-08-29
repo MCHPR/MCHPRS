@@ -18,6 +18,7 @@ impl Plot {
         }
     }
 }
+
 impl ServerBoundPacketHandler for Plot {
     fn handle_keep_alive(&mut self, _keep_alive: S10KeepAlive, player_idx: usize) {
         self.players[player_idx].last_keep_alive_received = Instant::now();
@@ -332,8 +333,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_digging(&mut self, player_digging: S1BPlayerDigging, player: usize) {
         if player_digging.status == 0 {
-            let block_pos =
-                BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
+            let block_pos = BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
 
             if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
                 self.players[player].send_system_message("Can't break blocks outside of plot");
