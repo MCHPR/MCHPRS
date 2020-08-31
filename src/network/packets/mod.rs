@@ -23,7 +23,6 @@ pub struct SlotData {
 }
 
 pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
-pub type EncodeResult<T> = std::result::Result<T, PacketEncodeError>;
 
 #[derive(Debug)]
 pub enum PacketDecodeError {
@@ -103,10 +102,10 @@ fn read_decompressed<T: PacketDecoderExt>(
             0x1A => Box::new(S1APlayerAbilities::decode(reader)?),
             0x1B => Box::new(S1BPlayerDigging::decode(reader)?),
             0x1C => Box::new(S1CEntityAction::decode(reader)?),
-            0x24 => Box::new(S24HeldItemChange::decode(reader)?),
-            0x27 => Box::new(S27CreativeInventoryAction::decode(reader)?),
-            0x2B => Box::new(S2BAnimation::decode(reader)?),
-            0x2D => Box::new(S2DPlayerBlockPlacemnt::decode(reader)?),
+            0x25 => Box::new(S25HeldItemChange::decode(reader)?),
+            0x28 => Box::new(S28CreativeInventoryAction::decode(reader)?),
+            0x2C => Box::new(S2CAnimation::decode(reader)?),
+            0x2E => Box::new(S2EPlayerBlockPlacemnt::decode(reader)?),
             _ => Box::new(SUnknown),
         },
     })
@@ -220,7 +219,7 @@ pub trait PacketDecoderExt: Read + Sized {
 
     fn read_to_end(&mut self) -> DecodeResult<Vec<u8>> {
         let mut data = Vec::new();
-        Read::read_to_end(self, &mut data);
+        let _ = Read::read_to_end(self, &mut data);
         Ok(data)
     }
 
@@ -252,7 +251,7 @@ pub trait PacketEncoderExt: Write {
         self.write_all(&val).unwrap();
     }
     fn write_varint(&mut self, val: i32) {
-        self.write_all(&PacketEncoder::varint(val));
+        let _ = self.write_all(&PacketEncoder::varint(val));
     }
 
     fn write_varlong(&mut self, mut val: i64) {
@@ -326,7 +325,7 @@ pub trait PacketEncoderExt: Write {
     fn write_nbt_blob(&mut self, blob: nbt::Blob);
 
     fn write_nbt<T: Serialize>(&mut self, nbt: T) {
-        nbt::to_writer(self, &nbt, None);
+        let _ = nbt::to_writer(self, &nbt, None);
     }
 }
 

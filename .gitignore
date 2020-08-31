@@ -2,4 +2,4 @@
 run/
 target/
 test_proxy/
-generators/reports/
+generators

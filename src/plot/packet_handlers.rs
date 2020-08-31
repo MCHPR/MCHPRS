@@ -18,6 +18,7 @@ impl Plot {
         }
     }
 }
+
 impl ServerBoundPacketHandler for Plot {
     fn handle_keep_alive(&mut self, _keep_alive: S10KeepAlive, player_idx: usize) {
         self.players[player_idx].last_keep_alive_received = Instant::now();
@@ -25,7 +26,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_creative_inventory_action(
         &mut self,
-        creative_inventory_action: S27CreativeInventoryAction,
+        creative_inventory_action: S28CreativeInventoryAction,
         player: usize,
     ) {
         if let Some(slot_data) = creative_inventory_action.clicked_item {
@@ -73,7 +74,7 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].flying = player_abilities.is_flying;
     }
 
-    fn handle_animation(&mut self, animation: S2BAnimation, player: usize) {
+    fn handle_animation(&mut self, animation: S2CAnimation, player: usize) {
         let animation_id = match animation.hand {
             0 => 0,
             1 => 3,
@@ -96,7 +97,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_block_placement(
         &mut self,
-        player_block_placement: S2DPlayerBlockPlacemnt,
+        player_block_placement: S2EPlayerBlockPlacemnt,
         player: usize,
     ) {
         let block_face = BlockFace::from_id(player_block_placement.face as u32);
@@ -207,7 +208,7 @@ impl ServerBoundPacketHandler for Plot {
             let delta_x = ((player_position.x * 32.0 - old_x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            C28EntityPosition {
+            C27EntityPosition {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -260,7 +261,7 @@ impl ServerBoundPacketHandler for Plot {
             let delta_x = ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            C29EntityPositionAndRotation {
+            C28EntityPositionAndRotation {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -271,7 +272,7 @@ impl ServerBoundPacketHandler for Plot {
             }
             .encode()
         };
-        let entity_head_look = C3BEntityHeadLook {
+        let entity_head_look = C3AEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_position_and_rotation.yaw,
         }
@@ -291,14 +292,14 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].yaw = player_rotation.yaw;
         self.players[player].pitch = player_rotation.pitch;
         self.players[player].on_ground = player_rotation.on_ground;
-        let rotation_packet = C2AEntityRotation {
+        let rotation_packet = C29EntityRotation {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
             pitch: player_rotation.pitch,
             on_ground: player_rotation.on_ground,
         }
         .encode();
-        let entity_head_look = C3BEntityHeadLook {
+        let entity_head_look = C3AEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
         }
@@ -318,7 +319,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_movement(&mut self, player_movement: S15PlayerMovement, player: usize) {
         self.players[player].on_ground = player_movement.on_ground;
-        let packet = C2BEntityMovement {
+        let packet = C2AEntityMovement {
             entity_id: self.players[player].entity_id as i32,
         }
         .encode();
@@ -332,8 +333,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_digging(&mut self, player_digging: S1BPlayerDigging, player: usize) {
         if player_digging.status == 0 {
-            let block_pos =
-                BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
+            let block_pos = BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
 
             if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
                 self.players[player].send_system_message("Can't break blocks outside of plot");
@@ -365,7 +365,7 @@ impl ServerBoundPacketHandler for Plot {
             let other_block = self.get_block(block_pos);
             other_block.destroy(self, block_pos);
 
-            let effect = C22Effect {
+            let effect = C21Effect {
                 effect_id: 2001,
                 x: player_digging.x,
                 y: player_digging.y,
@@ -438,7 +438,7 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_held_item_change(&mut self, held_item_change: S24HeldItemChange, player: usize) {
+    fn handle_held_item_change(&mut self, held_item_change: S25HeldItemChange, player: usize) {
         let entity_equipment = C47EntityEquipment {
             entity_id: self.players[player].entity_id as i32,
             equipment: vec![C47EntityEquipmentEquipment {

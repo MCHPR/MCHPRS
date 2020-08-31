@@ -10,16 +10,6 @@ use std::fs::File;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
-// TODO: Actually use the multiblock change record.
-// Right now I'm just resending the whole chunk no
-// matter how big or small the operation is.
-pub struct MultiBlockChangeRecord {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
-    pub block_id: u32,
-}
-
 pub struct WorldEditPatternPart {
     pub weight: f32,
     pub block_id: u32,
@@ -218,7 +208,7 @@ impl WorldEditPattern {
 }
 
 struct WorldEditOperation {
-    pub records: Vec<C0FMultiBlockChange>,
+    pub records: Vec<C3BMultiBlockChange>,
     x_range: RangeInclusive<i32>,
     y_range: RangeInclusive<i32>,
     z_range: RangeInclusive<i32>,
@@ -229,11 +219,11 @@ impl WorldEditOperation {
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
 
-        let mut records: Vec<C0FMultiBlockChange> = Vec::new();
+        let mut records: Vec<C3BMultiBlockChange> = Vec::new();
 
         for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
             for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
-                records.push(C0FMultiBlockChange {
+                records.push(C3BMultiBlockChange {
                     chunk_x,
                     chunk_z,
                     records: Vec::new(),
@@ -261,7 +251,7 @@ impl WorldEditOperation {
             .iter_mut()
             .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z)
         {
-            packet.records.push(C0FMultiBlockChangeRecord {
+            packet.records.push(C3BMultiBlockChangeRecord {
                 x: (block_pos.x >> 4) as i8,
                 y: (block_pos.y >> 4) as u8,
                 z: (block_pos.z >> 4) as i8,
@@ -294,7 +284,6 @@ impl WorldEditOperation {
 impl Plot {
     fn worldedit_send_operation(&mut self, operation: WorldEditOperation) {
         for packet in operation.records {
-            // if packet.records.len() >= 8192 {
             let chunk = match self.get_chunk(packet.chunk_x, packet.chunk_z) {
                 Some(chunk) => chunk,
                 None => continue,
@@ -303,13 +292,6 @@ impl Plot {
             for player in &mut self.players {
                 player.client.send_packet(&chunk_data);
             }
-            // } else {
-            //     let multi_block_change = &packet.encode();
-
-            //     for player in &mut self.players {
-            //         player.client.send_packet(&multi_block_change);
-            //     }
-            // }
         }
     }
 
@@ -515,10 +497,9 @@ impl Plot {
                 }
             }
         }
-        let chunk_x_range =
-            (offset_x - (self.x << 8)) >> 4..=(offset_x + cb.size_x as i32 - (self.x << 8)) >> 4;
-        let chunk_z_range =
-            (offset_z - (self.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (self.z << 8)) >> 4;
+        // Calculate the ranges of chunks that might have been modified
+        let chunk_x_range = offset_x >> 4..=(offset_x + cb.size_x as i32) >> 4;
+        let chunk_z_range = offset_z >> 4..=(offset_z + cb.size_z as i32) >> 4;
         for chunk_x in chunk_x_range {
             for chunk_z in chunk_z_range.clone() {
                 if let Some(chunk) = self.get_chunk(chunk_x, chunk_z) {
@@ -581,34 +562,35 @@ impl Plot {
     pub(super) fn worldedit_paste(&mut self, player: usize) {
         let start_time = Instant::now();
 
-        if self.players[player].worldedit_clipboard.is_some() {
-            // Here I am cloning the clipboard. This is bad. Don't do this.
-            let cb = &self.players[player].worldedit_clipboard.clone().unwrap();
-            let pos = BlockPos::new(
-                self.players[player].x.floor() as i32,
-                self.players[player].y.floor() as i32,
-                self.players[player].z.floor() as i32,
-            );
-            let offset_x = pos.x - cb.offset_x;
-            let offset_y = pos.y - cb.offset_y;
-            let offset_z = pos.z - cb.offset_z;
-            self.capture_undo(
-                player,
-                BlockPos::new(offset_x, offset_y, offset_z),
-                BlockPos::new(
-                    offset_x + cb.size_x as i32,
-                    offset_y + cb.size_y as i32,
-                    offset_z + cb.size_z as i32,
-                ),
-            );
-            self.paste_clipboard(cb, pos);
-            self.players[player].send_worldedit_message(&format!(
-                "Your clipboard was pasted. ({:?})",
-                start_time.elapsed()
-            ));
-        } else {
+        if self.players[player].worldedit_clipboard.is_none() {
             self.players[player].send_system_message("Your clipboard is empty!");
+            return;
         }
+
+        // Here I am cloning the clipboard. This is bad. Don't do this.
+        let cb = &self.players[player].worldedit_clipboard.clone().unwrap();
+        let pos = BlockPos::new(
+            self.players[player].x.floor() as i32,
+            self.players[player].y.floor() as i32,
+            self.players[player].z.floor() as i32,
+        );
+        let offset_x = pos.x - cb.offset_x;
+        let offset_y = pos.y - cb.offset_y;
+        let offset_z = pos.z - cb.offset_z;
+        self.capture_undo(
+            player,
+            BlockPos::new(offset_x, offset_y, offset_z),
+            BlockPos::new(
+                offset_x + cb.size_x as i32,
+                offset_y + cb.size_y as i32,
+                offset_z + cb.size_z as i32,
+            ),
+        );
+        self.paste_clipboard(cb, pos);
+        self.players[player].send_worldedit_message(&format!(
+            "Your clipboard was pasted. ({:?})",
+            start_time.elapsed()
+        ));
     }
 
     pub(super) fn worldedit_load(&mut self, player: usize, file_name: &str) {

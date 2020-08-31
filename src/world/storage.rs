@@ -1,5 +1,5 @@
 use crate::blocks::{BlockEntity, BlockPos};
-use crate::network::packets::clientbound::{C21ChunkData, C21ChunkDataSection, ClientBoundPacket};
+use crate::network::packets::clientbound::{C20ChunkData, C20ChunkDataSection, ClientBoundPacket};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -44,7 +44,8 @@ impl BitBuffer {
     pub fn get_entry(&self, word_idx: usize) -> u32 {
         // Find the set of indices.
         let arr_idx = word_idx / self.entries_per_long as usize;
-        let sub_idx = (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
+        let sub_idx =
+            (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
         // Find the word.
         let word = (self.longs[arr_idx] >> sub_idx) & self.mask;
         word as u32
@@ -53,11 +54,25 @@ impl BitBuffer {
     pub fn set_entry(&mut self, word_idx: usize, word: u32) {
         // Find the set of indices.
         let arr_idx = word_idx / self.entries_per_long as usize;
-        let sub_idx = (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
+        let sub_idx =
+            (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
         // Set the word.
         let mask = !(self.mask << sub_idx);
         self.longs[arr_idx] = (self.longs[arr_idx] & mask) | ((word as u64) << sub_idx);
     }
+}
+
+#[test]
+fn bitbuffer_format() {
+    let entries = [
+        1, 2, 2, 3, 4, 4, 5, 6, 6, 4, 8, 0, 7, 4, 3, 13, 15, 16, 9, 14, 10, 12, 0, 2,
+    ];
+    let mut buffer = BitBuffer::create(5, 24);
+    for (i, entry) in entries.iter().enumerate() {
+        buffer.set_entry(i, *entry);
+    }
+    assert_eq!(buffer.longs[0], 0x0020863148418841);
+    assert_eq!(buffer.longs[1], 0x01018A7260F68C87);
 }
 
 #[derive(Debug, Clone)]
@@ -95,10 +110,10 @@ impl PalettedBitBuffer {
 
     fn resize_buffer(&mut self) {
         let old_bits_per_entry = self.data.bits_per_entry;
-        if old_bits_per_entry + 1 > 8 {
-            let mut old_buffer = BitBuffer::create(14, self.data.entries);
+        if old_bits_per_entry + 1 >= 9 {
+            let mut old_buffer = BitBuffer::create(15, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
-            self.max_entries = 1 << 14;
+            self.max_entries = 1 << 15;
             for entry_idx in 0..old_buffer.entries {
                 let entry = self.palette[old_buffer.get_entry(entry_idx) as usize];
                 self.data.set_entry(entry_idx, entry);
@@ -217,8 +232,8 @@ impl ChunkSection {
         }
     }
 
-    fn encode_packet(&self) -> C21ChunkDataSection {
-        C21ChunkDataSection {
+    fn encode_packet(&self) -> C20ChunkDataSection {
+        C20ChunkDataSection {
             bits_per_block: self.buffer.data.bits_per_entry as u8,
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
@@ -284,7 +299,7 @@ impl Chunk {
                     .map(|blob| block_entities.push(blob))
             })
             .for_each(drop);
-        C21ChunkData {
+        C20ChunkData {
             // Use `bool_to_option` feature when stabalized
             // Tracking issue: https://github.com/rust-lang/rust/issues/64260
             biomes: if full_chunk {
@@ -292,7 +307,6 @@ impl Chunk {
             } else {
                 None
             },
-            ignore_old_data: false,
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,

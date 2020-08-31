@@ -107,21 +107,21 @@ impl Item {
             331..=346 => Item::BlockItem(id),
             464..=479 => Item::BlockItem(id),
             566..=567 => Item::BlockItem(id),
-            590 => Item::WEWand,
+            586 => Item::WEWand,
             665 => Item::BlockItem(id),
             666 => Item::Snowball,
-            903 => Item::TotemOfUndying,
-            935 => Item::BlockItem(id),
-            960 => Item::BlockItem(id),
+            904 => Item::TotemOfUndying,
+            936 => Item::BlockItem(id),
+            961 => Item::BlockItem(id),
             _ => Item::Unknown(id),
         }
     }
 
     pub fn get_id(self) -> u32 {
         match self {
-            Item::WEWand => 590,
+            Item::WEWand => 586,
             Item::Snowball => 666,
-            Item::TotemOfUndying => 903,
+            Item::TotemOfUndying => 904,
             Item::BlockItem(id) => id,
             Item::Unknown(id) => id,
         }
