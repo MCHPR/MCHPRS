@@ -1,7 +1,7 @@
 use super::{database, Plot};
 use crate::network::packets::clientbound::{
     C10DeclareCommands, C10DeclareCommandsNode as Node, C10DeclareCommandsNodeParser as Parser,
-    C30PlayerAbilities, ClientBoundPacket,
+    ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
@@ -288,13 +288,8 @@ impl Plot {
                             .send_error_message("You cannot have a flyspeed greater than 10");
                         return false;
                     }
-                    let player_abilities = C30PlayerAbilities {
-                        flags: 0x0F,
-                        fly_speed: 0.05 * speed_arg,
-                        fov_modifier: 0.1,
-                    }
-                    .encode();
-                    self.players[player].client.send_packet(&player_abilities);
+                    self.players[player].fly_speed = speed_arg;
+                    self.players[player].update_player_abilities();
                 } else {
                     self.players[player].send_error_message("Unable to parse speed value");
                 }

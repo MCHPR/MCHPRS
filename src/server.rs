@@ -542,6 +542,9 @@ impl MinecraftServer {
         .encode();
         player.client.send_packet(&time_update);
 
+        
+        player.update_player_abilities();
+
         self.plot_sender
             .send(Message::PlayerJoined(player))
             .unwrap();

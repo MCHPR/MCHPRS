@@ -385,4 +385,14 @@ impl Player {
         let disconnect = C19Disconnect { reason }.encode();
         self.client.send_packet(&disconnect);
     }
+
+    pub fn update_player_abilities(&mut self) {
+        let player_abilities = C30PlayerAbilities {
+            flags: 0x0D | ((self.flying as u8) << 1),
+            fly_speed: 0.05 * self.fly_speed,
+            fov_modifier: 0.1,
+        }
+        .encode();
+        self.client.send_packet(&player_abilities);
+    }
 }
