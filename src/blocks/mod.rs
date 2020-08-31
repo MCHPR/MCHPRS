@@ -430,6 +430,7 @@ impl Block {
             | Block::RedstoneBlock
             | Block::Container(_)
             | Block::Observer(_)
+            | Block::Target
             | Block::RedstoneLamp(_) => true,
             _ => false,
         }
