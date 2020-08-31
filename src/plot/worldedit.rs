@@ -10,7 +10,6 @@ use std::fs::File;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
-
 pub struct WorldEditPatternPart {
     pub weight: f32,
     pub block_id: u32,

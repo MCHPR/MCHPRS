@@ -333,7 +333,7 @@ impl MinecraftServer {
                 .iter()
                 .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
                 .unwrap();
-                let _ = plot_list_entry
+            let _ = plot_list_entry
                 .priv_message_sender
                 .send(PrivMessage::PlayerEnterPlot(player));
         }
@@ -542,7 +542,6 @@ impl MinecraftServer {
         .encode();
         player.client.send_packet(&time_update);
 
-        
         player.update_player_abilities();
 
         self.plot_sender
@@ -615,7 +614,7 @@ impl MinecraftServer {
                             .iter()
                             .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
                             .unwrap();
-                            let _ = plot_list_entry
+                        let _ = plot_list_entry
                             .priv_message_sender
                             .send(PrivMessage::PlayerTeleportOther(player, other_username));
                     }

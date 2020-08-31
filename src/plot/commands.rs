@@ -254,7 +254,8 @@ impl Plot {
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     let player = self.leave_plot(player);
-                    let _ = self.message_sender
+                    let _ = self
+                        .message_sender
                         .send(Message::PlayerTeleportOther(player, args[0].to_string()));
                     return true;
                 } else {
