@@ -62,6 +62,17 @@ impl BitBuffer {
     }
 }
 
+#[test]
+fn bitbuffer_format() {
+    let entries = [1, 2, 2, 3, 4, 4, 5, 6, 6, 4, 8, 0, 7, 4, 3, 13, 15, 16, 9, 14, 10, 12, 0, 2];
+    let mut buffer = BitBuffer::create(5, 24);
+    for (i, entry) in entries.iter().enumerate() {
+        buffer.set_entry(i, *entry);
+    }
+    assert_eq!(buffer.longs[0], 0x0020863148418841);
+    assert_eq!(buffer.longs[1], 0x01018A7260F68C87);
+}
+
 #[derive(Debug, Clone)]
 pub struct PalettedBitBuffer {
     data: BitBuffer,
@@ -97,10 +108,10 @@ impl PalettedBitBuffer {
 
     fn resize_buffer(&mut self) {
         let old_bits_per_entry = self.data.bits_per_entry;
-        if old_bits_per_entry + 1 > 8 {
-            let mut old_buffer = BitBuffer::create(14, self.data.entries);
+        if old_bits_per_entry + 1 >= 9 {
+            let mut old_buffer = BitBuffer::create(15, self.data.entries);
             mem::swap(&mut self.data, &mut old_buffer);
-            self.max_entries = 1 << 14;
+            self.max_entries = 1 << 15;
             for entry_idx in 0..old_buffer.entries {
                 let entry = self.palette[old_buffer.get_entry(entry_idx) as usize];
                 self.data.set_entry(entry_idx, entry);
