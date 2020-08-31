@@ -1256,7 +1256,7 @@ fn comparator_id_test() {
         false,
     ));
     let id = original.get_id();
-    assert_eq!(id, 6689);
+    assert_eq!(id, 6693);
     let new = Block::from_block_state(id);
     assert_eq!(new, original);
 }
