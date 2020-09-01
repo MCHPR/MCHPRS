@@ -5,13 +5,24 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::mem;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct BitBuffer {
     bits_per_entry: u64,
     entries_per_long: u64,
     entries: usize,
     mask: u64,
     longs: Vec<u64>,
+}
+
+impl std::fmt::Debug for BitBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BitBuffer")
+            .field("bits_per_entry", &self.bits_per_entry)
+            .field("entries", &self.entries)
+            .field("entries_per_long", &self.entries_per_long)
+            .field("mask", &self.mask)
+            .finish()
+    }
 }
 
 impl BitBuffer {
@@ -109,25 +120,38 @@ impl PalettedBitBuffer {
     }
 
     fn resize_buffer(&mut self) {
+        assert!(
+            self.use_palette,
+            "The buffer should never resizing if it's already using global palette"
+        );
         let old_bits_per_entry = self.data.bits_per_entry;
-        if old_bits_per_entry + 1 >= 9 {
-            let mut old_buffer = BitBuffer::create(15, self.data.entries);
-            mem::swap(&mut self.data, &mut old_buffer);
+        // It is more efficient to use the global palette when the bits reaches 9
+        // As of 1.16, the global palette requires 15 bits
+        let new_bits = if old_bits_per_entry + 1 >= 9 {
             self.max_entries = 1 << 15;
+            self.use_palette = false;
+            15
+        } else {
+            self.max_entries <<= 1;
+            old_bits_per_entry as u8 + 1
+        };
+        // Swap out the old buffer
+        let mut old_buffer = BitBuffer::create(new_bits, self.data.entries);
+        mem::swap(&mut self.data, &mut old_buffer);
+        // Copy entries into new buffer
+        if new_bits == 15 {
             for entry_idx in 0..old_buffer.entries {
                 let entry = self.palette[old_buffer.get_entry(entry_idx) as usize];
                 self.data.set_entry(entry_idx, entry);
             }
-            self.use_palette = false;
+            // Deallocate the old palette
+            self.palette = Vec::new();
         } else {
-            let mut old_buffer = BitBuffer::create(old_bits_per_entry as u8 + 1, self.data.entries);
-            mem::swap(&mut self.data, &mut old_buffer);
-            self.max_entries <<= 1;
             for entry_idx in 0..old_buffer.entries {
                 let entry = old_buffer.get_entry(entry_idx);
                 self.data.set_entry(entry_idx, entry);
             }
-        };
+        }
     }
 
     pub fn get_entry(&self, index: usize) -> u32 {
