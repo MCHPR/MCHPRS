@@ -53,7 +53,10 @@ impl Plot {
         );
         // Handle worldedit commands
         if command.starts_with("//") {
-            worldedit::execute_command(self, player, command.trim_start_matches("//"), &args);
+            if worldedit::execute_command(self, player, command.trim_start_matches("//"), &args) {
+                // If the command was handled, there is no need to continue;
+                return false;
+            }
         }
 
         match command {

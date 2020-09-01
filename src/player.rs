@@ -1,4 +1,4 @@
-use crate::blocks::{BlockDirection, BlockPos};
+use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
@@ -288,6 +288,24 @@ impl Player {
             2 => BlockDirection::North,
             3 => BlockDirection::East,
             _ => BlockDirection::South,
+        }
+    }
+
+    pub fn get_facing(&self) -> BlockFacing {
+        let yaw = self.yaw.rem_euclid(360.0);
+        let pitch = self.pitch;
+        if pitch <= -70.0 {
+            BlockFacing::Up
+        } else if pitch >= 70.0 {
+            BlockFacing::Down
+        } else if yaw >= 45.0 && yaw <= 135.0 {
+            BlockFacing::West
+        } else if yaw >= 135.0 && yaw <= 225.0 {
+            BlockFacing::North
+        } else if yaw >= 225.0 && yaw <= 315.0 {
+            BlockFacing::East
+        } else {
+            BlockFacing::South
         }
     }
 

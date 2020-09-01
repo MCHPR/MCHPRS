@@ -1,5 +1,5 @@
 use super::Plot;
-use crate::blocks::{Block, BlockDirection, BlockEntity, BlockPos};
+use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos};
 use crate::network::packets::clientbound::*;
 use crate::player::Player;
 use crate::world::storage::PalettedBitBuffer;
@@ -7,6 +7,8 @@ use crate::world::World;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt;
 use std::fs::File;
 use std::ops::RangeInclusive;
 use std::time::Instant;
@@ -24,7 +26,7 @@ pub fn execute_command(plot: &mut Plot, player_idx: usize, command: &str, args: 
     let mut ctx = CommandExecuteContext {
         plot,
         player_idx,
-        arguments: &[],
+        arguments: Vec::new(),
         flags: &[],
     };
 
@@ -44,10 +46,59 @@ pub fn execute_command(plot: &mut Plot, player_idx: usize, command: &str, args: 
         }
     }
 
+    let arg_descs = command.arguments;
+
+    if args.len() > arg_descs.len() {
+        ctx.get_player_mut()
+            .send_error_message("Too many arguments.");
+        return true;
+    }
+
+    for (i, arg_desc) in arg_descs.iter().enumerate() {
+        let arg = args.get(i).map(|s| *s);
+        match Argument::parse(&ctx, arg_desc.argument_type, arg) {
+            Ok(default_arg) => ctx.arguments.push(default_arg),
+            Err(err) => {
+                ctx.get_player_mut().send_error_message(&err.to_string());
+                return true;
+            }
+        }
+    }
+
     (command.execute_fn)(ctx);
     true
 }
 
+#[derive(Debug)]
+struct ArgumentParseError {
+    arg_type: ArgumentType,
+    reason: String,
+}
+
+impl ArgumentParseError {
+    fn new(arg_type: ArgumentType, reason: &str) -> ArgumentParseError {
+        ArgumentParseError {
+            arg_type,
+            reason: String::from(reason),
+        }
+    }
+}
+
+impl fmt::Display for ArgumentParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Error parsing argument of type {:?}: {}",
+            self.arg_type, self.reason
+        )
+    }
+}
+
+impl std::error::Error for ArgumentParseError {}
+
+type ArgumentParseResult = Result<Argument, ArgumentParseError>;
+
+#[derive(Copy, Clone, Debug)]
 enum ArgumentType {
     UnsignedInteger,
     Direction,
@@ -57,7 +108,7 @@ enum ArgumentType {
 
 enum Argument {
     UnsignedInteger(u32),
-    Direction(BlockDirection),
+    Direction(BlockFacing),
     Pattern(WorldEditPattern),
 }
 
@@ -69,7 +120,7 @@ impl Argument {
         }
     }
 
-    fn unwrap_direction(&self) -> &BlockDirection {
+    fn unwrap_direction(&self) -> &BlockFacing {
         match self {
             Argument::Direction(val) => val,
             _ => panic!("Argument was not an UnsignedInteger"),
@@ -80,6 +131,42 @@ impl Argument {
         match self {
             Argument::Pattern(val) => val,
             _ => panic!("Argument was not an UnsignedInteger"),
+        }
+    }
+
+    fn get_default(ctx: &CommandExecuteContext, arg_type: ArgumentType) -> ArgumentParseResult {
+        match arg_type {
+            ArgumentType::Direction => Argument::parse(ctx, arg_type, Some("me")),
+            ArgumentType::UnsignedInteger => Ok(Argument::UnsignedInteger(1)),
+            _ => Err(ArgumentParseError::new(
+                arg_type,
+                "argument can't be inferred",
+            )),
+        }
+    }
+
+    fn parse(
+        ctx: &CommandExecuteContext,
+        arg_type: ArgumentType,
+        arg: Option<&str>,
+    ) -> ArgumentParseResult {
+        if arg.is_none() {
+            return Ok(Argument::get_default(ctx, arg_type)?);
+        }
+        let arg = arg.unwrap();
+        match arg_type {
+            ArgumentType::Direction => {
+                let player_facing = ctx.get_player().get_facing();
+                match arg {
+                    "me" => Ok(Argument::Direction(player_facing)),
+                    _ => Err(ArgumentParseError::new(arg_type, "unknown direction")),
+                }
+            }
+            ArgumentType::UnsignedInteger => match arg.parse::<u32>() {
+                Ok(num) => Ok(Argument::UnsignedInteger(num)),
+                Err(_) => Err(ArgumentParseError::new(arg_type, "error parsing uint")),
+            },
+            _ => unimplemented!(),
         }
     }
 }
@@ -109,7 +196,7 @@ struct FlagDescription {
 struct CommandExecuteContext<'a> {
     plot: &'a mut Plot,
     player_idx: usize,
-    arguments: &'a [Argument],
+    arguments: Vec<Argument>,
     flags: &'a [char],
 }
 
@@ -183,7 +270,7 @@ lazy_static! {
         "stack" => WorldeditCommand {
             arguments: &[
                 argument!("count", UnsignedInteger, "# of copies to stack"),
-                argument!("count", UnsignedInteger, "The direction to stack")
+                argument!("direction", Direction, "The direction to stack")
             ],
             requires_positions: true,
             execute_fn: execute_stack,
@@ -858,6 +945,7 @@ fn execute_stack(mut ctx: CommandExecuteContext) {
     let start_time = Instant::now();
 
     let stack_amt = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
     let pos1 = ctx.get_player().first_position.unwrap();
     let clipboard = create_clipboard(
         ctx.plot,
@@ -865,69 +953,14 @@ fn execute_stack(mut ctx: CommandExecuteContext) {
         pos1,
         ctx.get_player().second_position.unwrap(),
     );
-    let pitch = ctx.get_player().pitch;
-    let yaw = ctx.get_player().yaw.rem_euclid(360.0);
     let mut all_pos: Vec<BlockPos> = Vec::new();
-
-    //Facing upward
-    if pitch <= -70.0 {
-        for i in 0..stack_amt {
-            all_pos.push(BlockPos::new(
-                pos1.x,
-                pos1.y + ((clipboard.size_y * (i + 1)) as i32),
-                pos1.z,
-            ));
-        }
-    }
-    //Facing the ground
-    else if pitch >= 70.0 {
-        for i in 0..stack_amt {
-            all_pos.push(BlockPos::new(
-                pos1.x,
-                pos1.y - ((clipboard.size_y * (i + 1)) as i32),
-                pos1.z,
-            ));
-        }
-    }
-    //Facing -x
-    else if yaw >= 45.0 && yaw <= 135.0 {
-        for i in 0..stack_amt {
-            all_pos.push(BlockPos::new(
-                pos1.x - ((clipboard.size_x * (i + 1)) as i32),
-                pos1.y,
-                pos1.z,
-            ));
-        }
-    }
-    //Facing -z
-    else if yaw >= 135.0 && yaw <= 225.0 {
-        for i in 0..stack_amt {
-            all_pos.push(BlockPos::new(
-                pos1.x,
-                pos1.y,
-                pos1.z - ((clipboard.size_z * (i + 1)) as i32),
-            ));
-        }
-    }
-    //Facing +x
-    else if yaw >= 225.0 && yaw <= 315.0 {
-        for i in 0..stack_amt {
-            all_pos.push(BlockPos::new(
-                pos1.x + ((clipboard.size_x * (i + 1)) as i32),
-                pos1.y,
-                pos1.z,
-            ));
-        }
-    }
-    //Facing +z
-    else if yaw >= 315.0 || yaw <= 45.0 {
-        for i in 0..stack_amt {
-            all_pos.push(BlockPos::new(
-                pos1.x,
-                pos1.y,
-                pos1.z + ((clipboard.size_z * (i + 1)) as i32),
-            ));
-        }
+    let stack_offset = match direction {
+        BlockFacing::North | BlockFacing::South => clipboard.size_z,
+        BlockFacing::East | BlockFacing::West => clipboard.size_x,
+        BlockFacing::Up | BlockFacing::Down => clipboard.size_y,
+    };
+    for i in 1..stack_amt + 1 {
+        all_pos.push(direction.offset_pos(pos1, (i * stack_offset) as i32));
     }
     for block_pos in all_pos {
         paste_clipboard(ctx.plot, &clipboard, block_pos);
