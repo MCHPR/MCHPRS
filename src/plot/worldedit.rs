@@ -207,8 +207,14 @@ impl WorldEditPattern {
     }
 }
 
+struct ChunkChangedRecord {
+    chunk_x: i32,
+    chunk_z: i32,
+    block_count: usize,
+}
+
 struct WorldEditOperation {
-    pub records: Vec<C3BMultiBlockChange>,
+    pub records: Vec<ChunkChangedRecord>,
     x_range: RangeInclusive<i32>,
     y_range: RangeInclusive<i32>,
     z_range: RangeInclusive<i32>,
@@ -219,14 +225,14 @@ impl WorldEditOperation {
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
 
-        let mut records: Vec<C3BMultiBlockChange> = Vec::new();
+        let mut records: Vec<ChunkChangedRecord> = Vec::new();
 
         for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
             for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
-                records.push(C3BMultiBlockChange {
+                records.push(ChunkChangedRecord {
                     chunk_x,
                     chunk_z,
-                    records: Vec::new(),
+                    block_count: 0,
                 });
             }
         }
@@ -242,7 +248,7 @@ impl WorldEditOperation {
         }
     }
 
-    fn update_block(&mut self, block_pos: BlockPos, block_id: u32) {
+    fn update_block(&mut self, block_pos: BlockPos) {
         let chunk_x = block_pos.x >> 4;
         let chunk_z = block_pos.z >> 4;
 
@@ -251,12 +257,7 @@ impl WorldEditOperation {
             .iter_mut()
             .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z)
         {
-            packet.records.push(C3BMultiBlockChangeRecord {
-                x: (block_pos.x >> 4) as i8,
-                y: (block_pos.y >> 4) as u8,
-                z: (block_pos.z >> 4) as i8,
-                block_id: block_id as i32,
-            })
+            packet.block_count += 1;
         }
     }
 
@@ -264,7 +265,7 @@ impl WorldEditOperation {
         let mut blocks_updated = 0;
 
         for record in &self.records {
-            blocks_updated += record.records.len()
+            blocks_updated += record.block_count;
         }
 
         blocks_updated
@@ -344,7 +345,7 @@ impl Plot {
                         let block_id = pattern.pick().get_id();
 
                         if self.set_block_raw(block_pos, block_id) {
-                            operation.update_block(block_pos, block_id);
+                            operation.update_block(block_pos);
                         }
                     }
                 }
@@ -388,7 +389,7 @@ impl Plot {
                             let block_id = pattern.pick().get_id();
 
                             if self.set_block_raw(block_pos, block_id) {
-                                operation.update_block(block_pos, block_id);
+                                operation.update_block(block_pos);
                             }
                         }
                     }

@@ -799,21 +799,26 @@ pub struct C3BMultiBlockChangeRecord {
 pub struct C3BMultiBlockChange {
     pub chunk_x: i32,
     pub chunk_z: i32,
+    pub chunk_y: u32,
     pub records: Vec<C3BMultiBlockChangeRecord>,
 }
 
 impl ClientBoundPacket for C3BMultiBlockChange {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-
+        let pos = ((self.chunk_x as i64 & 0x3FFFFF) << 42)
+            | ((self.chunk_z as i64 & 0x3FFFFF) << 20)
+            | (self.chunk_y as i64 & 0xFFFFF);
+        buf.write_long(pos);
         buf.write_int(self.chunk_x);
         buf.write_int(self.chunk_z);
         buf.write_varint(self.records.len() as i32); // Length of record array
-
         for record in self.records {
-            buf.write_byte((record.x << 4) | (record.z & 0x0F)); // 0bXXXXZZZZ
-            buf.write_unsigned_byte(record.y);
-            buf.write_varint(record.block_id);
+            let long = ((record.block_id as u64) << 12)
+                | ((record.x as u64) << 8)
+                | ((record.z as u64) << 8)
+                | (record.y as u64);
+            buf.write_varlong(long as i64);
         }
 
         PacketEncoder::new(buf, 0x3B)
