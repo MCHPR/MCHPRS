@@ -57,7 +57,7 @@ impl World for Plot {
             return false;
         }
         let chunk = &mut self.chunks[chunk_index];
-        chunk.set_block(
+        chunk.set_block_raw(
             (pos.x & 0xF) as u32,
             pos.y as u32,
             (pos.z & 0xF) as u32,
@@ -70,11 +70,17 @@ impl World for Plot {
     /// and the function will return true.
     fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
-        let changed = self.set_block_raw(pos, block_id);
-        if changed {
-            self.send_block_change(pos, block_id);
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        if chunk_index >= 256 || pos.y > 256 {
+            return false;
         }
-        changed
+        let chunk = &mut self.chunks[chunk_index];
+        chunk.set_block(
+            (pos.x & 0xF) as u32,
+            pos.y as u32,
+            (pos.z & 0xF) as u32,
+            block_id,
+        )
     }
 
     /// Returns the block state id of the block at `pos`
@@ -491,6 +497,7 @@ impl Plot {
                 }
             }
         }
+
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.last_player_time = SystemTime::now();
@@ -522,6 +529,17 @@ impl Plot {
                 //         self.tps = new_tps as u32;
                 //     }
                 // }
+            }
+
+            let mut multi_block_packets = Vec::new();
+            for chunk in &mut self.chunks {
+                multi_block_packets.append(&mut chunk.drain_multi_block());
+            }
+            for packet in multi_block_packets {
+                let encoded = packet.encode();
+                for player in &mut self.players {
+                    player.client.send_packet(&encoded);
+                }
             }
         } else {
             // Unload plot after 600 seconds unless the plot should be always loaded
@@ -610,7 +628,7 @@ impl Plot {
             lag_time: Duration::new(0, 0),
             sleep_time: Duration::from_micros(
                 (1_000_000 as u64)
-                    .checked_div(plot_data.tps as u64)
+                    .checked_div((plot_data.tps as u64).max(20))
                     .unwrap_or(0),
             ),
             message_receiver: rx,
@@ -662,7 +680,7 @@ impl Plot {
                 last_player_time: SystemTime::now(),
                 last_update_time: SystemTime::now(),
                 lag_time: Duration::new(0, 0),
-                sleep_time: Duration::from_millis(30),
+                sleep_time: Duration::from_millis(50),
                 message_receiver: rx,
                 message_sender: tx,
                 priv_message_receiver: priv_rx,

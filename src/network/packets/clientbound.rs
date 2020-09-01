@@ -789,13 +789,15 @@ impl ClientBoundPacket for C3AEntityHeadLook {
     }
 }
 
+#[derive(Debug)]
 pub struct C3BMultiBlockChangeRecord {
-    pub x: i8,
+    pub x: u8,
     pub y: u8,
-    pub z: i8,
-    pub block_id: i32,
+    pub z: u8,
+    pub block_id: u32,
 }
 
+#[derive(Debug)]
 pub struct C3BMultiBlockChange {
     pub chunk_x: i32,
     pub chunk_z: i32,
@@ -810,13 +812,12 @@ impl ClientBoundPacket for C3BMultiBlockChange {
             | ((self.chunk_z as i64 & 0x3FFFFF) << 20)
             | (self.chunk_y as i64 & 0xFFFFF);
         buf.write_long(pos);
-        buf.write_int(self.chunk_x);
-        buf.write_int(self.chunk_z);
+        buf.write_bool(true); // Always inverse the preceding Update Light packet's "Trust Edges" bool
         buf.write_varint(self.records.len() as i32); // Length of record array
         for record in self.records {
             let long = ((record.block_id as u64) << 12)
                 | ((record.x as u64) << 8)
-                | ((record.z as u64) << 8)
+                | ((record.z as u64) << 4)
                 | (record.y as u64);
             buf.write_varlong(long as i64);
         }

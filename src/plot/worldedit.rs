@@ -1,6 +1,5 @@
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockPos};
-use crate::network::packets::clientbound::*;
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
 use rand::Rng;

@@ -1,5 +1,8 @@
 use crate::blocks::{BlockEntity, BlockPos};
-use crate::network::packets::clientbound::{C20ChunkData, C20ChunkDataSection, ClientBoundPacket};
+use crate::network::packets::clientbound::{
+    C20ChunkData, C20ChunkDataSection, C3BMultiBlockChange, C3BMultiBlockChangeRecord,
+    ClientBoundPacket,
+};
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -40,9 +43,8 @@ impl BitBuffer {
         }
     }
 
-    fn load(bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
+    fn load(entries: usize, bits_per_entry: u8, longs: Vec<u64>) -> BitBuffer {
         let entries_per_long = 64 / bits_per_entry as u64;
-        let entries = longs.len() * entries_per_long as usize;
         BitBuffer {
             bits_per_entry: bits_per_entry as u64,
             longs,
@@ -110,9 +112,14 @@ impl PalettedBitBuffer {
         }
     }
 
-    fn load(bits_per_entry: u8, longs: Vec<u64>, palette: Vec<u32>) -> PalettedBitBuffer {
+    fn load(
+        entries: usize,
+        bits_per_entry: u8,
+        longs: Vec<u64>,
+        palette: Vec<u32>,
+    ) -> PalettedBitBuffer {
         PalettedBitBuffer {
-            data: BitBuffer::load(bits_per_entry, longs),
+            data: BitBuffer::load(entries, bits_per_entry, longs),
             palette,
             use_palette: bits_per_entry < 9,
             max_entries: 1 << bits_per_entry,
@@ -186,10 +193,10 @@ impl PalettedBitBuffer {
     }
 }
 
-#[derive(Debug)]
 pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
+    multi_block: Vec<C3BMultiBlockChangeRecord>,
 }
 
 impl ChunkSection {
@@ -218,10 +225,11 @@ impl ChunkSection {
         let loaded_longs = data.data.into_iter().map(|x| x as u64).collect();
         let bits_per_entry = data.bits_per_block as u8;
         let palette = data.palette.into_iter().map(|x| x as u32).collect();
-        let buffer = PalettedBitBuffer::load(bits_per_entry, loaded_longs, palette);
+        let buffer = PalettedBitBuffer::load(data.entries, bits_per_entry, loaded_longs, palette);
         ChunkSection {
             buffer,
             block_count: data.block_count as u32,
+            multi_block: Vec::new(),
         }
     }
 
@@ -246,13 +254,15 @@ impl ChunkSection {
             palette,
             bits_per_block: self.buffer.data.bits_per_entry as i8,
             block_count: self.block_count as i32,
+            entries: self.buffer.entries(),
         }
     }
 
     fn new() -> ChunkSection {
         ChunkSection {
             buffer: PalettedBitBuffer::new(),
-            block_count: 10,
+            block_count: 0,
+            multi_block: Vec::new(),
         }
     }
 
@@ -275,9 +285,23 @@ impl ChunkSection {
             },
         }
     }
+
+    fn drain_multi_block(
+        &mut self,
+        chunk_x: i32,
+        chunk_y: u32,
+        chunk_z: i32,
+    ) -> C3BMultiBlockChange {
+        let multi_block = self.multi_block.drain(..).collect();
+        C3BMultiBlockChange {
+            records: multi_block,
+            chunk_x,
+            chunk_y,
+            chunk_z,
+        }
+    }
 }
 
-#[derive(Debug)]
 pub struct Chunk {
     pub sections: BTreeMap<u8, ChunkSection>,
     pub x: i32,
@@ -356,7 +380,7 @@ impl Chunk {
     }
 
     /// Sets a block in the chunk. Returns true if a block was changed.
-    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
+    pub fn set_block_raw(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
         let section_y = (y >> 4) as u8;
         if let Some(section) = self.sections.get_mut(&section_y) {
             section.set_block(x, y & 0xF, z, block_id)
@@ -369,6 +393,22 @@ impl Chunk {
             // The block was air so a new chunk section does not need to be created.
             false
         }
+    }
+
+    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
+        let changed = self.set_block_raw(x, y, z, block_id);
+        if changed {
+            let section_y = (y >> 4) as u8;
+            self.sections.get_mut(&section_y).unwrap().multi_block.push(
+                C3BMultiBlockChangeRecord {
+                    block_id,
+                    x: x as u8,
+                    y: y as u8 & 0xF,
+                    z: z as u8,
+                },
+            );
+        }
+        changed
     }
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
@@ -449,6 +489,17 @@ impl Chunk {
         }
         chunk
     }
+
+    pub fn drain_multi_block(&mut self) -> Vec<C3BMultiBlockChange> {
+        let mut packets = Vec::new();
+        for (y, section) in &mut self.sections {
+            let packet = section.drain_multi_block(self.x, *y as u32, self.z);
+            if !packet.records.is_empty() {
+                packets.push(packet);
+            }
+        }
+        packets
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -457,6 +508,7 @@ struct ChunkSectionData {
     palette: Vec<i32>,
     bits_per_block: i8,
     block_count: i32,
+    entries: usize,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
