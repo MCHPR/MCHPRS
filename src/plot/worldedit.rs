@@ -1,13 +1,11 @@
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos};
-use crate::network::packets::clientbound::*;
 use crate::player::Player;
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fmt;
 use std::fs::File;
 use std::ops::RangeInclusive;
@@ -594,8 +592,14 @@ impl WorldEditPattern {
     }
 }
 
+struct ChunkChangedRecord {
+    chunk_x: i32,
+    chunk_z: i32,
+    block_count: usize,
+}
+
 struct WorldEditOperation {
-    pub records: Vec<C0FMultiBlockChange>,
+    pub records: Vec<ChunkChangedRecord>,
     x_range: RangeInclusive<i32>,
     y_range: RangeInclusive<i32>,
     z_range: RangeInclusive<i32>,
@@ -606,14 +610,14 @@ impl WorldEditOperation {
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
 
-        let mut records: Vec<C0FMultiBlockChange> = Vec::new();
+        let mut records: Vec<ChunkChangedRecord> = Vec::new();
 
         for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
             for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
-                records.push(C0FMultiBlockChange {
+                records.push(ChunkChangedRecord {
                     chunk_x,
                     chunk_z,
-                    records: Vec::new(),
+                    block_count: 0,
                 });
             }
         }
@@ -629,7 +633,7 @@ impl WorldEditOperation {
         }
     }
 
-    fn update_block(&mut self, block_pos: BlockPos, block_id: u32) {
+    fn update_block(&mut self, block_pos: BlockPos) {
         let chunk_x = block_pos.x >> 4;
         let chunk_z = block_pos.z >> 4;
 
@@ -638,12 +642,7 @@ impl WorldEditOperation {
             .iter_mut()
             .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z)
         {
-            packet.records.push(C0FMultiBlockChangeRecord {
-                x: (block_pos.x >> 4) as i8,
-                y: (block_pos.y >> 4) as u8,
-                z: (block_pos.z >> 4) as i8,
-                block_id: block_id as i32,
-            })
+            packet.block_count += 1;
         }
     }
 
@@ -651,7 +650,7 @@ impl WorldEditOperation {
         let mut blocks_updated = 0;
 
         for record in &self.records {
-            blocks_updated += record.records.len()
+            blocks_updated += record.block_count;
         }
 
         blocks_updated
@@ -727,7 +726,7 @@ fn execute_set(mut ctx: CommandExecuteContext) {
                     let block_id = pattern.pick().get_id();
 
                     if ctx.plot.set_block_raw(block_pos, block_id) {
-                        operation.update_block(block_pos, block_id);
+                        operation.update_block(block_pos);
                     }
                 }
             }
@@ -766,7 +765,7 @@ fn execute_replace(mut ctx: CommandExecuteContext) {
                         let block_id = pattern.pick().get_id();
 
                         if ctx.plot.set_block_raw(block_pos, block_id) {
-                            operation.update_block(block_pos, block_id);
+                            operation.update_block(block_pos);
                         }
                     }
                 }
@@ -868,17 +867,16 @@ fn paste_clipboard(plot: &mut Plot, cb: &WorldEditClipboard, pos: BlockPos) {
                 i += 1;
             }
         }
-    }
-    let chunk_x_range =
-        (offset_x - (plot.x << 8)) >> 4..=(offset_x + cb.size_x as i32 - (plot.x << 8)) >> 4;
-    let chunk_z_range =
-        (offset_z - (plot.z << 8)) >> 4..=(offset_z + cb.size_z as i32 - (plot.z << 8)) >> 4;
-    for chunk_x in chunk_x_range {
-        for chunk_z in chunk_z_range.clone() {
-            if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
-                let chunk_data = chunk.encode_packet(false);
-                for player in &mut plot.players {
-                    player.client.send_packet(&chunk_data);
+        // Calculate the ranges of chunks that might have been modified
+        let chunk_x_range = offset_x >> 4..=(offset_x + cb.size_x as i32) >> 4;
+        let chunk_z_range = offset_z >> 4..=(offset_z + cb.size_z as i32) >> 4;
+        for chunk_x in chunk_x_range {
+            for chunk_z in chunk_z_range.clone() {
+                if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
+                    let chunk_data = chunk.encode_packet(false);
+                    for player in &mut plot.players {
+                        player.client.send_packet(&chunk_data);
+                    }
                 }
             }
         }

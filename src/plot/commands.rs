@@ -1,7 +1,7 @@
 use super::{database, worldedit, Plot};
 use crate::network::packets::clientbound::{
-    C11DeclareCommands, C11DeclareCommandsNode as Node, C11DeclareCommandsNodeParser as Parser,
-    C31PlayerAbilities, ClientBoundPacket,
+    C10DeclareCommands, C10DeclareCommandsNode as Node, C10DeclareCommandsNodeParser as Parser,
+    ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
-    fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+    fn handle_plot_command(&mut self, player: usize, command: &str, _args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
         match command {
@@ -141,7 +141,8 @@ impl Plot {
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
                     let player = self.leave_plot(player);
-                    self.message_sender
+                    let _ = self
+                        .message_sender
                         .send(Message::PlayerTeleportOther(player, args[0].to_string()));
                     return true;
                 } else {
@@ -150,7 +151,7 @@ impl Plot {
                 }
             }
             "/stop" => {
-                self.message_sender.send(Message::Shutdown);
+                let _ = self.message_sender.send(Message::Shutdown);
             }
             "/plot" | "/p" => {
                 if args.is_empty() {
@@ -175,13 +176,8 @@ impl Plot {
                             .send_error_message("You cannot have a flyspeed greater than 10");
                         return false;
                     }
-                    let player_abilities = C31PlayerAbilities {
-                        flags: 0x0F,
-                        fly_speed: 0.05 * speed_arg,
-                        fov_modifier: 0.1,
-                    }
-                    .encode();
-                    self.players[player].client.send_packet(&player_abilities);
+                    self.players[player].fly_speed = speed_arg;
+                    self.players[player].update_player_abilities();
                 } else {
                     self.players[player].send_error_message("Unable to parse speed value");
                 }
@@ -207,7 +203,7 @@ lazy_static! {
     // For more information, see https://wiki.vg/Command_Data
     /// The DeclareCommands packet that is sent when the player joins.
     /// This is used for command autocomplete.
-    pub static ref DECLARE_COMMANDS: PacketEncoder = C11DeclareCommands {
+    pub static ref DECLARE_COMMANDS: PacketEncoder = C10DeclareCommands {
         nodes: vec![
             // 0: Root Node
             Node {

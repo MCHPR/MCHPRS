@@ -4,6 +4,8 @@ mod blocks;
 mod items;
 mod player;
 mod plot;
+#[macro_use]
+mod utils;
 pub mod server;
 pub mod world;
 

@@ -270,7 +270,7 @@ impl Player {
 
     /// Sends the keep alive packet to the client and updates `last_keep_alive_sent`
     pub fn send_keep_alive(&mut self) {
-        let keep_alive = C20KeepAlive {
+        let keep_alive = C1FKeepAlive {
             id: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
@@ -310,7 +310,7 @@ impl Player {
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
-        let player_position_and_look = C35PlayerPositionAndLook {
+        let player_position_and_look = C34PlayerPositionAndLook {
             x,
             y,
             z,
@@ -400,7 +400,17 @@ impl Player {
 
     /// Sends the player the disconnect packet, it is still up to the player to end the network stream.
     pub fn kick(&mut self, reason: String) {
-        let disconnect = C1ADisconnect { reason }.encode();
+        let disconnect = C19Disconnect { reason }.encode();
         self.client.send_packet(&disconnect);
+    }
+
+    pub fn update_player_abilities(&mut self) {
+        let player_abilities = C30PlayerAbilities {
+            flags: 0x0D | ((self.flying as u8) << 1),
+            fly_speed: 0.05 * self.fly_speed,
+            fov_modifier: 0.1,
+        }
+        .encode();
+        self.client.send_packet(&player_abilities);
     }
 }

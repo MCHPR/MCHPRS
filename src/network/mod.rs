@@ -72,15 +72,15 @@ impl NetworkClient {
 
     pub fn send_packet(&mut self, data: &PacketEncoder) {
         if self.compressed.load(Ordering::Relaxed) {
-            self.stream.write_all(&data.compressed());
+            let _ = self.stream.write_all(&data.compressed());
         } else {
-            self.stream.write_all(&data.uncompressed());
+            let _ = self.stream.write_all(&data.uncompressed());
         }
     }
 
     pub fn close_connection(&mut self) {
         self.alive = false;
-        self.stream.shutdown(Shutdown::Both);
+        let _ = self.stream.shutdown(Shutdown::Both);
     }
 }
 

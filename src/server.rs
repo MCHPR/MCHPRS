@@ -1,8 +1,9 @@
 use crate::network::packets::clientbound::{
-    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C14WindowItems,
-    C18PluginMessageBrand, C25JoinGame, C25JoinGameDimensionCodec,
-    C25JoinGameDimensionCodecDimension, C33PlayerInfo, C33PlayerInfoAddPlayer,
-    C35PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate, ClientBoundPacket,
+    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C13WindowItems,
+    C17PluginMessageBrand, C24JoinGame, C24JoinGameBiomeEffects, C24JoinGameBiomeEffectsMoodSound,
+    C24JoinGameBiomeElement, C24JoinGameDimensionCodec, C24JoinGameDimensionElement, C32PlayerInfo,
+    C32PlayerInfoAddPlayer, C34PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate,
+    ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
@@ -217,7 +218,7 @@ impl MinecraftServer {
         };
         toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
             let config_string = toml::to_string(&default_config).unwrap();
-            fs::write("Config.toml", &config_string);
+            let _ = fs::write("Config.toml", &config_string);
             config_string
         }))
         .unwrap_or_else(|_| {
@@ -249,7 +250,7 @@ impl MinecraftServer {
                     .unwrap_or(default_config.max_players),
             };
             let config_string = toml::to_string(&merged_config).unwrap();
-            fs::write("Config.toml", &config_string);
+            fs::write("Config.toml", &config_string).expect("Error writing config");
             merged_config
         })
     }
@@ -332,7 +333,7 @@ impl MinecraftServer {
                 .iter()
                 .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
                 .unwrap();
-            plot_list_entry
+            let _ = plot_list_entry
                 .priv_message_sender
                 .send(PrivMessage::PlayerEnterPlot(player));
         }
@@ -361,32 +362,92 @@ impl MinecraftServer {
         clients[client_idx].state = NetworkState::Play;
         let mut client = clients.remove(client_idx);
 
-        let join_game = C25JoinGame {
+        let join_game = C24JoinGame {
             entity_id: client.id as i32,
+            is_hardcore: false,
             gamemode: 1,
             previous_gamemode: 1,
             world_count: 1,
-            world_names: vec!["minecraft:overworld".to_owned()],
-            dimention_codec: C25JoinGameDimensionCodec {
-                dimension: vec![C25JoinGameDimensionCodecDimension {
-                    name: "minecraft:overworld".to_owned(),
-                    natural: 1,
-                    ambient_light: 1.0,
-                    has_ceiling: 0,
-                    has_skylight: 1,
-                    fixed_time: 6000,
-                    shrunk: 0,
-                    ultrawarm: 0,
-                    has_raids: 0,
-                    respawn_anchor_works: 0,
-                    bed_works: 0,
-                    piglin_safe: 0,
-                    logical_height: 256,
-                    infiniburn: "".to_owned(),
-                }],
+            world_names: vec!["mchprs:world".to_owned()],
+            dimention_codec: C24JoinGameDimensionCodec {
+                dimensions: map! {
+                    "mchprs:world".to_owned() => C24JoinGameDimensionElement {
+                        natural: 1,
+                        ambient_light: 1.0,
+                        has_ceiling: 0,
+                        has_skylight: 1,
+                        fixed_time: 6000,
+                        shrunk: 0,
+                        ultrawarm: 0,
+                        has_raids: 0,
+                        respawn_anchor_works: 0,
+                        bed_works: 0,
+                        coordinate_scale: 1.0,
+                        piglin_safe: 0,
+                        logical_height: 256,
+                        infiniburn: "".to_owned(),
+                    }
+                },
+                biomes: map! {
+                    "minecraft:plains".to_owned() => C24JoinGameBiomeElement {
+                        precipitation: "none".to_owned(),
+                        effects: C24JoinGameBiomeEffects {
+                            sky_color: 7907327,
+                            water_fog_color: 329011,
+                            fog_color: 12638463,
+                            water_color: 4159204,
+                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
+                                tick_delay: 6000,
+                                offset: 2.0,
+                                sound: "minecraft:ambient.cave".to_owned(),
+                                block_search_extent: 8,
+                            }
+                        },
+                        depth: 0.125,
+                        temperature: 0.8,
+                        scale: 0.5,
+                        downfall: 0.4,
+                        category: "none".to_owned(),
+                    },
+                    "mchprs:plot".to_owned() => C24JoinGameBiomeElement {
+                        precipitation: "none".to_owned(),
+                        effects: C24JoinGameBiomeEffects {
+                            sky_color: 0x7BA4FF,
+                            water_fog_color: 0x050533,
+                            fog_color: 0xC0D8FF,
+                            water_color: 0x3F76E4,
+                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
+                                tick_delay: 6000,
+                                offset: 2.0,
+                                sound: "minecraft:ambient.cave".to_owned(),
+                                block_search_extent: 8,
+                            }
+                        },
+                        depth: 0.1,
+                        temperature: 0.5,
+                        scale: 0.2,
+                        downfall: 0.5,
+                        category: "none".to_owned(),
+                    }
+                },
             },
-            dimention: "minecraft:overworld".to_owned(),
-            world_name: "minecraft:overworld".to_owned(),
+            dimention: C24JoinGameDimensionElement {
+                natural: 1,
+                ambient_light: 1.0,
+                has_ceiling: 0,
+                has_skylight: 1,
+                fixed_time: 6000,
+                shrunk: 0,
+                ultrawarm: 0,
+                has_raids: 0,
+                respawn_anchor_works: 0,
+                bed_works: 0,
+                coordinate_scale: 1.0,
+                piglin_safe: 0,
+                logical_height: 256,
+                infiniburn: "".to_owned(),
+            },
+            world_name: "mchprs:world".to_owned(),
             hashed_seed: 0,
             max_players: 0,
             view_distance: 8,
@@ -400,7 +461,7 @@ impl MinecraftServer {
 
         // Sends the custom brand name to the player
         // (This can be seen in the f3 debug menu in-game)
-        let brand = C18PluginMessageBrand {
+        let brand = C17PluginMessageBrand {
             brand: "Minecraft High Performace Redstone".to_string(),
         }
         .encode();
@@ -409,7 +470,7 @@ impl MinecraftServer {
         let mut player = Player::load_player(uuid, username.clone(), client);
 
         // Send the player's position and rotation.
-        let player_pos_and_look = C35PlayerPositionAndLook {
+        let player_pos_and_look = C34PlayerPositionAndLook {
             x: player.x,
             y: player.y,
             z: player.z,
@@ -425,7 +486,7 @@ impl MinecraftServer {
         // (This is the list you see when you press tab in-game)
         let mut add_player_list = Vec::new();
         for player in &self.online_players {
-            add_player_list.push(C33PlayerInfoAddPlayer {
+            add_player_list.push(C32PlayerInfoAddPlayer {
                 uuid: player.uuid,
                 name: player.username.clone(),
                 display_name: None,
@@ -434,7 +495,7 @@ impl MinecraftServer {
                 properties: Vec::new(),
             });
         }
-        add_player_list.push(C33PlayerInfoAddPlayer {
+        add_player_list.push(C32PlayerInfoAddPlayer {
             uuid: player.uuid,
             name: player.username.clone(),
             display_name: None,
@@ -442,7 +503,7 @@ impl MinecraftServer {
             ping: 0,
             properties: Vec::new(),
         });
-        let player_info = C33PlayerInfo::AddPlayer(add_player_list).encode();
+        let player_info = C32PlayerInfo::AddPlayer(add_player_list).encode();
         player.client.send_packet(&player_info);
 
         // Send the player's inventory
@@ -457,7 +518,7 @@ impl MinecraftServer {
                 })
             })
             .collect();
-        let window_items = C14WindowItems {
+        let window_items = C13WindowItems {
             window_id: 0,
             slot_data,
         }
@@ -480,6 +541,8 @@ impl MinecraftServer {
         }
         .encode();
         player.client.send_packet(&time_update);
+
+        player.update_player_abilities();
 
         self.plot_sender
             .send(Message::PlayerJoined(player))
@@ -551,7 +614,7 @@ impl MinecraftServer {
                             .iter()
                             .find(|p| p.plot_x == plot_x && p.plot_z == plot_z)
                             .unwrap();
-                        plot_list_entry
+                        let _ = plot_list_entry
                             .priv_message_sender
                             .send(PrivMessage::PlayerTeleportOther(player, other_username));
                     }
@@ -589,11 +652,11 @@ impl ServerBoundPacketHandler for MinecraftServer {
             2 => client.state = NetworkState::Login,
             _ => {}
         }
-        if client.state == NetworkState::Login && handshake.protocol_version != 736 {
+        if client.state == NetworkState::Login && handshake.protocol_version != 751 {
             warn!("A player tried to connect using the wrong version");
             let disconnect = C00DisconnectLogin {
                 reason: json!({
-                    "text": "Version mismatch, I'm on 1.16.1!"
+                    "text": "Version mismatch, I'm on 1.16.2!"
                 })
                 .to_string(),
             }
@@ -608,8 +671,8 @@ impl ServerBoundPacketHandler for MinecraftServer {
         let response = C00Response {
             json_response: json!({
                 "version": {
-                    "name": "1.16.1",
-                    "protocol": 736
+                    "name": "1.16.2",
+                    "protocol": 751
                 },
                 "players": {
                     "max": self.config.max_players,
