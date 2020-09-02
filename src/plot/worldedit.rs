@@ -14,10 +14,20 @@ use std::ops::RangeInclusive;
 use std::time::Instant;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
-pub fn execute_command(plot: &mut Plot, player_idx: usize, command: &str, args: &[&str]) -> bool {
+pub fn execute_command(
+    plot: &mut Plot,
+    player_idx: usize,
+    command: &str,
+    args: &mut Vec<&str>,
+) -> bool {
     let command = if let Some(command) = COMMANDS.get(command) {
         command
     } else if let Some(command) = ALIASES.get(command) {
+        let mut alias: Vec<&str> = command.split(' ').collect();
+        let command = alias.remove(0);
+        if alias.len() > 1 {
+            args.append(&mut alias);
+        }
         &COMMANDS[command]
     } else {
         return false;
@@ -44,6 +54,39 @@ pub fn execute_command(plot: &mut Plot, player_idx: usize, command: &str, args: 
             player.send_error_message("Your clipboard is empty. Use //copy first.");
             return true;
         }
+    }
+
+    let flag_descs = command.flags;
+
+    let mut arg_removal_idxs = Vec::new();
+    for (i, arg) in args.iter().enumerate() {
+        if arg.starts_with('-') {
+            let mut with_argument = false;
+            let flags = arg.chars();
+            for flag in flags.skip(1) {
+                if with_argument {
+                    ctx.get_player_mut()
+                        .send_error_message("Flag with argument must be last in grouping");
+                    return true;
+                }
+                let flag_desc = if let Some(desc) = flag_descs.iter().find(|d| d.letter == flag) {
+                    desc
+                } else {
+                    ctx.get_player_mut()
+                        .send_error_message(&format!("Unknown flag: {}", flag));
+                    return true;
+                };
+                arg_removal_idxs.push(i);
+                if flag_desc.argument_type.is_some() {
+                    arg_removal_idxs.push(i + 1);
+                    with_argument = true;
+                }
+            }
+        }
+    }
+
+    for idx in arg_removal_idxs.iter().rev() {
+        args.remove(*idx);
     }
 
     let arg_descs = command.arguments;
@@ -110,6 +153,7 @@ enum Argument {
     UnsignedInteger(u32),
     Direction(BlockFacing),
     Pattern(WorldEditPattern),
+    Mask(WorldEditPattern),
 }
 
 impl Argument {
@@ -166,7 +210,15 @@ impl Argument {
                 Ok(num) => Ok(Argument::UnsignedInteger(num)),
                 Err(_) => Err(ArgumentParseError::new(arg_type, "error parsing uint")),
             },
-            _ => unimplemented!(),
+            ArgumentType::Pattern => match WorldEditPattern::from_str(arg) {
+                Ok(pattern) => Ok(Argument::Pattern(pattern)),
+                Err(err) => Err(ArgumentParseError::new(arg_type, &err.to_string())),
+            },
+            // Masks are net yet implemented, so in the meantime they can be treated as patterns
+            ArgumentType::Mask => match WorldEditPattern::from_str(arg) {
+                Ok(pattern) => Ok(Argument::Pattern(pattern)),
+                Err(err) => Err(ArgumentParseError::new(arg_type, &err.to_string())),
+            },
         }
     }
 }
@@ -306,7 +358,7 @@ lazy_static! {
             ..Default::default()
         },
         "pos2" => WorldeditCommand {
-            execute_fn: execute_pos1,
+            execute_fn: execute_pos2,
             description: "Set position 2",
             ..Default::default()
         },
@@ -453,6 +505,15 @@ impl WorldEditClipboard {
 pub enum PatternParseError {
     UnknownBlock(String),
     InvalidPattern(String),
+}
+
+impl fmt::Display for PatternParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            PatternParseError::UnknownBlock(block) => write!(f, "unknown block: {}", block),
+            PatternParseError::InvalidPattern(pattern) => write!(f, "invalid pattern: {}", pattern),
+        }
+    }
 }
 
 pub type PatternParseResult<T> = std::result::Result<T, PatternParseError>;
