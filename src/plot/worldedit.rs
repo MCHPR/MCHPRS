@@ -35,7 +35,7 @@ pub fn execute_command(
         plot,
         player_idx,
         arguments: Vec::new(),
-        flags: &[],
+        flags: Vec::new(),
     };
 
     if command.requires_positions {
@@ -79,6 +79,7 @@ pub fn execute_command(
                     arg_removal_idxs.push(i + 1);
                     with_argument = true;
                 }
+                ctx.flags.push(flag);
             }
         }
     }
@@ -165,14 +166,21 @@ impl Argument {
     fn unwrap_direction(&self) -> &BlockFacing {
         match self {
             Argument::Direction(val) => val,
-            _ => panic!("Argument was not an UnsignedInteger"),
+            _ => panic!("Argument was not an Direction"),
         }
     }
 
     fn unwrap_pattern(&self) -> &WorldEditPattern {
         match self {
             Argument::Pattern(val) => val,
-            _ => panic!("Argument was not an UnsignedInteger"),
+            _ => panic!("Argument was not a Pattern"),
+        }
+    }
+
+    fn unwrap_mask(&self) -> &WorldEditPattern {
+        match self {
+            Argument::Pattern(val) => val,
+            _ => panic!("Argument was not a Mask"),
         }
     }
 
@@ -214,7 +222,7 @@ impl Argument {
             },
             // Masks are net yet implemented, so in the meantime they can be treated as patterns
             ArgumentType::Mask => match WorldEditPattern::from_str(arg) {
-                Ok(pattern) => Ok(Argument::Pattern(pattern)),
+                Ok(pattern) => Ok(Argument::Mask(pattern)),
                 Err(err) => Err(ArgumentParseError::new(arg_type, &err.to_string())),
             },
         }
@@ -243,11 +251,21 @@ struct FlagDescription {
     description: &'static str,
 }
 
+macro_rules! flag {
+    ($name:literal, $type:ident, $desc:literal) => {
+        FlagDescription {
+            letter: $name,
+            argument_type: $type,
+            description: $desc,
+        }
+    };
+}
+
 struct CommandExecuteContext<'a> {
     plot: &'a mut Plot,
     player_idx: usize,
     arguments: Vec<Argument>,
-    flags: &'a [char],
+    flags: Vec<char>,
 }
 
 impl<'a> CommandExecuteContext<'a> {
@@ -310,6 +328,9 @@ lazy_static! {
             requires_clipboard: true,
             execute_fn: execute_paste,
             description: "Paste the clipboard's contents",
+            flags: &[
+                flag!('a', None, "Skip air blocks")
+            ],
             ..Default::default()
         },
         "undo" => WorldeditCommand {
@@ -325,6 +346,9 @@ lazy_static! {
             requires_positions: true,
             execute_fn: execute_stack,
             description: "Repeat the contents of the selection",
+            flags: &[
+                flag!('a', None, "Ignore air blocks")
+            ],
             ..Default::default()
         },
         "count" => WorldeditCommand {
@@ -746,7 +770,7 @@ fn execute_set(mut ctx: CommandExecuteContext) {
 fn execute_replace(mut ctx: CommandExecuteContext) {
     let start_time = Instant::now();
 
-    let filter = ctx.arguments[0].unwrap_pattern();
+    let filter = ctx.arguments[0].unwrap_mask();
     let pattern = ctx.arguments[1].unwrap_pattern();
 
     if let Some(mut operation) = worldedit_start_operation(ctx.plot, ctx.player_idx) {
@@ -845,7 +869,7 @@ fn create_clipboard(
     cb
 }
 
-fn paste_clipboard(plot: &mut Plot, cb: &WorldEditClipboard, pos: BlockPos) {
+fn paste_clipboard(plot: &mut Plot, cb: &WorldEditClipboard, pos: BlockPos, ignore_air: bool) {
     let offset_x = pos.x - cb.offset_x;
     let offset_y = pos.y as i32 - cb.offset_y;
     let offset_z = pos.z - cb.offset_z;
@@ -863,20 +887,24 @@ fn paste_clipboard(plot: &mut Plot, cb: &WorldEditClipboard, pos: BlockPos) {
                 if i >= entries {
                     break 'top_loop;
                 }
-                plot.set_block_raw(BlockPos::new(x, y, z), cb.data.get_entry(i));
+                let entry = cb.data.get_entry(i);
                 i += 1;
+                if ignore_air && entry == 0 {
+                    continue;
+                }
+                plot.set_block_raw(BlockPos::new(x, y, z), entry);
             }
         }
-        // Calculate the ranges of chunks that might have been modified
-        let chunk_x_range = offset_x >> 4..=(offset_x + cb.size_x as i32) >> 4;
-        let chunk_z_range = offset_z >> 4..=(offset_z + cb.size_z as i32) >> 4;
-        for chunk_x in chunk_x_range {
-            for chunk_z in chunk_z_range.clone() {
-                if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
-                    let chunk_data = chunk.encode_packet(false);
-                    for player in &mut plot.players {
-                        player.client.send_packet(&chunk_data);
-                    }
+    }
+    // Calculate the ranges of chunks that might have been modified
+    let chunk_x_range = offset_x >> 4..=(offset_x + cb.size_x as i32) >> 4;
+    let chunk_z_range = offset_z >> 4..=(offset_z + cb.size_z as i32) >> 4;
+    for chunk_x in chunk_x_range {
+        for chunk_z in chunk_z_range.clone() {
+            if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
+                let chunk_data = chunk.encode_packet(false);
+                for player in &mut plot.players {
+                    player.client.send_packet(&chunk_data);
                 }
             }
         }
@@ -949,7 +977,7 @@ fn execute_paste(mut ctx: CommandExecuteContext) {
                 offset_z + cb.size_z as i32,
             ),
         );
-        paste_clipboard(ctx.plot, cb, pos);
+        paste_clipboard(ctx.plot, cb, pos, ctx.has_flag('a'));
         ctx.get_player_mut().send_worldedit_message(&format!(
             "Your clipboard was pasted. ({:?})",
             start_time.elapsed()
@@ -979,27 +1007,6 @@ pub(super) fn execute_load(plot: &mut Plot, player: usize, file_name: &str) {
     }
 }
 
-fn execute_find(plot: &mut Plot, player: usize, block_id: u32) {
-    let start_time = Instant::now();
-
-    if let Some(operation) = worldedit_start_operation(plot, player) {
-        for x in operation.x_range() {
-            for y in operation.y_range() {
-                for z in operation.z_range() {
-                    let block_pos = BlockPos::new(x, y, z);
-                    if plot.get_block_raw(block_pos) == block_id {
-                        plot.players[player].send_worldedit_message(&format!(
-                            "The block was found at {:?}",
-                            block_pos
-                        ));
-                    }
-                }
-            }
-        }
-        plot.players[player].send_worldedit_message(&format!("Done. ({:?})", start_time.elapsed()));
-    }
-}
-
 fn execute_stack(mut ctx: CommandExecuteContext) {
     let start_time = Instant::now();
 
@@ -1022,7 +1029,7 @@ fn execute_stack(mut ctx: CommandExecuteContext) {
         all_pos.push(direction.offset_pos(pos1, (i * stack_offset) as i32));
     }
     for block_pos in all_pos {
-        paste_clipboard(ctx.plot, &clipboard, block_pos);
+        paste_clipboard(ctx.plot, &clipboard, block_pos, ctx.has_flag('a'));
     }
     ctx.get_player_mut().send_worldedit_message(&format!(
         "Your clipboard was stacked. ({:?})",
@@ -1042,7 +1049,7 @@ fn execute_undo(mut ctx: CommandExecuteContext) {
             .send_error_message("Cannot undo outside of your current plot.");
         return;
     }
-    paste_clipboard(ctx.plot, &undo.clipboard, undo.pos);
+    paste_clipboard(ctx.plot, &undo.clipboard, undo.pos, false);
 }
 
 fn execute_sel(mut ctx: CommandExecuteContext) {
@@ -1072,6 +1079,6 @@ fn execute_pos2(mut ctx: CommandExecuteContext) {
     player.worldedit_set_second_position(x, y, z);
 }
 
-fn execute_unimplemented(ctx: CommandExecuteContext) {
+fn execute_unimplemented(_ctx: CommandExecuteContext) {
     unimplemented!("Unimplimented worldedit command");
 }
