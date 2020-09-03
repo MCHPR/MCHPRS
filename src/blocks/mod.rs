@@ -868,7 +868,7 @@ impl Block {
                 match context.block_face {
                     BlockFace::Bottom => Block::Air,
                     BlockFace::Top => {
-                        Block::Sign(item_id - 652, ((context.player_yaw.rem_euclid(360.0) / 22.5) as u32 + 8) % 16)
+                        Block::Sign(item_id - 652, ((context.player_yaw * 16.0 / 360.0) + 0.5).floor() as u32 & 15)
                     }
                     _ => Block::WallSign(item_id - 652, context.block_face.to_direction())
                 }
