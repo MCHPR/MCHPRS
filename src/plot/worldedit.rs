@@ -39,9 +39,21 @@ pub fn execute_command(
     };
 
     if command.requires_positions {
+        let plot_x = ctx.plot.x;
+        let plot_z = ctx.plot.z;
         let player = ctx.get_player_mut();
         if player.first_position.is_none() || player.second_position.is_none() {
             player.send_error_message("Make a region selection first.");
+            return true;
+        }
+        let first_pos = player.first_position.unwrap();
+        let second_pos = player.second_position.unwrap();
+        if !Plot::in_plot_bounds(plot_x, plot_z, first_pos.x, first_pos.z) {
+            player.send_system_message("First position is outside plot bounds!");
+            return true;
+        }
+        if !Plot::in_plot_bounds(plot_x, plot_z, second_pos.x, second_pos.z) {
+            player.send_system_message("Second position is outside plot bounds!");
             return true;
         }
     }
@@ -564,7 +576,7 @@ impl WorldEditPattern {
                         .unwrap(),
                 )
             } else {
-                let block_name = pattern_match.get(5).unwrap().as_str();
+                let block_name = pattern_match.get(5).unwrap().as_str().trim_start_matches("minecraft:");
                 Block::from_name(block_name)
                     .ok_or(PatternParseError::UnknownBlock(part.to_owned()))?
             };
@@ -704,67 +716,45 @@ fn worldedit_send_operation(plot: &mut Plot, operation: WorldEditOperation) {
     }
 }
 
-fn worldedit_start_operation(plot: &mut Plot, player: usize) -> Option<WorldEditOperation> {
+fn worldedit_start_operation(plot: &mut Plot, player: usize) -> WorldEditOperation {
     let player = &mut plot.players[player];
-    let first_pos;
-    let second_pos;
-    if let Some(pos) = player.first_position {
-        first_pos = pos;
-    } else {
-        player.send_system_message("First position is not set!");
-        return None;
-    }
-    if let Some(pos) = player.second_position {
-        second_pos = pos;
-    } else {
-        player.send_system_message("Second position is not set!");
-        return None;
-    }
-    if !Plot::in_plot_bounds(plot.x, plot.z, first_pos.x, first_pos.z) {
-        player.send_system_message("First position is outside plot bounds!");
-        return None;
-    }
-    if !Plot::in_plot_bounds(plot.x, plot.z, first_pos.x, first_pos.z) {
-        player.send_system_message("Second position is outside plot bounds!");
-        return None;
-    }
-
-    Some(WorldEditOperation::new(first_pos, second_pos))
+    let first_pos = player.first_position.unwrap();
+    let second_pos = player.second_position.unwrap();
+    WorldEditOperation::new(first_pos, second_pos)
 }
 
 fn execute_set(mut ctx: CommandExecuteContext) {
     let start_time = Instant::now();
     let pattern = ctx.arguments[0].unwrap_pattern();
 
-    if let Some(mut operation) = worldedit_start_operation(ctx.plot, ctx.player_idx) {
-        capture_undo(
-            ctx.plot,
-            ctx.player_idx,
-            ctx.get_player().first_position.unwrap(),
-            ctx.get_player().second_position.unwrap(),
-        );
-        for x in operation.x_range() {
-            for y in operation.y_range() {
-                for z in operation.z_range() {
-                    let block_pos = BlockPos::new(x, y, z);
-                    let block_id = pattern.pick().get_id();
+    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    capture_undo(
+        ctx.plot,
+        ctx.player_idx,
+        ctx.get_player().first_position.unwrap(),
+        ctx.get_player().second_position.unwrap(),
+    );
+    for x in operation.x_range() {
+        for y in operation.y_range() {
+            for z in operation.z_range() {
+                let block_pos = BlockPos::new(x, y, z);
+                let block_id = pattern.pick().get_id();
 
-                    if ctx.plot.set_block_raw(block_pos, block_id) {
-                        operation.update_block(block_pos);
-                    }
+                if ctx.plot.set_block_raw(block_pos, block_id) {
+                    operation.update_block(block_pos);
                 }
             }
         }
-
-        let blocks_updated = operation.blocks_updated();
-        worldedit_send_operation(ctx.plot, operation);
-
-        ctx.get_player_mut().send_worldedit_message(&format!(
-            "Operation completed: {} block(s) affected ({:?})",
-            blocks_updated,
-            start_time.elapsed()
-        ));
     }
+
+    let blocks_updated = operation.blocks_updated();
+    worldedit_send_operation(ctx.plot, operation);
+
+    ctx.get_player_mut().send_worldedit_message(&format!(
+        "Operation completed: {} block(s) affected ({:?})",
+        blocks_updated,
+        start_time.elapsed()
+    ));
 }
 
 fn execute_replace(mut ctx: CommandExecuteContext) {
@@ -773,38 +763,37 @@ fn execute_replace(mut ctx: CommandExecuteContext) {
     let filter = ctx.arguments[0].unwrap_mask();
     let pattern = ctx.arguments[1].unwrap_pattern();
 
-    if let Some(mut operation) = worldedit_start_operation(ctx.plot, ctx.player_idx) {
-        capture_undo(
-            ctx.plot,
-            ctx.player_idx,
-            ctx.get_player().first_position.unwrap(),
-            ctx.get_player().second_position.unwrap(),
-        );
-        for x in operation.x_range() {
-            for y in operation.y_range() {
-                for z in operation.z_range() {
-                    let block_pos = BlockPos::new(x, y, z);
+    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    capture_undo(
+        ctx.plot,
+        ctx.player_idx,
+        ctx.get_player().first_position.unwrap(),
+        ctx.get_player().second_position.unwrap(),
+    );
+    for x in operation.x_range() {
+        for y in operation.y_range() {
+            for z in operation.z_range() {
+                let block_pos = BlockPos::new(x, y, z);
 
-                    if filter.matches(ctx.plot.get_block(block_pos)) {
-                        let block_id = pattern.pick().get_id();
+                if filter.matches(ctx.plot.get_block(block_pos)) {
+                    let block_id = pattern.pick().get_id();
 
-                        if ctx.plot.set_block_raw(block_pos, block_id) {
-                            operation.update_block(block_pos);
-                        }
+                    if ctx.plot.set_block_raw(block_pos, block_id) {
+                        operation.update_block(block_pos);
                     }
                 }
             }
         }
-
-        let blocks_updated = operation.blocks_updated();
-        worldedit_send_operation(ctx.plot, operation);
-
-        ctx.get_player_mut().send_worldedit_message(&format!(
-            "Operation completed: {} block(s) affected ({:?})",
-            blocks_updated,
-            start_time.elapsed()
-        ));
     }
+
+    let blocks_updated = operation.blocks_updated();
+    worldedit_send_operation(ctx.plot, operation);
+
+    ctx.get_player_mut().send_worldedit_message(&format!(
+        "Operation completed: {} block(s) affected ({:?})",
+        blocks_updated,
+        start_time.elapsed()
+    ));
 }
 
 fn execute_count(mut ctx: CommandExecuteContext) {
@@ -812,26 +801,24 @@ fn execute_count(mut ctx: CommandExecuteContext) {
 
     let filter = ctx.arguments[0].unwrap_pattern();
 
-    if let Some(operation) = worldedit_start_operation(ctx.plot, ctx.player_idx) {
-        let mut blocks_counted = 0;
-
-        for x in operation.x_range() {
-            for y in operation.y_range() {
-                for z in operation.z_range() {
-                    let block_pos = BlockPos::new(x, y, z);
-                    if filter.matches(ctx.plot.get_block(block_pos)) {
-                        blocks_counted += 1;
-                    }
+    let mut blocks_counted = 0;
+    let operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    for x in operation.x_range() {
+        for y in operation.y_range() {
+            for z in operation.z_range() {
+                let block_pos = BlockPos::new(x, y, z);
+                if filter.matches(ctx.plot.get_block(block_pos)) {
+                    blocks_counted += 1;
                 }
             }
         }
-
-        ctx.get_player_mut().send_worldedit_message(&format!(
-            "Counted {} block(s) ({:?})",
-            blocks_counted,
-            start_time.elapsed()
-        ));
     }
+
+    ctx.get_player_mut().send_worldedit_message(&format!(
+        "Counted {} block(s) ({:?})",
+        blocks_counted,
+        start_time.elapsed()
+    ));
 }
 
 fn create_clipboard(
