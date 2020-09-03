@@ -19,6 +19,7 @@ pub struct UseOnBlockContext {
     pub block_face: BlockFace,
     pub player_crouching: bool,
     pub player_direction: BlockDirection,
+    pub player_yaw: f32,
     /// The index of the player in the plot's player array
     pub player_idx: usize,
 }
@@ -108,6 +109,7 @@ impl Item {
             464..=479 => Item::BlockItem(id),
             566..=567 => Item::BlockItem(id),
             586 => Item::WEWand,
+            652..=657 => Item::BlockItem(id),
             665 => Item::BlockItem(id),
             666 => Item::Snowball,
             904 => Item::TotemOfUndying,

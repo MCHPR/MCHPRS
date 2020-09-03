@@ -863,6 +863,16 @@ impl Block {
                 ComparatorMode::Compare,
                 false,
             )),
+            // Sign
+            652..=657 => {
+                match context.block_face {
+                    BlockFace::Bottom => Block::Air,
+                    BlockFace::Top => {
+                        Block::Sign(item_id - 652, ((context.player_yaw.rem_euclid(360.0) / 22.5) as u32 + 8) % 16)
+                    }
+                    _ => Block::WallSign(item_id - 652, context.block_face.to_direction())
+                }
+            }
             // Redstone Wire
             665 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(world, pos)),
             // Barrel

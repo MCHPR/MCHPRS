@@ -587,6 +587,20 @@ impl ClientBoundPacket for C24JoinGame {
     }
 }
 
+pub struct C2EOpenSignEditor {
+    pub pos_x: i32,
+    pub pos_y: i32,
+    pub pos_z: i32,
+}
+
+impl ClientBoundPacket for C2EOpenSignEditor {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_position(self.pos_x, self.pos_y, self.pos_z);
+        PacketEncoder::new(buf, 0x2E)
+    }
+}
+
 pub struct C27EntityPosition {
     pub entity_id: i32,
     pub delta_x: i16,

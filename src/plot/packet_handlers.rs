@@ -129,6 +129,7 @@ impl ServerBoundPacketHandler for Plot {
                     block_pos,
                     player_crouching: self.players[player].crouching,
                     player_direction: self.players[player].get_direction(),
+                    player_yaw: self.players[player].yaw,
                     player_idx: player,
                 },
             );
