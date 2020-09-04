@@ -388,7 +388,7 @@ pub enum Block {
 }
 
 impl Block {
-    fn has_block_entity(self) -> bool {
+    pub fn has_block_entity(self) -> bool {
         match self {
             Block::RedstoneComparator(_) | Block::Container(_) => true,
             _ => false,

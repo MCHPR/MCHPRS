@@ -336,6 +336,12 @@ lazy_static! {
             description: "Copy the selection to the clipboard",
             ..Default::default()
         },
+        "cut" => WorldeditCommand {
+            requires_positions: true,
+            execute_fn: execute_cut,
+            description: "Cut the selection to the clipboard",
+            ..Default::default()
+        },
         "paste" => WorldeditCommand {
             requires_clipboard: true,
             execute_fn: execute_paste,
@@ -358,6 +364,19 @@ lazy_static! {
             requires_positions: true,
             execute_fn: execute_stack,
             description: "Repeat the contents of the selection",
+            flags: &[
+                flag!('a', None, "Ignore air blocks")
+            ],
+            ..Default::default()
+        },
+        "move" => WorldeditCommand {
+            arguments: &[
+                argument!("count", UnsignedInteger, "The distance to move"),
+                argument!("direction", Direction, "The direction to move")
+            ],
+            requires_positions: true,
+            execute_fn: execute_move,
+            description: "Move the contents of the selection",
             flags: &[
                 flag!('a', None, "Ignore air blocks")
             ],
@@ -576,7 +595,11 @@ impl WorldEditPattern {
                         .unwrap(),
                 )
             } else {
-                let block_name = pattern_match.get(5).unwrap().as_str().trim_start_matches("minecraft:");
+                let block_name = pattern_match
+                    .get(5)
+                    .unwrap()
+                    .as_str()
+                    .trim_start_matches("minecraft:");
                 Block::from_name(block_name)
                     .ok_or(PatternParseError::UnknownBlock(part.to_owned()))?
             };
@@ -832,23 +855,31 @@ fn create_clipboard(
     let size_x = (end_pos.x - start_pos.x) as u32 + 1;
     let size_y = (end_pos.y - start_pos.y) as u32 + 1;
     let size_z = (end_pos.z - start_pos.z) as u32 + 1;
+    let offset = origin - start_pos;
     let mut cb = WorldEditClipboard {
-        offset_x: origin.x - start_pos.x,
-        offset_y: origin.y as i32 - start_pos.y as i32,
-        offset_z: origin.z - start_pos.z,
+        offset_x: offset.x,
+        offset_y: offset.y,
+        offset_z: offset.z,
         size_x,
         size_y,
         size_z,
         data: PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize),
-        // TODO: Get the block entities in the selection
         block_entities: HashMap::new(),
     };
     let mut i = 0;
     for y in start_pos.y..=end_pos.y {
         for z in start_pos.z..=end_pos.z {
             for x in start_pos.x..=end_pos.x {
+                let pos = BlockPos::new(x, y, z);
+                let id = plot.get_block_raw(pos);
+                let block = plot.get_block(BlockPos::new(x, y, z));
+                if block.has_block_entity() {
+                    if let Some(block_entity) = plot.get_block_entity(pos) {
+                        cb.block_entities.insert(pos - start_pos, block_entity.clone());
+                    }
+                }
                 cb.data
-                    .set_entry(i, plot.get_block_raw(BlockPos::new(x, y, z)));
+                    .set_entry(i, id);
                 i += 1;
             }
         }
@@ -856,9 +887,32 @@ fn create_clipboard(
     cb
 }
 
+fn clear_area(plot: &mut Plot, first_pos: BlockPos, second_pos: BlockPos) {
+    let start_pos = first_pos.min(second_pos);
+    let end_pos = first_pos.max(second_pos);
+    for y in start_pos.y..=end_pos.y {
+        for z in start_pos.z..=end_pos.z {
+            for x in start_pos.x..=end_pos.x {
+                plot.set_block_raw(BlockPos::new(x, y, z), 0);
+            }
+        }
+    }
+    // Send modified chunks
+    for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
+        for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
+            if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
+                let chunk_data = chunk.encode_packet(false);
+                for player in &mut plot.players {
+                    player.client.send_packet(&chunk_data);
+                }
+            }
+        }
+    }
+}
+
 fn paste_clipboard(plot: &mut Plot, cb: &WorldEditClipboard, pos: BlockPos, ignore_air: bool) {
     let offset_x = pos.x - cb.offset_x;
-    let offset_y = pos.y as i32 - cb.offset_y;
+    let offset_y = pos.y - cb.offset_y;
     let offset_z = pos.z - cb.offset_z;
     let mut i = 0;
     // This can be made better, but right now it's not D:
@@ -936,6 +990,53 @@ fn execute_copy(mut ctx: CommandExecuteContext) {
 
     ctx.get_player_mut().send_worldedit_message(&format!(
         "Your selection was copied. ({:?})",
+        start_time.elapsed()
+    ));
+}
+
+fn execute_cut(mut ctx: CommandExecuteContext) {
+    let start_time = Instant::now();
+
+    let first_pos = ctx.get_player().first_position.unwrap();
+    let second_pos = ctx.get_player().second_position.unwrap();
+
+    let origin = BlockPos::new(
+        ctx.get_player().x.floor() as i32,
+        ctx.get_player().y.floor() as i32,
+        ctx.get_player().z.floor() as i32,
+    );
+    let clipboard = create_clipboard(ctx.plot, origin, first_pos, second_pos);
+    ctx.get_player_mut().worldedit_clipboard = Some(clipboard);
+    clear_area(ctx.plot, first_pos, second_pos);
+
+    ctx.get_player_mut().send_worldedit_message(&format!(
+        "Your selection was cut. ({:?})",
+        start_time.elapsed()
+    ));
+}
+
+fn execute_move(mut ctx: CommandExecuteContext) {
+    let start_time = Instant::now();
+
+    let move_amt = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
+
+    let first_pos = ctx.get_player().first_position.unwrap();
+    let second_pos = ctx.get_player().second_position.unwrap();
+
+    let zero_pos = BlockPos::new(0, 0, 0);
+
+    let clipboard = create_clipboard(ctx.plot, zero_pos, first_pos, second_pos);
+    clear_area(ctx.plot, first_pos, second_pos);
+    paste_clipboard(
+        ctx.plot,
+        &clipboard,
+        direction.offset_pos(zero_pos, move_amt as i32),
+        ctx.has_flag('a'),
+    );
+
+    ctx.get_player_mut().send_worldedit_message(&format!(
+        "Your selection was moved. ({:?})",
         start_time.elapsed()
     ));
 }

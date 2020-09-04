@@ -8,7 +8,7 @@ use crate::network::packets::clientbound::{
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
 };
-use crate::network::packets::{SlotData, PacketEncoderExt};
+use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::Player;
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
@@ -467,7 +467,7 @@ impl MinecraftServer {
                 let mut data = Vec::new();
                 data.write_string(32767, "Minecraft High Performace Redstone");
                 data
-            }
+            },
         }
         .encode();
         client.send_packet(&brand);

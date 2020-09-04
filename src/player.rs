@@ -404,8 +404,9 @@ impl Player {
     pub fn worldedit_send_cui(&mut self, message: &str) {
         let cui_plugin_message = C17PluginMessage {
             channel: String::from("worldedit:cui"),
-            data: Vec::from(message.as_bytes())
-        }.encode();
+            data: Vec::from(message.as_bytes()),
+        }
+        .encode();
         self.client.send_packet(&cui_plugin_message);
     }
 

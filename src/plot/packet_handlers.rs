@@ -4,12 +4,12 @@ use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::PacketDecoderExt;
-use std::io::Cursor;
 use crate::network::packets::SlotData;
 use crate::player::SkinParts;
 use crate::server::Message;
 use crate::world::World;
 use log::debug;
+use std::io::Cursor;
 use std::time::Instant;
 
 impl Plot {
@@ -181,7 +181,7 @@ impl ServerBoundPacketHandler for Plot {
         );
         if plugin_message.channel == "worldedit:cui" {
             self.players[player].worldedit_send_cui("s|cuboid");
-        } 
+        }
     }
 
     fn handle_player_position(&mut self, player_position: S12PlayerPosition, player: usize) {

@@ -336,7 +336,7 @@ impl ClientBoundPacket for C13WindowItems {
 
 pub struct C17PluginMessage {
     pub channel: String,
-    pub data: Vec<u8>
+    pub data: Vec<u8>,
 }
 
 impl ClientBoundPacket for C17PluginMessage {
