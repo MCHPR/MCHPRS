@@ -378,7 +378,8 @@ lazy_static! {
             execute_fn: execute_move,
             description: "Move the contents of the selection",
             flags: &[
-                flag!('a', None, "Ignore air blocks")
+                flag!('a', None, "Ignore air blocks"),
+                flag!('s', None, "Shift the selection to the target location")
             ],
             ..Default::default()
         },
@@ -1034,6 +1035,14 @@ fn execute_move(mut ctx: CommandExecuteContext) {
         direction.offset_pos(zero_pos, move_amt as i32),
         ctx.has_flag('a'),
     );
+
+    if ctx.has_flag('s') {
+        let first_pos = direction.offset_pos(first_pos, move_amt as i32);
+        let second_pos = direction.offset_pos(second_pos, move_amt as i32);
+        let player = ctx.get_player_mut();
+        player.worldedit_set_first_position(first_pos.x, first_pos.y, first_pos.z);
+        player.worldedit_set_second_position(second_pos.x, second_pos.y, second_pos.z);
+    }
 
     ctx.get_player_mut().send_worldedit_message(&format!(
         "Your selection was moved. ({:?})",
