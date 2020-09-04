@@ -123,7 +123,7 @@ impl World for Plot {
         if let Some(nbt) = block_entity.to_nbt(pos) {
             let block_entity_data = C09BlockEntityData {
                 x: pos.x,
-                y: pos.y as i32,
+                y: pos.y,
                 z: pos.z,
                 // For now the only nbt we send to the client is sign data
                 action: 9,

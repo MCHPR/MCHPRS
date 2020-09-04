@@ -1,4 +1,5 @@
 use crate::blocks::{Block, BlockDirection, BlockFace, BlockPos};
+use crate::network::packets::clientbound::{C2EOpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
 
@@ -64,6 +65,22 @@ impl ItemStack {
         if let Item::BlockItem(item_id) = self.item_type {
             if plot.get_block(block_pos).can_place_block_in() {
                 let block = Block::get_state_for_placement(plot, block_pos, item_id, &context);
+
+                match block {
+                    Block::Sign(_, _) | Block::WallSign(_, _) => {
+                        let open_sign_editor = C2EOpenSignEditor {
+                            pos_x: block_pos.x,
+                            pos_y: block_pos.y,
+                            pos_z: block_pos.z,
+                        }
+                        .encode();
+                        plot.players[context.player_idx]
+                            .client
+                            .send_packet(&open_sign_editor);
+                    }
+                    _ => {}
+                }
+
                 block.place_in_world(plot, block_pos, &self.nbt);
             }
         } else {

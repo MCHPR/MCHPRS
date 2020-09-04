@@ -35,7 +35,8 @@ pub trait ServerBoundPacketHandler {
         _player_idx: usize,
     ) {
     }
-    fn handle_unknown(&mut self, _packet: SUnknown, __player_idx: usize) {}
+    fn handle_update_sign(&mut self, _packet: S2BUpdateSign, _player_idx: usize) {}
+    fn handle_unknown(&mut self, _packet: SUnknown, _player_idx: usize) {}
 }
 
 pub trait ServerBoundPacket: Send {
@@ -440,5 +441,29 @@ impl ServerBoundPacket for S28CreativeInventoryAction {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_creative_inventory_action(*self, player_idx);
+    }
+}
+
+pub struct S2BUpdateSign {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub lines: [String; 4],
+}
+
+impl ServerBoundPacket for S2BUpdateSign {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let (x, y, z) = decoder.read_position()?;
+        let lines = [
+            decoder.read_string()?,
+            decoder.read_string()?,
+            decoder.read_string()?,
+            decoder.read_string()?,
+        ];
+        Ok(S2BUpdateSign { x, y, z, lines })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_update_sign(*self, player_idx);
     }
 }

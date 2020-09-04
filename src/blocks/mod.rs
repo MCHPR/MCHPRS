@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
-    rows: [String; 4],
+    pub rows: [String; 4],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -378,7 +378,10 @@ pub enum Block {
 impl Block {
     fn has_block_entity(self) -> bool {
         match self {
-            Block::RedstoneComparator(_) | Block::Container(_) => true,
+            Block::RedstoneComparator(_)
+            | Block::Container(_)
+            | Block::Sign(_, _)
+            | Block::WallSign(_, _) => true,
             _ => false,
         }
     }
@@ -864,15 +867,14 @@ impl Block {
                 false,
             )),
             // Sign
-            652..=657 => {
-                match context.block_face {
-                    BlockFace::Bottom => Block::Air,
-                    BlockFace::Top => {
-                        Block::Sign(item_id - 652, ((context.player_yaw * 16.0 / 360.0) + 0.5).floor() as u32 & 15)
-                    }
-                    _ => Block::WallSign(item_id - 652, context.block_face.to_direction())
-                }
-            }
+            652..=657 => match context.block_face {
+                BlockFace::Bottom => Block::Air,
+                BlockFace::Top => Block::Sign(
+                    item_id - 652,
+                    (((180.0 + context.player_yaw) * 16.0 / 360.0) + 0.5).floor() as u32 & 15,
+                ),
+                _ => Block::WallSign(item_id - 652, context.block_face.to_direction()),
+            },
             // Redstone Wire
             665 => Block::RedstoneWire(RedstoneWire::get_state_for_placement(world, pos)),
             // Barrel

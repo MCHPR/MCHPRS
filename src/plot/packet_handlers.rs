@@ -1,5 +1,5 @@
 use super::Plot;
-use crate::blocks::{BlockFace, BlockPos};
+use crate::blocks::{BlockEntity, BlockFace, BlockPos, SignBlockEntity};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
@@ -8,6 +8,7 @@ use crate::player::SkinParts;
 use crate::server::Message;
 use crate::world::World;
 use log::debug;
+use serde_json::json;
 use std::time::Instant;
 
 impl Plot {
@@ -463,5 +464,22 @@ impl ServerBoundPacketHandler for Plot {
                 .send_packet(&entity_equipment);
         }
         self.players[player].selected_slot = held_item_change.slot as u32;
+    }
+
+    fn handle_update_sign(&mut self, packet: S2BUpdateSign, _player: usize) {
+        let pos = BlockPos::new(packet.x, packet.y, packet.z);
+        let mut rows = packet
+            .lines
+            .iter()
+            .map(|line| json!({ "text": line }).to_string());
+        let block_entity = BlockEntity::Sign(Box::new(SignBlockEntity {
+            rows: [
+                rows.next().unwrap(),
+                rows.next().unwrap(),
+                rows.next().unwrap(),
+                rows.next().unwrap(),
+            ],
+        }));
+        self.set_block_entity(pos, block_entity);
     }
 }

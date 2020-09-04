@@ -104,6 +104,7 @@ fn read_decompressed<T: PacketDecoderExt>(
             0x1C => Box::new(S1CEntityAction::decode(reader)?),
             0x25 => Box::new(S25HeldItemChange::decode(reader)?),
             0x28 => Box::new(S28CreativeInventoryAction::decode(reader)?),
+            0x2B => Box::new(S2BUpdateSign::decode(reader)?),
             0x2C => Box::new(S2CAnimation::decode(reader)?),
             0x2E => Box::new(S2EPlayerBlockPlacemnt::decode(reader)?),
             _ => Box::new(SUnknown),
