@@ -1,6 +1,7 @@
 use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
+use crate::network::packets::PacketEncoderExt;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use byteorder::{BigEndian, ReadBytesExt};
@@ -391,11 +392,21 @@ impl Player {
     pub fn worldedit_set_first_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("First position set to ({}, {}, {})", x, y, z));
         self.first_position = Some(BlockPos::new(x, y, z));
+        self.worldedit_send_cui(&format!("p|0|{}|{}|{}|{}", x, y, z, x * y * z));
     }
 
     pub fn worldedit_set_second_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("Second position set to ({}, {}, {})", x, y, z));
         self.second_position = Some(BlockPos::new(x, y, z));
+        self.worldedit_send_cui(&format!("p|1|{}|{}|{}|{}", x, y, z, x * y * z));
+    }
+
+    pub fn worldedit_send_cui(&mut self, message: &str) {
+        let cui_plugin_message = C17PluginMessage {
+            channel: String::from("worldedit:cui"),
+            data: Vec::from(message.as_bytes())
+        }.encode();
+        self.client.send_packet(&cui_plugin_message);
     }
 
     /// Sends the player the disconnect packet, it is still up to the player to end the network stream.

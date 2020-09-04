@@ -3,6 +3,8 @@ use crate::blocks::{BlockFace, BlockPos};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
+use crate::network::packets::PacketDecoderExt;
+use std::io::Cursor;
 use crate::network::packets::SlotData;
 use crate::player::SkinParts;
 use crate::server::Message;
@@ -172,11 +174,14 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_plugin_message(&mut self, plugin_message: S0BPluginMessage, _player: usize) {
+    fn handle_plugin_message(&mut self, plugin_message: S0BPluginMessage, player: usize) {
         debug!(
             "Client initiated plugin channel: {:?}",
             plugin_message.channel
         );
+        if plugin_message.channel == "worldedit:cui" {
+            self.players[player].worldedit_send_cui("s|cuboid");
+        } 
     }
 
     fn handle_player_position(&mut self, player_position: S12PlayerPosition, player: usize) {

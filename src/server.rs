@@ -1,6 +1,6 @@
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C13WindowItems,
-    C17PluginMessageBrand, C24JoinGame, C24JoinGameBiomeEffects, C24JoinGameBiomeEffectsMoodSound,
+    C17PluginMessage, C24JoinGame, C24JoinGameBiomeEffects, C24JoinGameBiomeEffectsMoodSound,
     C24JoinGameBiomeElement, C24JoinGameDimensionCodec, C24JoinGameDimensionElement, C32PlayerInfo,
     C32PlayerInfoAddPlayer, C34PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate,
     ClientBoundPacket,
@@ -8,7 +8,7 @@ use crate::network::packets::clientbound::{
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
 };
-use crate::network::packets::SlotData;
+use crate::network::packets::{SlotData, PacketEncoderExt};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::Player;
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
@@ -461,13 +461,18 @@ impl MinecraftServer {
 
         // Sends the custom brand name to the player
         // (This can be seen in the f3 debug menu in-game)
-        let brand = C17PluginMessageBrand {
-            brand: "Minecraft High Performace Redstone".to_string(),
+        let brand = C17PluginMessage {
+            channel: String::from("minecraft:brand"),
+            data: {
+                let mut data = Vec::new();
+                data.write_string(32767, "Minecraft High Performace Redstone");
+                data
+            }
         }
         .encode();
         client.send_packet(&brand);
 
-        let mut player = Player::load_player(uuid, username.clone(), client);
+        let mut player = Player::load_player(uuid, username, client);
 
         // Send the player's position and rotation.
         let player_pos_and_look = C34PlayerPositionAndLook {

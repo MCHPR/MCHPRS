@@ -334,15 +334,16 @@ impl ClientBoundPacket for C13WindowItems {
     }
 }
 
-pub struct C17PluginMessageBrand {
-    pub brand: String,
+pub struct C17PluginMessage {
+    pub channel: String,
+    pub data: Vec<u8>
 }
 
-impl ClientBoundPacket for C17PluginMessageBrand {
+impl ClientBoundPacket for C17PluginMessage {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(32767, "minecraft:brand");
-        buf.write_string(32767, &self.brand);
+        buf.write_string(32767, &self.channel);
+        buf.write_bytes(self.data);
         PacketEncoder::new(buf, 0x17)
     }
 }

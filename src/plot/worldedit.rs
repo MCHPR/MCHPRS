@@ -1044,6 +1044,7 @@ fn execute_sel(mut ctx: CommandExecuteContext) {
     player.first_position = None;
     player.second_position = None;
     player.send_worldedit_message("Selection cleared.");
+    player.worldedit_send_cui("s|cuboid");
 }
 
 fn execute_pos1(mut ctx: CommandExecuteContext) {
