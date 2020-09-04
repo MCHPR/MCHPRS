@@ -1,6 +1,7 @@
-use crate::blocks::{BlockDirection, BlockPos};
+use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
+use crate::network::packets::PacketEncoderExt;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use byteorder::{BigEndian, ReadBytesExt};
@@ -291,6 +292,24 @@ impl Player {
         }
     }
 
+    pub fn get_facing(&self) -> BlockFacing {
+        let yaw = self.yaw.rem_euclid(360.0);
+        let pitch = self.pitch;
+        if pitch <= -70.0 {
+            BlockFacing::Up
+        } else if pitch >= 70.0 {
+            BlockFacing::Down
+        } else if yaw >= 45.0 && yaw <= 135.0 {
+            BlockFacing::West
+        } else if yaw >= 135.0 && yaw <= 225.0 {
+            BlockFacing::North
+        } else if yaw >= 225.0 && yaw <= 315.0 {
+            BlockFacing::East
+        } else {
+            BlockFacing::South
+        }
+    }
+
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
         let player_position_and_look = C34PlayerPositionAndLook {
             x,
@@ -373,11 +392,22 @@ impl Player {
     pub fn worldedit_set_first_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("First position set to ({}, {}, {})", x, y, z));
         self.first_position = Some(BlockPos::new(x, y, z));
+        self.worldedit_send_cui(&format!("p|0|{}|{}|{}|0", x, y, z));
     }
 
     pub fn worldedit_set_second_position(&mut self, x: i32, y: i32, z: i32) {
         self.send_worldedit_message(&format!("Second position set to ({}, {}, {})", x, y, z));
         self.second_position = Some(BlockPos::new(x, y, z));
+        self.worldedit_send_cui(&format!("p|1|{}|{}|{}|0", x, y, z));
+    }
+
+    pub fn worldedit_send_cui(&mut self, message: &str) {
+        let cui_plugin_message = C17PluginMessage {
+            channel: String::from("worldedit:cui"),
+            data: Vec::from(message.as_bytes()),
+        }
+        .encode();
+        self.client.send_packet(&cui_plugin_message);
     }
 
     /// Sends the player the disconnect packet, it is still up to the player to end the network stream.

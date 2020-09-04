@@ -318,6 +318,18 @@ impl BlockFacing {
             _ => BlockFacing::Down,
         }
     }
+
+    pub fn offset_pos(self, mut pos: BlockPos, n: i32) -> BlockPos {
+        match self {
+            BlockFacing::North => pos.z -= n,
+            BlockFacing::South => pos.z += n,
+            BlockFacing::East => pos.x += n,
+            BlockFacing::West => pos.x -= n,
+            BlockFacing::Up => pos.y += n,
+            BlockFacing::Down => pos.y -= n,
+        }
+        pos
+    }
 }
 
 impl Default for BlockFacing {
@@ -376,7 +388,7 @@ pub enum Block {
 }
 
 impl Block {
-    fn has_block_entity(self) -> bool {
+    pub fn has_block_entity(self) -> bool {
         match self {
             Block::RedstoneComparator(_)
             | Block::Container(_)
