@@ -876,11 +876,11 @@ fn create_clipboard(
                 let block = plot.get_block(BlockPos::new(x, y, z));
                 if block.has_block_entity() {
                     if let Some(block_entity) = plot.get_block_entity(pos) {
-                        cb.block_entities.insert(pos - start_pos, block_entity.clone());
+                        cb.block_entities
+                            .insert(pos - start_pos, block_entity.clone());
                     }
                 }
-                cb.data
-                    .set_entry(i, id);
+                cb.data.set_entry(i, id);
                 i += 1;
             }
         }

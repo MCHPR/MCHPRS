@@ -1,7 +1,6 @@
 use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
-use crate::network::packets::PacketEncoderExt;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use byteorder::{BigEndian, ReadBytesExt};

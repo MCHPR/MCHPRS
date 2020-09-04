@@ -3,7 +3,6 @@ use crate::blocks::{BlockEntity, BlockFace, BlockPos, SignBlockEntity};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
-use crate::network::packets::PacketDecoderExt;
 use crate::network::packets::SlotData;
 use crate::player::SkinParts;
 use crate::server::Message;

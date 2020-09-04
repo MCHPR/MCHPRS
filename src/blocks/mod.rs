@@ -38,7 +38,7 @@ impl BlockEntity {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
             let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
             let namespaced_name = nbt_unwrap_val!(
-                item_compound.get("Id").or(item_compound.get("id"))?,
+                item_compound.get("Id").or_else(|| item_compound.get("id"))?,
                 Value::String
             );
             let item_type = Item::from_name(namespaced_name.split(':').last()?);
@@ -51,7 +51,7 @@ impl BlockEntity {
 
     pub fn from_nbt(nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
         use nbt::Value;
-        let id = nbt_unwrap_val!(&nbt.get("Id").or(nbt.get("id"))?, Value::String);
+        let id = nbt_unwrap_val!(&nbt.get("Id").or_else(|| nbt.get("id"))?, Value::String);
         match id.as_ref() {
             "minecraft:comparator" => Some(BlockEntity::Comparator {
                 output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8,
