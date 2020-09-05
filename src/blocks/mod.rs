@@ -1285,3 +1285,123 @@ fn comparator_id_test() {
     let new = Block::from_block_state(id);
     assert_eq!(new, original);
 }
+
+macro_rules! blocks {
+    (
+        $(
+            $name:ident {
+                props: {
+                    $(
+                        $prop_name:ident : $prop_type:ident
+                    ),*
+                },
+                get_id: $get_id:tt,
+                from_id($id_name:ident): $from_id_pat:pat => {
+                    $(
+                        $from_id_pkey:ident: $from_id_pval:tt
+                    ),*
+                },
+                from_names($name_name:ident): {
+                    $(
+                        $from_name_pat:pat => {
+                            $(
+                                $from_name_pkey:ident: $from_name_pval:tt
+                            ),*
+                        }
+                    ),*
+                },
+                $( solid: $solid:literal, )?
+                $( transparent: $transparent:literal, )?
+                $( cube: $cube:literal, )?
+            }
+        ),*
+    ) => {
+        #[derive(Clone, Copy, Debug)]
+        enum Block {
+            $(
+                $name {
+                    $(
+                        $prop_name: $prop_type,
+                    )*
+                }
+            ),*
+        }
+
+        impl Block {
+            fn is_solid(self) -> bool {
+                match self {
+                    $(
+                        $( Block::$name { .. } => $solid, )?
+                    )*
+                    _ => false
+                }
+            }
+
+            fn is_transparent(self) -> bool {
+                match self {
+                    $(
+                        $( Block::$name { .. } => $transparent, )?
+                    )*
+                    _ => false
+                }
+            }
+
+            fn is_cube(self) -> bool {
+                match self {
+                    $(
+                        $( Block::$name { .. } => $cube, )?
+                    )*
+                    _ => false
+                }
+            }
+
+            fn get_id(self) -> u32 {
+                match self {
+                    $(
+                        Block::$name {
+                            $(
+                                $prop_name,
+                            )*
+                        } => $get_id,
+                    )*
+                }
+            }
+
+            fn from_id(id: u32) -> Block {
+                match id {
+                    $(
+                        $from_id_pat => {
+                            let $id_name = id;
+                            Block::$name {
+                                $(
+                                    $from_id_pkey: $from_id_pval
+                                ),*
+                            }
+                        },
+                    )*
+                }
+            }
+
+            fn from_name(name: &str) -> Option<Block> {
+                match name {
+                    $(
+                        $(
+                            $from_name_pat => {
+                                let $name_name = name;
+                                $(
+                                    Some(Block::$name {
+                                        $(
+                                            $from_name_pkey: $from_name_pval
+                                        ),*
+                                    })
+                                )*
+                                None
+                            },
+                        )*
+                    )*
+                    _ => None,
+                }
+            }
+        }
+    }
+}
