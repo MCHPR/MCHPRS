@@ -562,15 +562,10 @@ impl Block {
     ) -> Block {
         let block = match item {
             Item::Glass {} => Block::Glass {},
-            // Sandstone
             Item::Sandstone {} => Block::Sandstone {},
-            // Sea Pickle
             Item::SeaPickle {} => Block::SeaPickle { pickles: 1 },
-            // Wool
             Item::Wool { color } => Block::Wool { color },
-            // Furnace
             Item::Furnace {} => Block::Furnace {},
-            // Lever
             Item::Lever {} => {
                 let lever_face = match context.block_face {
                     BlockFace::Top => LeverFace::Floor,
@@ -586,7 +581,6 @@ impl Block {
                     lever: Lever::new(lever_face, facing, false),
                 }
             }
-            // Redstone Torch
             Item::RedstoneTorch {} => match context.block_face {
                 BlockFace::Top => Block::RedstoneTorch { lit: true },
                 BlockFace::Bottom => Block::RedstoneTorch { lit: true },
@@ -595,7 +589,6 @@ impl Block {
                     facing: face.to_direction(),
                 },
             },
-            // Stone Button
             Item::StoneButton {} => {
                 let button_face = match context.block_face {
                     BlockFace::Top => ButtonFace::Floor,
@@ -611,19 +604,13 @@ impl Block {
                     button: StoneButton::new(button_face, facing, false),
                 }
             }
-            // Redstone Lamp
             Item::RedstoneLamp {} => Block::RedstoneLamp {
                 lit: Block::redstone_lamp_should_be_lit(world, pos),
             },
-            // Redstone Block
             Item::RedstoneBlock {} => Block::RedstoneBlock {},
-            // Hopper
             Item::Hopper {} => Block::Hopper {},
-            // Terracotta
             Item::Terracotta { color } => Block::Terracotta { color },
-            // Concrete
             Item::Concrete { color } => Block::Concrete { color },
-            // Redstone Repeater
             Item::Repeater {} => Block::RedstoneRepeater {
                 repeater: RedstoneRepeater::get_state_for_placement(
                     world,
@@ -631,7 +618,6 @@ impl Block {
                     context.player_direction.opposite(),
                 ),
             },
-            // Redstone Comparator
             Item::Comparator {} => Block::RedstoneComparator {
                 comparator: RedstoneComparator::new(
                     context.player_direction.opposite(),
@@ -639,7 +625,6 @@ impl Block {
                     false,
                 ),
             },
-            // Sign
             Item::Sign { sign_type } => match context.block_face {
                 BlockFace::Bottom => Block::Air {},
                 BlockFace::Top => Block::Sign {
@@ -652,14 +637,16 @@ impl Block {
                     facing: context.block_face.to_direction(),
                 },
             },
-            // Redstone Wire
             Item::Redstone {} => Block::RedstoneWire {
                 wire: RedstoneWire::get_state_for_placement(world, pos),
             },
-            // Barrel
             Item::Barrel {} => Block::Barrel {},
-            // Target
             Item::Target {} => Block::Target {},
+            Item::StainedGlass { color } => Block::StainedGlass {
+                color
+            },
+            Item::SmoothStoneSlab {} => Block::SmoothStoneSlab {},
+            Item::QuartzSlab {} => Block::QuartzSlab {},
             _ => Block::Air {},
         };
         if block.is_valid_position(world, pos) {
@@ -1470,7 +1457,7 @@ blocks! {
         from_names(name): {
             "redstone_block" => {}
         },
-        solid: true,
+        transparent: true,
         cube: true,
     },
     Observer {
@@ -1611,6 +1598,36 @@ blocks! {
             "black_concrete" => { color: BlockColorVariant::Black }
         },
         solid: true,
+        cube: true,
+    },
+    StainedGlass {
+        props: {
+            color: BlockColorVariant
+        },
+        get_id: color.get_id() + 4095,
+        from_id_offset: 4095,
+        from_id(id): 4095..=4110 => {
+            color: BlockColorVariant::from_id(id)
+        },
+        from_names(name): {
+            "white_stained_glass" => { color: BlockColorVariant::White },
+            "orange_stained_glass" => { color: BlockColorVariant::Orange },
+            "magenta_stained_glass" => { color: BlockColorVariant::Magenta },
+            "light_blue_stained_glass" => { color: BlockColorVariant::LightBlue },
+            "yellow_stained_glass" => { color: BlockColorVariant::Yellow },
+            "lime_stained_glass" => { color: BlockColorVariant::Lime },
+            "pink_stained_glass" => { color: BlockColorVariant::Pink },
+            "gray_stained_glass" => { color: BlockColorVariant::Gray },
+            "light_gray_stained_glass" => { color: BlockColorVariant::LightGray },
+            "cyan_stained_glass" => { color: BlockColorVariant::Cyan },
+            "purple_stained_glass" => { color: BlockColorVariant::Purple },
+            "blue_stained_glass" => { color: BlockColorVariant::Blue },
+            "brown_stained_glass" => { color: BlockColorVariant::Brown },
+            "green_stained_glass" => { color: BlockColorVariant::Green },
+            "red_stained_glass" => { color: BlockColorVariant::Red },
+            "black_stained_glass" => { color: BlockColorVariant::Black }
+        },
+        transparent: true,
         cube: true,
     },
     Terracotta {

@@ -180,8 +180,8 @@ items! {
     // Wooden Axe
     WEWand {
         props: {},
-        get_id: 590,
-        from_id(id): 590 => {},
+        get_id: 586,
+        from_id(id): 586 => {},
     },
     Snowball {
         props: {},
@@ -294,6 +294,17 @@ items! {
         },
         block: true,
     },
+    StainedGlass {
+        props: {
+            color: BlockColorVariant
+        },
+        get_id: 379 + color.get_id(),
+        from_id_offset: 379,
+        from_id(id): 379..=394 => {
+            color: BlockColorVariant::from_id(id)
+        },
+        block: true,
+    },
     Repeater {
         props: {},
         get_id: 566,
@@ -327,6 +338,18 @@ items! {
         props: {},
         get_id: 961,
         from_id(id): 961 => {},
+        block: true,
+    },
+    SmoothStoneSlab {
+        props: {},
+        get_id: 147,
+        from_id(id): 147 => {},
+        block: true,
+    },
+    QuartzSlab {
+        props: {},
+        get_id: 155,
+        from_id(id): 155 => {},
         block: true,
     },
     Unknown {
