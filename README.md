@@ -22,7 +22,7 @@ Once complete, the optimized executable will be located at `./target/release/mch
 
 To build on Windows, replace the last line of `Cargo.toml`  with
 ```toml 
-rusqlite = {version="0.23.1", features=["bundled"]}
+rusqlite = {version="0.24.0", features=["bundled"]}
 ```
 
 ## Usage
