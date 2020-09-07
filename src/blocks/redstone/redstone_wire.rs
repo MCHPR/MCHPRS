@@ -156,7 +156,7 @@ impl RedstoneWire {
 
         if self.power != new_power {
             self.power = new_power;
-            world.set_block(pos, Block::RedstoneWire(self));
+            world.set_block(pos, Block::RedstoneWire { wire: self });
 
             Block::update_wire_neighbors(world, pos);
         }
@@ -172,7 +172,7 @@ impl RedstoneWire {
             new_wire.power = self.power;
             new_wire = new_wire.get_regulated_sides(world, pos);
             if self != new_wire {
-                world.set_block(pos, Block::RedstoneWire(new_wire));
+                world.set_block(pos, Block::RedstoneWire { wire: new_wire });
                 Block::update_wire_neighbors(world, pos);
                 return ActionResult::Success;
             }
@@ -182,27 +182,27 @@ impl RedstoneWire {
 
     fn can_connect_to(block: Block, side: BlockDirection) -> bool {
         match block {
-            Block::RedstoneWire(_)
-            | Block::RedstoneComparator(_)
-            | Block::RedstoneTorch(_)
-            | Block::RedstoneBlock
-            | Block::RedstoneWallTorch(_, _)
-            | Block::PressurePlate(_)
-            | Block::TripwireHook(_)
-            | Block::StoneButton(_)
-            | Block::Target
-            | Block::Lever(_) => true,
-            Block::RedstoneRepeater(repeater) => {
+            Block::RedstoneWire { .. }
+            | Block::RedstoneComparator { .. }
+            | Block::RedstoneTorch { .. }
+            | Block::RedstoneBlock { .. }
+            | Block::RedstoneWallTorch { .. }
+            | Block::StonePressurePlate { .. }
+            | Block::TripwireHook { .. }
+            | Block::StoneButton { .. }
+            | Block::Target { .. }
+            | Block::Lever { .. } => true,
+            Block::RedstoneRepeater { repeater } => {
                 repeater.facing == side || repeater.facing == side.opposite()
             }
-            Block::Observer(facing) => facing == side.block_facing(),
+            Block::Observer { facing } => facing == side.block_facing(),
             _ => false,
         }
     }
 
     fn can_connect_diagonal_to(block: Block) -> bool {
         match block {
-            Block::RedstoneWire(_) => true,
+            Block::RedstoneWire { .. } => true,
             _ => false,
         }
     }
@@ -296,7 +296,7 @@ impl RedstoneWire {
 
     fn max_wire_power(wire_power: u8, world: &dyn World, pos: BlockPos) -> u8 {
         let block = world.get_block(pos);
-        if let Block::RedstoneWire(wire) = block {
+        if let Block::RedstoneWire { wire } = block {
             wire_power.max(wire.power)
         } else {
             wire_power

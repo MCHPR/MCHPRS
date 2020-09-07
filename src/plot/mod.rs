@@ -94,7 +94,7 @@ impl World for Plot {
     }
 
     fn get_block(&self, pos: BlockPos) -> Block {
-        Block::from_block_state(self.get_block_raw(pos))
+        Block::from_id(self.get_block_raw(pos))
     }
 
     fn delete_block_entity(&mut self, pos: BlockPos) {

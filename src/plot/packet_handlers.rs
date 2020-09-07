@@ -350,7 +350,7 @@ impl ServerBoundPacketHandler for Plot {
                 [self.players[player].selected_slot as usize + 36]
                 .clone();
             if let Some(item) = item_in_hand {
-                if item.item_type == Item::WEWand {
+                if item.item_type == (Item::WEWand {}) {
                     let block = self.get_block(block_pos);
                     self.send_block_change(block_pos, block.get_id());
                     if let Some(pos) = self.players[player].first_position {

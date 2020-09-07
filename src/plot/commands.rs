@@ -182,6 +182,9 @@ impl Plot {
                     self.players[player].send_error_message("Unable to parse speed value");
                 }
             }
+            "/debug" => {
+                dbg!(self.get_block(self.players[player].first_position.unwrap()));
+            }
             _ => self.players[player].send_error_message("Command not found!"),
         }
         false

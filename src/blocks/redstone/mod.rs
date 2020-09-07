@@ -15,17 +15,17 @@ impl Block {
         dust_power: bool,
     ) -> u8 {
         match self {
-            Block::RedstoneTorch(true) => 15,
-            Block::RedstoneWallTorch(true, _) => 15,
-            Block::RedstoneBlock => 15,
-            Block::Lever(lever) if lever.powered => 15,
-            Block::StoneButton(button) if button.powered => 15,
-            Block::RedstoneRepeater(repeater)
+            Block::RedstoneTorch { lit: true } => 15,
+            Block::RedstoneWallTorch { lit: true, .. } => 15,
+            Block::RedstoneBlock {} => 15,
+            Block::Lever { lever } if lever.powered => 15,
+            Block::StoneButton { button } if button.powered => 15,
+            Block::RedstoneRepeater { repeater }
                 if repeater.facing.block_face() == side && repeater.powered =>
             {
                 15
             }
-            Block::RedstoneComparator(comparator) if comparator.facing.block_face() == side => {
+            Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => {
                 if let Some(BlockEntity::Comparator { output_strength }) =
                     world.get_block_entity(pos)
                 {
@@ -34,7 +34,7 @@ impl Block {
                     0
                 }
             }
-            Block::RedstoneWire(wire) if dust_power => match side {
+            Block::RedstoneWire { wire } if dust_power => match side {
                 BlockFace::Top => wire.power,
                 BlockFace::Bottom => 0,
                 _ => {
@@ -62,23 +62,23 @@ impl Block {
         dust_power: bool,
     ) -> u8 {
         match self {
-            Block::RedstoneTorch(true) if side == BlockFace::Bottom => 15,
-            Block::RedstoneWallTorch(true, _) if side == BlockFace::Bottom => 15,
-            Block::Lever(lever) => match side {
+            Block::RedstoneTorch { lit: true } if side == BlockFace::Bottom => 15,
+            Block::RedstoneWallTorch { lit: true, .. } if side == BlockFace::Bottom => 15,
+            Block::Lever { lever } => match side {
                 BlockFace::Top if lever.face == LeverFace::Floor && lever.powered => 15,
                 BlockFace::Bottom if lever.face == LeverFace::Ceiling && lever.powered => 15,
                 _ if lever.facing == side.to_direction() && lever.powered => 15,
                 _ => 0,
             },
-            Block::StoneButton(button) => match side {
+            Block::StoneButton { button } => match side {
                 BlockFace::Top if button.face == ButtonFace::Floor && button.powered => 15,
                 BlockFace::Bottom if button.face == ButtonFace::Ceiling && button.powered => 15,
                 _ if button.facing == side.to_direction() && button.powered => 15,
                 _ => 0,
             },
-            Block::RedstoneWire(_) => self.get_weak_power(world, pos, side, dust_power),
-            Block::RedstoneRepeater(_) => self.get_weak_power(world, pos, side, dust_power),
-            Block::RedstoneComparator(_) => self.get_weak_power(world, pos, side, dust_power),
+            Block::RedstoneWire { .. } => self.get_weak_power(world, pos, side, dust_power),
+            Block::RedstoneRepeater { .. } => self.get_weak_power(world, pos, side, dust_power),
+            Block::RedstoneComparator { .. } => self.get_weak_power(world, pos, side, dust_power),
             _ => 0,
         }
     }
@@ -145,7 +145,7 @@ fn diode_get_input_strength(world: &dyn World, pos: BlockPos, facing: BlockDirec
     let input_block = world.get_block(input_pos);
     let mut power = input_block.get_redstone_power(world, input_pos, facing.block_face());
     if power == 0 {
-        if let Block::RedstoneWire(wire) = input_block {
+        if let Block::RedstoneWire { wire } = input_block {
             power = wire.power;
         }
     }
@@ -246,10 +246,10 @@ impl RedstoneRepeater {
         let should_be_locked = RedstoneRepeater::should_be_locked(self.facing, world, pos);
         if !self.locked && should_be_locked {
             self.locked = true;
-            world.set_block(pos, Block::RedstoneRepeater(self));
+            world.set_block(pos, Block::RedstoneRepeater { repeater: self });
         } else if self.locked && !should_be_locked {
             self.locked = false;
-            world.set_block(pos, Block::RedstoneRepeater(self));
+            world.set_block(pos, Block::RedstoneRepeater { repeater: self });
         }
 
         if !self.locked && !world.pending_tick_at(pos) {
@@ -268,11 +268,11 @@ impl RedstoneRepeater {
         let should_be_powered = self.should_be_powered(world, pos);
         if self.powered && !should_be_powered {
             self.powered = false;
-            world.set_block(pos, Block::RedstoneRepeater(self));
+            world.set_block(pos, Block::RedstoneRepeater { repeater: self });
             self.on_state_change(world, pos);
         } else if !self.powered {
             self.powered = true;
-            world.set_block(pos, Block::RedstoneRepeater(self));
+            world.set_block(pos, Block::RedstoneRepeater { repeater: self });
             self.on_state_change(world, pos);
         }
     }
@@ -347,7 +347,7 @@ impl RedstoneComparator {
         let side_block = world.get_block(side_pos);
         if side_block.is_diode() {
             side_block.get_weak_power(world, side_pos, side.block_face(), false)
-        } else if let Block::RedstoneWire(wire) = side_block {
+        } else if let Block::RedstoneWire { wire } = side_block {
             wire.power
         } else {
             0
@@ -469,10 +469,10 @@ impl RedstoneComparator {
             let powered = self.powered;
             if powered && !should_be_powered {
                 self.powered = false;
-                world.set_block(pos, Block::RedstoneComparator(self));
+                world.set_block(pos, Block::RedstoneComparator { comparator: self });
             } else if !powered && should_be_powered {
                 self.powered = true;
-                world.set_block(pos, Block::RedstoneComparator(self));
+                world.set_block(pos, Block::RedstoneComparator { comparator: self });
             }
             self.on_state_change(world, pos);
         }

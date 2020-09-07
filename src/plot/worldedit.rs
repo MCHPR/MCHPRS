@@ -495,7 +495,7 @@ impl WorldEditClipboard {
         for (k, v) in nbt_palette {
             let id = *nbt_unwrap_val!(v, Value::Int) as u32;
             let captures = RE.captures(&k)?;
-            let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air);
+            let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
             if let Some(properties_match) = captures.get(2) {
                 let properties: Vec<&str> =
                     properties_match.as_str().split(&[',', '='][..]).collect();
@@ -588,7 +588,7 @@ impl WorldEditPattern {
                 .ok_or(PatternParseError::InvalidPattern(part.to_owned()))?;
 
             let block = if pattern_match.get(4).is_some() {
-                Block::from_block_state(
+                Block::from_id(
                     pattern_match
                         .get(5)
                         .map_or("0", |m| m.as_str())
@@ -648,7 +648,7 @@ impl WorldEditPattern {
             }
         }
 
-        Block::from_block_state(selected.block_id)
+        Block::from_id(selected.block_id)
     }
 }
 
