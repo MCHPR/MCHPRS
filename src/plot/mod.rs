@@ -437,8 +437,7 @@ impl Plot {
         }
     }
 
-    fn update(&mut self) {
-        // Handle messages from the message channel
+    fn handle_message(&mut self) {
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
                 BroadcastMessage::Chat(sender, message) => {
@@ -497,7 +496,9 @@ impl Plot {
                 }
             }
         }
+    }
 
+    fn update(&mut self) {
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.last_player_time = SystemTime::now();
@@ -557,7 +558,7 @@ impl Plot {
         for player_idx in 0..self.players.len() {
             self.handle_packets_for_player(player_idx);
         }
-        // Handle commands
+        
         self.handle_commands();
 
         let message_sender = &mut self.message_sender;
