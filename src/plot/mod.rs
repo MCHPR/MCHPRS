@@ -499,6 +499,8 @@ impl Plot {
     }
 
     fn update(&mut self) {
+        self.handle_messages();
+
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.last_player_time = SystemTime::now();
@@ -558,7 +560,7 @@ impl Plot {
         for player_idx in 0..self.players.len() {
             self.handle_packets_for_player(player_idx);
         }
-        
+
         self.handle_commands();
 
         let message_sender = &mut self.message_sender;
