@@ -827,6 +827,7 @@ impl Block {
             Block::RedstoneWire { .. }
             | Block::RedstoneComparator { .. }
             | Block::RedstoneRepeater { .. }
+            | Block::Sign { .. }
             | Block::RedstoneTorch { .. } => {
                 let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
                 bottom_block.is_cube()
@@ -865,6 +866,10 @@ impl Block {
                     parent_block.is_cube()
                 }
             },
+            Block::WallSign { facing , .. } => {
+                let parent_block = world.get_block(pos.offset(facing.opposite().block_face()));
+                parent_block.is_cube()
+            }
             _ => true,
         }
     }
@@ -1211,7 +1216,7 @@ blocks! {
             facing: BlockDirection
         },
         get_id: (sign_type << 3) + (facing.get_id() << 1) + 3736,
-        from_id_offset: 3381,
+        from_id_offset: 3735,
         from_id(id): 3735..=3781 => {
             sign_type: id >> 3,
             facing: BlockDirection::from_id((id & 0b110) >> 1)
