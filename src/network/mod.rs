@@ -26,9 +26,10 @@ pub struct NetworkClient {
     stream: TcpStream,
     pub state: NetworkState,
     packets: mpsc::Receiver<Box<dyn ServerBoundPacket>>,
-    pub username: Option<String>,
     pub alive: bool,
     compressed: Arc<AtomicBool>,
+    pub username: Option<String>,
+    pub uuid: Option<u128>,
 }
 
 impl NetworkClient {
@@ -111,9 +112,10 @@ impl NetworkServer {
                     stream,
                     state: NetworkState::Handshake,
                     packets: packet_receiver,
-                    username: None,
                     alive: true,
                     compressed,
+                    username: None,
+                    uuid: None,
                 })
                 .unwrap();
         }
