@@ -1283,7 +1283,7 @@ blocks! {
                 + 3897
         },
         from_id_offset: 3897,
-        from_id(id): 0 => {
+        from_id(id): 3897..=3920 => {
             button: StoneButton::new(ButtonFace::from_id(id >> 3), BlockDirection::from_id((id >> 1) & 0b11), (id & 1) == 0)
         },
         from_names(name): {
@@ -1298,6 +1298,7 @@ blocks! {
             rotation: u32
         },
         get_id: (sign_type << 5) + (rotation << 1) + 3382,
+        from_id_offset: 3381,
         from_id(id): 3381..=3571 => {
             sign_type: id >> 5,
             rotation: (id & 0b11110) >> 1
@@ -1410,6 +1411,8 @@ blocks! {
                 lit: false
             }
         },
+        solid: true,
+        cube:true,
     },
     TripwireHook {
         props: {
