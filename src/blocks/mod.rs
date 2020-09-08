@@ -609,7 +609,8 @@ impl Block {
             },
             Item::RedstoneBlock {} => Block::RedstoneBlock {},
             Item::Hopper {} => Block::Hopper {},
-            Item::Terracotta { color } => Block::Terracotta { color },
+            Item::Terracotta {} => Block::Terracotta {},
+            Item::ColoredTerracotta { color } => Block::ColoredTerracotta { color },
             Item::Concrete { color } => Block::Concrete { color },
             Item::Repeater {} => Block::RedstoneRepeater {
                 repeater: RedstoneRepeater::get_state_for_placement(
@@ -1558,6 +1559,16 @@ blocks! {
         solid: true,
         cube: true,
     },
+    Quartz {
+        props: {},
+        get_id: 6742,
+        from_id(id): 6742 => {},
+        from_names(name): {
+            "quartz_block" => {}
+        },
+        solid: true,
+        cube: true,
+    },
     SmoothStoneSlab {
         props: {},
         get_id: 8347,
@@ -1639,6 +1650,16 @@ blocks! {
         cube: true,
     },
     Terracotta {
+        props: {},
+        get_id: 7886,
+        from_id(id): 7886 => {},
+        from_names(name): {
+            "terracotta" => {}
+        },
+        solid: true,
+        cube: true,
+    },
+    ColoredTerracotta {
         props: {
             color: BlockColorVariant
         },
@@ -1656,7 +1677,7 @@ blocks! {
             "lime_terracotta" => { color: BlockColorVariant::Lime },
             "pink_terracotta" => { color: BlockColorVariant::Pink },
             "gray_terracotta" => { color: BlockColorVariant::Gray },
-            "light_terracotta" => { color: BlockColorVariant::LightGray },
+            "light_gray_terracotta" => { color: BlockColorVariant::LightGray },
             "cyan_terracotta" => { color: BlockColorVariant::Cyan },
             "purple_terracotta" => { color: BlockColorVariant::Purple },
             "blue_terracotta" => { color: BlockColorVariant::Blue },

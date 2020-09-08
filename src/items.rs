@@ -273,6 +273,12 @@ items! {
         block: true,
     },
     Terracotta {
+        props: {},
+        get_id: 366,
+        from_id(id): 366 => {},
+        block: true,
+    },
+    ColoredTerracotta {
         props: {
             color: BlockColorVariant
         },
