@@ -686,7 +686,7 @@ impl Plot {
                 players: Vec::new(),
                 running: true,
                 show_redstone: true,
-                tps: 20,
+                tps: 10,
                 x,
                 z,
                 always_running,
