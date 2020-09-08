@@ -95,6 +95,7 @@ struct ServerConfig {
     motd: String,
     chat_format: String,
     max_players: i64,
+    bungeecord: bool
 }
 
 struct PlotListEntry {
@@ -215,6 +216,7 @@ impl MinecraftServer {
             motd: "Minecraft High Performace Redstone Server".to_string(),
             chat_format: "<{username}> {message}".to_string(),
             max_players: 99999,
+            bungeecord: false
         };
         toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
             let config_string = toml::to_string(&default_config).unwrap();
@@ -248,6 +250,11 @@ impl MinecraftServer {
                     .map(toml::value::Value::as_integer)
                     .map(|pp| pp.unwrap_or(default_config.max_players))
                     .unwrap_or(default_config.max_players),
+                bungeecord: config_map
+                    .get("bungeecord")
+                    .map(toml::value::Value::as_bool)
+                    .map(|pp| pp.unwrap_or(default_config.bungeecord))
+                    .unwrap_or(default_config.bungeecord),
             };
             let config_string = toml::to_string(&merged_config).unwrap();
             fs::write("Config.toml", &config_string).expect("Error writing config");
@@ -350,7 +357,7 @@ impl MinecraftServer {
         } else {
             Default::default()
         };
-        let uuid = Player::generate_offline_uuid(&username);
+        let uuid = clients[client_idx].uuid.unwrap_or_else(|| Player::generate_offline_uuid(&username));
 
         let login_success = C02LoginSuccess {
             uuid,
@@ -668,6 +675,24 @@ impl ServerBoundPacketHandler for MinecraftServer {
             .encode();
             client.send_packet(&disconnect);
             client.close_connection();
+        } else if client.state == NetworkState::Login && self.config.bungeecord{
+            let split: Vec<&str> = handshake.server_address.split('\u{0}').collect();
+            dbg!(&split);
+            if split.len() == 3 || split.len() == 4 {
+                client.uuid = u128::from_str_radix(split[2], 16).ok();
+                dbg!(client.uuid);
+            } else {
+                let disconnect = C00DisconnectLogin {
+                    reason: json!({
+                        "text": "If you wish to use IP forwarding, please enable it in your BungeeCord config as well!"
+                    })
+                    .to_string(),
+                }
+                .encode();
+                client.send_packet(&disconnect);
+                client.close_connection();
+                return;
+            }
         }
     }
 
