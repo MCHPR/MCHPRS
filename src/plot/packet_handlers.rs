@@ -175,10 +175,6 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     fn handle_plugin_message(&mut self, plugin_message: S0BPluginMessage, player: usize) {
-        debug!(
-            "Client initiated plugin channel: {:?}",
-            plugin_message.channel
-        );
         if plugin_message.channel == "worldedit:cui" {
             self.players[player].worldedit_send_cui("s|cuboid");
         }

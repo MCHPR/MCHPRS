@@ -109,7 +109,6 @@ pub struct MinecraftServer {
     network: NetworkServer,
     config: ServerConfig,
     broadcaster: Bus<BroadcastMessage>,
-    debug_plot_receiver: BusReader<BroadcastMessage>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
     online_players: Vec<PlayerListEntry>,
@@ -164,7 +163,6 @@ impl MinecraftServer {
         // Create thread messaging structs
         let (plot_tx, server_rx) = mpsc::channel();
         let mut bus = Bus::new(100);
-        let debug_plot_receiver = bus.add_rx();
         let ctrl_handler_sender = plot_tx.clone();
 
         ctrlc::set_handler(move || {
@@ -179,7 +177,6 @@ impl MinecraftServer {
             broadcaster: bus,
             receiver: server_rx,
             plot_sender: plot_tx,
-            debug_plot_receiver,
             online_players: Vec::new(),
             running_plots: Vec::new(),
         };
@@ -564,9 +561,9 @@ impl MinecraftServer {
     }
 
     fn handle_message(&mut self, message: Message) {
-        debug!("Main thread received message: {:#?}", message);
         match message {
             Message::PlayerJoined(player) => {
+                info!("{} joined the game", player.username);
                 // Send player info to plots
                 let player_join_info = PlayerJoinInfo {
                     username: player.username.clone(),
@@ -580,13 +577,15 @@ impl MinecraftServer {
             Message::PlayerLeft(uuid) => {
                 let index = self.online_players.iter().position(|p| p.uuid == uuid);
                 if let Some(index) = index {
-                    self.online_players.remove(index);
+                    let player = self.online_players.remove(index);
+                    info!("{} left the game", player.username);
                 }
                 self.broadcaster
                     .broadcast(BroadcastMessage::PlayerLeft(uuid));
             }
             Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
             Message::ChatInfo(uuid, username, message) => {
+                info!("<{}> {}", username, message);
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
                     json!({
@@ -641,9 +640,6 @@ impl MinecraftServer {
     }
 
     fn update(&mut self) {
-        while let Ok(message) = self.debug_plot_receiver.try_recv() {
-            debug!("Main thread broadcasted message: {:#?}", message);
-        }
         while let Ok(message) = self.receiver.try_recv() {
             self.handle_message(message);
         }
@@ -679,10 +675,8 @@ impl ServerBoundPacketHandler for MinecraftServer {
             client.close_connection();
         } else if client.state == NetworkState::Login && self.config.bungeecord {
             let split: Vec<&str> = handshake.server_address.split('\u{0}').collect();
-            dbg!(&split);
             if split.len() == 3 || split.len() == 4 {
                 client.uuid = u128::from_str_radix(split[2], 16).ok();
-                dbg!(client.uuid);
             } else {
                 let disconnect = C00DisconnectLogin {
                     reason: json!({

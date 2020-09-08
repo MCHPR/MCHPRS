@@ -11,7 +11,7 @@ use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use log::{debug, warn};
+use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs::{self, OpenOptions};
@@ -663,10 +663,6 @@ impl Plot {
             let data = fs::read("./world/plots/pTEMPLATE").unwrap();
             Plot::load_from_file(data, x, z, rx, tx, priv_rx, always_running)
         } else {
-            debug!(
-                "Plot {},{} does not exist and no template was found, generating now.",
-                x, z
-            );
             let chunk_x_offset = x << 4;
             let chunk_z_offset = z << 4;
             let mut chunks = Vec::new();
@@ -690,7 +686,7 @@ impl Plot {
                 players: Vec::new(),
                 running: true,
                 show_redstone: true,
-                tps: 20,
+                tps: 10,
                 x,
                 z,
                 always_running,
@@ -701,7 +697,6 @@ impl Plot {
     }
 
     fn save(&self) {
-        debug!("Saving plot {},{}", self.x, self.z);
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
@@ -720,9 +715,7 @@ impl Plot {
     }
 
     fn run(&mut self, initial_player: Option<Player>) {
-        debug!("Running new plot!");
         if let Some(player) = initial_player {
-            debug!("Sending initial player into plot!");
             self.enter_plot(player);
         }
         while self.running {
@@ -769,7 +762,6 @@ impl Drop for Plot {
             }
         }
         self.save();
-        debug!("Plot {},{} unloaded", self.x, self.z);
         self.message_sender
             .send(Message::PlotUnload(self.x, self.z))
             .unwrap();
