@@ -437,7 +437,7 @@ impl Plot {
         }
     }
 
-    fn handle_message(&mut self) {
+    fn handle_messages(&mut self) {
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
                 BroadcastMessage::Chat(sender, message) => {
