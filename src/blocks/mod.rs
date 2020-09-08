@@ -642,9 +642,7 @@ impl Block {
             },
             Item::Barrel {} => Block::Barrel {},
             Item::Target {} => Block::Target {},
-            Item::StainedGlass { color } => Block::StainedGlass {
-                color
-            },
+            Item::StainedGlass { color } => Block::StainedGlass { color },
             Item::SmoothStoneSlab {} => Block::SmoothStoneSlab {},
             Item::QuartzSlab {} => Block::QuartzSlab {},
             _ => Block::Air {},
@@ -866,7 +864,7 @@ impl Block {
                     parent_block.is_cube()
                 }
             },
-            Block::WallSign { facing , .. } => {
+            Block::WallSign { facing, .. } => {
                 let parent_block = world.get_block(pos.offset(facing.opposite().block_face()));
                 parent_block.is_cube()
             }

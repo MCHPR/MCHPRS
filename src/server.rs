@@ -95,7 +95,7 @@ struct ServerConfig {
     motd: String,
     chat_format: String,
     max_players: i64,
-    bungeecord: bool
+    bungeecord: bool,
 }
 
 struct PlotListEntry {
@@ -216,7 +216,7 @@ impl MinecraftServer {
             motd: "Minecraft High Performace Redstone Server".to_string(),
             chat_format: "<{username}> {message}".to_string(),
             max_players: 99999,
-            bungeecord: false
+            bungeecord: false,
         };
         toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
             let config_string = toml::to_string(&default_config).unwrap();
@@ -357,7 +357,9 @@ impl MinecraftServer {
         } else {
             Default::default()
         };
-        let uuid = clients[client_idx].uuid.unwrap_or_else(|| Player::generate_offline_uuid(&username));
+        let uuid = clients[client_idx]
+            .uuid
+            .unwrap_or_else(|| Player::generate_offline_uuid(&username));
 
         let login_success = C02LoginSuccess {
             uuid,
@@ -675,7 +677,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
             .encode();
             client.send_packet(&disconnect);
             client.close_connection();
-        } else if client.state == NetworkState::Login && self.config.bungeecord{
+        } else if client.state == NetworkState::Login && self.config.bungeecord {
             let split: Vec<&str> = handshake.server_address.split('\u{0}').collect();
             dbg!(&split);
             if split.len() == 3 || split.len() == 4 {
