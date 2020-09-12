@@ -633,7 +633,7 @@ impl RedstoneWireTurbo {
         }
     }
 
-    const RS_NEIGHBORS: [usize; 4] =    [4, 5, 6, 7];
+    const RS_NEIGHBORS: [usize; 4] = [4, 5, 6, 7];
     const RS_NEIGHBORS_UP: [usize; 4] = [9, 11, 13, 15];
     const RS_NEIGHBORS_DN: [usize; 4] = [8, 10, 12, 14];
 
@@ -655,9 +655,15 @@ impl RedstoneWireTurbo {
             if self.node_cache.get(&pos).unwrap().neighbors.is_none() {
                 self.identify_neighbors(world, pos);
             }
-            let neighbors = self.node_cache.get(&pos).unwrap().neighbors.as_ref().unwrap();
+            let neighbors = self
+                .node_cache
+                .get(&pos)
+                .unwrap()
+                .neighbors
+                .as_ref()
+                .unwrap();
 
-            let center_up = world.get_block( neighbors[1]);
+            let center_up = world.get_block(neighbors[1]);
 
             for m in 0..4 {
                 let n = Self::RS_NEIGHBORS[m];
@@ -673,11 +679,9 @@ impl RedstoneWireTurbo {
                     let neighbor_up = neighbors[Self::RS_NEIGHBORS_UP[m]];
                     l = self.get_max_current_strength(neighbor_up, l);
                 }
-
-                
             }
         }
-        
+
         j = l.saturating_sub(1);
         if k > j {
             j = k;
