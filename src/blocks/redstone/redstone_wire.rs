@@ -443,32 +443,31 @@ impl RedstoneWireTurbo {
         let neighbors = Self::compute_all_neighbors(pos);
         let mut neighbors_visited = Vec::with_capacity(24);
 
-        for i in 0..24 {
-            let neighbor_pos = neighbors[i];
+        for neighbor_pos in &neighbors[0..24] {
             let neighbor = self
                 .node_cache
-                .entry(neighbor_pos)
-                .or_insert_with(|| UpdateNode::new(world, neighbor_pos, pos));
+                .entry(*neighbor_pos)
+                .or_insert_with(|| UpdateNode::new(world, *neighbor_pos, pos));
             neighbors_visited.push(neighbor.visited);
         }
 
-        let fromWest = neighbors_visited[0] || neighbors_visited[7] || neighbors_visited[8];
-        let fromEast = neighbors_visited[1] || neighbors_visited[12] || neighbors_visited[13];
-        let fromNorth = neighbors_visited[4] || neighbors_visited[17] || neighbors_visited[20];
-        let fromSouth = neighbors_visited[5] || neighbors_visited[18] || neighbors_visited[21];
+        let from_west = neighbors_visited[0] || neighbors_visited[7] || neighbors_visited[8];
+        let from_east = neighbors_visited[1] || neighbors_visited[12] || neighbors_visited[13];
+        let from_north = neighbors_visited[4] || neighbors_visited[17] || neighbors_visited[20];
+        let from_south = neighbors_visited[5] || neighbors_visited[18] || neighbors_visited[21];
 
         let mut cx = 0;
         let mut cz = 0;
-        if fromWest {
+        if from_west {
             cx += 1
         };
-        if fromEast {
+        if from_east {
             cx -= 1
         };
-        if fromNorth {
+        if from_north {
             cz += 1
         };
-        if fromSouth {
+        if from_south {
             cz -= 1
         };
 
