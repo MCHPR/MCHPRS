@@ -10,6 +10,7 @@ use crate::player::Player;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
+use crate::chat::ChatComponent;
 use bus::BusReader;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -207,7 +208,7 @@ impl Plot {
 
     pub fn broadcast_plot_chat_message(&mut self, message: String) {
         for player in &mut self.players {
-            player.send_chat_message(0, message.clone());
+            player.send_chat_message(0, ChatComponent::from_legacy_text(message.clone()));
         }
     }
 
@@ -442,7 +443,7 @@ impl Plot {
             match message {
                 BroadcastMessage::Chat(sender, message) => {
                     for player in &mut self.players {
-                        player.send_raw_chat(sender, message.clone());
+                        player.send_chat_message(sender, message.clone());
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {

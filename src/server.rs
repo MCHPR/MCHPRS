@@ -12,10 +12,11 @@ use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::Player;
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
+use crate::chat::ChatComponent;
 use backtrace::Backtrace;
-use bus::{Bus, BusReader};
+use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
-use log::{debug, error, info, warn};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fs;
@@ -51,7 +52,7 @@ pub enum Message {
 pub enum BroadcastMessage {
     /// This message is broadcasted for chat messages. It contains the uuid of the player and
     /// the raw json data to send to the clients.
-    Chat(u128, String),
+    Chat(u128, Vec<ChatComponent>),
     /// This message is broadcasted when a player joins the server. It is used to update
     /// the tab-list on all connected clients.
     PlayerJoinedInfo(PlayerJoinInfo),
@@ -588,12 +589,9 @@ impl MinecraftServer {
                 info!("<{}> {}", username, message);
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
-                    json!({
-                        "text": self.config.chat_format
-                            .replace("{username}", &username)
-                            .replace("{message}", &message)
-                    })
-                    .to_string(),
+                    ChatComponent::from_legacy_text(self.config.chat_format
+                        .replace("{username}", &username)
+                        .replace("{message}", &message))
                 ));
             }
             Message::PlayerLeavePlot(player) => {

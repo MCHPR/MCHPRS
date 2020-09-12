@@ -3,6 +3,7 @@ use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
+use crate::chat::ChatComponent;
 use byteorder::{BigEndian, ReadBytesExt};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -351,8 +352,9 @@ impl Player {
     }
 
     /// Sends a regular chat message to the player (`message` is not in json format)
-    pub fn send_chat_message(&mut self, sender: u128, message: String) {
-        self.send_raw_chat(sender, json!({ "text": message }).to_string());
+    pub fn send_chat_message(&mut self, sender: u128, message: Vec<ChatComponent>) {
+        let json = json!({ "text": "", "extra": message }).to_string();
+        self.send_raw_chat(sender, json);
     }
 
     /// Sends the player a yellow system message (`message` is not in json format)

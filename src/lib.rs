@@ -1,6 +1,7 @@
 mod network;
 #[macro_use]
 mod blocks;
+mod chat;
 mod items;
 mod player;
 mod plot;
