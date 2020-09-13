@@ -340,7 +340,6 @@ impl RedstoneWire {
 }
 
 struct UpdateNode {
-    pos: BlockPos,
     parent: BlockPos,
     /// If the node is a redstone wire, it will hold the state of the wire
     wire: Option<RedstoneWire>,
@@ -355,7 +354,6 @@ struct UpdateNode {
 impl UpdateNode {
     fn new(world: &dyn World, pos: BlockPos, parent: BlockPos) -> UpdateNode {
         UpdateNode {
-            pos,
             parent,
             wire: match world.get_block(pos) {
                 Block::RedstoneWire { wire } => Some(wire),
@@ -546,7 +544,6 @@ impl RedstoneWireTurbo {
         if self.node_cache.get(&pos).unwrap().neighbors.is_none() {
             self.identify_neighbors(world, pos);
         }
-        let BlockPos { x, y, z } = pos;
         // FIXME: Get rid of this nasty clone
         let neighbors = self
             .node_cache
@@ -558,12 +555,11 @@ impl RedstoneWireTurbo {
 
         let layer1 = layer + 1;
 
-        for i in 0..24 {
-            let neighbor_pos = neighbors[i];
+        for neighbor_pos in &neighbors[0..24] {
             if let Some(neighbor) = self.node_cache.get_mut(&neighbor_pos) {
                 if layer1 > neighbor.layer {
                     neighbor.layer = layer1;
-                    self.update_queue[1].push(neighbor_pos);
+                    self.update_queue[1].push(*neighbor_pos);
 
                     neighbor.parent = pos;
                 }
@@ -572,12 +568,11 @@ impl RedstoneWireTurbo {
 
         let layer2 = layer + 2;
 
-        for i in 0..4 {
-            let neighbor_pos = neighbors[i];
+        for neighbor_pos in &neighbors[0..4] {
             if let Some(neighbor) = self.node_cache.get_mut(&neighbor_pos) {
                 if layer2 > neighbor.layer {
                     neighbor.layer = layer2;
-                    self.update_queue[2].push(neighbor_pos);
+                    self.update_queue[2].push(*neighbor_pos);
                     neighbor.parent = pos;
                 }
             }
@@ -640,17 +635,18 @@ impl RedstoneWireTurbo {
         let mut wire = self.node_cache.get(&pos).unwrap().wire.unwrap();
         let i = wire.power;
         let mut j = self.get_max_current_strength(pos, 0);
-        let mut l = 0;
+        let mut block_power = 0;
 
-        let mut k = 0;
+        let mut wire_power = 0;
         for side in &BlockFace::values() {
             // TODO: Use the accelerator caching to calculate this
             let neighbor_pos = pos.offset(*side);
             let neighbor = world.get_block(neighbor_pos);
-            k = k.max(neighbor.get_redstone_power_no_dust(world, neighbor_pos, *side));
+            wire_power =
+                wire_power.max(neighbor.get_redstone_power_no_dust(world, neighbor_pos, *side));
         }
 
-        if k < 15 {
+        if wire_power < 15 {
             if self.node_cache.get(&pos).unwrap().neighbors.is_none() {
                 self.identify_neighbors(world, pos);
             }
@@ -669,21 +665,21 @@ impl RedstoneWireTurbo {
 
                 let neighbor_pos = neighbors[n];
                 let neighbor = world.get_block(neighbor_pos);
-                l = self.get_max_current_strength(neighbor_pos, l);
+                block_power = self.get_max_current_strength(neighbor_pos, block_power);
 
                 if !neighbor.is_solid() {
                     let neighbor_down = neighbors[Self::RS_NEIGHBORS_DN[m]];
-                    l = self.get_max_current_strength(neighbor_down, l);
+                    block_power = self.get_max_current_strength(neighbor_down, block_power);
                 } else if !center_up.is_solid() && !neighbor.is_transparent() {
                     let neighbor_up = neighbors[Self::RS_NEIGHBORS_UP[m]];
-                    l = self.get_max_current_strength(neighbor_up, l);
+                    block_power = self.get_max_current_strength(neighbor_up, block_power);
                 }
             }
         }
 
-        j = l.saturating_sub(1);
-        if k > j {
-            j = k;
+        j = block_power.saturating_sub(1);
+        if wire_power > j {
+            j = wire_power;
         }
         if i != j {
             wire.power = j;

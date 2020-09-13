@@ -602,7 +602,7 @@ impl WorldEditPattern {
                     .as_str()
                     .trim_start_matches("minecraft:");
                 Block::from_name(block_name)
-                    .ok_or(PatternParseError::UnknownBlock(part.to_owned()))?
+                    .ok_or_else(|| PatternParseError::UnknownBlock(part.to_owned()))?
             };
 
             let weight = pattern_match

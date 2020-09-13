@@ -878,14 +878,11 @@ impl Block {
             self.destroy(world, pos);
             return;
         }
-        match self {
-            Block::RedstoneWire { wire } => {
-                let new_state = wire.on_neighbor_changed(world, pos, direction);
-                if world.set_block(pos, Block::RedstoneWire { wire: new_state }) {
-                    Block::update_wire_neighbors(world, pos);
-                }
+        if let Block::RedstoneWire { wire } = self {
+            let new_state = wire.on_neighbor_changed(world, pos, direction);
+            if world.set_block(pos, Block::RedstoneWire { wire: new_state }) {
+                Block::update_wire_neighbors(world, pos);
             }
-            _ => {}
         }
     }
 
@@ -1166,16 +1163,16 @@ blocks! {
     Air {
         props: {},
         get_id: 0,
-        from_id(id): 0 => {},
-        from_names(name): {
+        from_id(_id): 0 => {},
+        from_names(_name): {
             "air" => {}
         },
     },
     Glass {
         props: {},
         get_id: 231,
-        from_id(id): 231 => {},
-        from_names(name): {
+        from_id(_id): 231 => {},
+        from_names(_name): {
             "glass" => {}
         },
         transparent: true,
@@ -1203,7 +1200,7 @@ blocks! {
                 (id % 144 / 9) as u8,
             )
         },
-        from_names(name): {
+        from_names(_name): {
             "redstone_wire" => {
                 wire: Default::default()
             }
@@ -1220,7 +1217,7 @@ blocks! {
             sign_type: id >> 3,
             facing: BlockDirection::from_id((id & 0b110) >> 1)
         },
-        from_names(name): {
+        from_names(_name): {
             "oak_wall_sign" => {
                 sign_type: 0,
                 facing: Default::default()
@@ -1265,7 +1262,7 @@ blocks! {
                 (id & 1) == 0
             )
         },
-        from_names(name): {
+        from_names(_name): {
             "lever" => {
                 lever: Default::default()
             }
@@ -1285,7 +1282,7 @@ blocks! {
         from_id(id): 3897..=3920 => {
             button: StoneButton::new(ButtonFace::from_id(id >> 3), BlockDirection::from_id((id >> 1) & 0b11), (id & 1) == 0)
         },
-        from_names(name): {
+        from_names(_name): {
             "stone_button" => {
                 button: Default::default()
             }
@@ -1302,7 +1299,7 @@ blocks! {
             sign_type: id >> 5,
             rotation: (id & 0b11110) >> 1
         },
-        from_names(name): {
+        from_names(_name): {
             "oak_sign" => {
                 sign_type: 0,
                 rotation: 0
@@ -1342,7 +1339,7 @@ blocks! {
         from_id(id): 3887..=3888 => {
             lit: id == 0
         },
-        from_names(name): {
+        from_names(_name): {
             "redstone_torch" => {
                 lit: true
             }
@@ -1359,7 +1356,7 @@ blocks! {
             lit: (id & 1) == 0,
             facing: BlockDirection::from_id(id >> 1)
         },
-        from_names(name): {
+        from_names(_name): {
             "redstone_wall_torch" => {
                 lit: true,
                 facing: Default::default()
@@ -1386,7 +1383,7 @@ blocks! {
                 (id & 1) == 0
             )
         },
-        from_names(name): {
+        from_names(_name): {
             "repeater" => {
                 repeater: Default::default()
             }
@@ -1405,7 +1402,7 @@ blocks! {
         from_id(id): 5160..=5161 => {
             lit: id == 0
         },
-        from_names(name): {
+        from_names(_name): {
             "redstone_lamp" => {
                 lit: false
             }
@@ -1427,7 +1424,7 @@ blocks! {
         from_id(id): 5272..=5278 => {
             direction: BlockDirection::from_id(id / 2)
         },
-        from_names(name): {
+        from_names(_name): {
             "tripwire_hook" => {
                 direction: Default::default()
             }
@@ -1451,7 +1448,7 @@ blocks! {
                 (id & 1) == 0
             )
         },
-        from_names(name): {
+        from_names(_name): {
             "comparator" => {
                 comparator: Default::default()
             }
@@ -1460,8 +1457,8 @@ blocks! {
     RedstoneBlock {
         props: {},
         get_id: 6730,
-        from_id(id): 6730 => {},
-        from_names(name): {
+        from_id(_id): 6730 => {},
+        from_names(_name): {
             "redstone_block" => {}
         },
         transparent: true,
@@ -1476,7 +1473,7 @@ blocks! {
         from_id(id): 9265..=9275 => {
             facing: BlockFacing::from_id(id >> 1)
         },
-        from_names(name): {
+        from_names(_name): {
             "observer" => {
                 facing: Default::default()
             }
@@ -1490,10 +1487,10 @@ blocks! {
         },
         get_id: ((pickles - 1) << 1) as u32 + 9645,
         from_id_offset: 9645,
-        from_id(id): 0 => {
+        from_id(id): 9645..=9651 => {
             pickles: (id >> 1) as u8 + 1
         },
-        from_names(name): {
+        from_names(_name): {
             "sea_pickle" => {
                 pickles: 1
             }
@@ -1502,8 +1499,8 @@ blocks! {
     Target {
         props: {},
         get_id: 15768,
-        from_id(id): 15768 => {},
-        from_names(name): {
+        from_id(_id): 15768 => {},
+        from_names(_name): {
             "target" => {}
         },
         solid: true,
@@ -1512,16 +1509,16 @@ blocks! {
     StonePressurePlate {
         props: {},
         get_id: 3808,
-        from_id(id): 3808 => {},
-        from_names(name): {
+        from_id(_id): 3808 => {},
+        from_names(_name): {
             "stone_pressure_plate" => {}
         },
     },
     Barrel {
         props: {},
         get_id: 14796,
-        from_id(id): 14796 => {},
-        from_names(name): {
+        from_id(_id): 14796 => {},
+        from_names(_name): {
             "barrel" => {}
         },
         solid: true,
@@ -1530,8 +1527,8 @@ blocks! {
     Hopper {
         props: {},
         get_id: 6738,
-        from_id(id): 6738 => {},
-        from_names(name): {
+        from_id(_id): 6738 => {},
+        from_names(_name): {
             "hopper" => {}
         },
         transparent: true,
@@ -1540,8 +1537,8 @@ blocks! {
     Sandstone {
         props: {},
         get_id: 246,
-        from_id(id): 246 => {},
-        from_names(name): {
+        from_id(_id): 246 => {},
+        from_names(_name): {
             "sandstone" => {}
         },
         solid: true,
@@ -1550,8 +1547,8 @@ blocks! {
     Furnace {
         props: {},
         get_id: 3374,
-        from_id(id): 3374 => {},
-        from_names(name): {
+        from_id(_id): 3374 => {},
+        from_names(_name): {
             "furnace" => {}
         },
         solid: true,
@@ -1560,8 +1557,8 @@ blocks! {
     Quartz {
         props: {},
         get_id: 6742,
-        from_id(id): 6742 => {},
-        from_names(name): {
+        from_id(_id): 6742 => {},
+        from_names(_name): {
             "quartz_block" => {}
         },
         solid: true,
@@ -1570,8 +1567,8 @@ blocks! {
     SmoothStoneSlab {
         props: {},
         get_id: 8347,
-        from_id(id): 8347 => {},
-        from_names(name): {
+        from_id(_id): 8347 => {},
+        from_names(_name): {
             "smooth_stone_slab" => {}
         },
         transparent: true,
@@ -1580,8 +1577,8 @@ blocks! {
     QuartzSlab {
         props: {},
         get_id: 8395,
-        from_id(id): 8395 => {},
-        from_names(name): {
+        from_id(_id): 8395 => {},
+        from_names(_name): {
             "quartz_slab" => {}
         },
         transparent: true,
@@ -1596,7 +1593,7 @@ blocks! {
         from_id(id): 9442..=9457 => {
             color: BlockColorVariant::from_id(id)
         },
-        from_names(name): {
+        from_names(_name): {
             "white_concrete" => { color: BlockColorVariant::White },
             "orange_concrete" => { color: BlockColorVariant::Orange },
             "magenta_concrete" => { color: BlockColorVariant::Magenta },
@@ -1626,7 +1623,7 @@ blocks! {
         from_id(id): 4095..=4110 => {
             color: BlockColorVariant::from_id(id)
         },
-        from_names(name): {
+        from_names(_name): {
             "white_stained_glass" => { color: BlockColorVariant::White },
             "orange_stained_glass" => { color: BlockColorVariant::Orange },
             "magenta_stained_glass" => { color: BlockColorVariant::Magenta },
@@ -1650,8 +1647,8 @@ blocks! {
     Terracotta {
         props: {},
         get_id: 7886,
-        from_id(id): 7886 => {},
-        from_names(name): {
+        from_id(_id): 7886 => {},
+        from_names(_name): {
             "terracotta" => {}
         },
         solid: true,
@@ -1666,7 +1663,7 @@ blocks! {
         from_id(id): 6851..=6866 => {
             color: BlockColorVariant::from_id(id)
         },
-        from_names(name): {
+        from_names(_name): {
             "white_terracotta" => { color: BlockColorVariant::White },
             "orange_terracotta" => { color: BlockColorVariant::Orange },
             "magenta_terracotta" => { color: BlockColorVariant::Magenta },
@@ -1696,7 +1693,7 @@ blocks! {
         from_id(id): 1384..=1399 => {
             color: BlockColorVariant::from_id(id)
         },
-        from_names(name): {
+        from_names(_name): {
             "white_wool" => { color: BlockColorVariant::White },
             "orange_wool" => { color: BlockColorVariant::Orange },
             "magenta_wool" => { color: BlockColorVariant::Magenta },
