@@ -7,7 +7,6 @@ use crate::network::packets::SlotData;
 use crate::player::SkinParts;
 use crate::server::Message;
 use crate::world::World;
-use log::debug;
 use serde_json::json;
 use std::time::Instant;
 
