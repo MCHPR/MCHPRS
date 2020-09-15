@@ -2,14 +2,22 @@ use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos};
 use crate::world::World;
 use std::collections::HashMap;
 
-// Redstone wires are extremely inefficient.
-// Here we are updating many blocks which don't
-// need to be updated. A lot of the time we even
-// updating the same redstone wire twice. In the
-// future we can use the algorithm created by
-// theosib to greatly speed this up.
-// The comments in this issue might be useful:
-// https://bugs.mojang.com/browse/MC-81098
+impl Block {
+    fn unwrap_wire(self) -> RedstoneWire {
+        match self {
+            Block::RedstoneWire { wire } => wire,
+            _ => panic!("expected wire"),
+        }
+    }
+
+    fn wire_mut(&mut self) -> &mut RedstoneWire {
+        match self {
+            Block::RedstoneWire { wire } => wire,
+            _ => panic!("expected wire"),
+        }
+    }
+
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum RedstoneWireSide {
@@ -341,8 +349,8 @@ impl RedstoneWire {
 
 struct UpdateNode {
     parent: BlockPos,
-    /// If the node is a redstone wire, it will hold the state of the wire
-    wire: Option<RedstoneWire>,
+    /// The cached state of the block
+    state: Block,
     /// This will only be `Some` when all the neighbors are identified.
     neighbors: Option<Vec<BlockPos>>,
     visited: bool,
@@ -355,10 +363,7 @@ impl UpdateNode {
     fn new(world: &dyn World, pos: BlockPos, parent: BlockPos) -> UpdateNode {
         UpdateNode {
             parent,
-            wire: match world.get_block(pos) {
-                Block::RedstoneWire { wire } => Some(wire),
-                _ => None,
-            },
+            state: world.get_block(pos),
             visited: false,
             neighbors: None,
             xbias: 0,
@@ -368,6 +373,9 @@ impl UpdateNode {
     }
 }
 
+/// The implementation of "Redstone Wire Turbo" was largely based on 
+/// the accelorator created by theosib. For more information, see:
+/// https://bugs.mojang.com/browse/MC-81098.
 struct RedstoneWireTurbo {
     node_cache: HashMap<BlockPos, UpdateNode>,
     update_queue: Vec<Vec<BlockPos>>,
@@ -585,11 +593,14 @@ impl RedstoneWireTurbo {
 
         while !self.update_queue[0].is_empty() || !self.update_queue[1].is_empty() {
             for pos in self.update_queue[0].clone().into_iter() {
-                if self.node_cache.get(&pos).unwrap().wire.is_some() {
-                    self.update_node(world, pos, self.current_walk_layer);
-                } else {
-                    let block = world.get_block(pos);
-                    Block::update(block, world, pos);
+                match self.node_cache.get(&pos).unwrap().state {
+                    Block::RedstoneWire { .. } => {
+                        self.update_node(world, pos, self.current_walk_layer);
+                    }
+                    // This only works because updating any other block than a wire will
+                    // never change the state of the block. If that changes in the future,
+                    // the cached state will need to be updated
+                    block => Block::update(block, world, pos),
                 }
             }
 
@@ -610,7 +621,7 @@ impl RedstoneWireTurbo {
         let old_wire = {
             let node = self.node_cache.get_mut(&pos).unwrap();
             node.visited = true;
-            node.wire.unwrap()
+            node.state.unwrap_wire()
         };
 
         let new_wire = self.calculate_current_changes(world, pos);
@@ -618,9 +629,7 @@ impl RedstoneWireTurbo {
             self.node_cache
                 .get_mut(&pos)
                 .unwrap()
-                .wire
-                .as_mut()
-                .unwrap()
+                .state.wire_mut()
                 .power = new_wire.power;
 
             self.propogate_changes(world, pos, layer);
@@ -632,24 +641,24 @@ impl RedstoneWireTurbo {
     const RS_NEIGHBORS_DN: [usize; 4] = [8, 10, 12, 14];
 
     fn calculate_current_changes(&mut self, world: &mut dyn World, pos: BlockPos) -> RedstoneWire {
-        let mut wire = self.node_cache.get(&pos).unwrap().wire.unwrap();
+        let mut wire = self.node_cache.get(&pos).unwrap().state.unwrap_wire();
         let i = wire.power;
         let mut j = self.get_max_current_strength(pos, 0);
         let mut block_power = 0;
+        
+        if self.node_cache.get(&pos).unwrap().neighbors.is_none() {
+            self.identify_neighbors(world, pos);
+        }
 
         let mut wire_power = 0;
         for side in &BlockFace::values() {
-            // TODO: Use the accelerator caching to calculate this
             let neighbor_pos = pos.offset(*side);
-            let neighbor = world.get_block(neighbor_pos);
+            let neighbor = self.node_cache.get(&neighbor_pos).unwrap().state;
             wire_power =
                 wire_power.max(neighbor.get_redstone_power_no_dust(world, neighbor_pos, *side));
         }
 
         if wire_power < 15 {
-            if self.node_cache.get(&pos).unwrap().neighbors.is_none() {
-                self.identify_neighbors(world, pos);
-            }
             let neighbors = self
                 .node_cache
                 .get(&pos)
@@ -658,13 +667,13 @@ impl RedstoneWireTurbo {
                 .as_ref()
                 .unwrap();
 
-            let center_up = world.get_block(neighbors[1]);
+            let center_up = self.node_cache.get(&neighbors[1]).unwrap().state;
 
             for m in 0..4 {
                 let n = Self::RS_NEIGHBORS[m];
 
                 let neighbor_pos = neighbors[n];
-                let neighbor = world.get_block(neighbor_pos);
+                let neighbor = self.node_cache.get(&neighbor_pos).unwrap().state;
                 block_power = self.get_max_current_strength(neighbor_pos, block_power);
 
                 if !neighbor.is_solid() {
@@ -690,7 +699,7 @@ impl RedstoneWireTurbo {
 
     fn get_max_current_strength(&self, pos: BlockPos, strength: u8) -> u8 {
         let node = self.node_cache.get(&pos).unwrap();
-        if let Some(wire) = node.wire {
+        if let Block::RedstoneWire { wire } = node.state {
             wire.power.max(strength)
         } else {
             strength
