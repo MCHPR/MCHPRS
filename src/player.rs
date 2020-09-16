@@ -23,6 +23,21 @@ pub struct InventoryEntry {
     nbt: Option<Vec<u8>>,
 }
 
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum Gamemode {
+    Creative,
+    Spectator,
+}
+
+impl Gamemode {
+    pub fn get_id(self) -> u32 {
+        match self {
+            Gamemode::Creative => 1,
+            Gamemode::Spectator => 3,
+        }
+    }
+}
+
 /// This structure represents how the player will be
 /// serialized when saved to it's file.
 #[derive(Debug, Serialize, Deserialize)]
@@ -36,6 +51,7 @@ pub struct PlayerData {
     selected_item_slot: i32,
     fly_speed: f32,
     walk_speed: f32,
+    gamemode: Gamemode,
 }
 
 bitflags! {
@@ -75,6 +91,7 @@ pub struct Player {
     pub on_ground: bool,
     pub fly_speed: f32,
     pub walk_speed: f32,
+    pub gamemode: Gamemode,
     pub entity_id: u32,
     /// Packets are sent through the client.
     pub client: NetworkClient,
@@ -167,6 +184,7 @@ impl Player {
                 flying: player_data.flying,
                 sprinting: false,
                 crouching: false,
+                gamemode: player_data.gamemode,
                 on_ground: player_data.on_ground,
                 walk_speed: player_data.walk_speed,
                 fly_speed: player_data.fly_speed,
@@ -205,6 +223,7 @@ impl Player {
             flying: false,
             sprinting: false,
             crouching: false,
+            gamemode: Gamemode::Creative,
             fly_speed: 1f32,
             walk_speed: 1f32,
             on_ground: true,
@@ -246,6 +265,7 @@ impl Player {
         let data = bincode::serialize(&PlayerData {
             fly_speed: self.fly_speed,
             flying: self.flying,
+            gamemode: self.gamemode,
             inventory,
             motion: vec![0f64, 0f64, 0f64],
             on_ground: self.on_ground,
@@ -425,5 +445,14 @@ impl Player {
         }
         .encode();
         self.client.send_packet(&player_abilities);
+    }
+
+    pub fn set_gamemode(&mut self, gamemode: Gamemode) {
+        self.gamemode = gamemode;
+        let change_game_state = C1DChangeGameState {
+            reason: C1DChangeGameStateReason::ChangeGamemode,
+            value: self.gamemode.get_id() as f32
+        }.encode();
+        self.client.send_packet(&change_game_state);
     }
 }

@@ -10,7 +10,7 @@ use crate::network::packets::serverbound::{
 };
 use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
-use crate::player::Player;
+use crate::player::{Player, Gamemode};
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
 use crate::chat::ChatComponent;
 use backtrace::Backtrace;
@@ -39,6 +39,8 @@ pub enum Message {
     PlayerLeavePlot(Player),
     /// This message is sent to the server thread when a player runs /tp <name>.
     PlayerTeleportOther(Player, String),
+    /// This message is sent to the server thread when a player changes their gamemode.
+    PlayerUpdateGamemode(u128, Gamemode),
     /// This message is sent to the server thread when a plot unloads itself.
     PlotUnload(i32, i32),
     /// This message is sent to the server thread when a player runs /stop.
@@ -59,6 +61,8 @@ pub enum BroadcastMessage {
     /// This message is broadcasted when a player leaves the server. It is used to update
     /// the tab-list on all connected clients.
     PlayerLeft(u128),
+    /// This message is broadcasted when a player changes their gamemode,
+    PlayerUpdateGamemode(u128, Gamemode),
     /// This message is broadcasted when the server is stopping, either through the stop
     /// command or through the ctrl+c handler.
     Shutdown,
@@ -87,6 +91,7 @@ struct PlayerListEntry {
     plot_z: i32,
     username: String,
     uuid: u128,
+    gamemode: Gamemode,
     skin: Option<String>,
 }
 
@@ -304,6 +309,7 @@ impl MinecraftServer {
                 plot_x,
                 plot_z,
                 username: player.username.clone(),
+                gamemode: player.gamemode,
                 uuid: player.uuid,
                 skin: None,
             };
@@ -369,10 +375,12 @@ impl MinecraftServer {
         clients[client_idx].state = NetworkState::Play;
         let mut client = clients.remove(client_idx);
 
+        let mut player = Player::load_player(uuid, username, client);
+
         let join_game = C24JoinGame {
-            entity_id: client.id as i32,
+            entity_id: player.client.id as i32,
             is_hardcore: false,
-            gamemode: 1,
+            gamemode: player.gamemode.get_id() as u8,
             previous_gamemode: 1,
             world_count: 1,
             world_names: vec!["mchprs:world".to_owned()],
@@ -464,7 +472,7 @@ impl MinecraftServer {
             is_flat: true,
         }
         .encode();
-        client.send_packet(&join_game);
+        player.client.send_packet(&join_game);
 
         // Sends the custom brand name to the player
         // (This can be seen in the f3 debug menu in-game)
@@ -477,9 +485,7 @@ impl MinecraftServer {
             },
         }
         .encode();
-        client.send_packet(&brand);
-
-        let mut player = Player::load_player(uuid, username, client);
+        player.client.send_packet(&brand);
 
         // Send the player's position and rotation.
         let player_pos_and_look = C34PlayerPositionAndLook {
@@ -502,7 +508,7 @@ impl MinecraftServer {
                 uuid: player.uuid,
                 name: player.username.clone(),
                 display_name: None,
-                gamemode: 1,
+                gamemode: player.gamemode.get_id() as i32,
                 ping: 0,
                 properties: Vec::new(),
             });
@@ -511,7 +517,7 @@ impl MinecraftServer {
             uuid: player.uuid,
             name: player.username.clone(),
             display_name: None,
-            gamemode: 1,
+            gamemode: player.gamemode.get_id() as i32,
             ping: 0,
             properties: Vec::new(),
         });
@@ -633,6 +639,11 @@ impl MinecraftServer {
                     player.send_system_message("Player not found!");
                     self.send_player_to_plot(player, false);
                 }
+            }
+            Message::PlayerUpdateGamemode(uuid, gamemode) => {
+                self.online_players.iter().position(|p| p.uuid == uuid).map(|index| self.online_players[index].gamemode = gamemode);
+                self.broadcaster
+                    .broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
             }
         }
     }

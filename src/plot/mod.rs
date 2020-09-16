@@ -6,7 +6,7 @@ pub mod worldedit;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
-use crate::player::Player;
+use crate::player::{Player, Gamemode};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
@@ -210,6 +210,13 @@ impl Plot {
         for player in &mut self.players {
             player.send_chat_message(0, ChatComponent::from_legacy_text(message.clone()));
         }
+    }
+
+    fn change_player_gamemode(&mut self, player_idx: usize, gamemode: Gamemode) {
+        self.players[player_idx].set_gamemode(gamemode);
+        let _ = self
+                .message_sender
+                .send(Message::PlayerUpdateGamemode(self.players[player_idx].uuid, gamemode));
     }
 
     fn enter_plot(&mut self, mut player: Player) {
@@ -480,6 +487,12 @@ impl Plot {
                     self.always_running = false;
                     self.running = false;
                     return;
+                }
+                BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode) => {
+                    let player_info = C32PlayerInfo::UpdateGamemode(uuid, gamemode).encode();
+                    for player in &mut self.players {
+                        player.client.send_packet(&player_info);
+                    }
                 }
             }
         }
