@@ -6,6 +6,7 @@ use crate::network::packets::clientbound::{
 use crate::network::packets::PacketEncoder;
 use crate::server::Message;
 use crate::world::World;
+use crate::player::Gamemode;
 use log::info;
 
 use std::time::{Duration, Instant};
@@ -182,8 +183,23 @@ impl Plot {
                     self.players[player].send_error_message("Unable to parse speed value");
                 }
             }
-            "/debug" => {
-                dbg!(self.get_block(self.players[player].first_position.unwrap()));
+            "/gmsp" => self.change_player_gamemode(player, Gamemode::Spectator),
+            "/gmc" => self.change_player_gamemode(player, Gamemode::Creative),
+            "/gamemode" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Wrong number of arguments!");
+                    return false;
+                }
+                let name = args.remove(0);
+                let gamemode = match name {
+                    "creative" | "1" => Gamemode::Creative,
+                    "spectator" | "3" => Gamemode::Spectator,
+                    _ => {
+                        self.players[player].send_error_message("Unknown gamemode");
+                        return false;
+                    }
+                };
+                self.change_player_gamemode(player, gamemode);
             }
             _ => self.players[player].send_error_message("Command not found!"),
         }

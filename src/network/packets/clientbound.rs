@@ -1,5 +1,6 @@
 use super::{PacketEncoder, PacketEncoderExt, SlotData};
 use crate::utils::NBTMap;
+use crate::player::Gamemode;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -375,6 +376,26 @@ impl ClientBoundPacket for C1CUnloadChunk {
     }
 }
 
+pub enum C1DChangeGameStateReason {
+    ChangeGamemode
+}
+
+pub struct C1DChangeGameState {
+    pub reason: C1DChangeGameStateReason,
+    pub value: f32,
+}
+
+impl ClientBoundPacket for C1DChangeGameState {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        match self.reason {
+            C1DChangeGameStateReason::ChangeGamemode => buf.write_unsigned_byte(3),
+        }
+        buf.write_float(self.value);
+        PacketEncoder::new(buf, 0x1D)
+    }
+}
+
 pub struct C1FKeepAlive {
     pub id: i64,
 }
@@ -710,6 +731,7 @@ pub struct C32PlayerInfoAddPlayer {
 pub enum C32PlayerInfo {
     AddPlayer(Vec<C32PlayerInfoAddPlayer>),
     RemovePlayer(Vec<u128>),
+    UpdateGamemode(u128, Gamemode)
 }
 
 impl ClientBoundPacket for C32PlayerInfo {
@@ -738,6 +760,12 @@ impl ClientBoundPacket for C32PlayerInfo {
                         buf.write_string(32767, &display_name);
                     }
                 }
+            }
+            C32PlayerInfo::UpdateGamemode(uuid, gamemode) => {
+                buf.write_varint(1);
+                buf.write_varint(1);
+                buf.write_uuid(uuid);
+                buf.write_varint(gamemode.get_id() as i32);
             }
             C32PlayerInfo::RemovePlayer(uuids) => {
                 buf.write_varint(4);
