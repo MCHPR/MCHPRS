@@ -1,6 +1,6 @@
 use super::{PacketEncoder, PacketEncoderExt, SlotData};
-use crate::utils::NBTMap;
 use crate::player::Gamemode;
+use crate::utils::NBTMap;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -377,7 +377,7 @@ impl ClientBoundPacket for C1CUnloadChunk {
 }
 
 pub enum C1DChangeGameStateReason {
-    ChangeGamemode
+    ChangeGamemode,
 }
 
 pub struct C1DChangeGameState {
@@ -731,7 +731,7 @@ pub struct C32PlayerInfoAddPlayer {
 pub enum C32PlayerInfo {
     AddPlayer(Vec<C32PlayerInfoAddPlayer>),
     RemovePlayer(Vec<u128>),
-    UpdateGamemode(u128, Gamemode)
+    UpdateGamemode(u128, Gamemode),
 }
 
 impl ClientBoundPacket for C32PlayerInfo {

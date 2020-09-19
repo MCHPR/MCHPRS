@@ -16,7 +16,6 @@ impl Block {
             _ => panic!("expected wire"),
         }
     }
-
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -373,7 +372,7 @@ impl UpdateNode {
     }
 }
 
-/// The implementation of "Redstone Wire Turbo" was largely based on 
+/// The implementation of "Redstone Wire Turbo" was largely based on
 /// the accelorator created by theosib. For more information, see:
 /// https://bugs.mojang.com/browse/MC-81098.
 struct RedstoneWireTurbo {
@@ -629,7 +628,8 @@ impl RedstoneWireTurbo {
             self.node_cache
                 .get_mut(&pos)
                 .unwrap()
-                .state.wire_mut()
+                .state
+                .wire_mut()
                 .power = new_wire.power;
 
             self.propogate_changes(world, pos, layer);
@@ -645,7 +645,7 @@ impl RedstoneWireTurbo {
         let i = wire.power;
         let mut j = self.get_max_current_strength(pos, 0);
         let mut block_power = 0;
-        
+
         if self.node_cache.get(&pos).unwrap().neighbors.is_none() {
             self.identify_neighbors(world, pos);
         }

@@ -1,9 +1,9 @@
 use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
+use crate::chat::ChatComponent;
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
-use crate::chat::ChatComponent;
 use byteorder::{BigEndian, ReadBytesExt};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -451,8 +451,9 @@ impl Player {
         self.gamemode = gamemode;
         let change_game_state = C1DChangeGameState {
             reason: C1DChangeGameStateReason::ChangeGamemode,
-            value: self.gamemode.get_id() as f32
-        }.encode();
+            value: self.gamemode.get_id() as f32,
+        }
+        .encode();
         self.client.send_packet(&change_game_state);
     }
 }

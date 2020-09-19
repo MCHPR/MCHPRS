@@ -4,13 +4,13 @@ mod packet_handlers;
 pub mod worldedit;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};
+use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
-use crate::player::{Player, Gamemode};
+use crate::player::{Gamemode, Player};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
-use crate::chat::ChatComponent;
 use bus::BusReader;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -214,9 +214,10 @@ impl Plot {
 
     fn change_player_gamemode(&mut self, player_idx: usize, gamemode: Gamemode) {
         self.players[player_idx].set_gamemode(gamemode);
-        let _ = self
-                .message_sender
-                .send(Message::PlayerUpdateGamemode(self.players[player_idx].uuid, gamemode));
+        let _ = self.message_sender.send(Message::PlayerUpdateGamemode(
+            self.players[player_idx].uuid,
+            gamemode,
+        ));
     }
 
     fn enter_plot(&mut self, mut player: Player) {
