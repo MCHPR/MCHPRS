@@ -10,22 +10,64 @@ fn lock<'a>() -> MutexGuard<'a, Connection> {
     CONN.lock().unwrap()
 }
 
-pub fn get_plot_owner(plot_x: i32, plot_z: i32) -> Option<u128> {
+pub fn get_plot_owner(plot_x: i32, plot_z: i32) -> Option<String> {
     lock()
         .query_row(
-            "SELECT owner FROM plots WHERE plot_x=?1 AND plot_z=?2",
+            "SELECT
+                uuid
+            FROM
+                plot
+            JOIN
+                userplot ON userplot.plot_id = plot.id
+            JOIN
+                user ON user.id = userplot.user_id
+            WHERE
+                plot_x=?1
+                AND plot_z=?2
+                AND is_owner=TRUE",
             params![plot_x, plot_z],
             |row| row.get::<_, String>(0),
         )
         .ok()
-        .map(|uuid| uuid.parse().unwrap())
 }
 
-pub fn claim_plot(plot_x: i32, plot_z: i32, owner: &str) {
+pub fn is_claimed(plot_x: i32, plot_z: i32) -> Option<bool> {
+    lock()
+        .query_row(
+            "SELECT EXISTS(SELECT * FROM plot WHERE plot_x = ?1 AND plot_z = ?2)",
+            params![plot_x, plot_z],
+            |row| row.get::<_, bool>(0),
+        )
+        .ok()
+}
+
+pub fn claim_plot(plot_x: i32, plot_z: i32, uuid: String) {
+    let conn = lock();
+    conn.execute(
+        "INSERT INTO plot(plot_x, plot_z) VALUES(?1, ?2)",
+        params![plot_x, plot_z],
+    )
+    .unwrap();
+
+    conn.execute(
+        "INSERT INTO userplot(user_id, plot_id, is_owner)
+                VALUES(
+                    (SELECT id FROM user WHERE user.uuid = ?1),
+                    LAST_INSERT_ROWID(),
+                    TRUE
+                )",
+        params![uuid],
+    )
+    .unwrap();
+}
+
+pub fn ensure_user(uuid: String, name: &str) {
     lock()
         .execute(
-            "INSERT INTO plots (plot_x, plot_z, owner) VALUES (?1, ?2, ?3)",
-            params![plot_x, plot_z, owner],
+            "INSERT INTO user(uuid, name)
+                VALUES (?1, ?2)
+                ON CONFLICT (uuid) DO UPDATE SET name = ?3",
+            params![uuid, name, name],
         )
         .unwrap();
 }
@@ -34,11 +76,32 @@ pub fn init() {
     let conn = lock();
 
     conn.execute(
-        "create table if not exists plots (
-            id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        "CREATE TABLE IF NOT EXISTS user(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid BLOB(16) UNIQUE NOT NULL,
+            name VARCHAR(16) NOT NULL
+        )",
+        NO_PARAMS,
+    )
+    .unwrap();
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS plot(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             plot_x INTEGER NOT NULL,
-            plot_z int NOT NULL,
-            owner VARCHAR(40) NOT NULL
+            plot_z INTEGER NOT NULL
+        )",
+        NO_PARAMS,
+    )
+    .unwrap();
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS userplot(
+            user_id INTEGER NOT NULL,
+            plot_id INTEGER NOT NULL,
+            is_owner BOOLEAN NOT NULL DEFAULT FALSE,
+            FOREIGN KEY(user_id) REFERENCES user(id),
+            FOREIGN KEY(plot_id) REFERENCES plot(id)
         )",
         NO_PARAMS,
     )
