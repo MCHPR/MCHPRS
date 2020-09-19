@@ -4,9 +4,9 @@ use crate::network::packets::clientbound::{
     ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
+use crate::player::Gamemode;
 use crate::server::Message;
 use crate::world::World;
-use crate::player::Gamemode;
 use log::info;
 
 use std::time::{Duration, Instant};
@@ -18,19 +18,21 @@ impl Plot {
         let plot_z = self.players[player].z as i32 >> 8;
         match command {
             "claim" | "c" => {
-                if database::get_plot_owner(plot_x, plot_z).is_some() {
+                if database::is_claimed(plot_x, plot_z).unwrap() {
                     self.players[player].send_system_message("Plot is already claimed!");
                 } else {
-                    let uuid = format!("{}", self.players[player].uuid);
-                    database::claim_plot(plot_x, plot_z, &uuid);
+                    database::claim_plot(
+                        plot_x,
+                        plot_z,
+                        format!("{:032x}", self.players[player].uuid),
+                    );
                     self.players[player]
                         .send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
                 }
             }
             "info" | "i" => {
                 if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
-                    self.players[player]
-                        .send_system_message(&format!("Plot owner is: {:032x}", owner));
+                    self.players[player].send_system_message(&format!("Plot owner is: {}", owner));
                 } else {
                     self.players[player].send_system_message("Plot is not owned by anyone.");
                 }

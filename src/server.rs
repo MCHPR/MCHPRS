@@ -1,3 +1,4 @@
+use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C13WindowItems,
     C17PluginMessage, C24JoinGame, C24JoinGameBiomeEffects, C24JoinGameBiomeEffectsMoodSound,
@@ -10,9 +11,8 @@ use crate::network::packets::serverbound::{
 };
 use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
-use crate::player::{Player, Gamemode};
-use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
-use crate::chat::ChatComponent;
+use crate::player::{Gamemode, Player};
+use crate::plot::{self, commands::DECLARE_COMMANDS, database, Plot};
 use backtrace::Backtrace;
 use std::collections::HashMap;
 use bus::Bus;
@@ -578,6 +578,7 @@ impl MinecraftServer {
                     uuid: player.uuid,
                     skin: None,
                 };
+                database::ensure_user(format!("{:032x}", player.uuid), &player.username);
                 self.broadcaster
                     .broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
                 self.send_player_to_plot(player, true);
@@ -594,9 +595,12 @@ impl MinecraftServer {
                 info!("<{}> {}", username, message);
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
-                    ChatComponent::from_legacy_text(self.config.chat_format
-                        .replace("{username}", &username)
-                        .replace("{message}", &message))
+                    ChatComponent::from_legacy_text(
+                        self.config
+                            .chat_format
+                            .replace("{username}", &username)
+                            .replace("{message}", &message),
+                    ),
                 ));
             }
             Message::PlayerLeavePlot(player) => {
