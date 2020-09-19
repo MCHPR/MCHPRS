@@ -14,6 +14,7 @@ use crate::player::{Player, Gamemode};
 use crate::plot::{self, commands::DECLARE_COMMANDS, Plot};
 use crate::chat::ChatComponent;
 use backtrace::Backtrace;
+use std::collections::HashMap;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{error, info, warn};
@@ -117,7 +118,7 @@ pub struct MinecraftServer {
     broadcaster: Bus<BroadcastMessage>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
-    online_players: Vec<PlayerListEntry>,
+    online_players: HashMap<u128, PlayerListEntry>,
     running_plots: Vec<PlotListEntry>,
 }
 
@@ -183,7 +184,7 @@ impl MinecraftServer {
             broadcaster: bus,
             receiver: server_rx,
             plot_sender: plot_tx,
-            online_players: Vec::new(),
+            online_players: HashMap::new(),
             running_plots: Vec::new(),
         };
 
@@ -267,7 +268,7 @@ impl MinecraftServer {
 
     /// Updates the player's location on the `online_players` list
     fn update_player_entry(&mut self, uuid: u128, plot_x: i32, plot_z: i32) {
-        let player = self.online_players.iter_mut().find(|p| p.uuid == uuid);
+        let player = self.online_players.get_mut(&uuid);
         if let Some(player) = player {
             player.plot_x = plot_x;
             player.plot_z = plot_z;
@@ -313,7 +314,7 @@ impl MinecraftServer {
                 uuid: player.uuid,
                 skin: None,
             };
-            self.online_players.push(player_list_entry);
+            self.online_players.insert(player.uuid, player_list_entry);
         } else {
             self.update_player_entry(player.uuid, plot_x, plot_z);
         }
@@ -373,7 +374,7 @@ impl MinecraftServer {
         clients[client_idx].send_packet(&login_success);
 
         clients[client_idx].state = NetworkState::Play;
-        let mut client = clients.remove(client_idx);
+        let client = clients.remove(client_idx);
 
         let mut player = Player::load_player(uuid, username, client);
 
@@ -503,9 +504,9 @@ impl MinecraftServer {
         // Send the player list to the newly connected player.
         // (This is the list you see when you press tab in-game)
         let mut add_player_list = Vec::new();
-        for player in &self.online_players {
+        for (uuid, player) in &self.online_players {
             add_player_list.push(C32PlayerInfoAddPlayer {
-                uuid: player.uuid,
+                uuid: *uuid,
                 name: player.username.clone(),
                 display_name: None,
                 gamemode: player.gamemode.get_id() as i32,
@@ -582,9 +583,7 @@ impl MinecraftServer {
                 self.send_player_to_plot(player, true);
             }
             Message::PlayerLeft(uuid) => {
-                let index = self.online_players.iter().position(|p| p.uuid == uuid);
-                if let Some(index) = index {
-                    let player = self.online_players.remove(index);
+                if let Some((_, player)) = self.online_players.remove_entry(&uuid) {
                     info!("{} left the game", player.username);
                 }
                 self.broadcaster
@@ -608,10 +607,10 @@ impl MinecraftServer {
             }
             Message::PlayerTeleportOther(mut player, other_username) => {
                 let username_lower = other_username.to_lowercase();
-                if let Some(other_player) = self
+                if let Some((_, other_player)) = self
                     .online_players
                     .iter()
-                    .find(|p| p.username.to_lowercase().starts_with(&username_lower))
+                    .find(|(_, p)| p.username.to_lowercase().starts_with(&username_lower))
                 {
                     let plot_x = other_player.plot_x;
                     let plot_z = other_player.plot_z;
@@ -641,7 +640,9 @@ impl MinecraftServer {
                 }
             }
             Message::PlayerUpdateGamemode(uuid, gamemode) => {
-                self.online_players.iter().position(|p| p.uuid == uuid).map(|index| self.online_players[index].gamemode = gamemode);
+                if let Some(player) = self.online_players.get_mut(&uuid) {
+                    player.gamemode = gamemode;
+                }
                 self.broadcaster
                     .broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
             }
