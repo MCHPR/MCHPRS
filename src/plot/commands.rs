@@ -9,6 +9,7 @@ use crate::server::Message;
 use crate::world::World;
 use log::info;
 
+use bitflags::_core::i32::MAX;
 use std::time::{Duration, Instant};
 
 impl Plot {
@@ -21,13 +22,7 @@ impl Plot {
                 if database::is_claimed(plot_x, plot_z).unwrap() {
                     self.players[player].send_system_message("Plot is already claimed!");
                 } else {
-                    database::claim_plot(
-                        plot_x,
-                        plot_z,
-                        format!("{:032x}", self.players[player].uuid),
-                    );
-                    self.players[player]
-                        .send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
+                    self.claim_plot(plot_x, plot_z, player);
                 }
             }
             "info" | "i" => {
@@ -37,7 +32,22 @@ impl Plot {
                     self.players[player].send_system_message("Plot is not owned by anyone.");
                 }
             }
-            _ => self.players[player].send_error_message("Wrong argument for /plot"),
+            "auto" | "a" => {
+                let mut start = (0, 0);
+                for itr in 0..MAX {
+                    if database::is_claimed(start.0, start.1).unwrap() {
+                        start = Plot::get_next_plot(start.0, start.1);
+                    } else {
+                        self.claim_plot(start.0, start.1, player);
+                        break;
+                    }
+                }
+            }
+            "middle" => {
+                let center = Plot::get_center(plot_x, plot_z);
+                self.players[player].teleport(center.0, 64.0, center.1);
+            }
+            _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
     }
 
@@ -65,7 +75,7 @@ impl Plot {
         match command {
             "//load" => {
                 if args.is_empty() {
-                    self.players[player].send_error_message("Wrong number of arguments!");
+                    self.players[player].send_error_message("Invalid number of arguments!");
                     return false;
                 }
                 worldedit::execute_load(self, player, &args[0])
@@ -150,7 +160,7 @@ impl Plot {
                     return true;
                 } else {
                     self.players[player]
-                        .send_error_message("Wrong number of arguments for teleport command!");
+                        .send_error_message("Invalid number of arguments for teleport command!");
                 }
             }
             "/stop" => {
@@ -158,7 +168,7 @@ impl Plot {
             }
             "/plot" | "/p" => {
                 if args.is_empty() {
-                    self.players[player].send_error_message("Wrong number of arguments!");
+                    self.players[player].send_error_message("Invalid number of arguments!");
                     return false;
                 }
                 let command = args.remove(0);
@@ -189,7 +199,7 @@ impl Plot {
             "/gmc" => self.change_player_gamemode(player, Gamemode::Creative),
             "/gamemode" => {
                 if args.is_empty() {
-                    self.players[player].send_error_message("Wrong number of arguments!");
+                    self.players[player].send_error_message("Invalid number of arguments!");
                     return false;
                 }
                 let name = args.remove(0);
@@ -277,7 +287,7 @@ lazy_static! {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![7, 8, 9, 10],
+                children: vec![7, 8, 9, 10, 38, 39, 40],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -528,6 +538,30 @@ lazy_static! {
                 children: vec![],
                 redirect_node: None,
                 name: Some("/sel"),
+                parser: None,
+            },
+            // 38: /p auto
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("auto"),
+                parser: None,
+            },
+            // 39: /p a
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(9),
+                name: Some("a"),
+                parser: None,
+            },
+            // 40: /p auto
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("middle"),
                 parser: None,
             },
         ],

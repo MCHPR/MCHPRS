@@ -431,6 +431,49 @@ impl Plot {
         x >= plot_x * 256 && x < (plot_x + 1) * 256 && z >= plot_z * 256 && z < (plot_z + 1) * 256
     }
 
+    pub fn claim_plot(&mut self, plot_x: i32, plot_z: i32, player: usize) {
+        database::claim_plot(
+            plot_x,
+            plot_z,
+            format!("{:032x}", self.players[player].uuid),
+        );
+        let center = Plot::get_center(plot_x, plot_z);
+        self.players[player].teleport(center.0, 64.0, center.1);
+        self.players[player].send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
+    }
+
+    pub fn get_center(plot_x: i32, plot_z: i32) -> (f64, f64) {
+        (plot_x as f64 * 256.0 + 128.0, plot_z as f64 * 256.0 + 128.0)
+    }
+
+    pub fn get_next_plot(plot_x: i32, plot_z: i32) -> (i32, i32) {
+        let x = plot_x.abs();
+        let z = plot_z.abs();
+        if x > z {
+            if plot_x > 0 {
+                (plot_x, plot_z + 1)
+            } else {
+                (plot_x, plot_z - 1)
+            }
+        } else if z > x {
+            if plot_z > 0 {
+                (plot_x - 1, plot_z)
+            } else {
+                (plot_x + 1, plot_z)
+            }
+        } else {
+            if plot_x == plot_z && plot_x > 0 {
+                (plot_x, plot_z + 1)
+            } else if plot_x == x {
+                (plot_x, plot_z + 1)
+            } else if plot_z == z {
+                (plot_x, plot_z - 1)
+            } else {
+                (plot_x + 1, plot_z)
+            }
+        }
+    }
+
     fn handle_commands(&mut self) {
         let mut removal_offset = 0;
         for player_idx in 0..self.players.len() {
