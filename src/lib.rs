@@ -5,6 +5,7 @@ mod chat;
 mod items;
 mod player;
 mod plot;
+mod config;
 #[macro_use]
 mod utils;
 pub mod server;

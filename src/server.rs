@@ -13,6 +13,7 @@ use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::{Gamemode, Player};
 use crate::plot::{self, commands::DECLARE_COMMANDS, database, Plot};
+use crate::config::CONFIG;
 use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
@@ -96,15 +97,6 @@ struct PlayerListEntry {
     skin: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct ServerConfig {
-    bind_address: String,
-    motd: String,
-    chat_format: String,
-    max_players: i64,
-    bungeecord: bool,
-}
-
 struct PlotListEntry {
     plot_x: i32,
     plot_z: i32,
@@ -114,7 +106,6 @@ struct PlotListEntry {
 /// This represents a minecraft server
 pub struct MinecraftServer {
     network: NetworkServer,
-    config: ServerConfig,
     broadcaster: Bus<BroadcastMessage>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
@@ -125,7 +116,7 @@ pub struct MinecraftServer {
 impl MinecraftServer {
     /// Setup logging, set the panic hook,
     /// create the world if it does not exist,
-    /// load the config, and then finally start the server.
+    /// and then finally start the server.
     pub fn run() {
         // Setup logging
         let colors_level = ColoredLevelConfig::new()
@@ -163,9 +154,7 @@ impl MinecraftServer {
 
         plot::database::init();
 
-        let config: ServerConfig = MinecraftServer::load_config();
-
-        let bind_addr = config.bind_address.clone();
+        let bind_addr = CONFIG.bind_address.clone();
 
         // Create thread messaging structs
         let (plot_tx, server_rx) = mpsc::channel();
@@ -180,7 +169,6 @@ impl MinecraftServer {
         // Create server struct
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
-            config,
             broadcaster: bus,
             receiver: server_rx,
             plot_sender: plot_tx,
@@ -212,58 +200,6 @@ impl MinecraftServer {
             server.update();
             std::thread::sleep(Duration::from_millis(2));
         }
-    }
-
-    fn load_config() -> ServerConfig {
-        let default_config = ServerConfig {
-            bind_address: "0.0.0.0:25565".to_string(),
-            motd: "Minecraft High Performace Redstone Server".to_string(),
-            chat_format: "<{username}> {message}".to_string(),
-            max_players: 99999,
-            bungeecord: false,
-        };
-        toml::from_str(&read_to_string("Config.toml").unwrap_or_else(|_| {
-            let config_string = toml::to_string(&default_config).unwrap();
-            let _ = fs::write("Config.toml", &config_string);
-            config_string
-        }))
-        .unwrap_or_else(|_| {
-            let config_string = read_to_string("Config.toml").unwrap();
-            let config_map = config_string.parse::<Value>().unwrap();
-            let merged_config = ServerConfig {
-                bind_address: config_map
-                    .get("bind_address")
-                    .map(toml::value::Value::as_str)
-                    .map(|pp| pp.unwrap_or(&default_config.bind_address))
-                    .unwrap_or(&default_config.bind_address)
-                    .to_string(),
-                motd: config_map
-                    .get("motd")
-                    .map(toml::value::Value::as_str)
-                    .map(|pp| pp.unwrap_or(&default_config.motd))
-                    .unwrap_or(&default_config.motd)
-                    .to_string(),
-                chat_format: config_map
-                    .get("chat_format")
-                    .map(toml::value::Value::as_str)
-                    .map(|pp| pp.unwrap_or(&default_config.chat_format))
-                    .unwrap_or(&default_config.chat_format)
-                    .to_string(),
-                max_players: config_map
-                    .get("max_players")
-                    .map(toml::value::Value::as_integer)
-                    .map(|pp| pp.unwrap_or(default_config.max_players))
-                    .unwrap_or(default_config.max_players),
-                bungeecord: config_map
-                    .get("bungeecord")
-                    .map(toml::value::Value::as_bool)
-                    .map(|pp| pp.unwrap_or(default_config.bungeecord))
-                    .unwrap_or(default_config.bungeecord),
-            };
-            let config_string = toml::to_string(&merged_config).unwrap();
-            fs::write("Config.toml", &config_string).expect("Error writing config");
-            merged_config
-        })
     }
 
     /// Updates the player's location on the `online_players` list
@@ -596,7 +532,7 @@ impl MinecraftServer {
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
                     ChatComponent::from_legacy_text(
-                        self.config
+                        CONFIG
                             .chat_format
                             .replace("{username}", &username)
                             .replace("{message}", &message),
@@ -687,7 +623,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
             .encode();
             client.send_packet(&disconnect);
             client.close_connection();
-        } else if client.state == NetworkState::Login && self.config.bungeecord {
+        } else if client.state == NetworkState::Login && CONFIG.bungeecord {
             let split: Vec<&str> = handshake.server_address.split('\u{0}').collect();
             if split.len() == 3 || split.len() == 4 {
                 client.uuid = u128::from_str_radix(split[2], 16).ok();
@@ -715,12 +651,12 @@ impl ServerBoundPacketHandler for MinecraftServer {
                     "protocol": 751
                 },
                 "players": {
-                    "max": self.config.max_players,
+                    "max": CONFIG.max_players,
                     "online": self.online_players.len(),
                     "sample": []
                 },
                 "description": {
-                    "text": self.config.motd
+                    "text": CONFIG.motd
                 }
             })
             .to_string(),
