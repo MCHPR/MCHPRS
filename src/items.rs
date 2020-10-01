@@ -334,6 +334,13 @@ items! {
         },
         block: true,
     },
+    TripwireHook {
+        props: {},
+        get_id: 278,
+        from_id_offset: 278,
+        from_id(_id): 278 => {},
+        block: true,
+    },
     Barrel {
         props: {},
         get_id: 936,
