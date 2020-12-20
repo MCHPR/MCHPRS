@@ -31,6 +31,21 @@ pub fn get_plot_owner(plot_x: i32, plot_z: i32) -> Option<String> {
         .ok()
 }
 
+pub fn get_name(uuid: String) -> Option<String> {
+    lock()
+        .query_row(
+            "SELECT
+                name
+            FROM
+                user
+            WHERE
+                uuid=?1",
+            params![uuid],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+}
+
 pub fn is_claimed(plot_x: i32, plot_z: i32) -> Option<bool> {
     lock()
         .query_row(
