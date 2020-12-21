@@ -633,7 +633,7 @@ impl WorldEditPattern {
         }
 
         let mut rng = rand::thread_rng();
-        let mut random = rng.gen_range(0.0, weight_sum);
+        let mut random = rng.gen_range(0.0..weight_sum);
 
         let mut selected = &WorldEditPatternPart {
             block_id: 0,
