@@ -31,7 +31,7 @@ pub fn get_plot_owner(plot_x: i32, plot_z: i32) -> Option<String> {
         .ok()
 }
 
-pub fn get_name(uuid: String) -> Option<String> {
+pub fn get_cached_username(uuid: String) -> Option<String> {
     lock()
         .query_row(
             "SELECT

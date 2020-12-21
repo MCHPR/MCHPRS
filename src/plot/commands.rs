@@ -27,7 +27,7 @@ impl Plot {
             }
             "info" | "i" => {
                 if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
-                    self.players[player].send_system_message(&format!("Plot owner is: {}", database::get_name(owner).unwrap()));
+                    self.players[player].send_system_message(&format!("Plot owner is: {}", database::get_cached_username(owner).unwrap()));
                 } else {
                     self.players[player].send_system_message("Plot is not owned by anyone.");
                 }
