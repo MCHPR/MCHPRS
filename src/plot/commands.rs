@@ -34,7 +34,7 @@ impl Plot {
             }
             "auto" | "a" => {
                 let mut start = (0, 0);
-                for itr in 0..MAX {
+                for _ in 0..MAX {
                     if database::is_claimed(start.0, start.1).unwrap() {
                         start = Plot::get_next_plot(start.0, start.1);
                     } else {

@@ -18,14 +18,11 @@ use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs;
-use std::fs::read_to_string;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
-use toml::Value;
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
@@ -158,7 +155,7 @@ impl MinecraftServer {
 
         // Create thread messaging structs
         let (plot_tx, server_rx) = mpsc::channel();
-        let mut bus = Bus::new(100);
+        let bus = Bus::new(100);
         let ctrl_handler_sender = plot_tx.clone();
 
         ctrlc::set_handler(move || {
@@ -612,11 +609,11 @@ impl ServerBoundPacketHandler for MinecraftServer {
             2 => client.state = NetworkState::Login,
             _ => {}
         }
-        if client.state == NetworkState::Login && handshake.protocol_version != 751 {
+        if client.state == NetworkState::Login && handshake.protocol_version != 754 {
             warn!("A player tried to connect using the wrong version");
             let disconnect = C00DisconnectLogin {
                 reason: json!({
-                    "text": "Version mismatch, I'm on 1.16.2!"
+                    "text": "Version mismatch, I'm on 1.16.4!"
                 })
                 .to_string(),
             }
@@ -647,8 +644,8 @@ impl ServerBoundPacketHandler for MinecraftServer {
         let response = C00Response {
             json_response: json!({
                 "version": {
-                    "name": "1.16.2",
-                    "protocol": 751
+                    "name": "1.16.4",
+                    "protocol": 754
                 },
                 "players": {
                     "max": CONFIG.max_players,
