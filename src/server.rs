@@ -1,4 +1,5 @@
 use crate::chat::ChatComponent;
+use crate::config::CONFIG;
 use crate::network::packets::clientbound::{
     C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C13WindowItems,
     C17PluginMessage, C24JoinGame, C24JoinGameBiomeEffects, C24JoinGameBiomeEffectsMoodSound,
@@ -13,7 +14,6 @@ use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::{Gamemode, Player};
 use crate::plot::{self, commands::DECLARE_COMMANDS, database, Plot};
-use crate::config::CONFIG;
 use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};

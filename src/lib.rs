@@ -2,10 +2,10 @@ mod network;
 #[macro_use]
 mod blocks;
 mod chat;
+mod config;
 mod items;
 mod player;
 mod plot;
-mod config;
 #[macro_use]
 mod utils;
 pub mod server;
