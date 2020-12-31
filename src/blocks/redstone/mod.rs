@@ -16,7 +16,7 @@ impl Block {
     ) -> u8 {
         match self {
             Block::RedstoneTorch { lit: true } => 15,
-            Block::RedstoneWallTorch { lit: true, .. } => 15,
+            Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
             Block::RedstoneBlock {} => 15,
             Block::Lever { lever } if lever.powered => 15,
             Block::StoneButton { button } if button.powered => 15,
