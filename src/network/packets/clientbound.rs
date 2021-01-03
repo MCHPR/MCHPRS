@@ -81,8 +81,8 @@ pub struct C00SpawnEntity {
     pub x: f64,
     pub y: f64,
     pub z: f64,
-    pub yaw: f32,
     pub pitch: f32,
+    pub yaw: f32,
     pub data: i32,
     pub velocity_x: i16,
     pub velocity_y: i16,
@@ -98,8 +98,8 @@ impl ClientBoundPacket for C00SpawnEntity {
         buf.write_double(self.x);
         buf.write_double(self.y);
         buf.write_double(self.z);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
         buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
         buf.write_int(self.data);
         buf.write_short(self.velocity_x);
         buf.write_short(self.velocity_y);
