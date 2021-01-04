@@ -191,7 +191,7 @@ impl Argument {
 
     fn unwrap_mask(&self) -> &WorldEditPattern {
         match self {
-            Argument::Pattern(val) => val,
+            Argument::Mask(val) => val,
             _ => panic!("Argument was not a Mask"),
         }
     }
