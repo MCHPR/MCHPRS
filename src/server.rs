@@ -338,26 +338,6 @@ impl MinecraftServer {
                     }
                 },
                 biomes: map! {
-                    "minecraft:plains".to_owned() => C24JoinGameBiomeElement {
-                        precipitation: "none".to_owned(),
-                        effects: C24JoinGameBiomeEffects {
-                            sky_color: 7907327,
-                            water_fog_color: 329011,
-                            fog_color: 12638463,
-                            water_color: 4159204,
-                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
-                                tick_delay: 6000,
-                                offset: 2.0,
-                                sound: "minecraft:ambient.cave".to_owned(),
-                                block_search_extent: 8,
-                            }
-                        },
-                        depth: 0.125,
-                        temperature: 0.8,
-                        scale: 0.5,
-                        downfall: 0.4,
-                        category: "none".to_owned(),
-                    },
                     "mchprs:plot".to_owned() => C24JoinGameBiomeElement {
                         precipitation: "none".to_owned(),
                         effects: C24JoinGameBiomeEffects {
@@ -376,6 +356,26 @@ impl MinecraftServer {
                         temperature: 0.5,
                         scale: 0.2,
                         downfall: 0.5,
+                        category: "none".to_owned(),
+                    },
+                    "minecraft:plains".to_owned() => C24JoinGameBiomeElement {
+                        precipitation: "none".to_owned(),
+                        effects: C24JoinGameBiomeEffects {
+                            sky_color: 7907327,
+                            water_fog_color: 329011,
+                            fog_color: 12638463,
+                            water_color: 4159204,
+                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
+                                tick_delay: 6000,
+                                offset: 2.0,
+                                sound: "minecraft:ambient.cave".to_owned(),
+                                block_search_extent: 8,
+                            }
+                        },
+                        depth: 0.125,
+                        temperature: 0.8,
+                        scale: 0.5,
+                        downfall: 0.4,
                         category: "none".to_owned(),
                     }
                 },
