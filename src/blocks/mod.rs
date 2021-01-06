@@ -1175,7 +1175,9 @@ blocks! {
         from_id(_id): 1 => {},
         from_names(_name): {
             "stone" => {}
-        }
+        },
+        solid: true,
+        cube: true,
     },
     Glass {
         props: {},
