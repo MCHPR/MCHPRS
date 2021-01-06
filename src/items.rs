@@ -195,6 +195,12 @@ items! {
         from_id(_id): 904 => {},
         max_stack: 1,
     },
+    Stone {
+        props: {},
+        get_id: 1,
+        from_id(_id): 1 => {},
+        block: true,
+    },
     Redstone {
         props: {},
         get_id: 665,
