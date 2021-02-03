@@ -242,8 +242,10 @@ impl Argument {
 }
 
 struct ArgumentDescription {
+    // TODO: Use name in help command
     name: &'static str,
     argument_type: ArgumentType,
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -260,6 +262,7 @@ macro_rules! argument {
 struct FlagDescription {
     letter: char,
     argument_type: Option<ArgumentType>,
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -300,6 +303,7 @@ struct WorldeditCommand {
     requires_positions: bool,
     requires_clipboard: bool,
     execute_fn: fn(CommandExecuteContext),
+    // TODO: Use description in help command
     description: &'static str,
 }
 

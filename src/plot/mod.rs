@@ -54,9 +54,12 @@ impl World for Plot {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+
+        // Check to see if block is within height limit
         if chunk_index >= 256 || pos.y > 256 {
             return false;
         }
+
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block_raw(
             (pos.x & 0xF) as u32,
@@ -72,9 +75,12 @@ impl World for Plot {
     fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+
+        // Check to see if block is within height limit
         if chunk_index >= 256 || pos.y > 256 {
             return false;
         }
+
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block(
             (pos.x & 0xF) as u32,

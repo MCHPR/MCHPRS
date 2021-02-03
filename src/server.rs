@@ -318,7 +318,7 @@ impl MinecraftServer {
             previous_gamemode: 1,
             world_count: 1,
             world_names: vec!["mchprs:world".to_owned()],
-            dimention_codec: C24JoinGameDimensionCodec {
+            dimension_codec: C24JoinGameDimensionCodec {
                 dimensions: map! {
                     "mchprs:world".to_owned() => C24JoinGameDimensionElement {
                         natural: 1,
@@ -380,7 +380,8 @@ impl MinecraftServer {
                     }
                 },
             },
-            dimention: C24JoinGameDimensionElement {
+            // this should be exactly the same has the dimension listed in dimension_codec
+            dimension: C24JoinGameDimensionElement {
                 natural: 1,
                 ambient_light: 1.0,
                 has_ceiling: 0,
