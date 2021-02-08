@@ -29,7 +29,9 @@ harness = false
 toml = "0.5.8"
 flate2 = "1.0.19"
 byteorder = "1.3.4"
-hematite-nbt = "0.5.0"
+# hematite-nbt 0.5.0 has an issue with serde that causes it to fail to compile.
+# This issue has been fixed but not yet released, so until then we will build from git.
+hematite-nbt = { git = "https://github.com/PistonDevelopers/hematite_nbt" }
 bitflags = "1.2.1"
 serde = "1.0.118"
 md5 = "0.7.0"
