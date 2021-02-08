@@ -784,7 +784,11 @@ impl Plot {
         }
         while self.running {
             self.update();
-            thread::sleep(self.sleep_time);
+            // This is a little hacky.
+            // Here we should calculate how much time has passed and how long we should sleep
+            // until the next tick (Maybe don't even sleep at all if tps is set extremely high?)
+            thread::yield_now();
+            // thread::sleep(self.sleep_time);
         }
     }
 
