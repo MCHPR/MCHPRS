@@ -12,6 +12,7 @@ use std::ops::RangeInclusive;
 use std::time::Instant;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
+// The command is not handled if it is not found in the worldedit commands and alias lists.
 pub fn execute_command(
     plot: &mut Plot,
     player_idx: usize,
