@@ -358,6 +358,18 @@ items! {
         from_id(_id): 155 => {},
         block: true,
     },
+    ColoredLamp {
+        props: {},
+        get_id: 134,
+        from_id(_id): 134 => {},
+        block: true,
+    },
+    Randomizer {
+        props: {},
+        get_id: 509,
+        from_id(_id): 509 => {},
+        block: true,
+    },
     Unknown {
         props: {
             id: u32

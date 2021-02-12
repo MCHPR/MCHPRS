@@ -429,7 +429,7 @@ impl Block {
 
     fn has_comparator_override(self) -> bool {
         match self {
-            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => true,
+            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } | Block::Randomizer { .. } => true,
             _ => false,
         }
     }
@@ -445,7 +445,8 @@ impl Block {
                 } else {
                     0
                 }
-            }
+            },
+            Block::Randomizer { output, .. } => output,
             _ => 0,
         }
     }
@@ -646,6 +647,8 @@ impl Block {
             Item::StainedGlass { color } => Block::StainedGlass { color },
             Item::SmoothStoneSlab {} => Block::SmoothStoneSlab {},
             Item::QuartzSlab {} => Block::QuartzSlab {},
+            Item::ColoredLamp {} => Block::ColoredLamp { color: 0 },
+            Item::Randomizer {} => Block::Randomizer { is_powered: false, output: 0 },
             _ => Block::Air {},
         };
         if block.is_valid_position(world, pos) {
@@ -758,6 +761,44 @@ impl Block {
                     world.schedule_tick(pos, 2, TickPriority::Normal);
                 } else if !lit && should_be_lit {
                     world.set_block(pos, Block::RedstoneLamp { lit: true });
+                }
+            }
+            Block::ColoredLamp { color } => {
+                let mut max = 0;
+                for face in &BlockFace::values() {
+                    let neighbor_pos = pos.offset(*face);
+                    let power = world
+                        .get_block(neighbor_pos)
+                        .get_redstone_power(world, neighbor_pos, *face);
+                    if power > max {
+                        max = power;
+                    }
+                }
+                if max != color {
+                    world.set_block(pos, Block::ColoredLamp { color: max });
+                }
+            }
+            Block::Randomizer { is_powered, .. } => {
+                let mut max = 0;
+                for face in &BlockFace::values() {
+                    let neighbor_pos = pos.offset(*face);
+                    let power = world
+                        .get_block(neighbor_pos)
+                        .get_redstone_power(world, neighbor_pos, *face);
+                    if power > max {
+                        max = power;
+                    }
+                }
+
+                let should_be_powered = max > 0;
+                if should_be_powered != is_powered {
+                    if should_be_powered {
+                        let random = rand::random::<u8>() & 15;
+                        world.set_block(pos, Block::Randomizer { is_powered: true, output: random });
+                    } else {
+                        world.set_block(pos, Block::Randomizer { is_powered: false, output: 0 });
+                    }
+                    Block::update_surrounding_blocks(world, pos);
                 }
             }
             _ => {}
@@ -1710,6 +1751,47 @@ blocks! {
             "green_wool" => { color: BlockColorVariant::Green },
             "red_wool" => { color: BlockColorVariant::Red },
             "black_wool" => { color: BlockColorVariant::Black }
+        },
+        solid: true,
+        cube: true,
+    },
+    ColoredLamp {
+        props: {
+            color: u8
+        },
+        get_id: color as u32 + 9474,
+        from_id_offset: 9474,
+        from_id(id): 9474..=9489 => {
+            color: id as u8
+        },
+        from_names(_name): {
+            "kelp" => {
+                color: 0
+            }
+        },
+        transparent: true,
+        cube: true,
+    },
+    Randomizer {
+        props: {
+            is_powered: bool,
+            output: u8
+        },
+        get_id: {
+            output as u32 * 2
+            + (is_powered as u32)
+            + 5661
+        },
+        from_id_offset: 5661,
+        from_id(id): 5661..=5692 => {
+            is_powered: (id & 1) == 1,
+            output: (id >> 1) as u8
+        },
+        from_names(_name): {
+            "cobblestone_wall" => {
+                is_powered: false,
+                output: 0
+            }
         },
         solid: true,
         cube: true,

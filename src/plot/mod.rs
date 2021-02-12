@@ -598,6 +598,7 @@ impl Plot {
                 // }
             }
 
+            // Send players the block changes that were made in this update
             let mut multi_block_packets = Vec::new();
             for chunk in &mut self.chunks {
                 multi_block_packets.append(&mut chunk.drain_multi_block());
