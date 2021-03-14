@@ -153,8 +153,7 @@ impl Player {
             };
 
             // Load inventory
-            let mut inventory: Vec<Option<ItemStack>> = vec![];
-            inventory.resize_with(46, || None);
+            let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
             for entry in player_data.inventory {
                 let nbt = entry
                     .nbt
@@ -203,8 +202,7 @@ impl Player {
 
     /// Returns the default player struct
     fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
-        let mut inventory: Vec<Option<ItemStack>> = vec![];
-        inventory.resize_with(46, || None);
+        let inventory: Vec<Option<ItemStack>> = vec![None; 46];
         Player {
             uuid,
             username,

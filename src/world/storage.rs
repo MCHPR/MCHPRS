@@ -30,6 +30,7 @@ impl std::fmt::Debug for BitBuffer {
 
 impl BitBuffer {
     pub fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
+        // 0..9, 15
         let entries_per_long = 64 / bits_per_entry as u64;
         // Rounding up div
         let longs_len = (entries + entries_per_long as usize - 1) / entries_per_long as usize;
