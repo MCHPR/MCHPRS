@@ -110,7 +110,7 @@ pub fn execute_command(
     }
 
     for (i, arg_desc) in arg_descs.iter().enumerate() {
-        let arg = args.get(i).map(|s| *s);
+        let arg = args.get(i).copied();
         match Argument::parse(&ctx, arg_desc.argument_type, arg) {
             Ok(default_arg) => ctx.arguments.push(default_arg),
             Err(err) => {
@@ -590,7 +590,7 @@ impl WorldEditPattern {
             }
             let pattern_match = RE
                 .captures(part)
-                .ok_or(PatternParseError::InvalidPattern(part.to_owned()))?;
+                .ok_or_else(|| PatternParseError::InvalidPattern(part.to_owned()))?;
 
             let block = if pattern_match.get(4).is_some() {
                 Block::from_id(

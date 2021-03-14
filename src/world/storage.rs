@@ -97,10 +97,6 @@ pub struct PalettedBitBuffer {
 }
 
 impl PalettedBitBuffer {
-    pub fn new() -> PalettedBitBuffer {
-        Self::with_entries(4096)
-    }
-
     pub fn with_entries(entries: usize) -> PalettedBitBuffer {
         let mut palette = Vec::new();
         palette.push(0);
@@ -193,6 +189,12 @@ impl PalettedBitBuffer {
     }
 }
 
+impl Default for PalettedBitBuffer {
+    fn default() -> Self {
+        Self::with_entries(4096)
+    }
+}
+
 pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
@@ -260,7 +262,7 @@ impl ChunkSection {
 
     fn new() -> ChunkSection {
         ChunkSection {
-            buffer: PalettedBitBuffer::new(),
+            buffer: Default::default(),
             block_count: 0,
             multi_block: Vec::new(),
         }

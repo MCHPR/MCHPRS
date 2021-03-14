@@ -15,6 +15,7 @@ use bus::BusReader;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::cmp::Ordering;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
@@ -455,27 +456,30 @@ impl Plot {
     pub fn get_next_plot(plot_x: i32, plot_z: i32) -> (i32, i32) {
         let x = plot_x.abs();
         let z = plot_z.abs();
-        if x > z {
-            if plot_x > 0 {
-                (plot_x, plot_z + 1)
-            } else {
-                (plot_x, plot_z - 1)
+
+        match x.cmp(&z) {
+            Ordering::Greater => {
+                if plot_x > 0 {
+                    (plot_x, plot_z + 1)
+                } else {
+                    (plot_x, plot_z - 1)
+                }
             }
-        } else if z > x {
-            if plot_z > 0 {
-                (plot_x - 1, plot_z)
-            } else {
-                (plot_x + 1, plot_z)
+            Ordering::Less => {
+                if plot_z > 0 {
+                    (plot_x - 1, plot_z)
+                } else {
+                    (plot_x + 1, plot_z)
+                }
             }
-        } else {
-            if plot_x == plot_z && plot_x > 0 {
-                (plot_x, plot_z + 1)
-            } else if plot_x == x {
-                (plot_x, plot_z + 1)
-            } else if plot_z == z {
-                (plot_x, plot_z - 1)
-            } else {
-                (plot_x + 1, plot_z)
+            Ordering::Equal => {
+                if plot_x == plot_z && plot_x > 0 || plot_x == x {
+                    (plot_x, plot_z + 1)
+                } else if plot_z == z {
+                    (plot_x, plot_z - 1)
+                } else {
+                    (plot_x + 1, plot_z)
+                }
             }
         }
     }
@@ -694,7 +698,7 @@ impl Plot {
             last_update_time: SystemTime::now(),
             lag_time: Duration::new(0, 0),
             sleep_time: Duration::from_micros(
-                (1_000_000 as u64)
+                1_000_000u64
                     .checked_div((plot_data.tps as u64).max(20))
                     .unwrap_or(0),
             ),

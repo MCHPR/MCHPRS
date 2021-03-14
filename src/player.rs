@@ -319,11 +319,11 @@ impl Player {
             BlockFacing::Up
         } else if pitch >= 70.0 {
             BlockFacing::Down
-        } else if yaw >= 45.0 && yaw <= 135.0 {
+        } else if (45.0..=135.0).contains(&yaw) {
             BlockFacing::West
-        } else if yaw >= 135.0 && yaw <= 225.0 {
+        } else if (135.0..=225.0).contains(&yaw) {
             BlockFacing::North
-        } else if yaw >= 225.0 && yaw <= 315.0 {
+        } else if (225.0..=315.0).contains(&yaw) {
             BlockFacing::East
         } else {
             BlockFacing::South

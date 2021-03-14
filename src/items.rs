@@ -38,19 +38,16 @@ impl ItemStack {
         let pos = context.block_pos;
         let block = plot.get_block(pos);
 
-        match self.item_type {
-            Item::WEWand {} => {
-                if let Some(first_pos) = plot.players[context.player_idx].second_position {
-                    if pos != first_pos {
-                        plot.players[context.player_idx]
-                            .worldedit_set_second_position(pos.x, pos.y, pos.z);
-                    }
-                } else {
+        if let Item::WEWand {} = self.item_type {
+            if let Some(first_pos) = plot.players[context.player_idx].second_position {
+                if pos != first_pos {
                     plot.players[context.player_idx]
                         .worldedit_set_second_position(pos.x, pos.y, pos.z);
                 }
+            } else {
+                plot.players[context.player_idx]
+                    .worldedit_set_second_position(pos.x, pos.y, pos.z);
             }
-            _ => {}
         }
 
         if !context.player_crouching
@@ -126,6 +123,7 @@ macro_rules! items {
             ),*
         }
 
+        #[allow(clippy::redundant_field_names)]
         impl Item {
             pub fn get_id(self) -> u32 {
                 match self {
