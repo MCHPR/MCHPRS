@@ -45,8 +45,7 @@ impl ItemStack {
                         .worldedit_set_second_position(pos.x, pos.y, pos.z);
                 }
             } else {
-                plot.players[context.player_idx]
-                    .worldedit_set_second_position(pos.x, pos.y, pos.z);
+                plot.players[context.player_idx].worldedit_set_second_position(pos.x, pos.y, pos.z);
             }
         }
 

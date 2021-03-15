@@ -1,14 +1,15 @@
+#![deny(rust_2018_idioms)]
 
-mod network;
+#[macro_use]
+mod utils;
 #[macro_use]
 mod blocks;
 mod chat;
 mod config;
 mod items;
+mod network;
 mod player;
 mod plot;
-#[macro_use]
-mod utils;
 pub mod server;
 pub mod world;
 

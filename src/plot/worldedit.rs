@@ -197,7 +197,7 @@ impl Argument {
         }
     }
 
-    fn get_default(ctx: &CommandExecuteContext, arg_type: ArgumentType) -> ArgumentParseResult {
+    fn get_default(ctx: &CommandExecuteContext<'_>, arg_type: ArgumentType) -> ArgumentParseResult {
         match arg_type {
             ArgumentType::Direction => Argument::parse(ctx, arg_type, Some("me")),
             ArgumentType::UnsignedInteger => Ok(Argument::UnsignedInteger(1)),
@@ -209,7 +209,7 @@ impl Argument {
     }
 
     fn parse(
-        ctx: &CommandExecuteContext,
+        ctx: &CommandExecuteContext<'_>,
         arg_type: ArgumentType,
         arg: Option<&str>,
     ) -> ArgumentParseResult {
@@ -303,7 +303,7 @@ struct WorldeditCommand {
     flags: &'static [FlagDescription],
     requires_positions: bool,
     requires_clipboard: bool,
-    execute_fn: fn(CommandExecuteContext),
+    execute_fn: fn(CommandExecuteContext<'_>),
     // TODO: Use description in help command
     description: &'static str,
 }
@@ -320,18 +320,6 @@ impl Default for WorldeditCommand {
         }
     }
 }
-
-macro_rules! map(
-    { $($key:expr => $value:expr),+ } => {
-        {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
-        }
-     };
-);
 
 lazy_static! {
     static ref COMMANDS: HashMap<&'static str, WorldeditCommand> = map! {
@@ -752,7 +740,7 @@ fn worldedit_start_operation(plot: &mut Plot, player: usize) -> WorldEditOperati
     WorldEditOperation::new(first_pos, second_pos)
 }
 
-fn execute_set(mut ctx: CommandExecuteContext) {
+fn execute_set(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
     let pattern = ctx.arguments[0].unwrap_pattern();
 
@@ -786,7 +774,7 @@ fn execute_set(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_replace(mut ctx: CommandExecuteContext) {
+fn execute_replace(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let filter = ctx.arguments[0].unwrap_mask();
@@ -825,7 +813,7 @@ fn execute_replace(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_count(mut ctx: CommandExecuteContext) {
+fn execute_count(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let filter = ctx.arguments[0].unwrap_pattern();
@@ -978,7 +966,7 @@ fn capture_undo(plot: &mut Plot, player: usize, first_pos: BlockPos, second_pos:
     plot.players[player].worldedit_undo.push(undo);
 }
 
-fn execute_copy(mut ctx: CommandExecuteContext) {
+fn execute_copy(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let origin = BlockPos::new(
@@ -1000,7 +988,7 @@ fn execute_copy(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_cut(mut ctx: CommandExecuteContext) {
+fn execute_cut(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let first_pos = ctx.get_player().first_position.unwrap();
@@ -1021,7 +1009,7 @@ fn execute_cut(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_move(mut ctx: CommandExecuteContext) {
+fn execute_move(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let move_amt = ctx.arguments[0].unwrap_uint();
@@ -1055,7 +1043,7 @@ fn execute_move(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_paste(mut ctx: CommandExecuteContext) {
+fn execute_paste(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     if ctx.get_player().worldedit_clipboard.is_some() {
@@ -1109,7 +1097,7 @@ pub(super) fn execute_load(plot: &mut Plot, player: usize, file_name: &str) {
     }
 }
 
-fn execute_stack(mut ctx: CommandExecuteContext) {
+fn execute_stack(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let stack_amt = ctx.arguments[0].unwrap_uint();
@@ -1139,7 +1127,7 @@ fn execute_stack(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_undo(mut ctx: CommandExecuteContext) {
+fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
     if ctx.get_player().worldedit_undo.is_empty() {
         ctx.get_player_mut()
             .send_error_message("There is nothing left to undo.");
@@ -1154,7 +1142,7 @@ fn execute_undo(mut ctx: CommandExecuteContext) {
     paste_clipboard(ctx.plot, &undo.clipboard, undo.pos, false);
 }
 
-fn execute_sel(mut ctx: CommandExecuteContext) {
+fn execute_sel(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
     player.first_position = None;
     player.second_position = None;
@@ -1162,7 +1150,7 @@ fn execute_sel(mut ctx: CommandExecuteContext) {
     player.worldedit_send_cui("s|cuboid");
 }
 
-fn execute_pos1(mut ctx: CommandExecuteContext) {
+fn execute_pos1(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
     let x = player.x as i32;
@@ -1172,7 +1160,7 @@ fn execute_pos1(mut ctx: CommandExecuteContext) {
     player.worldedit_set_first_position(x, y, z);
 }
 
-fn execute_pos2(mut ctx: CommandExecuteContext) {
+fn execute_pos2(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
     let x = player.x as i32;
@@ -1182,6 +1170,6 @@ fn execute_pos2(mut ctx: CommandExecuteContext) {
     player.worldedit_set_second_position(x, y, z);
 }
 
-fn execute_unimplemented(_ctx: CommandExecuteContext) {
+fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {
     unimplemented!("Unimplimented worldedit command");
 }

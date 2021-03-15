@@ -15,7 +15,7 @@ pub struct BitBuffer {
     entries: usize,
     mask: u64,
     longs: Vec<u64>,
-    fast_arr_idx: fn (word_idx: usize) -> usize
+    fast_arr_idx: fn(word_idx: usize) -> usize,
 }
 
 impl std::fmt::Debug for BitBuffer {
@@ -30,7 +30,7 @@ impl std::fmt::Debug for BitBuffer {
 }
 
 impl BitBuffer {
-    fn find_fast_arr_idx_fn(entries_per_long: usize) -> fn (word_idx: usize) -> usize {
+    fn find_fast_arr_idx_fn(entries_per_long: usize) -> fn(word_idx: usize) -> usize {
         fn fast_arr_idx<const N: usize>(word_idx: usize) -> usize {
             word_idx / N
         }
@@ -43,7 +43,7 @@ impl BitBuffer {
             8 => fast_arr_idx::<8>,
             7 => fast_arr_idx::<7>,
             4 => fast_arr_idx::<4>,
-            _ => unreachable!("entries_per_long cannot be {}", entries_per_long)
+            _ => unreachable!("entries_per_long cannot be {}", entries_per_long),
         }
     }
 
