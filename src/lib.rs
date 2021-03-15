@@ -1,4 +1,3 @@
-#![feature(const_generics)]
 
 mod network;
 #[macro_use]
