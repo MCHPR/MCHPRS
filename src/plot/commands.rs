@@ -76,13 +76,6 @@ impl Plot {
         }
 
         match command {
-            "//load" => {
-                if args.is_empty() {
-                    self.players[player].send_error_message("Invalid number of arguments!");
-                    return false;
-                }
-                worldedit::execute_load(self, player, &args[0])
-            }
             "/rtps" => {
                 if args.is_empty() {
                     self.players[player]

@@ -159,6 +159,7 @@ enum ArgumentType {
     Direction,
     Mask,
     Pattern,
+    String
 }
 
 enum Argument {
@@ -166,6 +167,7 @@ enum Argument {
     Direction(BlockFacing),
     Pattern(WorldEditPattern),
     Mask(WorldEditPattern),
+    String(String),
 }
 
 impl Argument {
@@ -194,6 +196,13 @@ impl Argument {
         match self {
             Argument::Mask(val) => val,
             _ => panic!("Argument was not a Mask"),
+        }
+    }
+
+    fn unwrap_string(&self) -> &String {
+        match self {
+            Argument::String(val) => val,
+            _ => panic!("Argument was not a String"),
         }
     }
 
@@ -238,6 +247,7 @@ impl Argument {
                 Ok(pattern) => Ok(Argument::Mask(pattern)),
                 Err(err) => Err(ArgumentParseError::new(arg_type, &err.to_string())),
             },
+            ArgumentType::String => Ok(Argument::String(arg.to_owned())),
         }
     }
 }
@@ -417,6 +427,14 @@ lazy_static! {
             requires_positions: true,
             execute_fn: execute_replace,
             description: "Replace all blocks in a selection with another",
+            ..Default::default()
+        },
+        "load" => WorldeditCommand {
+            arguments: &[
+                argument!("name", String, "The file name of the schematic to load")
+            ],
+            execute_fn: execute_load,
+            description: "Loads a schematic file into the clipboard",
             ..Default::default()
         }
     };
@@ -1078,21 +1096,22 @@ fn execute_paste(mut ctx: CommandExecuteContext<'_>) {
     }
 }
 
-// TODO: This should use the new worldedit command stuff
-pub(super) fn execute_load(plot: &mut Plot, player: usize, file_name: &str) {
+fn execute_load(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
+
+    let file_name = ctx.arguments[0].unwrap_string();
 
     let clipboard = WorldEditClipboard::load_from_schematic(file_name);
     match clipboard {
         Some(cb) => {
-            plot.players[player].worldedit_clipboard = Some(cb);
-            plot.players[player].send_worldedit_message(&format!(
+            ctx.get_player_mut().worldedit_clipboard = Some(cb);
+            ctx.get_player_mut().send_worldedit_message(&format!(
                 "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
                 start_time.elapsed()
             ));
         }
         None => {
-            plot.players[player].send_error_message("There was an error loading the schematic.");
+            ctx.get_player_mut().send_error_message("There was an error loading the schematic.");
         }
     }
 }
