@@ -412,8 +412,9 @@ dependencies = [
 
 [[package]]
 name = "hematite-nbt"
-version = "0.5.0"
-source = "git+https://github.com/PistonDevelopers/hematite_nbt#36d27a36ecf3f2b54a725811d50132fc005a35a9"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b488b074f8567cb2c968c9f834817e9f55195e25d680d71047c20c2ebadf6670"
 dependencies = [
  "byteorder",
  "cesu8",
