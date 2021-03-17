@@ -159,7 +159,7 @@ enum ArgumentType {
     Direction,
     Mask,
     Pattern,
-    String
+    String,
 }
 
 enum Argument {
@@ -1111,7 +1111,8 @@ fn execute_load(mut ctx: CommandExecuteContext<'_>) {
             ));
         }
         None => {
-            ctx.get_player_mut().send_error_message("There was an error loading the schematic.");
+            ctx.get_player_mut()
+                .send_error_message("There was an error loading the schematic.");
         }
     }
 }

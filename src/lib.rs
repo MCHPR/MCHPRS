@@ -2,7 +2,6 @@
 
 #[macro_use]
 mod utils;
-#[macro_use]
 mod blocks;
 mod chat;
 mod config;

@@ -42,3 +42,14 @@ macro_rules! map(
         }
      };
 );
+
+macro_rules! nbt_unwrap_val {
+    // I'm not sure if path is the right type here.
+    // It works though!
+    ($e:expr, $p:path) => {
+        match $e {
+            $p(val) => val,
+            _ => return None,
+        }
+    };
+}

@@ -19,17 +19,6 @@ pub enum BlockEntity {
     Sign(Box<SignBlockEntity>),
 }
 
-macro_rules! nbt_unwrap_val {
-    // I'm not sure if path is the right type here.
-    // It works though!
-    ($e:expr, $p:path) => {
-        match $e {
-            $p(val) => val,
-            _ => return None,
-        }
-    };
-}
-
 impl BlockEntity {
     fn load_container(slots_nbt: &[nbt::Value], num_slots: u8) -> Option<BlockEntity> {
         use nbt::Value;
