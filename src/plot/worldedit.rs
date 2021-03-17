@@ -223,7 +223,7 @@ impl Argument {
         arg: Option<&str>,
     ) -> ArgumentParseResult {
         if arg.is_none() {
-            return Ok(Argument::get_default(ctx, arg_type)?);
+            return Argument::get_default(ctx, arg_type);
         }
         let arg = arg.unwrap();
         match arg_type {
@@ -481,7 +481,7 @@ pub struct WorldEditUndo {
 impl WorldEditClipboard {
     fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
         // I greaty dislike this
-        let mut file = match File::open("./schems/".to_owned() + file_name + ".schem") {
+        let mut file = match File::open("./schems/".to_owned() + file_name) {
             Ok(file) => file,
             Err(_) => return None,
         };
