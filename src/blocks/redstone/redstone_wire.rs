@@ -27,10 +27,7 @@ pub enum RedstoneWireSide {
 
 impl RedstoneWireSide {
     pub fn is_none(self) -> bool {
-        match self {
-            RedstoneWireSide::None => true,
-            _ => false,
-        }
+        matches!(self, RedstoneWireSide::None)
     }
 
     pub fn from_str(name: &str) -> RedstoneWireSide {
@@ -102,8 +99,10 @@ impl RedstoneWire {
     }
 
     pub fn get_state_for_placement(world: &dyn World, pos: BlockPos) -> RedstoneWire {
-        let mut wire = RedstoneWire::default();
-        wire.power = RedstoneWire::calculate_power(world, pos);
+        let mut wire = RedstoneWire {
+            power: RedstoneWire::calculate_power(world, pos),
+            ..Default::default()
+        };
         wire = wire.get_regulated_sides(world, pos);
         if wire.is_dot() {
             let mut cross = RedstoneWire::CROSS;
@@ -208,10 +207,7 @@ impl RedstoneWire {
     }
 
     fn can_connect_diagonal_to(block: Block) -> bool {
-        match block {
-            Block::RedstoneWire { .. } => true,
-            _ => false,
-        }
+        matches!(block, Block::RedstoneWire { .. })
     }
 
     pub fn get_current_side(self, side: BlockDirection) -> RedstoneWireSide {
@@ -470,9 +466,11 @@ impl RedstoneWireTurbo {
         let mut neighbors_visited = Vec::with_capacity(24);
         let mut neighbor_nodes = Vec::with_capacity(24);
 
-        for (i, neighbor_pos) in neighbors[0..24].iter().enumerate() {
+        for (_i, neighbor_pos) in neighbors[0..24].iter().enumerate() {
             let neighbor = if !self.node_cache.contains_key(neighbor_pos) {
-                let node_id = NodeId { index: self.nodes.len() };
+                let node_id = NodeId {
+                    index: self.nodes.len(),
+                };
                 self.node_cache.insert(*neighbor_pos, node_id);
                 self.nodes.push(UpdateNode::new(world, *neighbor_pos, pos));
                 node_id
@@ -484,7 +482,7 @@ impl RedstoneWireTurbo {
             // if let Block::RedstoneWire { .. } = node.state {
             //     if RedstoneWireTurbo::UPDATE_REDSTONE[i] {
             neighbor_nodes.push(neighbor);
-            neighbors_visited.push(node.visited);        
+            neighbors_visited.push(node.visited);
             //         continue;
             //     }
             // }
@@ -522,9 +520,9 @@ impl RedstoneWireTurbo {
 
             for node_id in &neighbor_nodes {
                 // if let Some(node_id) = node_id {
-                    let nn = &mut self.nodes[node_id.index];
-                    nn.xbias = xbias;
-                    nn.zbias = zbias;
+                let nn = &mut self.nodes[node_id.index];
+                nn.xbias = xbias;
+                nn.zbias = zbias;
                 // }
             }
         } else {
@@ -540,9 +538,9 @@ impl RedstoneWireTurbo {
 
             for node_id in &neighbor_nodes {
                 // if let Some(node_id) = node_id {
-                    let nn = &mut self.nodes[node_id.index];
-                    nn.xbias = cx;
-                    nn.zbias = cz;
+                let nn = &mut self.nodes[node_id.index];
+                nn.xbias = cx;
+                nn.zbias = cz;
                 // }
             }
         }
@@ -592,9 +590,7 @@ impl RedstoneWireTurbo {
             self.identify_neighbors(world, upd1);
         }
         // FIXME: Get rid of this nasty clone
-        let neighbors = self.nodes[upd1.index].neighbors
-            .clone()
-            .unwrap();
+        let neighbors = self.nodes[upd1.index].neighbors.clone().unwrap();
         let pos = self.nodes[upd1.index].pos;
 
         let layer1 = layer + 1;
@@ -660,10 +656,7 @@ impl RedstoneWireTurbo {
 
         let new_wire = self.calculate_current_changes(world, upd1);
         if old_wire.power != new_wire.power {
-            self.nodes[upd1.index]
-                .state
-                .wire_mut()
-                .power = new_wire.power;
+            self.nodes[upd1.index].state.wire_mut().power = new_wire.power;
 
             self.propagate_changes(world, upd1, layer);
         }
@@ -693,10 +686,7 @@ impl RedstoneWireTurbo {
         }
 
         if wire_power < 15 {
-            let neighbors = self.nodes[upd.index]
-                .neighbors
-                .as_ref()
-                .unwrap();
+            let neighbors = self.nodes[upd.index].neighbors.as_ref().unwrap();
 
             let center_up = self.nodes[neighbors[1].index].state;
 

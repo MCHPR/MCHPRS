@@ -27,7 +27,10 @@ impl Plot {
             }
             "info" | "i" => {
                 if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
-                    self.players[player].send_system_message(&format!("Plot owner is: {}", owner));
+                    self.players[player].send_system_message(&format!(
+                        "Plot owner is: {}",
+                        database::get_cached_username(owner.clone()).unwrap_or(owner)
+                    ));
                 } else {
                     self.players[player].send_system_message("Plot is not owned by anyone.");
                 }
@@ -73,13 +76,6 @@ impl Plot {
         }
 
         match command {
-            "//load" => {
-                if args.is_empty() {
-                    self.players[player].send_error_message("Invalid number of arguments!");
-                    return false;
-                }
-                worldedit::execute_load(self, player, &args[0])
-            }
             "/rtps" => {
                 if args.is_empty() {
                     self.players[player]

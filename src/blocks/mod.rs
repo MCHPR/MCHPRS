@@ -19,17 +19,6 @@ pub enum BlockEntity {
     Sign(Box<SignBlockEntity>),
 }
 
-macro_rules! nbt_unwrap_val {
-    // I'm not sure if path is the right type here.
-    // It works though!
-    ($e:expr, $p:path) => {
-        match $e {
-            $p(val) => val,
-            _ => return None,
-        }
-    };
-}
-
 impl BlockEntity {
     fn load_container(slots_nbt: &[nbt::Value], num_slots: u8) -> Option<BlockEntity> {
         use nbt::Value;
@@ -348,10 +337,7 @@ impl BlockFace {
 
     fn is_horizontal(self) -> bool {
         use BlockFace::*;
-        match self {
-            North | South | East | West => true,
-            _ => false,
-        }
+        matches!(self, North | South | East | West)
     }
 
     fn to_direction(self) -> BlockDirection {
@@ -416,22 +402,22 @@ impl BlockColorVariant {
 
 impl Block {
     pub fn has_block_entity(self) -> bool {
-        match self {
+        matches!(
+            self,
             Block::RedstoneComparator { .. }
-            | Block::Barrel { .. }
-            | Block::Furnace { .. }
-            | Block::Hopper { .. }
-            | Block::Sign { .. }
-            | Block::WallSign { .. } => true,
-            _ => false,
-        }
+                | Block::Barrel { .. }
+                | Block::Furnace { .. }
+                | Block::Hopper { .. }
+                | Block::Sign { .. }
+                | Block::WallSign { .. }
+        )
     }
 
     fn has_comparator_override(self) -> bool {
-        match self {
-            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. }
+        )
     }
 
     fn get_comparator_override(self, world: &dyn World, pos: BlockPos) -> u8 {
@@ -451,27 +437,26 @@ impl Block {
     }
 
     fn is_diode(self) -> bool {
-        match self {
-            Block::RedstoneRepeater { .. } | Block::RedstoneComparator { .. } => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Block::RedstoneRepeater { .. } | Block::RedstoneComparator { .. }
+        )
     }
 
     pub fn can_place_block_in(self) -> bool {
-        match self.get_id() {
-            0 => true,           // Air
-            9129..=9130 => true, // Void and Cave air
-            34..=49 => true,     // Water
-            50..=65 => true,     // Lava
-            1341 => true,        // Grass
-            1342 => true,        // Fern
-            1343 => true,        // Dead bush
-            1344 => true,        // Seagrass
-            1345..=1346 => true, // Tall Seagrass
-            7357..=7358 => true, // Tall Grass
-            7359..=7360 => true, // Tall Fern
-            _ => false,
-        }
+        matches!(self.get_id(),
+            0             // Air
+            | 9129..=9130 // Void and Cave air
+            | 34..=49     // Water
+            | 50..=65     // Lava
+            | 1341        // Grass
+            | 1342        // Fern
+            | 1343        // Dead bush
+            | 1344        // Seagrass
+            | 1345..=1346 // Tall Seagrass
+            | 7357..=7358 // Tall Grass
+            | 7359..=7360 // Tall Fern
+        )
     }
 
     pub fn on_use(
@@ -1082,6 +1067,7 @@ macro_rules! blocks {
             ),*
         }
 
+        #[allow(clippy::redundant_field_names)]
         impl Block {
             fn is_solid(self) -> bool {
                 match self {

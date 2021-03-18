@@ -12,6 +12,7 @@ use std::ops::RangeInclusive;
 use std::time::Instant;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
+// The command is not handled if it is not found in the worldedit commands and alias lists.
 pub fn execute_command(
     plot: &mut Plot,
     player_idx: usize,
@@ -109,7 +110,7 @@ pub fn execute_command(
     }
 
     for (i, arg_desc) in arg_descs.iter().enumerate() {
-        let arg = args.get(i).map(|s| *s);
+        let arg = args.get(i).copied();
         match Argument::parse(&ctx, arg_desc.argument_type, arg) {
             Ok(default_arg) => ctx.arguments.push(default_arg),
             Err(err) => {
@@ -158,6 +159,7 @@ enum ArgumentType {
     Direction,
     Mask,
     Pattern,
+    String,
 }
 
 enum Argument {
@@ -165,6 +167,7 @@ enum Argument {
     Direction(BlockFacing),
     Pattern(WorldEditPattern),
     Mask(WorldEditPattern),
+    String(String),
 }
 
 impl Argument {
@@ -191,12 +194,19 @@ impl Argument {
 
     fn unwrap_mask(&self) -> &WorldEditPattern {
         match self {
-            Argument::Pattern(val) => val,
+            Argument::Mask(val) => val,
             _ => panic!("Argument was not a Mask"),
         }
     }
 
-    fn get_default(ctx: &CommandExecuteContext, arg_type: ArgumentType) -> ArgumentParseResult {
+    fn unwrap_string(&self) -> &String {
+        match self {
+            Argument::String(val) => val,
+            _ => panic!("Argument was not a String"),
+        }
+    }
+
+    fn get_default(ctx: &CommandExecuteContext<'_>, arg_type: ArgumentType) -> ArgumentParseResult {
         match arg_type {
             ArgumentType::Direction => Argument::parse(ctx, arg_type, Some("me")),
             ArgumentType::UnsignedInteger => Ok(Argument::UnsignedInteger(1)),
@@ -208,12 +218,12 @@ impl Argument {
     }
 
     fn parse(
-        ctx: &CommandExecuteContext,
+        ctx: &CommandExecuteContext<'_>,
         arg_type: ArgumentType,
         arg: Option<&str>,
     ) -> ArgumentParseResult {
         if arg.is_none() {
-            return Ok(Argument::get_default(ctx, arg_type)?);
+            return Argument::get_default(ctx, arg_type);
         }
         let arg = arg.unwrap();
         match arg_type {
@@ -237,13 +247,16 @@ impl Argument {
                 Ok(pattern) => Ok(Argument::Mask(pattern)),
                 Err(err) => Err(ArgumentParseError::new(arg_type, &err.to_string())),
             },
+            ArgumentType::String => Ok(Argument::String(arg.to_owned())),
         }
     }
 }
 
 struct ArgumentDescription {
+    // TODO: Use name in help command
     name: &'static str,
     argument_type: ArgumentType,
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -260,6 +273,7 @@ macro_rules! argument {
 struct FlagDescription {
     letter: char,
     argument_type: Option<ArgumentType>,
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -299,7 +313,8 @@ struct WorldeditCommand {
     flags: &'static [FlagDescription],
     requires_positions: bool,
     requires_clipboard: bool,
-    execute_fn: fn(CommandExecuteContext),
+    execute_fn: fn(CommandExecuteContext<'_>),
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -315,18 +330,6 @@ impl Default for WorldeditCommand {
         }
     }
 }
-
-macro_rules! map(
-    { $($key:expr => $value:expr),+ } => {
-        {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
-        }
-     };
-);
 
 lazy_static! {
     static ref COMMANDS: HashMap<&'static str, WorldeditCommand> = map! {
@@ -425,6 +428,14 @@ lazy_static! {
             execute_fn: execute_replace,
             description: "Replace all blocks in a selection with another",
             ..Default::default()
+        },
+        "load" => WorldeditCommand {
+            arguments: &[
+                argument!("name", String, "The file name of the schematic to load")
+            ],
+            execute_fn: execute_load,
+            description: "Loads a schematic file into the clipboard",
+            ..Default::default()
         }
     };
 }
@@ -470,7 +481,7 @@ pub struct WorldEditUndo {
 impl WorldEditClipboard {
     fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
         // I greaty dislike this
-        let mut file = match File::open("./schems/".to_owned() + file_name + ".schem") {
+        let mut file = match File::open("./schems/".to_owned() + file_name) {
             Ok(file) => file,
             Err(_) => return None,
         };
@@ -585,7 +596,7 @@ impl WorldEditPattern {
             }
             let pattern_match = RE
                 .captures(part)
-                .ok_or(PatternParseError::InvalidPattern(part.to_owned()))?;
+                .ok_or_else(|| PatternParseError::InvalidPattern(part.to_owned()))?;
 
             let block = if pattern_match.get(4).is_some() {
                 Block::from_id(
@@ -747,7 +758,7 @@ fn worldedit_start_operation(plot: &mut Plot, player: usize) -> WorldEditOperati
     WorldEditOperation::new(first_pos, second_pos)
 }
 
-fn execute_set(mut ctx: CommandExecuteContext) {
+fn execute_set(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
     let pattern = ctx.arguments[0].unwrap_pattern();
 
@@ -781,7 +792,7 @@ fn execute_set(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_replace(mut ctx: CommandExecuteContext) {
+fn execute_replace(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let filter = ctx.arguments[0].unwrap_mask();
@@ -820,7 +831,7 @@ fn execute_replace(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_count(mut ctx: CommandExecuteContext) {
+fn execute_count(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let filter = ctx.arguments[0].unwrap_pattern();
@@ -973,7 +984,7 @@ fn capture_undo(plot: &mut Plot, player: usize, first_pos: BlockPos, second_pos:
     plot.players[player].worldedit_undo.push(undo);
 }
 
-fn execute_copy(mut ctx: CommandExecuteContext) {
+fn execute_copy(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let origin = BlockPos::new(
@@ -995,7 +1006,7 @@ fn execute_copy(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_cut(mut ctx: CommandExecuteContext) {
+fn execute_cut(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let first_pos = ctx.get_player().first_position.unwrap();
@@ -1016,7 +1027,7 @@ fn execute_cut(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_move(mut ctx: CommandExecuteContext) {
+fn execute_move(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let move_amt = ctx.arguments[0].unwrap_uint();
@@ -1050,7 +1061,7 @@ fn execute_move(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_paste(mut ctx: CommandExecuteContext) {
+fn execute_paste(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     if ctx.get_player().worldedit_clipboard.is_some() {
@@ -1085,26 +1096,28 @@ fn execute_paste(mut ctx: CommandExecuteContext) {
     }
 }
 
-// TODO: This should use the new worldedit command stuff
-pub(super) fn execute_load(plot: &mut Plot, player: usize, file_name: &str) {
+fn execute_load(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
+
+    let file_name = ctx.arguments[0].unwrap_string();
 
     let clipboard = WorldEditClipboard::load_from_schematic(file_name);
     match clipboard {
         Some(cb) => {
-            plot.players[player].worldedit_clipboard = Some(cb);
-            plot.players[player].send_worldedit_message(&format!(
+            ctx.get_player_mut().worldedit_clipboard = Some(cb);
+            ctx.get_player_mut().send_worldedit_message(&format!(
                 "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
                 start_time.elapsed()
             ));
         }
         None => {
-            plot.players[player].send_error_message("There was an error loading the schematic.");
+            ctx.get_player_mut()
+                .send_error_message("There was an error loading the schematic.");
         }
     }
 }
 
-fn execute_stack(mut ctx: CommandExecuteContext) {
+fn execute_stack(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let stack_amt = ctx.arguments[0].unwrap_uint();
@@ -1134,7 +1147,7 @@ fn execute_stack(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_undo(mut ctx: CommandExecuteContext) {
+fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
     if ctx.get_player().worldedit_undo.is_empty() {
         ctx.get_player_mut()
             .send_error_message("There is nothing left to undo.");
@@ -1149,7 +1162,7 @@ fn execute_undo(mut ctx: CommandExecuteContext) {
     paste_clipboard(ctx.plot, &undo.clipboard, undo.pos, false);
 }
 
-fn execute_sel(mut ctx: CommandExecuteContext) {
+fn execute_sel(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
     player.first_position = None;
     player.second_position = None;
@@ -1157,7 +1170,7 @@ fn execute_sel(mut ctx: CommandExecuteContext) {
     player.worldedit_send_cui("s|cuboid");
 }
 
-fn execute_pos1(mut ctx: CommandExecuteContext) {
+fn execute_pos1(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
     let x = player.x as i32;
@@ -1167,7 +1180,7 @@ fn execute_pos1(mut ctx: CommandExecuteContext) {
     player.worldedit_set_first_position(x, y, z);
 }
 
-fn execute_pos2(mut ctx: CommandExecuteContext) {
+fn execute_pos2(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
     let x = player.x as i32;
@@ -1177,6 +1190,6 @@ fn execute_pos2(mut ctx: CommandExecuteContext) {
     player.worldedit_set_second_position(x, y, z);
 }
 
-fn execute_unimplemented(_ctx: CommandExecuteContext) {
+fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {
     unimplemented!("Unimplimented worldedit command");
 }

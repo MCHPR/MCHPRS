@@ -15,6 +15,7 @@ pub struct BitBuffer {
     entries: usize,
     mask: u64,
     longs: Vec<u64>,
+    fast_arr_idx: fn(word_idx: usize) -> usize,
 }
 
 impl std::fmt::Debug for BitBuffer {
@@ -29,7 +30,25 @@ impl std::fmt::Debug for BitBuffer {
 }
 
 impl BitBuffer {
+    fn find_fast_arr_idx_fn(entries_per_long: usize) -> fn(word_idx: usize) -> usize {
+        fn fast_arr_idx<const N: usize>(word_idx: usize) -> usize {
+            word_idx / N
+        }
+
+        match entries_per_long {
+            16 => fast_arr_idx::<16>,
+            12 => fast_arr_idx::<12>,
+            10 => fast_arr_idx::<10>,
+            9 => fast_arr_idx::<9>,
+            8 => fast_arr_idx::<8>,
+            7 => fast_arr_idx::<7>,
+            4 => fast_arr_idx::<4>,
+            _ => unreachable!("entries_per_long cannot be {}", entries_per_long),
+        }
+    }
+
     pub fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
+        // 4..9, 15
         let entries_per_long = 64 / bits_per_entry as u64;
         // Rounding up div
         let longs_len = (entries + entries_per_long as usize - 1) / entries_per_long as usize;
@@ -40,6 +59,7 @@ impl BitBuffer {
             entries,
             entries_per_long,
             mask: (1 << bits_per_entry) - 1,
+            fast_arr_idx: BitBuffer::find_fast_arr_idx_fn(entries_per_long as usize),
         }
     }
 
@@ -51,12 +71,13 @@ impl BitBuffer {
             entries,
             entries_per_long,
             mask: (1 << bits_per_entry) - 1,
+            fast_arr_idx: BitBuffer::find_fast_arr_idx_fn(entries_per_long as usize),
         }
     }
 
     pub fn get_entry(&self, word_idx: usize) -> u32 {
         // Find the set of indices.
-        let arr_idx = word_idx / self.entries_per_long as usize;
+        let arr_idx = (self.fast_arr_idx)(word_idx);
         let sub_idx =
             (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
         // Find the word.
@@ -66,7 +87,7 @@ impl BitBuffer {
 
     pub fn set_entry(&mut self, word_idx: usize, word: u32) {
         // Find the set of indices.
-        let arr_idx = word_idx / self.entries_per_long as usize;
+        let arr_idx = (self.fast_arr_idx)(word_idx);
         let sub_idx =
             (word_idx as u64 - arr_idx as u64 * self.entries_per_long) * self.bits_per_entry;
         // Set the word.
@@ -97,13 +118,8 @@ pub struct PalettedBitBuffer {
 }
 
 impl PalettedBitBuffer {
-    pub fn new() -> PalettedBitBuffer {
-        Self::with_entries(4096)
-    }
-
     pub fn with_entries(entries: usize) -> PalettedBitBuffer {
-        let mut palette = Vec::new();
-        palette.push(0);
+        let palette = vec![0];
         PalettedBitBuffer {
             data: BitBuffer::create(4, entries),
             palette,
@@ -193,6 +209,12 @@ impl PalettedBitBuffer {
     }
 }
 
+impl Default for PalettedBitBuffer {
+    fn default() -> Self {
+        Self::with_entries(4096)
+    }
+}
+
 pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
@@ -260,7 +282,7 @@ impl ChunkSection {
 
     fn new() -> ChunkSection {
         ChunkSection {
-            buffer: PalettedBitBuffer::new(),
+            buffer: Default::default(),
             block_count: 0,
             multi_block: Vec::new(),
         }
@@ -349,7 +371,7 @@ impl Chunk {
             .for_each(drop);
         C20ChunkData {
             // Use `bool_to_option` feature when stabalized
-            // Tracking issue: https://github.com/rust-lang/rust/issues/64260
+            // Tracking issue: https://github.com/rust-lang/rust/issues/80967
             biomes: if full_chunk {
                 Some(vec![0; 1024])
             } else {

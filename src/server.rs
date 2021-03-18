@@ -318,7 +318,7 @@ impl MinecraftServer {
             previous_gamemode: 1,
             world_count: 1,
             world_names: vec!["mchprs:world".to_owned()],
-            dimention_codec: C24JoinGameDimensionCodec {
+            dimension_codec: C24JoinGameDimensionCodec {
                 dimensions: map! {
                     "mchprs:world".to_owned() => C24JoinGameDimensionElement {
                         natural: 1,
@@ -338,26 +338,6 @@ impl MinecraftServer {
                     }
                 },
                 biomes: map! {
-                    "minecraft:plains".to_owned() => C24JoinGameBiomeElement {
-                        precipitation: "none".to_owned(),
-                        effects: C24JoinGameBiomeEffects {
-                            sky_color: 7907327,
-                            water_fog_color: 329011,
-                            fog_color: 12638463,
-                            water_color: 4159204,
-                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
-                                tick_delay: 6000,
-                                offset: 2.0,
-                                sound: "minecraft:ambient.cave".to_owned(),
-                                block_search_extent: 8,
-                            }
-                        },
-                        depth: 0.125,
-                        temperature: 0.8,
-                        scale: 0.5,
-                        downfall: 0.4,
-                        category: "none".to_owned(),
-                    },
                     "mchprs:plot".to_owned() => C24JoinGameBiomeElement {
                         precipitation: "none".to_owned(),
                         effects: C24JoinGameBiomeEffects {
@@ -377,10 +357,31 @@ impl MinecraftServer {
                         scale: 0.2,
                         downfall: 0.5,
                         category: "none".to_owned(),
+                    },
+                    "minecraft:plains".to_owned() => C24JoinGameBiomeElement {
+                        precipitation: "none".to_owned(),
+                        effects: C24JoinGameBiomeEffects {
+                            sky_color: 7907327,
+                            water_fog_color: 329011,
+                            fog_color: 12638463,
+                            water_color: 4159204,
+                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
+                                tick_delay: 6000,
+                                offset: 2.0,
+                                sound: "minecraft:ambient.cave".to_owned(),
+                                block_search_extent: 8,
+                            }
+                        },
+                        depth: 0.125,
+                        temperature: 0.8,
+                        scale: 0.5,
+                        downfall: 0.4,
+                        category: "none".to_owned(),
                     }
                 },
             },
-            dimention: C24JoinGameDimensionElement {
+            // this should be exactly the same has the dimension listed in dimension_codec
+            dimension: C24JoinGameDimensionElement {
                 natural: 1,
                 ambient_light: 1.0,
                 has_ceiling: 0,

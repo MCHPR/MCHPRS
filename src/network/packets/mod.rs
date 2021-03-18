@@ -352,7 +352,7 @@ impl PacketEncoder {
         let mut buf = Vec::new();
         loop {
             let mut temp = (val & 0b1111_1111) as u8;
-            val = val >> 7;
+            val >>= 7;
             if val != 0 {
                 temp |= 0b1000_0000;
             }

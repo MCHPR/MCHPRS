@@ -81,8 +81,8 @@ pub struct C00SpawnEntity {
     pub x: f64,
     pub y: f64,
     pub z: f64,
-    pub yaw: f32,
     pub pitch: f32,
+    pub yaw: f32,
     pub data: i32,
     pub velocity_x: i16,
     pub velocity_y: i16,
@@ -572,8 +572,8 @@ pub struct C24JoinGame {
     pub previous_gamemode: u8,
     pub world_count: i32,
     pub world_names: Vec<String>,
-    pub dimention_codec: C24JoinGameDimensionCodec,
-    pub dimention: C24JoinGameDimensionElement,
+    pub dimension_codec: C24JoinGameDimensionCodec,
+    pub dimension: C24JoinGameDimensionElement,
     pub world_name: String,
     pub hashed_seed: i64,
     pub max_players: i32,
@@ -595,8 +595,8 @@ impl ClientBoundPacket for C24JoinGame {
         for world_name in self.world_names {
             buf.write_string(32767, &world_name);
         }
-        self.dimention_codec.encode(&mut buf);
-        buf.write_nbt(self.dimention);
+        self.dimension_codec.encode(&mut buf);
+        buf.write_nbt(self.dimension);
         buf.write_string(32767, &self.world_name);
         buf.write_long(self.hashed_seed);
         buf.write_varint(self.max_players);

@@ -15,6 +15,7 @@ use bus::BusReader;
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::cmp::Ordering;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
@@ -54,9 +55,12 @@ impl World for Plot {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+
+        // Check to see if block is within height limit
         if chunk_index >= 256 || pos.y > 256 {
             return false;
         }
+
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block_raw(
             (pos.x & 0xF) as u32,
@@ -72,9 +76,12 @@ impl World for Plot {
     fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+
+        // Check to see if block is within height limit
         if chunk_index >= 256 || pos.y > 256 {
             return false;
         }
+
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block(
             (pos.x & 0xF) as u32,
@@ -449,27 +456,30 @@ impl Plot {
     pub fn get_next_plot(plot_x: i32, plot_z: i32) -> (i32, i32) {
         let x = plot_x.abs();
         let z = plot_z.abs();
-        if x > z {
-            if plot_x > 0 {
-                (plot_x, plot_z + 1)
-            } else {
-                (plot_x, plot_z - 1)
+
+        match x.cmp(&z) {
+            Ordering::Greater => {
+                if plot_x > 0 {
+                    (plot_x, plot_z + 1)
+                } else {
+                    (plot_x, plot_z - 1)
+                }
             }
-        } else if z > x {
-            if plot_z > 0 {
-                (plot_x - 1, plot_z)
-            } else {
-                (plot_x + 1, plot_z)
+            Ordering::Less => {
+                if plot_z > 0 {
+                    (plot_x - 1, plot_z)
+                } else {
+                    (plot_x + 1, plot_z)
+                }
             }
-        } else {
-            if plot_x == plot_z && plot_x > 0 {
-                (plot_x, plot_z + 1)
-            } else if plot_x == x {
-                (plot_x, plot_z + 1)
-            } else if plot_z == z {
-                (plot_x, plot_z - 1)
-            } else {
-                (plot_x + 1, plot_z)
+            Ordering::Equal => {
+                if plot_x == plot_z && plot_x > 0 || plot_x == x {
+                    (plot_x, plot_z + 1)
+                } else if plot_z == z {
+                    (plot_x, plot_z - 1)
+                } else {
+                    (plot_x + 1, plot_z)
+                }
             }
         }
     }
@@ -688,7 +698,7 @@ impl Plot {
             last_update_time: SystemTime::now(),
             lag_time: Duration::new(0, 0),
             sleep_time: Duration::from_micros(
-                (1_000_000 as u64)
+                1_000_000u64
                     .checked_div((plot_data.tps as u64).max(20))
                     .unwrap_or(0),
             ),
@@ -778,7 +788,11 @@ impl Plot {
         }
         while self.running {
             self.update();
-            thread::sleep(self.sleep_time);
+            // This is a little hacky.
+            // Here we should calculate how much time has passed and how long we should sleep
+            // until the next tick (Maybe don't even sleep at all if tps is set extremely high?)
+            thread::yield_now();
+            // thread::sleep(self.sleep_time);
         }
     }
 

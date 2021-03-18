@@ -153,8 +153,7 @@ impl Player {
             };
 
             // Load inventory
-            let mut inventory: Vec<Option<ItemStack>> = vec![];
-            inventory.resize_with(46, || None);
+            let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
             for entry in player_data.inventory {
                 let nbt = entry
                     .nbt
@@ -203,8 +202,7 @@ impl Player {
 
     /// Returns the default player struct
     fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
-        let mut inventory: Vec<Option<ItemStack>> = vec![];
-        inventory.resize_with(46, || None);
+        let inventory: Vec<Option<ItemStack>> = vec![None; 46];
         Player {
             uuid,
             username,
@@ -319,11 +317,11 @@ impl Player {
             BlockFacing::Up
         } else if pitch >= 70.0 {
             BlockFacing::Down
-        } else if yaw >= 45.0 && yaw <= 135.0 {
+        } else if (45.0..=135.0).contains(&yaw) {
             BlockFacing::West
-        } else if yaw >= 135.0 && yaw <= 225.0 {
+        } else if (135.0..=225.0).contains(&yaw) {
             BlockFacing::North
-        } else if yaw >= 225.0 && yaw <= 315.0 {
+        } else if (225.0..=315.0).contains(&yaw) {
             BlockFacing::East
         } else {
             BlockFacing::South
