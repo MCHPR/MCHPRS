@@ -3,7 +3,7 @@ mod redstone;
 use crate::items::{ActionResult, Item, UseOnBlockContext};
 use crate::world::TickPriority;
 use crate::world::World;
-use redstone::*;
+pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -156,7 +156,7 @@ pub enum BlockDirection {
 }
 
 impl BlockDirection {
-    fn opposite(self) -> BlockDirection {
+    pub fn opposite(self) -> BlockDirection {
         use BlockDirection::*;
         match self {
             North => South,
@@ -335,12 +335,12 @@ impl BlockFace {
         [Top, Bottom, North, South, East, West]
     }
 
-    fn is_horizontal(self) -> bool {
+    pub fn is_horizontal(self) -> bool {
         use BlockFace::*;
         matches!(self, North | South | East | West)
     }
 
-    fn to_direction(self) -> BlockDirection {
+    pub fn to_direction(self) -> BlockDirection {
         match self {
             BlockFace::North => BlockDirection::North,
             BlockFace::South => BlockDirection::South,
@@ -1069,7 +1069,7 @@ macro_rules! blocks {
 
         #[allow(clippy::redundant_field_names)]
         impl Block {
-            fn is_solid(self) -> bool {
+            pub fn is_solid(self) -> bool {
                 match self {
                     $(
                         $( Block::$name { .. } => $solid, )?
@@ -1078,7 +1078,7 @@ macro_rules! blocks {
                 }
             }
 
-            fn is_transparent(self) -> bool {
+            pub fn is_transparent(self) -> bool {
                 match self {
                     $(
                         $( Block::$name { .. } => $transparent, )?
@@ -1087,7 +1087,7 @@ macro_rules! blocks {
                 }
             }
 
-            fn is_cube(self) -> bool {
+            pub fn is_cube(self) -> bool {
                 match self {
                     $(
                         $( Block::$name { .. } => $cube, )?

@@ -7,6 +7,7 @@ use crate::network::packets::PacketEncoder;
 use crate::player::Gamemode;
 use crate::server::Message;
 use crate::world::World;
+use crate::redpiler::Compiler;
 use log::info;
 
 use bitflags::_core::i32::MAX;
@@ -51,6 +52,29 @@ impl Plot {
                 self.players[player].teleport(center.0, 64.0, center.1);
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
+        }
+    }
+
+    /// Handles a command that starts with `/redpiler` or `/rp`
+    fn handle_redpiler_command(&mut self, player: usize, command: &str, _args: Vec<&str>) {
+        match command {
+            "compile" | "c" => {
+                if self.players[player].first_position.is_none() {
+                    return;
+                }
+                if self.players[player].second_position.is_none() {
+                    return;
+                }
+
+                let pos1 = self.players[player].first_position.unwrap();
+                let pos2 = self.players[player].second_position.unwrap();
+
+                Compiler::compile(self, pos1, pos2);
+            }
+            "reset" | "r" => {
+            }
+            
+            _ => self.players[player].send_error_message("Invalid argument for /redpiler"),
         }
     }
 
@@ -169,6 +193,14 @@ impl Plot {
                 }
                 let command = args.remove(0);
                 self.handle_plot_command(player, command, args);
+            }
+            "/redpiler" | "/rp" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return false;
+                }
+                let command = args.remove(0);
+                self.handle_redpiler_command(player, command, args);
             }
             "/speed" => {
                 if args.len() != 1 {

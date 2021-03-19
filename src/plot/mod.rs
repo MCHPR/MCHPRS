@@ -11,6 +11,7 @@ use crate::player::{Gamemode, Player};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
+use crate::redpiler::Compiler;
 use bus::BusReader;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -49,6 +50,7 @@ pub struct Plot {
     show_redstone: bool,
     always_running: bool,
     chunks: Vec<Chunk>,
+    pub redpiler: Compiler,
 }
 
 impl World for Plot {
@@ -714,6 +716,7 @@ impl Plot {
             always_running,
             chunks,
             to_be_ticked: plot_data.pending_ticks,
+            redpiler: Default::default(),
         }
     }
 
@@ -760,6 +763,7 @@ impl Plot {
                 always_running,
                 chunks,
                 to_be_ticked: Vec::new(),
+                redpiler: Default::default(),
             }
         }
     }

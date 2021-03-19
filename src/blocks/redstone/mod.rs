@@ -154,10 +154,10 @@ fn diode_get_input_strength(world: &dyn World, pos: BlockPos, facing: BlockDirec
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneRepeater {
-    pub(super) delay: u8,
-    pub(super) facing: BlockDirection,
-    pub(super) locked: bool,
-    pub(super) powered: bool,
+    pub delay: u8,
+    pub facing: BlockDirection,
+    pub locked: bool,
+    pub powered: bool,
 }
 
 impl Default for RedstoneRepeater {
@@ -324,9 +324,9 @@ impl Default for ComparatorMode {
 
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct RedstoneComparator {
-    pub(super) facing: BlockDirection,
-    pub(super) mode: ComparatorMode,
-    pub(super) powered: bool,
+    pub facing: BlockDirection,
+    pub mode: ComparatorMode,
+    pub powered: bool,
 }
 
 impl RedstoneComparator {
