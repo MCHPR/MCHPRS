@@ -544,14 +544,15 @@ impl Compiler {
         self.to_be_ticked.iter().any(|e| e.node == node)
     }
 
-    fn set_node(&mut self, node: NodeId, new_block: Block, update: bool) {
-        let node = &mut self.nodes[node.index];
+    fn set_node(&mut self, node_id: NodeId, new_block: Block, update: bool) {
+        let node = &mut self.nodes[node_id.index];
         node.state = new_block;
         let pos = node.pos;
         if update {
             for update in node.updates.clone() {
                 self.update_node(update);
             }
+            self.update_node(node_id);
         }
         self.change_queue.push((pos, new_block));
     }
@@ -678,7 +679,7 @@ impl Compiler {
                     self.set_node(node_id, Block::RedstoneWire { wire }, true);
                 }
             }
-            _ => panic!("Node {:?} should not be updated!", node.state),
+            _ => {} // panic!("Node {:?} should not be updated!", node.state),
         }
     }
 
