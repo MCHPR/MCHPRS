@@ -180,7 +180,6 @@ impl<'a> InputSearch<'a> {
                     }
                     match side {
                         BlockFace::Top => {
-                            println!("Searching wire at {:?}", pos);
                             res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
                         }
                         BlockFace::Bottom => {}
