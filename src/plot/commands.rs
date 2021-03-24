@@ -5,9 +5,9 @@ use crate::network::packets::clientbound::{
 };
 use crate::network::packets::PacketEncoder;
 use crate::player::Gamemode;
+use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::Message;
 use crate::world::World;
-use crate::redpiler::Compiler;
 use log::info;
 
 use bitflags::_core::i32::MAX;
@@ -56,24 +56,29 @@ impl Plot {
     }
 
     /// Handles a command that starts with `/redpiler` or `/rp`
-    fn handle_redpiler_command(&mut self, player: usize, command: &str, _args: Vec<&str>) {
+    fn handle_redpiler_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         match command {
             "compile" | "c" => {
-                if self.players[player].first_position.is_none() {
-                    return;
-                }
-                if self.players[player].second_position.is_none() {
-                    return;
+                let args = args.join(" ");
+                let options = CompilerOptions::parse(&args);
+
+                if options.use_worldedit {
+                    if self.players[player].first_position.is_none() {
+                        return;
+                    }
+                    if self.players[player].second_position.is_none() {
+                        return;
+                    }
                 }
 
-                let pos1 = self.players[player].first_position.unwrap();
-                let pos2 = self.players[player].second_position.unwrap();
+                let pos1 = self.players[player].first_position;
+                let pos2 = self.players[player].second_position;
 
-                Compiler::compile(self, pos1, pos2);
+                Compiler::compile(self, options, pos1, pos2);
             }
             "reset" | "r" => {
+                self.redpiler.reset();
             }
-            
             _ => self.players[player].send_error_message("Invalid argument for /redpiler"),
         }
     }

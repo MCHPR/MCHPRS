@@ -137,9 +137,8 @@ impl MinecraftServer {
             .unwrap();
 
         std::panic::set_hook(Box::new(|panic_info| {
-            error!("{}", panic_info.to_string());
             let backtrace = Backtrace::new();
-            error!("{}\n{:?}", panic_info.to_string(), backtrace);
+            error!("plot {}\n{:?}", panic_info.to_string(), backtrace);
         }));
 
         info!("Starting server...");

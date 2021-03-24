@@ -8,10 +8,10 @@ use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::{Gamemode, Player};
+use crate::redpiler::Compiler;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
-use crate::redpiler::Compiler;
 use bus::BusReader;
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -45,8 +45,8 @@ pub struct Plot {
     last_player_time: SystemTime,
     sleep_time: Duration,
     running: bool,
-    x: i32,
-    z: i32,
+    pub x: i32,
+    pub z: i32,
     show_redstone: bool,
     always_running: bool,
     chunks: Vec<Chunk>,
@@ -158,6 +158,15 @@ impl World for Plot {
     }
 
     fn tick(&mut self) {
+        if self.redpiler.is_active {
+            self.redpiler.tick();
+            let changes: Vec<(BlockPos, Block)> = self.redpiler.change_queue.drain(..).collect();
+            for (pos, block) in changes {
+                self.set_block(pos, block);
+            }
+            return;
+        }
+
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
@@ -579,15 +588,15 @@ impl Plot {
                 let elapsed_time = self.last_update_time.elapsed().unwrap();
                 self.lag_time += elapsed_time;
                 self.last_update_time = SystemTime::now();
-                let ticks = self
-                    .lag_time
-                    .as_micros()
-                    .checked_div(dur_per_tick.as_micros())
-                    .unwrap_or_default();
-                if ticks > 4000 {
-                    warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
-                    self.lag_time = Duration::from_secs(0);
-                }
+                // let ticks = self
+                //     .lag_time
+                //     .as_micros()
+                //     .checked_div(dur_per_tick.as_micros())
+                //     .unwrap_or_default();
+                // if ticks > 4000 {
+                //     warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
+                //     self.lag_time = Duration::from_secs(0);
+                // }
                 // let start_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
                     self.tick();
@@ -796,7 +805,7 @@ impl Plot {
             // Here we should calculate how much time has passed and how long we should sleep
             // until the next tick (Maybe don't even sleep at all if tps is set extremely high?)
             thread::yield_now();
-            // thread::sleep(self.sleep_time);
+            thread::sleep(self.sleep_time);
         }
     }
 

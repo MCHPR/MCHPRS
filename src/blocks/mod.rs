@@ -214,7 +214,7 @@ impl BlockDirection {
         }
     }
 
-    fn rotate(self) -> BlockDirection {
+    pub fn rotate(self) -> BlockDirection {
         use BlockDirection::*;
         match self {
             North => East,
@@ -224,7 +224,7 @@ impl BlockDirection {
         }
     }
 
-    fn rotate_ccw(self) -> BlockDirection {
+    pub fn rotate_ccw(self) -> BlockDirection {
         use BlockDirection::*;
         match self {
             North => West,
@@ -413,14 +413,14 @@ impl Block {
         )
     }
 
-    fn has_comparator_override(self) -> bool {
+    pub fn has_comparator_override(self) -> bool {
         matches!(
             self,
             Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. }
         )
     }
 
-    fn get_comparator_override(self, world: &dyn World, pos: BlockPos) -> u8 {
+    pub fn get_comparator_override(self, world: &dyn World, pos: BlockPos) -> u8 {
         match self {
             Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
                 if let Some(BlockEntity::Container {
@@ -436,7 +436,7 @@ impl Block {
         }
     }
 
-    fn is_diode(self) -> bool {
+    pub fn is_diode(self) -> bool {
         matches!(
             self,
             Block::RedstoneRepeater { .. } | Block::RedstoneComparator { .. }

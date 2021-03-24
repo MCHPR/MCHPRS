@@ -53,7 +53,8 @@ impl ItemStack {
             cancelled = true;
         }
 
-        if !context.player_crouching && !cancelled
+        if !context.player_crouching
+            && !cancelled
             && use_block
                 .on_use(plot, context.block_pos, Some(self.item_type))
                 .is_success()

@@ -1,5 +1,5 @@
 use super::Plot;
-use crate::blocks::{BlockEntity, BlockFace, BlockPos, SignBlockEntity};
+use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos, SignBlockEntity};
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
@@ -119,6 +119,15 @@ impl ServerBoundPacketHandler for Plot {
             self.players[player].send_system_message("Can't interact with blocks outside of plot");
             self.send_block_change(block_pos.offset(block_face), 0);
             return;
+        }
+
+        if self.redpiler.is_active && !self.players[player].crouching {
+            let block = self.get_block(block_pos);
+            let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
+            if lever_or_button {
+                self.redpiler.on_use_block(block_pos);
+                return;
+            }
         }
 
         if let Some(item) = item_in_hand {
