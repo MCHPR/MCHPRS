@@ -175,14 +175,26 @@ impl<'a> InputSearch<'a> {
                 }
 
                 if let Block::RedstoneWire { wire } = block {
-                    let direction = side.to_direction();
-                    if search_wire
-                        && !wire
-                            .get_regulated_sides(self.plot, pos)
-                            .get_current_side(direction.opposite())
-                            .is_none()
-                    {
-                        res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                    if !search_wire {
+                        continue;
+                    }
+                    match side {
+                        BlockFace::Top => {
+                            println!("Searching wire at {:?}", pos);
+                            res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                        }
+                        BlockFace::Bottom => {}
+                        _ => {
+                            let direction = side.to_direction();
+                            if search_wire
+                                && !wire
+                                    .get_regulated_sides(self.plot, pos)
+                                    .get_current_side(direction.opposite())
+                                    .is_none()
+                            {
+                                res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                            }
+                        }
                     }
                 }
             }
