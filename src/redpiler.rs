@@ -1,6 +1,6 @@
 use crate::blocks::{
     Block, BlockDirection, BlockFace, BlockPos, ButtonFace, ComparatorMode, LeverFace,
-    RedstoneComparator,
+    RedstoneComparator, BlockEntity
 };
 use crate::plot::Plot;
 use crate::world::{TickPriority, World};
@@ -380,6 +380,13 @@ impl<'a> InputSearch<'a> {
                     ));
                 }
 
+                let output_strength = if let Some(BlockEntity::Comparator { output_strength }) = self.plot.get_block_entity(node.pos) {
+                    *output_strength
+                } else {
+                    0
+                };
+
+                self.plot.redpiler.nodes[id.index].comparator_output = output_strength;
                 self.plot.redpiler.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneRepeater { repeater } => {
@@ -429,8 +436,9 @@ impl<'a> InputSearch<'a> {
             self.search_node(id, node);
         }
 
-        // Stripping needs to be done here before any update
+        // Optimizations against the search graph like wire stripping and dedup go here
 
+        // Create update links
         for (id, node) in self.plot.redpiler.nodes.clone().into_iter().enumerate() {
             for input_node in node.inputs {
                 self.plot.redpiler.nodes[input_node.end.index]
