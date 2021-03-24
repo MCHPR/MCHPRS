@@ -698,9 +698,11 @@ impl Compiler {
                     LinkType::Default => &mut input_power,
                     LinkType::Side => &mut side_input_power,
                 };
-                *power += self.nodes[link.end.index]
-                    .get_output_power()
-                    .saturating_sub(link.weight);
+                *power = (*power).max(
+                    self.nodes[link.end.index]
+                        .get_output_power()
+                        .saturating_sub(link.weight),
+                );
             }
 
             match node.state {
