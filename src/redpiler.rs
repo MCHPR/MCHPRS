@@ -168,8 +168,8 @@ impl<'a> InputSearch<'a> {
         let mut res = Vec::new();
         if block.is_solid() {
             for side in &BlockFace::values() {
-                let block = self.plot.get_block(pos.offset(*side));
                 let pos = pos.offset(*side);
+                let block = self.plot.get_block(pos);
                 if self.provides_strong_power(block, *side) {
                     res.push(Link::new(link_ty, start_node, distance, self.pos_map[&pos]));
                 }
@@ -255,7 +255,7 @@ impl<'a> InputSearch<'a> {
                     }
 
                     if !neighbor.is_solid() {
-                        let neighbor_down_pos = neighbor_pos.offset(BlockFace::Top);
+                        let neighbor_down_pos = neighbor_pos.offset(BlockFace::Bottom);
                         if is_wire(self.plot, neighbor_down_pos)
                             && !discovered.contains_key(&neighbor_down_pos)
                         {
@@ -820,9 +820,9 @@ impl Display for Compiler {
                     link.end.index, link.start.index, link.weight, color
                 )?;
             }
-            for update in &node.updates {
-                write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
-            }
+            // for update in &node.updates {
+            //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
+            // }
         }
         f.write_str("}\n")
     }
