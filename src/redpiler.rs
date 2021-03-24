@@ -74,6 +74,7 @@ impl Node {
                 | Block::Lever { .. }
                 | Block::StoneButton { .. }
                 | Block::RedstoneBlock { .. }
+                | Block::RedstoneLamp { .. }
         );
 
         if is_node || block.has_comparator_override() {
