@@ -326,7 +326,7 @@ impl<'a> InputSearch<'a> {
             Block::RedstoneTorch { .. } => {
                 let bottom_pos = node.pos.offset(BlockFace::Bottom);
                 let bottom_block = self.plot.get_block(bottom_pos);
-                self.get_redstone_links(
+                let inputs = self.get_redstone_links(
                     bottom_block,
                     BlockFace::Top,
                     bottom_pos,
@@ -335,11 +335,12 @@ impl<'a> InputSearch<'a> {
                     id,
                     true,
                 );
+                self.plot.redpiler.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneWallTorch { facing, .. } => {
                 let wall_pos = node.pos.offset(facing.opposite().block_face());
                 let wall_block = self.plot.get_block(wall_pos);
-                self.get_redstone_links(
+                let inputs = self.get_redstone_links(
                     wall_block,
                     facing.opposite().block_face(),
                     wall_pos,
@@ -348,6 +349,7 @@ impl<'a> InputSearch<'a> {
                     id,
                     true,
                 );
+                self.plot.redpiler.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneComparator { comparator } => {
                 let facing = comparator.facing;
