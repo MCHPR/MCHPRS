@@ -135,8 +135,8 @@ impl<'a> InputSearch<'a> {
 
     fn provides_strong_power(&self, block: Block, side: BlockFace) -> bool {
         match block {
-            Block::RedstoneTorch { lit: true } if side == BlockFace::Bottom => true,
-            Block::RedstoneWallTorch { lit: true, .. } if side == BlockFace::Bottom => true,
+            Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
+            Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
             Block::Lever { lever } => match side {
                 BlockFace::Top if lever.face == LeverFace::Floor => true,
                 BlockFace::Bottom if lever.face == LeverFace::Ceiling => true,
