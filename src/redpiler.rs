@@ -529,6 +529,7 @@ impl Compiler {
         match node.state {
             Block::StoneButton { mut button } => {
                 button.powered = !button.powered;
+                self.schedule_tick(node_id, 10, TickPriority::Normal);
                 self.set_node(node_id, Block::StoneButton { button }, true);
             }
             Block::Lever { mut lever } => {
@@ -781,6 +782,12 @@ impl Compiler {
                     let should_be_lit = input_power > 0;
                     if lit && !should_be_lit {
                         self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
+                    }
+                }
+                Block::StoneButton { mut button } => {
+                    if button.powered {
+                        button.powered = false;
+                        self.set_node(node_id, Block::StoneButton { button }, true);
                     }
                 }
                 _ => panic!("Node {:?} should not be ticked!", node.state),
