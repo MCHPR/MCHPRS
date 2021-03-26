@@ -1,11 +1,12 @@
 use crate::blocks::{
     Block, BlockDirection, BlockFace, BlockPos, ButtonFace, ComparatorMode, LeverFace,
-    RedstoneComparator, BlockEntity
+    BlockEntity
 };
 use crate::plot::Plot;
-use crate::world::{TickPriority, World};
+use crate::world::{TickPriority, TickEntry, World};
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
+use log::warn;
 
 fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos), Block::RedstoneWire { .. })
@@ -94,7 +95,10 @@ impl Node {
             Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
             Block::RedstoneBlock {} => 15,
             s if s.has_comparator_override() => self.comparator_output,
-            s => panic!("How did {:?} become an output node?", s),
+            s => {
+                warn!("How did {:?} become an output node?", s);
+                0
+            },
         }
     }
 }
@@ -514,8 +518,10 @@ impl Compiler {
         options: CompilerOptions,
         first_pos: Option<BlockPos>,
         second_pos: Option<BlockPos>,
+        ticks: Vec<TickEntry>
     ) {
         if plot.redpiler.is_active {
+            warn!("Redpiler was already active when compiling. This is a bug.");
             plot.redpiler.reset();
         }
 
@@ -532,6 +538,17 @@ impl Compiler {
         Compiler::identify_nodes(plot, first_pos, second_pos);
         InputSearch::new(plot).search();
         let compiler = &mut plot.redpiler;
+
+        for entry in ticks {
+            if let Some(node) = compiler.pos_map.get(&entry.pos) {
+                compiler.to_be_ticked.push(RPTickEntry {
+                    ticks_left: entry.ticks_left,
+                    tick_priority: entry.tick_priority,
+                    node: *node
+                });
+            }
+        }
+
         compiler.is_active = true;
         // dbg!(&compiler.nodes);
         // println!("{}", compiler);
@@ -539,9 +556,21 @@ impl Compiler {
         // TODO: Everything else
     }
 
-    pub fn reset(&mut self) {
+    pub fn reset(&mut self) -> Vec<TickEntry> {
+        let mut ticks = Vec::new();
+        for entry in self.to_be_ticked.drain(..) {
+            ticks.push(TickEntry {
+                ticks_left: entry.ticks_left,
+                tick_priority: entry.tick_priority,
+                pos: self.nodes[entry.node.index].pos
+            })
+        }
+        
         self.nodes.clear();
+        self.pos_map.clear();
         self.is_active = false;
+
+        ticks
     }
 
     pub fn on_use_block(&mut self, pos: BlockPos) {
@@ -557,7 +586,7 @@ impl Compiler {
                 lever.powered = !lever.powered;
                 self.set_node(node_id, Block::Lever { lever }, true);
             }
-            _ => panic!("Tried to use a {:?}", node.state),
+            _ => warn!("Tried to use a {:?} redpiler node", node.state),
         }
     }
 
@@ -811,7 +840,7 @@ impl Compiler {
                         self.set_node(node_id, Block::StoneButton { button }, true);
                     }
                 }
-                _ => panic!("Node {:?} should not be ticked!", node.state),
+                _ => warn!("Node {:?} should not be ticked!", node.state),
             }
         }
     }

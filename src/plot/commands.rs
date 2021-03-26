@@ -74,10 +74,17 @@ impl Plot {
                 let pos1 = self.players[player].first_position;
                 let pos2 = self.players[player].second_position;
 
-                Compiler::compile(self, options, pos1, pos2);
+                if self.redpiler.is_active {
+                    self.to_be_ticked = self.redpiler.reset();
+                }
+                let ticks = self.to_be_ticked.drain(..).collect();
+
+                Compiler::compile(self, options, pos1, pos2, ticks);
             }
             "reset" | "r" => {
-                self.redpiler.reset();
+                if self.redpiler.is_active {
+                    self.to_be_ticked = self.redpiler.reset();
+                }
             }
             _ => self.players[player].send_error_message("Invalid argument for /redpiler"),
         }
