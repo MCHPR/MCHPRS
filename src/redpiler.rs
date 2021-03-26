@@ -16,7 +16,7 @@ struct NodeId {
     index: usize,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LinkType {
     Default,
     Side,
@@ -438,6 +438,27 @@ impl<'a> InputSearch<'a> {
         }
 
         // Optimizations against the search graph like wire stripping and dedup go here
+
+        let nodes = self.plot.redpiler.nodes.clone();
+        for (i, node) in nodes.into_iter().enumerate() {
+            let mut links: Vec<Link> = Vec::new();
+            for link in node.inputs.clone() {
+                let mut exists = false;
+                for l in &mut links {
+                    if l.end == link.end && l.ty == link.ty {
+                        exists = true;
+                        if link.weight < l.weight {
+                            l.weight = link.weight;
+                        }
+                    }
+                }
+
+                if !exists {
+                    links.push(link);
+                }
+            }
+            self.plot.redpiler.nodes[i].inputs = links;
+        }
 
         // Create update links
         for (id, node) in self.plot.redpiler.nodes.clone().into_iter().enumerate() {
