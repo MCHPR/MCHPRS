@@ -160,10 +160,6 @@ impl World for Plot {
     fn tick(&mut self) {
         if self.redpiler.is_active {
             self.redpiler.tick();
-            let changes: Vec<(BlockPos, Block)> = self.redpiler.change_queue.drain(..).collect();
-            for (pos, block) in changes {
-                self.set_block(pos, block);
-            }
             return;
         }
 
@@ -578,6 +574,12 @@ impl Plot {
     }
 
     fn update(&mut self) {
+        if self.redpiler.is_active {
+            let changes: Vec<(BlockPos, Block)> = self.redpiler.change_queue.drain(..).collect();
+            for (pos, block) in changes {
+                self.set_block(pos, block);
+            }
+        }
         self.handle_messages();
 
         // Only tick if there are players in the plot
@@ -805,7 +807,7 @@ impl Plot {
             // Here we should calculate how much time has passed and how long we should sleep
             // until the next tick (Maybe don't even sleep at all if tps is set extremely high?)
             thread::yield_now();
-            thread::sleep(self.sleep_time);
+            // thread::sleep(self.sleep_time);
         }
     }
 
