@@ -49,6 +49,7 @@ struct Node {
     inputs: Vec<Link>,
     updates: Vec<NodeId>,
     comparator_output: u8,
+    container_overriding: bool,
     facing_diode: bool,
 }
 
@@ -60,6 +61,7 @@ impl Node {
             inputs: vec![],
             updates: vec![],
             comparator_output: 0,
+            container_overriding: false,
             facing_diode,
         }
     }
@@ -377,6 +379,7 @@ impl<'a> InputSearch<'a> {
                 let input_pos = node.pos.offset(facing.block_face());
                 let input_block = self.plot.get_block(input_pos);
                 if input_block.has_comparator_override() {
+                    self.plot.redpiler.nodes[id.index].container_overriding = true;
                     inputs.push(Link::new(
                         LinkType::Default,
                         id,
@@ -443,6 +446,7 @@ impl<'a> InputSearch<'a> {
 
         // Optimizations against the search graph like wire stripping and dedup go here
 
+        // Dedup links
         let nodes = self.plot.redpiler.nodes.clone();
         for (i, node) in nodes.into_iter().enumerate() {
             let mut links: Vec<Link> = Vec::new();
@@ -462,6 +466,17 @@ impl<'a> InputSearch<'a> {
                 }
             }
             self.plot.redpiler.nodes[i].inputs = links;
+        }
+
+        // Remove other inputs to comparators with a comparator overriding container input.
+        for (i, mut node) in self.plot.redpiler.nodes.clone().into_iter().enumerate() {
+            if node.container_overriding {
+                node.inputs.retain(|link| {
+                    link.ty != LinkType::Default || 
+                    self.plot.redpiler.nodes[link.end.index].state.has_comparator_override()
+                });
+                self.plot.redpiler.nodes[i] = node;
+            }
         }
 
         // Create update links
@@ -648,7 +663,7 @@ impl Compiler {
     }
 
     fn update_node(&mut self, node_id: NodeId) {
-        let node = self.nodes[node_id.index].clone();
+        let node = &self.nodes[node_id.index];
 
         let mut input_power = 0;
         let mut side_input_power = 0;
@@ -664,6 +679,9 @@ impl Compiler {
             );
         }
 
+        let facing_diode = node.facing_diode;
+        let comparator_output = node.comparator_output;
+
         match node.state {
             Block::RedstoneRepeater { mut repeater } => {
                 let should_be_locked = side_input_power > 0;
@@ -678,7 +696,7 @@ impl Compiler {
                 if !repeater.locked && !self.pending_tick_at(node_id) {
                     let should_be_powered = input_power > 0;
                     if should_be_powered != repeater.powered {
-                        let priority = if node.facing_diode {
+                        let priority = if facing_diode {
                             TickPriority::Highest
                         } else if !should_be_powered {
                             TickPriority::Higher
@@ -703,7 +721,7 @@ impl Compiler {
                     input_power,
                     side_input_power,
                 );
-                let old_strength = node.comparator_output;
+                let old_strength = comparator_output;
                 if output_power != old_strength
                     || comparator.powered
                         != self.comparator_should_be_powered(
@@ -712,7 +730,7 @@ impl Compiler {
                             side_input_power,
                         )
                 {
-                    let priority = if node.facing_diode {
+                    let priority = if facing_diode {
                         TickPriority::High
                     } else {
                         TickPriority::Normal

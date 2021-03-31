@@ -9,7 +9,7 @@ use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::Message;
 use crate::world::World;
 use log::info;
-
+use std::time::SystemTime;
 use bitflags::_core::i32::MAX;
 use std::time::{Duration, Instant};
 
@@ -59,6 +59,7 @@ impl Plot {
     fn handle_redpiler_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         match command {
             "compile" | "c" => {
+                let start_time = SystemTime::now();
                 let args = args.join(" ");
                 let options = CompilerOptions::parse(&args);
 
@@ -80,6 +81,8 @@ impl Plot {
                 let ticks = self.to_be_ticked.drain(..).collect();
 
                 Compiler::compile(self, options, pos1, pos2, ticks);
+
+                println!("Compile took {:?}", start_time.elapsed())
             }
             "reset" | "r" => {
                 if self.redpiler.is_active {
