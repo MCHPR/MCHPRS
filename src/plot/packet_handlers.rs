@@ -127,6 +127,8 @@ impl ServerBoundPacketHandler for Plot {
             if lever_or_button {
                 self.redpiler.on_use_block(block_pos);
                 return;
+            } else {
+                self.reset_redpiler();
             }
         }
 
@@ -370,6 +372,8 @@ impl ServerBoundPacketHandler for Plot {
                     return;
                 }
             }
+
+            self.reset_redpiler();
 
             let other_block = self.get_block(block_pos);
             other_block.destroy(self, block_pos);

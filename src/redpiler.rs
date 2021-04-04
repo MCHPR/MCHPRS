@@ -1,12 +1,11 @@
 use crate::blocks::{
-    Block, BlockDirection, BlockFace, BlockPos, ButtonFace, ComparatorMode, LeverFace,
-    BlockEntity
+    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, ComparatorMode, LeverFace,
 };
 use crate::plot::Plot;
-use crate::world::{TickPriority, TickEntry, World};
+use crate::world::{TickEntry, TickPriority, World};
+use log::warn;
 use std::collections::{HashMap, VecDeque};
 use std::fmt::Display;
-use log::warn;
 
 fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos), Block::RedstoneWire { .. })
@@ -100,7 +99,7 @@ impl Node {
             s => {
                 warn!("How did {:?} become an output node?", s);
                 0
-            },
+            }
         }
     }
 }
@@ -198,7 +197,9 @@ impl<'a> InputSearch<'a> {
                                     .get_current_side(direction.opposite())
                                     .is_none()
                             {
-                                res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                                res.append(
+                                    &mut self.search_wire(start_node, pos, link_ty, distance),
+                                );
                             }
                         }
                     }
@@ -388,7 +389,9 @@ impl<'a> InputSearch<'a> {
                     ));
                 }
 
-                let output_strength = if let Some(BlockEntity::Comparator { output_strength }) = self.plot.get_block_entity(node.pos) {
+                let output_strength = if let Some(BlockEntity::Comparator { output_strength }) =
+                    self.plot.get_block_entity(node.pos)
+                {
                     *output_strength
                 } else {
                     0
@@ -472,8 +475,10 @@ impl<'a> InputSearch<'a> {
         for (i, mut node) in self.plot.redpiler.nodes.clone().into_iter().enumerate() {
             if node.container_overriding {
                 node.inputs.retain(|link| {
-                    link.ty != LinkType::Default || 
-                    self.plot.redpiler.nodes[link.end.index].state.has_comparator_override()
+                    link.ty != LinkType::Default
+                        || self.plot.redpiler.nodes[link.end.index]
+                            .state
+                            .has_comparator_override()
                 });
                 self.plot.redpiler.nodes[i] = node;
             }
@@ -533,7 +538,7 @@ impl Compiler {
         options: CompilerOptions,
         first_pos: Option<BlockPos>,
         second_pos: Option<BlockPos>,
-        ticks: Vec<TickEntry>
+        ticks: Vec<TickEntry>,
     ) {
         if plot.redpiler.is_active {
             warn!("Redpiler was already active when compiling. This is a bug.");
@@ -559,7 +564,7 @@ impl Compiler {
                 compiler.to_be_ticked.push(RPTickEntry {
                     ticks_left: entry.ticks_left,
                     tick_priority: entry.tick_priority,
-                    node: *node
+                    node: *node,
                 });
             }
         }
@@ -577,10 +582,10 @@ impl Compiler {
             ticks.push(TickEntry {
                 ticks_left: entry.ticks_left,
                 tick_priority: entry.tick_priority,
-                pos: self.nodes[entry.node.index].pos
+                pos: self.nodes[entry.node.index].pos,
             })
         }
-        
+
         self.nodes.clear();
         self.pos_map.clear();
         self.is_active = false;

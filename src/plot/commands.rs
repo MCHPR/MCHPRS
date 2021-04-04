@@ -1,4 +1,5 @@
 use super::{database, worldedit, Plot};
+use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::{
     C10DeclareCommands, C10DeclareCommandsNode as Node, C10DeclareCommandsNodeParser as Parser,
     ClientBoundPacket,
@@ -8,9 +9,9 @@ use crate::player::Gamemode;
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::Message;
 use crate::world::World;
+use bitflags::_core::i32::MAX;
 use log::info;
 use std::time::SystemTime;
-use bitflags::_core::i32::MAX;
 use std::time::{Duration, Instant};
 
 impl Plot {
@@ -75,9 +76,7 @@ impl Plot {
                 let pos1 = self.players[player].first_position;
                 let pos2 = self.players[player].second_position;
 
-                if self.redpiler.is_active {
-                    self.to_be_ticked = self.redpiler.reset();
-                }
+                self.reset_redpiler();
                 let ticks = self.to_be_ticked.drain(..).collect();
 
                 Compiler::compile(self, options, pos1, pos2, ticks);
@@ -85,9 +84,7 @@ impl Plot {
                 println!("Compile took {:?}", start_time.elapsed())
             }
             "reset" | "r" => {
-                if self.redpiler.is_active {
-                    self.to_be_ticked = self.redpiler.reset();
-                }
+                self.reset_redpiler();
             }
             _ => self.players[player].send_error_message("Invalid argument for /redpiler"),
         }
@@ -117,8 +114,27 @@ impl Plot {
         match command {
             "/rtps" => {
                 if args.is_empty() {
-                    self.players[player]
-                        .send_system_message(&format!("The rtps is currently set to {}", self.tps));
+                    let report = self.timings.generate_report();
+                    if let Some(report) = report {
+                        self.players[player].send_chat_message(
+                            0,
+                            ChatComponent::from_legacy_text(format!(
+                                "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
+                                report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
+                            )),
+                        );
+                    } else {
+                        self.players[player].send_chat_message(
+                            0,
+                            ChatComponent::from_legacy_text(format!(
+                                "&6No timings data. &a({})",
+                                self.tps
+                            )),
+                        );
+                    }
+
+                    // self.players[player]
+                    //     .send_system_message(&);
                     return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
@@ -137,6 +153,7 @@ impl Plot {
                 } else {
                     self.sleep_time = Duration::from_millis(2);
                 }
+                self.timings.set_tps(tps);
                 self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");

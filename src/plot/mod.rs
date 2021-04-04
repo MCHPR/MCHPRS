@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod database;
+mod monitor;
 mod packet_handlers;
 pub mod worldedit;
 
@@ -13,7 +14,9 @@ use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
+use core::time;
 use log::warn;
+use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::cmp::Ordering;
@@ -51,6 +54,7 @@ pub struct Plot {
     always_running: bool,
     chunks: Vec<Chunk>,
     pub redpiler: Compiler,
+    timings: TimingsMonitor,
 }
 
 impl World for Plot {
@@ -158,6 +162,7 @@ impl World for Plot {
     }
 
     fn tick(&mut self) {
+        self.timings.tick();
         if self.redpiler.is_active {
             self.redpiler.tick();
             return;
@@ -401,6 +406,12 @@ impl Plot {
         self.players[player_idx].last_chunk_z = chunk_z;
     }
 
+    fn reset_redpiler(&mut self) {
+        if self.redpiler.is_active {
+            self.to_be_ticked = self.redpiler.reset();
+        }
+    }
+
     fn destroy_entity(&mut self, entity_id: u32) {
         let destroy_entities = C36DestroyEntities {
             entity_ids: vec![entity_id as i32],
@@ -584,35 +595,22 @@ impl Plot {
 
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
+            self.timings.set_ticking(true);
             self.last_player_time = SystemTime::now();
             if self.tps != 0 {
                 let dur_per_tick = Duration::from_micros(1_000_000 / self.tps as u64);
                 let elapsed_time = self.last_update_time.elapsed().unwrap();
                 self.lag_time += elapsed_time;
                 self.last_update_time = SystemTime::now();
-                // let ticks = self
-                //     .lag_time
-                //     .as_micros()
-                //     .checked_div(dur_per_tick.as_micros())
-                //     .unwrap_or_default();
-                // if ticks > 4000 {
-                //     warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
-                //     self.lag_time = Duration::from_secs(0);
-                // }
-                // let start_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
+                    if self.timings.is_running_behind() && !self.redpiler.is_active {
+                        warn!("Starting redpiler!");
+                        let ticks = self.to_be_ticked.drain(..).collect();
+                        Compiler::compile(self, Default::default(), None, None, ticks);
+                    }
                     self.tick();
                     self.lag_time -= dur_per_tick;
                 }
-                // if ticks > 0 {
-                //     let tick_time = start_time.elapsed().as_micros();
-                //     let time_per_tick = tick_time / ticks;
-                //     if time_per_tick > (1_000_000 / self.tps) as u128 {
-                //         let new_tps = 1_000_000 / time_per_tick;
-                //         self.broadcast_plot_chat_message(format!("Plot is overloaded, setting rtps down to {}", new_tps));
-                //         self.tps = new_tps as u32;
-                //     }
-                // }
             }
 
             let mut multi_block_packets = Vec::new();
@@ -626,9 +624,11 @@ impl Plot {
                 }
             }
         } else {
+            self.timings.set_ticking(false);
             // Unload plot after 600 seconds unless the plot should be always loaded
             if self.last_player_time.elapsed().unwrap().as_secs() > 600 && !self.always_running {
                 self.running = false;
+                self.timings.stop();
             }
         }
         // Update players
@@ -728,6 +728,7 @@ impl Plot {
             chunks,
             to_be_ticked: plot_data.pending_ticks,
             redpiler: Default::default(),
+            timings: TimingsMonitor::new(plot_data.tps),
         }
     }
 
@@ -775,6 +776,7 @@ impl Plot {
                 chunks,
                 to_be_ticked: Vec::new(),
                 redpiler: Default::default(),
+                timings: TimingsMonitor::new(10),
             }
         }
     }
