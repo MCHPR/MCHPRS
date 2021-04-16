@@ -1,3 +1,5 @@
+mod codegen;
+
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, ComparatorMode, LeverFace,
 };
