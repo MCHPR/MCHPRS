@@ -39,4 +39,20 @@ TODO
 
 ## Native Code generation
 
-TODO
+Each node will generate 2 functions: update and tick. Each node will have a global memory location holding their state.
+Example of generated code in C form:
+```c
+struct State {
+    // Information such as powered or output strength
+}
+
+struct State n0;
+
+void n0_update() {
+    // ...
+}
+
+void n0_tick() {
+    // ...
+}
+```

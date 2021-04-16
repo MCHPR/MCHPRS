@@ -586,7 +586,7 @@ impl Plot {
 
     fn update(&mut self) {
         if self.redpiler.is_active {
-            let changes: Vec<(BlockPos, Block)> = self.redpiler.change_queue.drain(..).collect();
+            let changes: Vec<(BlockPos, Block)> = self.redpiler.block_changes().drain(..).collect();
             for (pos, block) in changes {
                 self.set_block(pos, block);
             }
@@ -822,10 +822,10 @@ impl Plot {
         always_running: bool,
         initial_player: Option<Player>,
     ) {
-        let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
         thread::Builder::new()
             .name(format!("p{},{}", x, z))
             .spawn(move || {
+                let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
                 plot.run(initial_player);
             })
             .unwrap();

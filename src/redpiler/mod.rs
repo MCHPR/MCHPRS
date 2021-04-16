@@ -1,13 +1,13 @@
 mod codegen;
 
 use crate::blocks::{
-    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, ComparatorMode, LeverFace,
+    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
 };
 use crate::plot::Plot;
-use crate::world::{TickEntry, TickPriority, World};
-use log::warn;
+use crate::world::{TickEntry, World};
+use codegen::JITBackend;
+use log::{error, warn};
 use std::collections::{HashMap, VecDeque};
-use std::fmt::Display;
 
 fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos), Block::RedstoneWire { .. })
@@ -44,7 +44,7 @@ impl Link {
 }
 
 #[derive(Debug, Clone)]
-struct Node {
+pub struct Node {
     pos: BlockPos,
     state: Block,
     inputs: Vec<Link>,
@@ -108,22 +108,22 @@ impl Node {
 
 struct InputSearch<'a> {
     plot: &'a mut Plot,
+    nodes: &'a mut Vec<Node>,
     pos_map: HashMap<BlockPos, NodeId>,
 }
 
 impl<'a> InputSearch<'a> {
-    fn new(plot: &mut Plot) -> InputSearch<'_> {
-        let compiler = &mut plot.redpiler;
-        let nodes = &mut compiler.nodes;
-
+    fn new(plot: &'a mut Plot, nodes: &'a mut Vec<Node>) -> InputSearch<'a> {
         let mut pos_map = HashMap::new();
         for (i, node) in nodes.iter().enumerate() {
             pos_map.insert(node.pos, NodeId { index: i });
         }
 
-        compiler.pos_map.clone_from(&pos_map);
-
-        InputSearch { plot, pos_map }
+        InputSearch {
+            plot,
+            pos_map,
+            nodes,
+        }
     }
 
     fn provides_weak_power(&self, block: Block, side: BlockFace) -> bool {
@@ -356,7 +356,7 @@ impl<'a> InputSearch<'a> {
                     id,
                     true,
                 );
-                self.plot.redpiler.nodes[id.index].inputs = inputs;
+                self.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneWallTorch { facing, .. } => {
                 let wall_pos = node.pos.offset(facing.opposite().block_face());
@@ -370,7 +370,7 @@ impl<'a> InputSearch<'a> {
                     id,
                     true,
                 );
-                self.plot.redpiler.nodes[id.index].inputs = inputs;
+                self.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneComparator { comparator } => {
                 let facing = comparator.facing;
@@ -382,7 +382,7 @@ impl<'a> InputSearch<'a> {
                 let input_pos = node.pos.offset(facing.block_face());
                 let input_block = self.plot.get_block(input_pos);
                 if input_block.has_comparator_override() {
-                    self.plot.redpiler.nodes[id.index].container_overriding = true;
+                    self.nodes[id.index].container_overriding = true;
                     inputs.push(Link::new(
                         LinkType::Default,
                         id,
@@ -399,8 +399,8 @@ impl<'a> InputSearch<'a> {
                     0
                 };
 
-                self.plot.redpiler.nodes[id.index].comparator_output = output_strength;
-                self.plot.redpiler.nodes[id.index].inputs = inputs;
+                self.nodes[id.index].comparator_output = output_strength;
+                self.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneRepeater { repeater } => {
                 let facing = repeater.facing;
@@ -410,11 +410,11 @@ impl<'a> InputSearch<'a> {
                     .map(|l| inputs.push(l));
                 self.search_repeater_side(id, node.pos, facing.rotate_ccw())
                     .map(|l| inputs.push(l));
-                self.plot.redpiler.nodes[id.index].inputs = inputs;
+                self.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneWire { .. } => {
                 let inputs = self.search_wire(id, node.pos, LinkType::Default, 0);
-                self.plot.redpiler.nodes[id.index].inputs = inputs;
+                self.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneLamp { .. } => {
                 let mut inputs = Vec::new();
@@ -432,10 +432,10 @@ impl<'a> InputSearch<'a> {
                     );
                     inputs.append(&mut links);
                 }
-                self.plot.redpiler.nodes[id.index].inputs = inputs;
+                self.nodes[id.index].inputs = inputs;
             }
             block if block.has_comparator_override() => {
-                self.plot.redpiler.nodes[id.index].comparator_output =
+                self.nodes[id.index].comparator_output =
                     block.get_comparator_override(self.plot, node.pos);
             }
             _ => {}
@@ -443,7 +443,7 @@ impl<'a> InputSearch<'a> {
     }
 
     fn search(&mut self) {
-        let nodes = self.plot.redpiler.nodes.clone();
+        let nodes = self.nodes.clone();
         for (i, node) in nodes.into_iter().enumerate() {
             let id = NodeId { index: i };
             self.search_node(id, node);
@@ -452,7 +452,7 @@ impl<'a> InputSearch<'a> {
         // Optimizations against the search graph like wire stripping and dedup go here
 
         // Dedup links
-        let nodes = self.plot.redpiler.nodes.clone();
+        let nodes = self.nodes.clone();
         for (i, node) in nodes.into_iter().enumerate() {
             let mut links: Vec<Link> = Vec::new();
             for link in node.inputs.clone() {
@@ -470,37 +470,29 @@ impl<'a> InputSearch<'a> {
                     links.push(link);
                 }
             }
-            self.plot.redpiler.nodes[i].inputs = links;
+            self.nodes[i].inputs = links;
         }
 
         // Remove other inputs to comparators with a comparator overriding container input.
-        for (i, mut node) in self.plot.redpiler.nodes.clone().into_iter().enumerate() {
+        for (i, mut node) in self.nodes.clone().into_iter().enumerate() {
             if node.container_overriding {
                 node.inputs.retain(|link| {
                     link.ty != LinkType::Default
-                        || self.plot.redpiler.nodes[link.end.index]
-                            .state
-                            .has_comparator_override()
+                        || self.nodes[link.end.index].state.has_comparator_override()
                 });
-                self.plot.redpiler.nodes[i] = node;
+                self.nodes[i] = node;
             }
         }
 
         // Create update links
-        for (id, node) in self.plot.redpiler.nodes.clone().into_iter().enumerate() {
+        for (id, node) in self.nodes.clone().into_iter().enumerate() {
             for input_node in node.inputs {
-                self.plot.redpiler.nodes[input_node.end.index]
+                self.nodes[input_node.end.index]
                     .updates
                     .push(NodeId { index: id });
             }
         }
     }
-}
-
-struct RPTickEntry {
-    ticks_left: u32,
-    tick_priority: TickPriority,
-    node: NodeId,
 }
 
 #[derive(Default)]
@@ -528,13 +520,16 @@ impl CompilerOptions {
 #[derive(Default)]
 pub struct Compiler {
     pub is_active: bool,
-    pub change_queue: Vec<(BlockPos, Block)>,
-    nodes: Vec<Node>,
-    to_be_ticked: Vec<RPTickEntry>,
-    pos_map: HashMap<BlockPos, NodeId>,
+    jit: Option<Box<dyn JITBackend>>,
 }
 
 impl Compiler {
+    /// Use just-in-time compilation with a `JITBackend` such as `CraneliftBackend` or `LLVMBackend`.
+    /// Requires recompilation to take effect.
+    pub fn use_jit(&mut self, jit: Box<dyn JITBackend>) {
+        self.jit = Some(jit);
+    }
+
     pub fn compile(
         plot: &mut Plot,
         options: CompilerOptions,
@@ -557,326 +552,69 @@ impl Compiler {
             )
         };
 
-        Compiler::identify_nodes(plot, first_pos, second_pos);
-        InputSearch::new(plot).search();
+        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos);
+        InputSearch::new(plot, &mut nodes).search();
         let compiler = &mut plot.redpiler;
+        compiler.is_active = true;
 
-        for entry in ticks {
-            if let Some(node) = compiler.pos_map.get(&entry.pos) {
-                compiler.to_be_ticked.push(RPTickEntry {
-                    ticks_left: entry.ticks_left,
-                    tick_priority: entry.tick_priority,
-                    node: *node,
-                });
-            }
+        // TODO: Remove this once there is proper backend switching
+        if compiler.jit.is_none() {
+            let jit: Box<codegen::direct::DirectBackend> = Default::default();
+            compiler.use_jit(jit);
         }
 
-        compiler.is_active = true;
-        // dbg!(&compiler.nodes);
-        // println!("{}", compiler);
-
-        // TODO: Everything else
+        if let Some(jit) = &mut compiler.jit {
+            jit.compile(nodes, ticks);
+        } else {
+            error!("Cannot compile without JIT variation");
+        }
     }
 
     pub fn reset(&mut self) -> Vec<TickEntry> {
-        let mut ticks = Vec::new();
-        for entry in self.to_be_ticked.drain(..) {
-            ticks.push(TickEntry {
-                ticks_left: entry.ticks_left,
-                tick_priority: entry.tick_priority,
-                pos: self.nodes[entry.node.index].pos,
-            })
-        }
-
-        self.nodes.clear();
-        self.pos_map.clear();
         self.is_active = false;
-
-        ticks
-    }
-
-    pub fn on_use_block(&mut self, pos: BlockPos) {
-        let node_id = self.pos_map[&pos];
-        let node = self.nodes[node_id.index].clone();
-        match node.state {
-            Block::StoneButton { mut button } => {
-                button.powered = !button.powered;
-                self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(node_id, Block::StoneButton { button }, true);
-            }
-            Block::Lever { mut lever } => {
-                lever.powered = !lever.powered;
-                self.set_node(node_id, Block::Lever { lever }, true);
-            }
-            _ => warn!("Tried to use a {:?} redpiler node", node.state),
-        }
-    }
-
-    fn schedule_tick(&mut self, node_id: NodeId, delay: u32, priority: TickPriority) {
-        self.to_be_ticked.push(RPTickEntry {
-            node: node_id,
-            ticks_left: delay,
-            tick_priority: priority,
-        });
-        self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
-    }
-
-    fn pending_tick_at(&mut self, node: NodeId) -> bool {
-        self.to_be_ticked.iter().any(|e| e.node == node)
-    }
-
-    fn set_node(&mut self, node_id: NodeId, new_block: Block, update: bool) {
-        let node = &mut self.nodes[node_id.index];
-        node.state = new_block;
-        let pos = node.pos;
-        if update {
-            for update in node.updates.clone() {
-                self.update_node(update);
-            }
-            self.update_node(node_id);
-        }
-        self.change_queue.push((pos, new_block));
-    }
-
-    fn comparator_should_be_powered(
-        &mut self,
-        mode: ComparatorMode,
-        input_strength: u8,
-        power_on_sides: u8,
-    ) -> bool {
-        if input_strength == 0 {
-            false
-        } else if input_strength > power_on_sides {
-            true
+        if let Some(jit) = &mut self.jit {
+            jit.reset()
         } else {
-            power_on_sides == input_strength && mode == ComparatorMode::Compare
-        }
-    }
-
-    fn calculate_comparator_output(
-        &mut self,
-        mode: ComparatorMode,
-        input_strength: u8,
-        power_on_sides: u8,
-    ) -> u8 {
-        if mode == ComparatorMode::Subtract {
-            input_strength.saturating_sub(power_on_sides)
-        } else if input_strength >= power_on_sides {
-            input_strength
-        } else {
-            0
-        }
-    }
-
-    fn update_node(&mut self, node_id: NodeId) {
-        let node = &self.nodes[node_id.index];
-
-        let mut input_power = 0;
-        let mut side_input_power = 0;
-        for link in &node.inputs {
-            let power = match link.ty {
-                LinkType::Default => &mut input_power,
-                LinkType::Side => &mut side_input_power,
-            };
-            *power = (*power).max(
-                self.nodes[link.end.index]
-                    .get_output_power()
-                    .saturating_sub(link.weight),
-            );
-        }
-
-        let facing_diode = node.facing_diode;
-        let comparator_output = node.comparator_output;
-
-        match node.state {
-            Block::RedstoneRepeater { mut repeater } => {
-                let should_be_locked = side_input_power > 0;
-                if !repeater.locked && should_be_locked {
-                    repeater.locked = true;
-                    self.set_node(node_id, Block::RedstoneRepeater { repeater }, false);
-                } else if repeater.locked && !should_be_locked {
-                    repeater.locked = false;
-                    self.set_node(node_id, Block::RedstoneRepeater { repeater }, false);
-                }
-
-                if !repeater.locked && !self.pending_tick_at(node_id) {
-                    let should_be_powered = input_power > 0;
-                    if should_be_powered != repeater.powered {
-                        let priority = if facing_diode {
-                            TickPriority::Highest
-                        } else if !should_be_powered {
-                            TickPriority::Higher
-                        } else {
-                            TickPriority::High
-                        };
-                        self.schedule_tick(node_id, repeater.delay as u32, priority);
-                    }
-                }
-            }
-            Block::RedstoneTorch { lit } => {
-                if lit == (input_power > 0) && !self.pending_tick_at(node_id) {
-                    self.schedule_tick(node_id, 1, TickPriority::Normal);
-                }
-            }
-            Block::RedstoneComparator { comparator } => {
-                if self.pending_tick_at(node_id) {
-                    return;
-                }
-                let output_power = self.calculate_comparator_output(
-                    comparator.mode,
-                    input_power,
-                    side_input_power,
-                );
-                let old_strength = comparator_output;
-                if output_power != old_strength
-                    || comparator.powered
-                        != self.comparator_should_be_powered(
-                            comparator.mode,
-                            input_power,
-                            side_input_power,
-                        )
-                {
-                    let priority = if facing_diode {
-                        TickPriority::High
-                    } else {
-                        TickPriority::Normal
-                    };
-                    self.schedule_tick(node_id, 1, priority);
-                }
-            }
-            Block::RedstoneWallTorch { lit, .. } => {
-                if lit == (input_power > 0) && !self.pending_tick_at(node_id) {
-                    self.schedule_tick(node_id, 1, TickPriority::Normal);
-                }
-            }
-            Block::RedstoneLamp { lit } => {
-                let should_be_lit = input_power > 0;
-                if lit && !should_be_lit {
-                    self.schedule_tick(node_id, 2, TickPriority::Normal);
-                } else if !lit && should_be_lit {
-                    self.set_node(node_id, Block::RedstoneLamp { lit: true }, false);
-                }
-            }
-            Block::RedstoneWire { mut wire } => {
-                if wire.power != input_power {
-                    wire.power = input_power;
-                    self.set_node(node_id, Block::RedstoneWire { wire }, true);
-                }
-            }
-            _ => {} // panic!("Node {:?} should not be updated!", node.state),
+            Vec::new()
         }
     }
 
     pub fn tick(&mut self) {
-        for pending in &mut self.to_be_ticked {
-            pending.ticks_left = pending.ticks_left.saturating_sub(1);
-        }
-        while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
-            let entry = self.to_be_ticked.remove(0);
-            let node_id = entry.node;
-            let node = self.nodes[node_id.index].clone();
-
-            let mut input_power = 0u8;
-            let mut side_input_power = 0u8;
-            for link in &node.inputs {
-                let power = match link.ty {
-                    LinkType::Default => &mut input_power,
-                    LinkType::Side => &mut side_input_power,
-                };
-                *power = (*power).max(
-                    self.nodes[link.end.index]
-                        .get_output_power()
-                        .saturating_sub(link.weight),
-                );
-            }
-
-            match node.state {
-                Block::RedstoneRepeater { mut repeater } => {
-                    if repeater.locked {
-                        continue;
-                    }
-
-                    let should_be_powered = input_power > 0;
-                    if repeater.powered && !should_be_powered {
-                        repeater.powered = false;
-                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
-                    } else if !repeater.powered {
-                        repeater.powered = true;
-                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
-                    }
-                }
-                Block::RedstoneTorch { lit } => {
-                    let should_be_off = input_power > 0;
-                    if lit && should_be_off {
-                        self.set_node(node_id, Block::RedstoneTorch { lit: false }, true);
-                    } else if !lit && !should_be_off {
-                        self.set_node(node_id, Block::RedstoneTorch { lit: true }, true);
-                    }
-                }
-                Block::RedstoneComparator { mut comparator } => {
-                    let new_strength = self.calculate_comparator_output(
-                        comparator.mode,
-                        input_power,
-                        side_input_power,
-                    );
-                    let old_strength = node.comparator_output;
-                    if new_strength != old_strength || comparator.mode == ComparatorMode::Compare {
-                        self.nodes[node_id.index].comparator_output = new_strength;
-                        let should_be_powered = self.comparator_should_be_powered(
-                            comparator.mode,
-                            input_power,
-                            side_input_power,
-                        );
-                        let powered = comparator.powered;
-                        if powered && !should_be_powered {
-                            comparator.powered = false;
-                        } else if !powered && should_be_powered {
-                            comparator.powered = true;
-                        }
-                        self.set_node(node_id, Block::RedstoneComparator { comparator }, true);
-                    }
-                }
-                Block::RedstoneWallTorch { lit, facing } => {
-                    let should_be_off = input_power > 0;
-                    if lit && should_be_off {
-                        self.set_node(
-                            node_id,
-                            Block::RedstoneWallTorch { lit: false, facing },
-                            true,
-                        );
-                    } else if !lit && !should_be_off {
-                        self.set_node(
-                            node_id,
-                            Block::RedstoneWallTorch { lit: true, facing },
-                            true,
-                        );
-                    }
-                }
-                Block::RedstoneLamp { lit } => {
-                    let should_be_lit = input_power > 0;
-                    if lit && !should_be_lit {
-                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
-                    }
-                }
-                Block::StoneButton { mut button } => {
-                    if button.powered {
-                        button.powered = false;
-                        self.set_node(node_id, Block::StoneButton { button }, true);
-                    }
-                }
-                _ => warn!("Node {:?} should not be ticked!", node.state),
-            }
+        assert!(self.is_active, "Redpiler cannot tick while inactive");
+        if let Some(jit) = &mut self.jit {
+            jit.tick();
+        } else {
+            error!("Tried to tick redpiler while missing its JIT variant. How is it even active?");
         }
     }
 
-    fn identify_node(&mut self, pos: BlockPos, block: Block, facing_diode: bool) {
-        if let Some(node) = Node::from_block(pos, block, facing_diode) {
-            self.nodes.push(node);
+    pub fn block_changes(&mut self) -> &mut Vec<(BlockPos, Block)> {
+        assert!(
+            self.is_active,
+            "Redpiler cannot drain block changes while inactive"
+        );
+        // self.jit.unwrap().block_changes()
+        if let Some(jit) = &mut self.jit {
+            jit.block_changes()
+        } else {
+            // Can't recover from this
+            panic!("Tried to drain redpiler block changes while missing its JIT variant. How is it even active?");
         }
     }
 
-    fn identify_nodes(plot: &mut Plot, first_pos: BlockPos, second_pos: BlockPos) {
+    pub fn on_use_block(&mut self, pos: BlockPos) {
+        assert!(self.is_active, "Redpiler cannot use block while inactive");
+        if let Some(jit) = &mut self.jit {
+            jit.on_use_block(pos);
+        } else {
+            error!(
+                "Tried to use redpiler block while missing its JIT variant. How is it even active?"
+            );
+        }
+    }
+
+    fn identify_nodes(plot: &mut Plot, first_pos: BlockPos, second_pos: BlockPos) -> Vec<Node> {
+        let mut nodes = Vec::new();
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
         for y in start_pos.y..=end_pos.y {
@@ -893,44 +631,48 @@ impl Compiler {
                     } else {
                         false
                     };
-                    plot.redpiler.identify_node(pos, block, facing_diode);
+
+                    if let Some(node) = Node::from_block(pos, block, facing_diode) {
+                        nodes.push(node);
+                    }
                 }
             }
         }
+        nodes
     }
 }
 
-impl Display for Compiler {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("digraph{")?;
-        for (id, node) in self.nodes.iter().enumerate() {
-            write!(
-                f,
-                "n{}[label=\"{}\\n({}, {}, {})\"];",
-                id,
-                format!("{:?}", node.state)
-                    .split_whitespace()
-                    .next()
-                    .unwrap(),
-                node.pos.x,
-                node.pos.y,
-                node.pos.z
-            )?;
-            for link in &node.inputs {
-                let color = match link.ty {
-                    LinkType::Default => "",
-                    LinkType::Side => ",color=\"blue\"",
-                };
-                write!(
-                    f,
-                    "n{}->n{}[label=\"{}\"{}];",
-                    link.end.index, link.start.index, link.weight, color
-                )?;
-            }
-            // for update in &node.updates {
-            //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
-            // }
-        }
-        f.write_str("}\n")
-    }
-}
+// impl Display for Compiler {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.write_str("digraph{")?;
+//         for (id, node) in self.nodes.iter().enumerate() {
+//             write!(
+//                 f,
+//                 "n{}[label=\"{}\\n({}, {}, {})\"];",
+//                 id,
+//                 format!("{:?}", node.state)
+//                     .split_whitespace()
+//                     .next()
+//                     .unwrap(),
+//                 node.pos.x,
+//                 node.pos.y,
+//                 node.pos.z
+//             )?;
+//             for link in &node.inputs {
+//                 let color = match link.ty {
+//                     LinkType::Default => "",
+//                     LinkType::Side => ",color=\"blue\"",
+//                 };
+//                 write!(
+//                     f,
+//                     "n{}->n{}[label=\"{}\"{}];",
+//                     link.end.index, link.start.index, link.weight, color
+//                 )?;
+//             }
+//             // for update in &node.updates {
+//             //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
+//             // }
+//         }
+//         f.write_str("}\n")
+//     }
+// }
