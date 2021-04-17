@@ -29,7 +29,7 @@ impl DirectBackend {
             tick_priority: priority,
         });
         self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
     }
 
     fn pending_tick_at(&mut self, node: NodeId) -> bool {

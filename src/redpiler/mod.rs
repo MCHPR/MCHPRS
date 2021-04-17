@@ -121,8 +121,8 @@ impl<'a> InputSearch<'a> {
 
         InputSearch {
             plot,
-            pos_map,
             nodes,
+            pos_map,
         }
     }
 
@@ -566,7 +566,7 @@ impl Compiler {
         if let Some(jit) = &mut compiler.jit {
             jit.compile(nodes, ticks);
         } else {
-            error!("Cannot compile without JIT variation");
+            error!("Cannot compile without JIT variant selected");
         }
     }
 

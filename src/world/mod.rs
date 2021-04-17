@@ -47,7 +47,7 @@ pub trait World {
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TickPriority {
     Highest,
     Higher,
