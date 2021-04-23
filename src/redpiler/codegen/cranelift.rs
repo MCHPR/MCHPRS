@@ -4,7 +4,7 @@ use crate::redpiler::Node;
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataContext, Module};
+use cranelift_module::{DataContext, Linkage, Module};
 use log::warn;
 use std::collections::HashMap;
 
@@ -18,7 +18,6 @@ struct CraneliftBackend {
     // Compilation
     builder_context: FunctionBuilderContext,
     ctx: codegen::Context,
-    data_ctx: DataContext,
     module: JITModule,
     // Execution
     initial_nodes: Vec<Node>,
@@ -36,7 +35,6 @@ impl Default for CraneliftBackend {
         Self {
             builder_context: FunctionBuilderContext::new(),
             ctx: module.make_context(),
-            data_ctx: DataContext::new(),
             module,
             ..Default::default()
         }
@@ -69,6 +67,29 @@ impl CraneliftBackend {
 
 impl JITBackend for CraneliftBackend {
     fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
+        let mut data_ctx = DataContext::new();
+        for idx in 0..nodes.len() {
+            let output_power_name = format!("n{}_output_power", idx);
+            let comparator_output_name = format!("n{}_output_power", idx);
+
+            data_ctx.define_zeroinit(1);
+            let output_power_id = self
+                .module
+                .declare_data(&output_power_name, Linkage::Local, true, false)
+                .unwrap();
+            self.module.define_data(output_power_id, &data_ctx).unwrap();
+            data_ctx.clear();
+
+            data_ctx.define_zeroinit(1);
+            let comparator_output_id = self
+                .module
+                .declare_data(&comparator_output_name, Linkage::Local, true, false)
+                .unwrap();
+            self.module
+                .define_data(comparator_output_id, &data_ctx).unwrap();
+            data_ctx.clear();
+        }
+
         for (idx, node) in nodes.iter().enumerate() {
             self.translate_node(idx, node, &nodes);
         }
@@ -106,13 +127,16 @@ impl JITBackend for CraneliftBackend {
     fn reset(&mut self) -> Vec<TickEntry> {
         let mut ticks = Vec::new();
         for entry in self.to_be_ticked.drain(..) {
-            ticks.push(
-                TickEntry {
-                    ticks_left: entry.ticks_left,
-                    tick_priority: entry.priority,
-                    pos: self.initial_nodes[self.tick_fns.iter().position(|f| *f as usize == entry.tick_fn as usize).unwrap()].pos
-                }
-            )
+            ticks.push(TickEntry {
+                ticks_left: entry.ticks_left,
+                tick_priority: entry.priority,
+                pos: self.initial_nodes[self
+                    .tick_fns
+                    .iter()
+                    .position(|f| *f as usize == entry.tick_fn as usize)
+                    .unwrap()]
+                .pos,
+            })
         }
         ticks
     }
