@@ -1,11 +1,11 @@
 use super::JITBackend;
 use crate::blocks::{self, Block, BlockPos};
-use crate::redpiler::{Node, Link, LinkType};
+use crate::redpiler::{Link, LinkType, Node};
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataContext, Linkage, Module, DataId};
-use log::{warn, debug};
+use cranelift_module::{DataContext, DataId, Linkage, Module};
+use log::{debug, warn};
 use std::collections::HashMap;
 
 struct CLTickEntry {
@@ -19,38 +19,55 @@ struct FunctionTranslator<'a> {
     module: &'a mut JITModule,
     output_power_data: &'a [DataId],
     comparator_output_data: &'a [DataId],
-    node_idx: usize, 
-    node: &'a Node, 
-    nodes: &'a [Node]
+    node_idx: usize,
+    node: &'a Node,
+    nodes: &'a [Node],
 }
 
 impl<'a> FunctionTranslator<'a> {
     fn translate_output_power(&mut self, idx: usize) -> Value {
-        let gv = if matches!(self.node.state, Block::RedstoneComparator { .. }) || self.node.state.has_comparator_override() {
-            self.module.declare_data_in_func(self.comparator_output_data[idx], &mut self.builder.func)
+        let gv = if matches!(self.node.state, Block::RedstoneComparator { .. })
+            || self.node.state.has_comparator_override()
+        {
+            self.module
+                .declare_data_in_func(self.comparator_output_data[idx], &mut self.builder.func)
         } else {
-            self.module.declare_data_in_func(self.output_power_data[idx], &mut self.builder.func)
+            self.module
+                .declare_data_in_func(self.output_power_data[idx], &mut self.builder.func)
         };
         self.builder.ins().symbol_value(types::I8, gv)
     }
 
     /// Recursive method that returns (input_power, side_input_power)
-    fn translate_node_input_power_recur(&mut self, inputs: &[Link], input_power: Value, side_input_power: Value) -> (Value, Value) {
+    fn translate_node_input_power_recur(
+        &mut self,
+        inputs: &[Link],
+        input_power: Value,
+        side_input_power: Value,
+    ) -> (Value, Value) {
         debug!("xd");
         match inputs.first() {
             Some(input) => match input.ty {
                 LinkType::Default => {
                     let v = self.translate_output_power(input.end.index);
                     let new_input_power = self.builder.ins().iadd(v, input_power);
-                    self.translate_node_input_power_recur(&inputs[1..], new_input_power, side_input_power)
+                    self.translate_node_input_power_recur(
+                        &inputs[1..],
+                        new_input_power,
+                        side_input_power,
+                    )
                 }
                 LinkType::Side => {
                     let v = self.translate_output_power(input.end.index);
                     let new_side_input_power = self.builder.ins().iadd(v, side_input_power);
-                    self.translate_node_input_power_recur(&inputs[1..], input_power, new_side_input_power)
+                    self.translate_node_input_power_recur(
+                        &inputs[1..],
+                        input_power,
+                        new_side_input_power,
+                    )
                 }
-            }
-            None => (input_power, side_input_power)
+            },
+            None => (input_power, side_input_power),
         }
     }
 
@@ -160,12 +177,14 @@ impl JITBackend for CraneliftBackend {
                 .unwrap();
             comparator_output_data.push(comparator_output_id);
             self.module
-                .define_data(comparator_output_id, &data_ctx).unwrap();
+                .define_data(comparator_output_id, &data_ctx)
+                .unwrap();
             data_ctx.clear();
         }
 
         for (idx, node) in nodes.iter().enumerate() {
-            let mut update_builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+            let mut update_builder =
+                FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
             let update_entry_block = update_builder.create_block();
             update_builder.switch_to_block(update_entry_block);
             update_builder.seal_block(update_entry_block);
@@ -177,22 +196,35 @@ impl JITBackend for CraneliftBackend {
                 output_power_data: &output_power_data,
                 node,
                 node_idx: idx,
-                nodes: &nodes
+                nodes: &nodes,
             };
             update_translator.translate_update();
-            debug!("n{}_update generated {}", idx, &update_translator.builder.func);
+            debug!(
+                "n{}_update generated {}",
+                idx, &update_translator.builder.func
+            );
 
             update_translator.builder.finalize();
             let update_id = self
                 .module
-                .declare_function(&format!("n{}_update", idx), Linkage::Export, &self.ctx.func.signature)
+                .declare_function(
+                    &format!("n{}_update", idx),
+                    Linkage::Export,
+                    &self.ctx.func.signature,
+                )
                 .unwrap();
             self.module
-                .define_function(update_id, &mut self.ctx, &mut codegen::binemit::NullTrapSink {}, &mut codegen::binemit::NullStackMapSink {})
+                .define_function(
+                    update_id,
+                    &mut self.ctx,
+                    &mut codegen::binemit::NullTrapSink {},
+                    &mut codegen::binemit::NullStackMapSink {},
+                )
                 .unwrap();
             self.module.clear_context(&mut self.ctx);
 
-            let mut tick_builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+            let mut tick_builder =
+                FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
             let tick_entry_block = tick_builder.create_block();
             tick_builder.switch_to_block(tick_entry_block);
             tick_builder.seal_block(tick_entry_block);
@@ -204,7 +236,7 @@ impl JITBackend for CraneliftBackend {
                 output_power_data: &output_power_data,
                 node,
                 node_idx: idx,
-                nodes: &nodes
+                nodes: &nodes,
             };
             tick_translator.translate_tick();
             debug!("n{}_tick generated {}", idx, &tick_translator.builder.func);
@@ -212,10 +244,19 @@ impl JITBackend for CraneliftBackend {
             tick_translator.builder.finalize();
             let tick_id = self
                 .module
-                .declare_function(&format!("n{}_tick", idx), Linkage::Export, &self.ctx.func.signature)
-               .unwrap();
+                .declare_function(
+                    &format!("n{}_tick", idx),
+                    Linkage::Export,
+                    &self.ctx.func.signature,
+                )
+                .unwrap();
             self.module
-                .define_function(tick_id, &mut self.ctx, &mut codegen::binemit::NullTrapSink {}, &mut codegen::binemit::NullStackMapSink {})
+                .define_function(
+                    tick_id,
+                    &mut self.ctx,
+                    &mut codegen::binemit::NullTrapSink {},
+                    &mut codegen::binemit::NullStackMapSink {},
+                )
                 .unwrap();
             self.module.clear_context(&mut self.ctx);
         }
