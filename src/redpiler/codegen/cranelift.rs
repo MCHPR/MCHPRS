@@ -26,8 +26,9 @@ struct FunctionTranslator<'a> {
 
 impl<'a> FunctionTranslator<'a> {
     fn translate_output_power(&mut self, idx: usize) -> Value {
-        let gv = if matches!(self.node.state, Block::RedstoneComparator { .. })
-            || self.node.state.has_comparator_override()
+        let node = &self.nodes[idx];
+        let gv = if matches!(node.state, Block::RedstoneComparator { .. })
+            || node.state.has_comparator_override()
         {
             self.module
                 .declare_data_in_func(self.comparator_output_data[idx], &mut self.builder.func)
@@ -35,7 +36,8 @@ impl<'a> FunctionTranslator<'a> {
             self.module
                 .declare_data_in_func(self.output_power_data[idx], &mut self.builder.func)
         };
-        self.builder.ins().symbol_value(types::I8, gv)
+        let p = self.builder.ins().symbol_value(self.module.target_config().pointer_type(), gv);
+        self.builder.ins().load(types::I8, MemFlags::new(), p, 0)
     }
 
     /// Recursive method that returns (input_power, side_input_power)
@@ -45,12 +47,13 @@ impl<'a> FunctionTranslator<'a> {
         input_power: Value,
         side_input_power: Value,
     ) -> (Value, Value) {
-        debug!("xd");
         match inputs.first() {
             Some(input) => match input.ty {
                 LinkType::Default => {
                     let v = self.translate_output_power(input.end.index);
-                    let new_input_power = self.builder.ins().iadd(v, input_power);
+                    let weight = self.builder.ins().iconst(types::I8, input.weight as i64);
+                    let weighted = self.builder.ins().ssub_sat(v, weight);
+                    let new_input_power = self.builder.ins().imax(weighted, input_power);
                     self.translate_node_input_power_recur(
                         &inputs[1..],
                         new_input_power,
@@ -59,7 +62,9 @@ impl<'a> FunctionTranslator<'a> {
                 }
                 LinkType::Side => {
                     let v = self.translate_output_power(input.end.index);
-                    let new_side_input_power = self.builder.ins().iadd(v, side_input_power);
+                    let weight = self.builder.ins().iconst(types::I8, input.weight as i64);
+                    let weighted = self.builder.ins().ssub_sat(v, weight);
+                    let new_side_input_power = self.builder.ins().imax(weighted, side_input_power);
                     self.translate_node_input_power_recur(
                         &inputs[1..],
                         input_power,
@@ -158,6 +163,7 @@ impl JITBackend for CraneliftBackend {
         let mut output_power_data = Vec::new();
         let mut comparator_output_data = Vec::new();
         for idx in 0..nodes.len() {
+            dbg!(idx);
             let output_power_name = format!("n{}_output_power", idx);
             let comparator_output_name = format!("n{}_comparator_output", idx);
 
@@ -292,6 +298,16 @@ impl JITBackend for CraneliftBackend {
     }
 
     fn reset(&mut self) -> Vec<TickEntry> {
+        self.tick_fns.clear();
+        self.use_fns.clear();
+        
+        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let module = JITModule::new(builder);
+        let old_module = std::mem::replace(&mut self.module, module);
+        // Safe because function pointers have been cleared and there shouldn't be 
+        // code running on another thread.
+        unsafe { old_module.free_memory(); }
+        
         let mut ticks = Vec::new();
         for entry in self.to_be_ticked.drain(..) {
             ticks.push(TickEntry {
