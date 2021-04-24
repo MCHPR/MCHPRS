@@ -560,6 +560,7 @@ impl Compiler {
         // TODO: Remove this once there is proper backend switching
         if compiler.jit.is_none() {
             let jit: Box<codegen::direct::DirectBackend> = Default::default();
+            // let jit: Box<codegen::cranelift::CraneliftBackend> = Default::default();
             compiler.use_jit(jit);
         }
 

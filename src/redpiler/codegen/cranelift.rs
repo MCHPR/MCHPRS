@@ -5,7 +5,7 @@ use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataContext, Linkage, Module, DataId};
-use log::warn;
+use log::{warn, debug};
 use std::collections::HashMap;
 
 struct CLTickEntry {
@@ -25,29 +25,84 @@ struct FunctionTranslator<'a> {
 }
 
 impl<'a> FunctionTranslator<'a> {
-    /// Recursive method that returns (output_power, comparator_output)
-    fn translate_node_input_power(&mut self, inputs: &[Link], output_power: Value, comparator_output: Value) -> (Value, Value) {
+    fn translate_output_power(&mut self, idx: usize) -> Value {
+        let gv = if matches!(self.node.state, Block::RedstoneComparator { .. }) || self.node.state.has_comparator_override() {
+            self.module.declare_data_in_func(self.comparator_output_data[idx], &mut self.builder.func)
+        } else {
+            self.module.declare_data_in_func(self.output_power_data[idx], &mut self.builder.func)
+        };
+        self.builder.ins().symbol_value(types::I8, gv)
+    }
+
+    /// Recursive method that returns (input_power, side_input_power)
+    fn translate_node_input_power_recur(&mut self, inputs: &[Link], input_power: Value, side_input_power: Value) -> (Value, Value) {
+        debug!("xd");
         match inputs.first() {
             Some(input) => match input.ty {
                 LinkType::Default => {
-                    let gv = self.module.declare_data_in_func(self.output_power_data[input.end.index], &mut self.builder.func);
-                    let v = self.builder.ins().symbol_value(types::I8, gv);
-                    let new_output_power = self.builder.ins().iadd(output_power, v);
-                    self.translate_node_input_power(&inputs[1..], new_output_power, comparator_output)
+                    let v = self.translate_output_power(input.end.index);
+                    let new_input_power = self.builder.ins().iadd(v, input_power);
+                    self.translate_node_input_power_recur(&inputs[1..], new_input_power, side_input_power)
                 }
                 LinkType::Side => {
-                    let gv = self.module.declare_data_in_func(self.comparator_output_data[input.end.index], &mut self.builder.func);
-                    let v = self.builder.ins().symbol_value(types::I8, gv);
-                    let new_comparator_output = self.builder.ins().iadd(comparator_output, v);
-                    self.translate_node_input_power(&inputs[1..], output_power, new_comparator_output)
+                    let v = self.translate_output_power(input.end.index);
+                    let new_side_input_power = self.builder.ins().iadd(v, side_input_power);
+                    self.translate_node_input_power_recur(&inputs[1..], input_power, new_side_input_power)
                 }
             }
-            None => (output_power, comparator_output)
+            None => (input_power, side_input_power)
         }
+    }
+
+    /// returns (input_power, side_input_power)
+    fn translate_node_input_power(&mut self, inputs: &[Link]) -> (Value, Value) {
+        let input_power = self.builder.ins().iconst(types::I8, 0);
+        let side_input_power = self.builder.ins().iconst(types::I8, 0);
+        self.translate_node_input_power_recur(inputs, input_power, side_input_power)
+    }
+
+    fn translate_update(&mut self) {
+        match self.node.state {
+            Block::RedstoneComparator { .. } => self.translate_comparator_update(),
+            Block::RedstoneTorch { .. } => {}
+            Block::RedstoneWallTorch { .. } => {}
+            Block::RedstoneRepeater { .. } => {}
+            Block::RedstoneWire { .. } => {}
+            Block::Lever { .. } => {}
+            Block::StoneButton { .. } => {}
+            Block::RedstoneBlock { .. } => {}
+            Block::RedstoneLamp { .. } => {}
+            state => warn!("Trying to compile node with state {:?}", state),
+        }
+        self.builder.ins().return_(&[]);
+    }
+
+    fn translate_tick(&mut self) {
+        match self.node.state {
+            Block::RedstoneComparator { .. } => self.translate_comparator_tick(),
+            Block::RedstoneTorch { .. } => {}
+            Block::RedstoneWallTorch { .. } => {}
+            Block::RedstoneRepeater { .. } => {}
+            Block::RedstoneWire { .. } => {}
+            Block::Lever { .. } => {}
+            Block::StoneButton { .. } => {}
+            Block::RedstoneBlock { .. } => {}
+            Block::RedstoneLamp { .. } => {}
+            state => warn!("Trying to compile node with state {:?}", state),
+        }
+        self.builder.ins().return_(&[]);
+    }
+
+    fn translate_comparator_update(&mut self) {
+        let (input, side_input) = self.translate_node_input_power(&self.node.inputs);
+    }
+
+    fn translate_comparator_tick(&mut self) {
+        let (input, side_input) = self.translate_node_input_power(&self.node.inputs);
     }
 }
 
-struct CraneliftBackend {
+pub struct CraneliftBackend {
     // Compilation
     builder_context: FunctionBuilderContext,
     ctx: codegen::Context,
@@ -69,37 +124,12 @@ impl Default for CraneliftBackend {
             builder_context: FunctionBuilderContext::new(),
             ctx: module.make_context(),
             module,
-            ..Default::default()
-        }
-    }
-}
-
-impl CraneliftBackend {
-    fn translate_comparator_tick(&mut self, idx: usize, node: &Node, nodes: &[Node]) {
-        let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
-        let entry_block = builder.create_block();
-        builder.switch_to_block(entry_block);
-
-        builder.finalize();
-    }
-
-    fn translate_comparator_update(&mut self, idx: usize, node: &Node, nodes: &[Node]) {}
-
-    fn translate_node(&mut self, idx: usize, node: &Node, nodes: &[Node]) {
-        match node.state {
-            Block::RedstoneComparator { .. } => {
-                self.translate_comparator_update(idx, node, nodes);
-                self.translate_comparator_tick(idx, node, nodes);
-            }
-            Block::RedstoneTorch { .. } => {}
-            Block::RedstoneWallTorch { .. } => {}
-            Block::RedstoneRepeater { .. } => {}
-            Block::RedstoneWire { .. } => {}
-            Block::Lever { .. } => {}
-            Block::StoneButton { .. } => {}
-            Block::RedstoneBlock { .. } => {}
-            Block::RedstoneLamp { .. } => {}
-            state => warn!("Trying to compile node with state {:?}", state),
+            initial_nodes: Default::default(),
+            tick_fns: Default::default(),
+            use_fns: Default::default(),
+            pos_map: Default::default(),
+            to_be_ticked: Default::default(),
+            change_queue: Default::default(),
         }
     }
 }
@@ -112,7 +142,7 @@ impl JITBackend for CraneliftBackend {
         let mut comparator_output_data = Vec::new();
         for idx in 0..nodes.len() {
             let output_power_name = format!("n{}_output_power", idx);
-            let comparator_output_name = format!("n{}_output_power", idx);
+            let comparator_output_name = format!("n{}_comparator_output", idx);
 
             data_ctx.define_zeroinit(1);
             let output_power_id = self
@@ -135,7 +165,59 @@ impl JITBackend for CraneliftBackend {
         }
 
         for (idx, node) in nodes.iter().enumerate() {
-            self.translate_node(idx, node, &nodes);
+            let mut update_builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+            let update_entry_block = update_builder.create_block();
+            update_builder.switch_to_block(update_entry_block);
+            update_builder.seal_block(update_entry_block);
+
+            let mut update_translator = FunctionTranslator {
+                builder: update_builder,
+                module: &mut self.module,
+                comparator_output_data: &comparator_output_data,
+                output_power_data: &output_power_data,
+                node,
+                node_idx: idx,
+                nodes: &nodes
+            };
+            update_translator.translate_update();
+            debug!("n{}_update generated {}", idx, &update_translator.builder.func);
+
+            update_translator.builder.finalize();
+            let update_id = self
+                .module
+                .declare_function(&format!("n{}_update", idx), Linkage::Export, &self.ctx.func.signature)
+                .unwrap();
+            self.module
+                .define_function(update_id, &mut self.ctx, &mut codegen::binemit::NullTrapSink {}, &mut codegen::binemit::NullStackMapSink {})
+                .unwrap();
+            self.module.clear_context(&mut self.ctx);
+
+            let mut tick_builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+            let tick_entry_block = tick_builder.create_block();
+            tick_builder.switch_to_block(tick_entry_block);
+            tick_builder.seal_block(tick_entry_block);
+
+            let mut tick_translator = FunctionTranslator {
+                builder: tick_builder,
+                module: &mut self.module,
+                comparator_output_data: &comparator_output_data,
+                output_power_data: &output_power_data,
+                node,
+                node_idx: idx,
+                nodes: &nodes
+            };
+            tick_translator.translate_tick();
+            debug!("n{}_tick generated {}", idx, &tick_translator.builder.func);
+
+            tick_translator.builder.finalize();
+            let tick_id = self
+                .module
+                .declare_function(&format!("n{}_tick", idx), Linkage::Export, &self.ctx.func.signature)
+               .unwrap();
+            self.module
+                .define_function(tick_id, &mut self.ctx, &mut codegen::binemit::NullTrapSink {}, &mut codegen::binemit::NullStackMapSink {})
+                .unwrap();
+            self.module.clear_context(&mut self.ctx);
         }
 
         self.module.finalize_definitions();
