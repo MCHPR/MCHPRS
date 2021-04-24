@@ -1,10 +1,10 @@
 use super::JITBackend;
 use crate::blocks::{self, Block, BlockPos};
-use crate::redpiler::Node;
+use crate::redpiler::{Node, Link, LinkType};
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataContext, Linkage, Module};
+use cranelift_module::{DataContext, Linkage, Module, DataId};
 use log::warn;
 use std::collections::HashMap;
 
@@ -12,6 +12,39 @@ struct CLTickEntry {
     ticks_left: u32,
     priority: TickPriority,
     tick_fn: extern "C" fn(&mut CraneliftBackend),
+}
+
+struct FunctionTranslator<'a> {
+    builder: FunctionBuilder<'a>,
+    module: &'a mut JITModule,
+    output_power_data: &'a [DataId],
+    comparator_output_data: &'a [DataId],
+    node_idx: usize, 
+    node: &'a Node, 
+    nodes: &'a [Node]
+}
+
+impl<'a> FunctionTranslator<'a> {
+    /// Recursive method that returns (output_power, comparator_output)
+    fn translate_node_input_power(&mut self, inputs: &[Link], output_power: Value, comparator_output: Value) -> (Value, Value) {
+        match inputs.first() {
+            Some(input) => match input.ty {
+                LinkType::Default => {
+                    let gv = self.module.declare_data_in_func(self.output_power_data[input.end.index], &mut self.builder.func);
+                    let v = self.builder.ins().symbol_value(types::I8, gv);
+                    let new_output_power = self.builder.ins().iadd(output_power, v);
+                    self.translate_node_input_power(&inputs[1..], new_output_power, comparator_output)
+                }
+                LinkType::Side => {
+                    let gv = self.module.declare_data_in_func(self.comparator_output_data[input.end.index], &mut self.builder.func);
+                    let v = self.builder.ins().symbol_value(types::I8, gv);
+                    let new_comparator_output = self.builder.ins().iadd(comparator_output, v);
+                    self.translate_node_input_power(&inputs[1..], output_power, new_comparator_output)
+                }
+            }
+            None => (output_power, comparator_output)
+        }
+    }
 }
 
 struct CraneliftBackend {
@@ -42,7 +75,13 @@ impl Default for CraneliftBackend {
 }
 
 impl CraneliftBackend {
-    fn translate_comparator_tick(&mut self, idx: usize, node: &Node, nodes: &[Node]) {}
+    fn translate_comparator_tick(&mut self, idx: usize, node: &Node, nodes: &[Node]) {
+        let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+        let entry_block = builder.create_block();
+        builder.switch_to_block(entry_block);
+
+        builder.finalize();
+    }
 
     fn translate_comparator_update(&mut self, idx: usize, node: &Node, nodes: &[Node]) {}
 
@@ -68,6 +107,9 @@ impl CraneliftBackend {
 impl JITBackend for CraneliftBackend {
     fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
         let mut data_ctx = DataContext::new();
+
+        let mut output_power_data = Vec::new();
+        let mut comparator_output_data = Vec::new();
         for idx in 0..nodes.len() {
             let output_power_name = format!("n{}_output_power", idx);
             let comparator_output_name = format!("n{}_output_power", idx);
@@ -77,6 +119,7 @@ impl JITBackend for CraneliftBackend {
                 .module
                 .declare_data(&output_power_name, Linkage::Local, true, false)
                 .unwrap();
+            output_power_data.push(output_power_id);
             self.module.define_data(output_power_id, &data_ctx).unwrap();
             data_ctx.clear();
 
@@ -85,6 +128,7 @@ impl JITBackend for CraneliftBackend {
                 .module
                 .declare_data(&comparator_output_name, Linkage::Local, true, false)
                 .unwrap();
+            comparator_output_data.push(comparator_output_id);
             self.module
                 .define_data(comparator_output_id, &data_ctx).unwrap();
             data_ctx.clear();
