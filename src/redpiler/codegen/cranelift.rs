@@ -25,6 +25,63 @@ struct FunctionTranslator<'a> {
 }
 
 impl<'a> FunctionTranslator<'a> {
+    fn call_schedule_tick(&mut self, backend: Value, node_id: usize, delay: u32, priority: CLTickPriority) {
+        let mut sig = self.module.make_signature();
+        let pointer_type = self.module.target_config().pointer_type();
+        sig.params = vec![AbiParam::new(pointer_type), AbiParam::new(pointer_type), AbiParam::new(types::I32), AbiParam::new(types::I8)];
+
+        let callee = self
+            .module
+            .declare_function("cranelift_jit_set_node", Linkage::Import, &sig).unwrap();
+        let local_callee = self
+            .module
+            .declare_func_in_func(callee, &mut self.builder.func);
+
+        let node_id = self.builder.ins().iconst(pointer_type, node_id as i64);
+        let delay = self.builder.ins().iconst(types::I32, delay as i64);
+        let priority = self.builder.ins().iconst(types::I8, priority as i64);
+
+        self.builder.ins().call(local_callee, &[backend, node_id, delay, priority]);
+    }
+
+    /// Returns b1 value
+    fn call_pending_tick_at(&mut self, backend: Value, node_id: usize) -> Value {
+        let mut sig = self.module.make_signature();
+        let pointer_type = self.module.target_config().pointer_type();
+        sig.params = vec![AbiParam::new(pointer_type), AbiParam::new(pointer_type)];
+
+        sig.returns.push(AbiParam::new(types::B1));
+
+        let callee = self
+            .module
+            .declare_function("cranelift_jit_pending_tick_at", Linkage::Import, &sig).unwrap();
+        let local_callee = self
+            .module
+            .declare_func_in_func(callee, &mut self.builder.func);
+
+        let node_id = self.builder.ins().iconst(pointer_type, node_id as i64);
+
+        let call = self.builder.ins().call(local_callee, &[backend, node_id]);
+        self.builder.inst_results(call)[0]
+    }
+
+    fn call_set_node(&mut self, backend: Value, node_id: usize, power: Value) {
+        let mut sig = self.module.make_signature();
+        let pointer_type = self.module.target_config().pointer_type();
+        sig.params = vec![AbiParam::new(pointer_type), AbiParam::new(pointer_type), AbiParam::new(types::I32)];
+
+        let callee = self
+            .module
+            .declare_function("cranelift_jit_set_node", Linkage::Import, &sig).unwrap();
+        let local_callee = self
+            .module
+            .declare_func_in_func(callee, &mut self.builder.func);
+
+        let node_id = self.builder.ins().iconst(pointer_type, node_id as i64);
+
+        self.builder.ins().call(local_callee, &[backend, node_id, power]);
+    }
+
     fn translate_max(&mut self, a: Value, b: Value) -> Value {
         let merge_block = self.builder.create_block();
 
@@ -38,6 +95,17 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.switch_to_block(merge_block);
         self.builder.seal_block(merge_block);
         self.builder.block_params(merge_block)[0]
+    }
+
+    fn get_data(&mut self, data: DataId) -> Value {
+        let gv = self.module
+            .declare_data_in_func(data, &mut self.builder.func);
+        let p = self
+            .builder
+            .ins()
+            .symbol_value(self.module.target_config().pointer_type(), gv);
+        let i8 = self.builder.ins().load(types::I8, MemFlags::new(), p, 0);
+        self.builder.ins().uextend(types::I32, i8)
     }
 
     fn translate_output_power(&mut self, idx: usize) -> Value {
@@ -105,10 +173,11 @@ impl<'a> FunctionTranslator<'a> {
         self.translate_node_input_power_recur(inputs, input_power, side_input_power)
     }
 
-    fn translate_update(&mut self) {
+    fn translate_update(&mut self, entry_block: cranelift::prelude::Block) {
+        let backend = self.builder.block_params(entry_block)[0];
         match self.node.state {
             Block::RedstoneComparator { comparator } => {
-                self.translate_comparator_update(comparator)
+                self.translate_comparator_update(backend, comparator)
             }
             Block::RedstoneTorch { .. } => {}
             Block::RedstoneWallTorch { .. } => {}
@@ -123,9 +192,10 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.ins().return_(&[]);
     }
 
-    fn translate_tick(&mut self) {
+    fn translate_tick(&mut self, entry_block: cranelift::prelude::Block) {
+        let backend = self.builder.block_params(entry_block)[0];
         match self.node.state {
-            Block::RedstoneComparator { comparator } => self.translate_comparator_tick(comparator),
+            Block::RedstoneComparator { comparator } => self.translate_comparator_tick(backend, comparator),
             Block::RedstoneTorch { .. } => {}
             Block::RedstoneWallTorch { .. } => {}
             Block::RedstoneRepeater { .. } => {}
@@ -168,17 +238,76 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.block_params(merge_block)[0]
     }
 
-    fn translate_comparator_update(&mut self, comparator: RedstoneComparator) {
+    fn translate_comparator_should_be_powered(&mut self, mode: ComparatorMode, input_strength: Value, power_on_sides: Value) -> Value {
+        let else_block = self.builder.create_block();
+        let merge_block = self.builder.create_block();
+        self.builder.append_block_param(merge_block, types::B1);
+        
+        let true_val = self.builder.ins().bconst(types::B1, true);
+        let false_val = self.builder.ins().bconst(types::B1, false);
+        self.builder.ins().brz(input_strength, merge_block, &[false_val]);
+        self.builder.ins().jump(else_block, &[]);
+
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+        let cnd1 = self.builder.ins().icmp(IntCC::UnsignedGreaterThan, input_strength, power_on_sides);
+        let cnd = if mode == ComparatorMode::Compare {
+            let cnd2 = self.builder.ins().icmp(IntCC::Equal, input_strength, power_on_sides);
+            self.builder.ins().bor(cnd1, cnd2)
+        } else {
+            cnd1
+        };
+        self.builder.ins().brnz(cnd, merge_block, &[true_val]);
+        self.builder.ins().jump(merge_block, &[false_val]);
+
+        self.builder.switch_to_block(merge_block);
+        self.builder.seal_block(merge_block);
+        self.builder.block_params(merge_block)[0]
+    }
+
+    fn translate_comparator_update(&mut self, backend: Value, comparator: RedstoneComparator) {
         let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
+        let return_block = self.builder.create_block();
+
+        let pending_tick = self.call_pending_tick_at(backend, self.node_idx);
+        let main_block = self.builder.create_block();
+        self.builder.ins().brz(pending_tick, main_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+        self.builder.switch_to_block(main_block);
+        self.builder.seal_block(main_block);
 
         let output_power = self.translate_calculate_comparator_output(
             comparator.mode,
             input_power,
             side_input_power,
         );
+        let old_strength = self.get_data(self.comparator_output_data[self.node_idx]);
+
+        let schedule_block = self.builder.create_block();
+        let powered_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let powered = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, powered_i32, 0);
+        let should_be_powered = self.translate_comparator_should_be_powered(comparator.mode, input_power, side_input_power);
+        let cnd1 = self.builder.ins().icmp(IntCC::NotEqual, output_power, old_strength);
+        let cnd2 = self.builder.ins().bxor(powered, should_be_powered); // boolean not equals
+        let cnd_or = self.builder.ins().bor(cnd1, cnd2);
+        self.builder.ins().brnz(cnd_or, schedule_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(schedule_block);
+        self.builder.seal_block(schedule_block);
+        let priority = if self.node.facing_diode {
+            CLTickPriority::High
+        } else {
+            CLTickPriority::Normal
+        };
+        self.call_schedule_tick(backend, self.node_idx, 1, priority);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
     }
 
-    fn translate_comparator_tick(&mut self, comparator: RedstoneComparator) {
+    fn translate_comparator_tick(&mut self, backend: Value, comparator: RedstoneComparator) {
         let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
 
         let output_power = self.translate_calculate_comparator_output(
@@ -254,9 +383,13 @@ impl JITBackend for CraneliftBackend {
         }
 
         for (idx, node) in nodes.iter().enumerate() {
+            let ptr_type = self.module.target_config().pointer_type();
+
+            self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
             let mut update_builder =
                 FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
             let update_entry_block = update_builder.create_block();
+            update_builder.append_block_params_for_function_params(update_entry_block);
             update_builder.switch_to_block(update_entry_block);
             update_builder.seal_block(update_entry_block);
 
@@ -269,7 +402,7 @@ impl JITBackend for CraneliftBackend {
                 node_idx: idx,
                 nodes: &nodes,
             };
-            update_translator.translate_update();
+            update_translator.translate_update(update_entry_block);
             debug!(
                 "n{}_update generated {}",
                 idx, &update_translator.builder.func
@@ -294,9 +427,11 @@ impl JITBackend for CraneliftBackend {
                 .unwrap();
             self.module.clear_context(&mut self.ctx);
 
+            self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
             let mut tick_builder =
                 FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
             let tick_entry_block = tick_builder.create_block();
+            tick_builder.append_block_params_for_function_params(tick_entry_block);
             tick_builder.switch_to_block(tick_entry_block);
             tick_builder.seal_block(tick_entry_block);
 
@@ -309,7 +444,7 @@ impl JITBackend for CraneliftBackend {
                 node_idx: idx,
                 nodes: &nodes,
             };
-            tick_translator.translate_tick();
+            tick_translator.translate_tick(tick_entry_block);
             debug!("n{}_tick generated {}", idx, &tick_translator.builder.func);
 
             tick_translator.builder.finalize();
@@ -402,9 +537,9 @@ enum CLTickPriority {
 #[no_mangle]
 extern "C" fn cranelift_jit_schedule_tick(
     backend: &mut CraneliftBackend,
+    node_id: usize,
     delay: u32,
     priority: CLTickPriority,
-    node_id: usize,
 ) {
     backend.to_be_ticked.push(CLTickEntry {
         ticks_left: delay,
