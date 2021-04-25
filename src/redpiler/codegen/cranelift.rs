@@ -1,5 +1,5 @@
 use super::JITBackend;
-use crate::blocks::{self, Block, BlockPos};
+use crate::blocks::{self, Block, BlockPos, ComparatorMode, RedstoneComparator};
 use crate::redpiler::{Link, LinkType, Node};
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
@@ -25,6 +25,19 @@ struct FunctionTranslator<'a> {
 }
 
 impl<'a> FunctionTranslator<'a> {
+    fn translate_max(&mut self, a: Value, b: Value) -> Value {
+        let merge_block = self.builder.create_block();
+
+        // This is our output value
+        self.builder.append_block_param(merge_block, types::I32);
+        self.builder.ins().br_icmp(IntCC::UnsignedGreaterThanOrEqual, a, b, merge_block, &[a]);
+        self.builder.ins().jump(merge_block, &[b]);
+
+        self.builder.switch_to_block(merge_block);
+        self.builder.seal_block(merge_block);
+        self.builder.block_params(merge_block)[0]
+    }
+
     fn translate_output_power(&mut self, idx: usize) -> Value {
         let node = &self.nodes[idx];
         let gv = if matches!(node.state, Block::RedstoneComparator { .. })
@@ -37,7 +50,8 @@ impl<'a> FunctionTranslator<'a> {
                 .declare_data_in_func(self.output_power_data[idx], &mut self.builder.func)
         };
         let p = self.builder.ins().symbol_value(self.module.target_config().pointer_type(), gv);
-        self.builder.ins().load(types::I8, MemFlags::new(), p, 0)
+        let i8 = self.builder.ins().load(types::I8, MemFlags::new(), p, 0);
+        self.builder.ins().uextend(types::I32, i8)
     }
 
     /// Recursive method that returns (input_power, side_input_power)
@@ -47,13 +61,15 @@ impl<'a> FunctionTranslator<'a> {
         input_power: Value,
         side_input_power: Value,
     ) -> (Value, Value) {
+        let zero = self.builder.ins().iconst(types::I32, 0);
         match inputs.first() {
             Some(input) => match input.ty {
                 LinkType::Default => {
                     let v = self.translate_output_power(input.end.index);
-                    let weight = self.builder.ins().iconst(types::I8, input.weight as i64);
-                    let weighted = self.builder.ins().ssub_sat(v, weight);
-                    let new_input_power = self.builder.ins().imax(weighted, input_power);
+                    let weight = self.builder.ins().iconst(types::I32, input.weight as i64);
+                    let weighted =self.builder.ins().isub(v, weight);
+                    let weighted_sat = self.translate_max(weighted, zero);
+                    let new_input_power = self.translate_max(weighted_sat, input_power);
                     self.translate_node_input_power_recur(
                         &inputs[1..],
                         new_input_power,
@@ -62,9 +78,10 @@ impl<'a> FunctionTranslator<'a> {
                 }
                 LinkType::Side => {
                     let v = self.translate_output_power(input.end.index);
-                    let weight = self.builder.ins().iconst(types::I8, input.weight as i64);
-                    let weighted = self.builder.ins().ssub_sat(v, weight);
-                    let new_side_input_power = self.builder.ins().imax(weighted, side_input_power);
+                    let weight = self.builder.ins().iconst(types::I32, input.weight as i64);
+                    let weighted =self.builder.ins().isub(v, weight);
+                    let weighted_sat = self.translate_max(weighted, zero);
+                    let new_side_input_power = self.translate_max(weighted_sat, side_input_power);
                     self.translate_node_input_power_recur(
                         &inputs[1..],
                         input_power,
@@ -78,14 +95,14 @@ impl<'a> FunctionTranslator<'a> {
 
     /// returns (input_power, side_input_power)
     fn translate_node_input_power(&mut self, inputs: &[Link]) -> (Value, Value) {
-        let input_power = self.builder.ins().iconst(types::I8, 0);
-        let side_input_power = self.builder.ins().iconst(types::I8, 0);
+        let input_power = self.builder.ins().iconst(types::I32, 0);
+        let side_input_power = self.builder.ins().iconst(types::I32, 0);
         self.translate_node_input_power_recur(inputs, input_power, side_input_power)
     }
 
     fn translate_update(&mut self) {
         match self.node.state {
-            Block::RedstoneComparator { .. } => self.translate_comparator_update(),
+            Block::RedstoneComparator { comparator } => self.translate_comparator_update(comparator),
             Block::RedstoneTorch { .. } => {}
             Block::RedstoneWallTorch { .. } => {}
             Block::RedstoneRepeater { .. } => {}
@@ -101,7 +118,7 @@ impl<'a> FunctionTranslator<'a> {
 
     fn translate_tick(&mut self) {
         match self.node.state {
-            Block::RedstoneComparator { .. } => self.translate_comparator_tick(),
+            Block::RedstoneComparator { comparator } => self.translate_comparator_tick(comparator),
             Block::RedstoneTorch { .. } => {}
             Block::RedstoneWallTorch { .. } => {}
             Block::RedstoneRepeater { .. } => {}
@@ -115,12 +132,35 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.ins().return_(&[]);
     }
 
-    fn translate_comparator_update(&mut self) {
-        let (input, side_input) = self.translate_node_input_power(&self.node.inputs);
+    fn translate_calculate_comparator_output(&mut self, mode: ComparatorMode, input_strength: Value, power_on_sides: Value) -> Value {
+        if mode == ComparatorMode::Subtract {
+            return self.builder.ins().ssub_sat(input_strength, power_on_sides)
+        }
+
+        let merge_block = self.builder.create_block();
+
+        // This is our output value
+        self.builder.append_block_param(merge_block, types::I32);
+        let z = self.builder.ins().iconst(types::I32, 0);
+        self.builder.ins().br_icmp(IntCC::UnsignedGreaterThanOrEqual, input_strength, power_on_sides, merge_block, &[input_strength]);
+        self.builder.ins().jump(merge_block, &[z]);
+
+        self.builder.switch_to_block(merge_block);
+        self.builder.seal_block(merge_block);
+        self.builder.block_params(merge_block)[0]
     }
 
-    fn translate_comparator_tick(&mut self) {
-        let (input, side_input) = self.translate_node_input_power(&self.node.inputs);
+    fn translate_comparator_update(&mut self, comparator: RedstoneComparator) {
+        let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
+
+        let output_power = self.translate_calculate_comparator_output(comparator.mode, input_power, side_input_power);
+
+    }
+
+    fn translate_comparator_tick(&mut self, comparator: RedstoneComparator) {
+        let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
+
+        let output_power = self.translate_calculate_comparator_output(comparator.mode, input_power, side_input_power);
     }
 }
 
