@@ -11,7 +11,7 @@ use std::collections::HashMap;
 struct CLTickEntry {
     ticks_left: u32,
     priority: TickPriority,
-    tick_fn: extern "C" fn(&mut CraneliftBackend),
+    node_id: usize,
 }
 
 struct FunctionTranslator<'a> {
@@ -30,7 +30,9 @@ impl<'a> FunctionTranslator<'a> {
 
         // This is our output value
         self.builder.append_block_param(merge_block, types::I32);
-        self.builder.ins().br_icmp(IntCC::UnsignedGreaterThanOrEqual, a, b, merge_block, &[a]);
+        self.builder
+            .ins()
+            .br_icmp(IntCC::UnsignedGreaterThanOrEqual, a, b, merge_block, &[a]);
         self.builder.ins().jump(merge_block, &[b]);
 
         self.builder.switch_to_block(merge_block);
@@ -49,7 +51,10 @@ impl<'a> FunctionTranslator<'a> {
             self.module
                 .declare_data_in_func(self.output_power_data[idx], &mut self.builder.func)
         };
-        let p = self.builder.ins().symbol_value(self.module.target_config().pointer_type(), gv);
+        let p = self
+            .builder
+            .ins()
+            .symbol_value(self.module.target_config().pointer_type(), gv);
         let i8 = self.builder.ins().load(types::I8, MemFlags::new(), p, 0);
         self.builder.ins().uextend(types::I32, i8)
     }
@@ -67,7 +72,7 @@ impl<'a> FunctionTranslator<'a> {
                 LinkType::Default => {
                     let v = self.translate_output_power(input.end.index);
                     let weight = self.builder.ins().iconst(types::I32, input.weight as i64);
-                    let weighted =self.builder.ins().isub(v, weight);
+                    let weighted = self.builder.ins().isub(v, weight);
                     let weighted_sat = self.translate_max(weighted, zero);
                     let new_input_power = self.translate_max(weighted_sat, input_power);
                     self.translate_node_input_power_recur(
@@ -79,7 +84,7 @@ impl<'a> FunctionTranslator<'a> {
                 LinkType::Side => {
                     let v = self.translate_output_power(input.end.index);
                     let weight = self.builder.ins().iconst(types::I32, input.weight as i64);
-                    let weighted =self.builder.ins().isub(v, weight);
+                    let weighted = self.builder.ins().isub(v, weight);
                     let weighted_sat = self.translate_max(weighted, zero);
                     let new_side_input_power = self.translate_max(weighted_sat, side_input_power);
                     self.translate_node_input_power_recur(
@@ -102,7 +107,9 @@ impl<'a> FunctionTranslator<'a> {
 
     fn translate_update(&mut self) {
         match self.node.state {
-            Block::RedstoneComparator { comparator } => self.translate_comparator_update(comparator),
+            Block::RedstoneComparator { comparator } => {
+                self.translate_comparator_update(comparator)
+            }
             Block::RedstoneTorch { .. } => {}
             Block::RedstoneWallTorch { .. } => {}
             Block::RedstoneRepeater { .. } => {}
@@ -132,9 +139,14 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.ins().return_(&[]);
     }
 
-    fn translate_calculate_comparator_output(&mut self, mode: ComparatorMode, input_strength: Value, power_on_sides: Value) -> Value {
+    fn translate_calculate_comparator_output(
+        &mut self,
+        mode: ComparatorMode,
+        input_strength: Value,
+        power_on_sides: Value,
+    ) -> Value {
         if mode == ComparatorMode::Subtract {
-            return self.builder.ins().ssub_sat(input_strength, power_on_sides)
+            return self.builder.ins().ssub_sat(input_strength, power_on_sides);
         }
 
         let merge_block = self.builder.create_block();
@@ -142,7 +154,13 @@ impl<'a> FunctionTranslator<'a> {
         // This is our output value
         self.builder.append_block_param(merge_block, types::I32);
         let z = self.builder.ins().iconst(types::I32, 0);
-        self.builder.ins().br_icmp(IntCC::UnsignedGreaterThanOrEqual, input_strength, power_on_sides, merge_block, &[input_strength]);
+        self.builder.ins().br_icmp(
+            IntCC::UnsignedGreaterThanOrEqual,
+            input_strength,
+            power_on_sides,
+            merge_block,
+            &[input_strength],
+        );
         self.builder.ins().jump(merge_block, &[z]);
 
         self.builder.switch_to_block(merge_block);
@@ -153,14 +171,21 @@ impl<'a> FunctionTranslator<'a> {
     fn translate_comparator_update(&mut self, comparator: RedstoneComparator) {
         let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
 
-        let output_power = self.translate_calculate_comparator_output(comparator.mode, input_power, side_input_power);
-
+        let output_power = self.translate_calculate_comparator_output(
+            comparator.mode,
+            input_power,
+            side_input_power,
+        );
     }
 
     fn translate_comparator_tick(&mut self, comparator: RedstoneComparator) {
         let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
 
-        let output_power = self.translate_calculate_comparator_output(comparator.mode, input_power, side_input_power);
+        let output_power = self.translate_calculate_comparator_output(
+            comparator.mode,
+            input_power,
+            side_input_power,
+        );
     }
 }
 
@@ -170,7 +195,7 @@ pub struct CraneliftBackend {
     ctx: codegen::Context,
     module: JITModule,
     // Execution
-    initial_nodes: Vec<Node>,
+    nodes: Vec<Node>,
     tick_fns: Vec<extern "C" fn(&mut CraneliftBackend)>,
     use_fns: Vec<extern "C" fn(&mut CraneliftBackend)>,
     pos_map: HashMap<BlockPos, usize>,
@@ -186,7 +211,7 @@ impl Default for CraneliftBackend {
             builder_context: FunctionBuilderContext::new(),
             ctx: module.make_context(),
             module,
-            initial_nodes: Default::default(),
+            nodes: Default::default(),
             tick_fns: Default::default(),
             use_fns: Default::default(),
             pos_map: Default::default(),
@@ -317,11 +342,11 @@ impl JITBackend for CraneliftBackend {
             self.to_be_ticked.push(CLTickEntry {
                 ticks_left: entry.ticks_left,
                 priority: entry.tick_priority,
-                tick_fn: self.tick_fns[self.pos_map[&entry.pos]],
+                node_id: self.pos_map[&entry.pos],
             })
         }
 
-        self.initial_nodes = nodes;
+        self.nodes = nodes;
     }
 
     fn tick(&mut self) {
@@ -329,7 +354,7 @@ impl JITBackend for CraneliftBackend {
             .sort_by_key(|e| (e.ticks_left, e.priority));
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
             let entry = self.to_be_ticked.remove(0);
-            (entry.tick_fn)(self);
+            self.tick_fns[entry.node_id](self);
         }
     }
 
@@ -340,25 +365,22 @@ impl JITBackend for CraneliftBackend {
     fn reset(&mut self) -> Vec<TickEntry> {
         self.tick_fns.clear();
         self.use_fns.clear();
-        
+
         let builder = JITBuilder::new(cranelift_module::default_libcall_names());
         let module = JITModule::new(builder);
         let old_module = std::mem::replace(&mut self.module, module);
-        // Safe because function pointers have been cleared and there shouldn't be 
+        // Safe because function pointers have been cleared and there shouldn't be
         // code running on another thread.
-        unsafe { old_module.free_memory(); }
-        
+        unsafe {
+            old_module.free_memory();
+        }
+
         let mut ticks = Vec::new();
         for entry in self.to_be_ticked.drain(..) {
             ticks.push(TickEntry {
                 ticks_left: entry.ticks_left,
                 tick_priority: entry.priority,
-                pos: self.initial_nodes[self
-                    .tick_fns
-                    .iter()
-                    .position(|f| *f as usize == entry.tick_fn as usize)
-                    .unwrap()]
-                .pos,
+                pos: self.nodes[entry.node_id].pos,
             })
         }
         ticks
@@ -369,22 +391,62 @@ impl JITBackend for CraneliftBackend {
     }
 }
 
+#[repr(C)]
+enum CLTickPriority {
+    Normal,
+    High,
+    Higher,
+    Highest,
+}
+
 #[no_mangle]
 extern "C" fn cranelift_jit_schedule_tick(
     backend: &mut CraneliftBackend,
     delay: u32,
-    priority: u8,
-    tick_fn: extern "C" fn(&mut CraneliftBackend),
+    priority: CLTickPriority,
+    node_id: usize,
 ) {
     backend.to_be_ticked.push(CLTickEntry {
         ticks_left: delay,
         priority: match priority {
-            0 => TickPriority::Normal,
-            1 => TickPriority::High,
-            2 => TickPriority::Higher,
-            3 => TickPriority::Highest,
-            _ => panic!("Cranelift JIT scheduled tick with priority of {}", priority),
+            CLTickPriority::Normal => TickPriority::Normal,
+            CLTickPriority::High => TickPriority::High,
+            CLTickPriority::Higher => TickPriority::Higher,
+            CLTickPriority::Highest => TickPriority::Highest,
+            // _ => panic!("Cranelift JIT scheduled tick with priority of {}", priority as u32),
         },
-        tick_fn,
+        node_id,
     })
+}
+
+#[no_mangle]
+extern "C" fn cranelift_jit_pending_tick_at(
+    backend: &mut CraneliftBackend,
+    node_id: usize,
+) -> bool {
+    backend
+        .to_be_ticked
+        .iter()
+        .any(|e| e.node_id == node_id)
+}
+
+#[no_mangle]
+extern "C" fn cranelift_jit_set_node(
+    backend: &mut CraneliftBackend,
+    node_id: usize,
+    power: u32,
+) {
+    let powered = power > 0;
+    match &mut backend.nodes[node_id].state {
+        Block::RedstoneComparator { comparator } => comparator.powered = powered,
+        Block::RedstoneTorch { lit } => *lit = powered,
+        Block::RedstoneWallTorch { lit, .. } => *lit = powered,
+        Block::RedstoneRepeater { repeater } => repeater.powered = powered,
+        Block::RedstoneWire { wire } => wire.power = power as u8,
+        Block::Lever { lever } => lever.powered = powered,
+        Block::StoneButton { button } => button.powered = powered,
+        Block::RedstoneLamp { lit } => *lit = powered,
+        _ => {}
+    }
+    backend.change_queue.push((backend.nodes[node_id].pos, backend.nodes[node_id].state))
 }
