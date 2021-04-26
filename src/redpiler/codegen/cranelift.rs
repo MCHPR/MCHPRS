@@ -25,6 +25,21 @@ struct FunctionTranslator<'a> {
 }
 
 impl<'a> FunctionTranslator<'a> {
+    #[allow(dead_code)]
+    fn call_debug_val(&mut self, val: Value) {
+        let mut sig = self.module.make_signature();
+        sig.params = vec![AbiParam::new(types::I32)];
+
+        let callee = self
+            .module
+            .declare_function("cranelift_jit_debug_val", Linkage::Import, &sig).unwrap();
+        let local_callee = self
+            .module
+            .declare_func_in_func(callee, &mut self.builder.func);
+
+        self.builder.ins().call(local_callee, &[val]);
+    }
+
     fn call_schedule_tick(&mut self, backend: Value, node_id: usize, delay: u32, priority: CLTickPriority) {
         let mut sig = self.module.make_signature();
         let pointer_type = self.module.target_config().pointer_type();
@@ -119,7 +134,7 @@ impl<'a> FunctionTranslator<'a> {
 
     fn translate_band_not(&mut self, a: Value, b: Value) -> Value {
         let bint = self.builder.ins().bint(types::I8, b);
-        let not_b = self.builder.ins().icmp_imm(IntCC::NotEqual, bint, 0);
+        let not_b = self.builder.ins().icmp_imm(IntCC::Equal, bint, 0);
         self.builder.ins().band(a, not_b)
     }
 
@@ -234,7 +249,7 @@ impl<'a> FunctionTranslator<'a> {
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
-            Block::RedstoneLamp { .. } => {}
+            Block::RedstoneLamp { .. } => self.translate_redstone_lamp_update(backend),
             state => warn!("Trying to compile node with state {:?}", state),
         }
         self.builder.ins().return_(&[]);
@@ -251,7 +266,7 @@ impl<'a> FunctionTranslator<'a> {
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
-            Block::RedstoneLamp { .. } => {}
+            Block::RedstoneLamp { .. } => self.translate_redstone_lamp_tick(backend),
             state => warn!("Trying to compile node with state {:?}", state),
         }
         self.builder.ins().return_(&[]);
@@ -383,13 +398,13 @@ impl<'a> FunctionTranslator<'a> {
         let else_block = self.builder.create_block();
         let set_not_powered_block = self.builder.create_block();
 
-        let should_set_powered = self.translate_band_not(powered, should_be_powered);
+        let should_set_powered = self.translate_band_not(should_be_powered, powered);
         self.builder.ins().brnz(should_set_powered, set_powered_block, &[]);
         self.builder.ins().jump(else_block, &[]);
 
         self.builder.switch_to_block(else_block);
         self.builder.seal_block(else_block);
-        let should_set_not_powered = self.translate_band_not(should_be_powered, powered);
+        let should_set_not_powered = self.translate_band_not(powered, should_be_powered);
         self.builder.ins().brnz(should_set_not_powered, set_not_powered_block, &[]);
         self.builder.ins().jump(return_block, &[]);
 
@@ -411,13 +426,75 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
+    fn translate_redstone_lamp_update(&mut self, backend: Value) {
+        let return_block = self.builder.create_block();
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        let should_be_lit = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, input_power, 0);
+
+        let lit_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let lit = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, lit_i32, 0);
+
+        let set_powered_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        let set_not_powered_block = self.builder.create_block();
+
+        let should_set_powered = self.translate_band_not(should_be_lit, lit);
+        self.builder.ins().brnz(should_set_powered, set_powered_block, &[]);
+        self.builder.ins().jump(else_block, &[]);
+
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+        let should_set_not_powered = self.translate_band_not(lit, should_be_lit);
+        self.builder.ins().brnz(should_set_not_powered, set_not_powered_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_powered_block);
+        self.builder.seal_block(set_powered_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 15);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, false);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_not_powered_block);
+        self.builder.seal_block(set_not_powered_block);
+        self.call_schedule_tick(backend, self.node_idx, 2, CLTickPriority::Normal);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
+    }
+
+    fn translate_redstone_lamp_tick(&mut self, backend: Value) {
+        let return_block = self.builder.create_block();
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        let should_be_lit = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, input_power, 0);
+
+        let lit_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let lit = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, lit_i32, 0);
+
+        let should_set_not_lit = self.translate_band_not(lit, should_be_lit);
+        let set_not_lit_block = self.builder.create_block();
+        self.builder.ins().brz(should_set_not_lit, return_block, &[]);
+        self.builder.ins().jump(set_not_lit_block, &[]);
+
+        self.builder.switch_to_block(set_not_lit_block);
+        self.builder.seal_block(set_not_lit_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 0);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, false);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
+    }
+
     fn translate_lever_use(&mut self, entry_block: cranelift::prelude::Block, _lever: Lever) {
         let backend = self.builder.block_params(entry_block)[0];
         let powered_i32 = self.get_data(self.output_power_data[self.node_idx]);
         let powered = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, powered_i32, 0);
         let no_power = self.builder.ins().iconst(types::I32, 0);
         let full_power = self.builder.ins().iconst(types::I32, 15);
-        let new_power = self.builder.ins().select(powered, full_power, no_power);
+        let new_power = self.builder.ins().select(powered, no_power, full_power);
         self.set_data(self.output_power_data[self.node_idx], new_power);
         self.call_set_node(backend, self.node_idx, new_power, true);
         self.builder.ins().return_(&[]);
@@ -442,8 +519,9 @@ impl Default for CraneliftBackend {
     fn default() -> Self {
         let mut builder = JITBuilder::new(cranelift_module::default_libcall_names());
         builder.symbol("cranelift_jit_schedule_tick", cranelift_jit_schedule_tick as *const u8);
-        builder.symbol("cranelift_jit_pending_tick_at", cranelift_jit_schedule_tick as *const u8);
-        builder.symbol("cranelift_jit_set_node", cranelift_jit_schedule_tick as *const u8);
+        builder.symbol("cranelift_jit_pending_tick_at", cranelift_jit_pending_tick_at as *const u8);
+        builder.symbol("cranelift_jit_set_node", cranelift_jit_set_node as *const u8);
+        builder.symbol("cranelift_jit_debug_val", cranelift_jit_debug_val as *const u8);
         let module = JITModule::new(builder);
         Self {
             builder_context: FunctionBuilderContext::new(),
@@ -464,7 +542,7 @@ impl CraneliftBackend {
     /// Function must have signature fn(&mut CraneliftBackend) -> ()
     unsafe fn run_code(&mut self, func_id: FuncId) {
         let code_ptr = self.module.get_finalized_function(func_id);
-        let code_fn = std::mem::transmute::<_, fn(&mut CraneliftBackend)>(code_ptr);
+        let code_fn = std::mem::transmute::<_, extern "C" fn(&mut CraneliftBackend)>(code_ptr);
         code_fn(self)
     }
 }
@@ -654,8 +732,12 @@ impl JITBackend for CraneliftBackend {
     fn tick(&mut self) {
         self.to_be_ticked
             .sort_by_key(|e| (e.ticks_left, e.priority));
+        for pending in &mut self.to_be_ticked {
+            pending.ticks_left = pending.ticks_left.saturating_sub(1);
+        }
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
             let entry = self.to_be_ticked.remove(0);
+            debug!("Calling tick function at {}", entry.node_id);
             unsafe { self.run_code(self.tick_fns[entry.node_id]); }
         }
     }
@@ -668,7 +750,11 @@ impl JITBackend for CraneliftBackend {
         self.tick_fns.clear();
         self.use_fns.clear();
 
-        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let mut builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        builder.symbol("cranelift_jit_schedule_tick", cranelift_jit_schedule_tick as *const u8);
+        builder.symbol("cranelift_jit_pending_tick_at", cranelift_jit_pending_tick_at as *const u8);
+        builder.symbol("cranelift_jit_set_node", cranelift_jit_set_node as *const u8);
+        builder.symbol("cranelift_jit_debug_val", cranelift_jit_debug_val as *const u8);
         let module = JITModule::new(builder);
         let old_module = std::mem::replace(&mut self.module, module);
         // Safe because function pointers have been cleared and there shouldn't be
@@ -694,6 +780,7 @@ impl JITBackend for CraneliftBackend {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 enum CLTickPriority {
     Normal,
     High,
@@ -708,6 +795,7 @@ extern "C" fn cranelift_jit_schedule_tick(
     delay: u32,
     priority: CLTickPriority,
 ) {
+    debug!("cranelift_jit_schedule_tick({}, {}, {:?})", node_id, delay, priority);
     backend.to_be_ticked.push(CLTickEntry {
         ticks_left: delay,
         priority: match priority {
@@ -726,6 +814,7 @@ extern "C" fn cranelift_jit_pending_tick_at(
     backend: &mut CraneliftBackend,
     node_id: usize,
 ) -> bool {
+    debug!("cranelift_jit_pending_tick_at({})", node_id);
     backend
         .to_be_ticked
         .iter()
@@ -738,6 +827,7 @@ extern "C" fn cranelift_jit_set_node(
     node_id: usize,
     power: u32,
 ) {
+    debug!("cranelift_jit_set_node({}, {})", node_id, power);
     let powered = power > 0;
     match &mut backend.nodes[node_id].state {
         Block::RedstoneComparator { comparator } => comparator.powered = powered,
@@ -751,4 +841,11 @@ extern "C" fn cranelift_jit_set_node(
         _ => {}
     }
     backend.change_queue.push((backend.nodes[node_id].pos, backend.nodes[node_id].state))
+}
+
+#[no_mangle]
+extern "C" fn cranelift_jit_debug_val(
+    val: i32
+) {
+    debug!("cranelift_jit_debug_val({})", val);
 }
