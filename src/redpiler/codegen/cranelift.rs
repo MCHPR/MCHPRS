@@ -1014,7 +1014,7 @@ impl JITBackend for CraneliftBackend {
                 Block::RedstoneRepeater { repeater } => repeater.locked as u8,
                 _ => 0
             };
-            data_ctx.define(Box::new([comparator_power]));
+            data_ctx.define(Box::new([repeater_lock]));
             let repeater_lock_id = self
                 .module
                 .declare_data(&repeater_lock_name, Linkage::Local, true, false)
@@ -1048,10 +1048,10 @@ impl JITBackend for CraneliftBackend {
                 nodes: &nodes,
             };
             update_translator.translate_update(update_entry_block);
-            debug!(
-                "n{}_update generated {}",
-                idx, &update_translator.builder.func
-            );
+            // debug!(
+            //     "n{}_update generated {}",
+            //     idx, &update_translator.builder.func
+            // );
 
             update_translator.builder.finalize();
             let update_id = self
@@ -1091,7 +1091,7 @@ impl JITBackend for CraneliftBackend {
                 nodes: &nodes,
             };
             tick_translator.translate_tick(tick_entry_block);
-            debug!("n{}_tick generated {}", idx, &tick_translator.builder.func);
+            // debug!("n{}_tick generated {}", idx, &tick_translator.builder.func);
 
             tick_translator.builder.finalize();
             let tick_id = self
@@ -1140,7 +1140,7 @@ impl JITBackend for CraneliftBackend {
                     _ => unreachable!(),
                 }
 
-                debug!("n{}_use generated {}", idx, &use_translator.builder.func);
+                // debug!("n{}_use generated {}", idx, &use_translator.builder.func);
 
                 use_translator.builder.finalize();
                 let use_id = self
