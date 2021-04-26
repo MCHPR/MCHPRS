@@ -32,7 +32,7 @@ impl<'a> FunctionTranslator<'a> {
 
         let callee = self
             .module
-            .declare_function("cranelift_jit_set_node", Linkage::Import, &sig).unwrap();
+            .declare_function("cranelift_jit_schedule_tick", Linkage::Import, &sig).unwrap();
         let local_callee = self
             .module
             .declare_func_in_func(callee, &mut self.builder.func);
@@ -97,6 +97,12 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.block_params(merge_block)[0]
     }
 
+    fn translate_band_not(&mut self, a: Value, b: Value) -> Value {
+        let bint = self.builder.ins().bint(types::I8, b);
+        let not_b = self.builder.ins().icmp_imm(IntCC::NotEqual, bint, 0);
+        self.builder.ins().band(a, not_b)
+    }
+
     fn get_data(&mut self, data: DataId) -> Value {
         let gv = self.module
             .declare_data_in_func(data, &mut self.builder.func);
@@ -106,6 +112,28 @@ impl<'a> FunctionTranslator<'a> {
             .symbol_value(self.module.target_config().pointer_type(), gv);
         let i8 = self.builder.ins().load(types::I8, MemFlags::new(), p, 0);
         self.builder.ins().uextend(types::I32, i8)
+    }
+
+    fn set_data(&mut self, data: DataId, val: Value) {
+        let gv = self.module
+            .declare_data_in_func(data, &mut self.builder.func);
+        let p = self
+            .builder
+            .ins()
+            .symbol_value(self.module.target_config().pointer_type(), gv);
+        self.builder.ins().istore8(MemFlags::new(), val, p, 0);
+    }
+
+    fn set_data_imm(&mut self, data: DataId, val: i64) -> Value {
+        let gv = self.module
+            .declare_data_in_func(data, &mut self.builder.func);
+        let p = self
+            .builder
+            .ins()
+            .symbol_value(self.module.target_config().pointer_type(), gv);
+        let imm = self.builder.ins().iconst(types::I8, val);
+        self.builder.ins().store(MemFlags::new(), imm, p, 0);
+        imm
     }
 
     fn translate_output_power(&mut self, idx: usize) -> Value {
@@ -308,13 +336,59 @@ impl<'a> FunctionTranslator<'a> {
     }
 
     fn translate_comparator_tick(&mut self, backend: Value, comparator: RedstoneComparator) {
+        let return_block = self.builder.create_block();
         let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
 
-        let output_power = self.translate_calculate_comparator_output(
+        let new_strength = self.translate_calculate_comparator_output(
             comparator.mode,
             input_power,
             side_input_power,
         );
+        let old_strength = self.get_data(self.comparator_output_data[self.node_idx]);
+        if comparator.mode != ComparatorMode::Compare {
+            let change_block = self.builder.create_block();
+            self.builder.ins().br_icmp(IntCC::NotEqual, new_strength, old_strength, change_block, &[]);
+            self.builder.ins().jump(return_block, &[]);
+
+            self.builder.switch_to_block(change_block);
+            self.builder.seal_block(change_block);
+        }
+
+        self.set_data(self.comparator_output_data[self.node_idx], new_strength);
+        let should_be_powered = self.translate_comparator_should_be_powered(comparator.mode, input_power, side_input_power);
+        let powered_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let powered = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, powered_i32, 0);
+
+        let set_powered_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        let set_not_powered_block = self.builder.create_block();
+
+        let should_set_powered = self.translate_band_not(powered, should_be_powered);
+        self.builder.ins().brnz(should_set_powered, set_powered_block, &[]);
+        self.builder.ins().jump(else_block, &[]);
+
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+        let should_set_not_powered = self.translate_band_not(should_be_powered, powered);
+        self.builder.ins().brnz(should_set_not_powered, set_not_powered_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_powered_block);
+        self.builder.seal_block(set_powered_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 15);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_not_powered_block);
+        self.builder.seal_block(set_not_powered_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 0);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
     }
 }
 
@@ -334,7 +408,10 @@ pub struct CraneliftBackend {
 
 impl Default for CraneliftBackend {
     fn default() -> Self {
-        let builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        let mut builder = JITBuilder::new(cranelift_module::default_libcall_names());
+        builder.symbol("cranelift_jit_schedule_tick", cranelift_jit_schedule_tick as *const u8);
+        builder.symbol("cranelift_jit_pending_tick_at", cranelift_jit_schedule_tick as *const u8);
+        builder.symbol("cranelift_jit_set_node", cranelift_jit_schedule_tick as *const u8);
         let module = JITModule::new(builder);
         Self {
             builder_context: FunctionBuilderContext::new(),
