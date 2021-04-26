@@ -1,5 +1,5 @@
 use super::JITBackend;
-use crate::blocks::{self, Block, BlockPos, ComparatorMode, Lever, RedstoneComparator};
+use crate::blocks::{self, Block, BlockPos, ComparatorMode, Lever, RedstoneComparator, RedstoneRepeater};
 use crate::redpiler::{Link, LinkType, Node};
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
@@ -19,6 +19,7 @@ struct FunctionTranslator<'a> {
     module: &'a mut JITModule,
     output_power_data: &'a [DataId],
     comparator_output_data: &'a [DataId],
+    repeater_lock_data: &'a [DataId],
     node_idx: usize,
     node: &'a Node,
     nodes: &'a [Node],
@@ -139,6 +140,31 @@ impl<'a> FunctionTranslator<'a> {
             }
             self.call_update_node(backend, node_id);
         }
+    }
+
+    fn call_set_locked(&mut self, backend: Value, node_id: usize, val: bool) {
+        let mut sig = self.module.make_signature();
+        let pointer_type = self.module.target_config().pointer_type();
+        sig.params = vec![
+            AbiParam::new(pointer_type),
+            AbiParam::new(pointer_type),
+            AbiParam::new(types::B8),
+        ];
+
+        let callee = self
+            .module
+            .declare_function("cranelift_jit_set_locked", Linkage::Import, &sig)
+            .unwrap();
+        let local_callee = self
+            .module
+            .declare_func_in_func(callee, &mut self.builder.func);
+
+        let node_id_v = self.builder.ins().iconst(pointer_type, node_id as i64);
+        let val_v = self.builder.ins().bconst(types::B8, val);
+
+        self.builder
+            .ins()
+            .call(local_callee, &[backend, node_id_v, val_v]);
     }
 
     fn translate_max(&mut self, a: Value, b: Value) -> Value {
@@ -283,7 +309,7 @@ impl<'a> FunctionTranslator<'a> {
             }
             Block::RedstoneTorch { .. } => self.translate_redstone_torch_update(backend),
             Block::RedstoneWallTorch { .. } => self.translate_redstone_torch_update(backend),
-            Block::RedstoneRepeater { .. } => self.translate_redstone_repeater_update(backend),
+            Block::RedstoneRepeater { repeater } => self.translate_redstone_repeater_update(backend, repeater),
             Block::RedstoneWire { .. } => self.translate_redstone_wire_update(backend),
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
@@ -507,12 +533,157 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_repeater_update(&mut self, backend: Value) {
+    fn translate_redstone_repeater_update(&mut self, backend: Value, repeater: RedstoneRepeater) {
+        let return_block = self.builder.create_block();
+        let main_block = self.builder.create_block();
+        self.builder.append_block_param(main_block, types::I32); // Locked
+        let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
         
+        let should_be_locked = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, side_input_power, 0);
+        let locked_i32 = self.get_data(self.repeater_lock_data[self.node_idx]);
+        let locked = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, locked_i32, 0);
+
+        let set_locked_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        let set_not_locked_block = self.builder.create_block();
+
+        let should_set_locked = self.translate_band_not(should_be_locked, locked);
+        self.builder
+            .ins()
+            .brnz(should_set_locked, set_locked_block, &[]);
+        self.builder.ins().jump(else_block, &[]);
+
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+        let should_set_not_powered = self.translate_band_not(locked, should_be_locked);
+        self.builder
+            .ins()
+            .brnz(should_set_not_powered, set_not_locked_block, &[]);
+        self.builder.ins().jump(main_block, &[locked_i32]);
+
+        self.builder.switch_to_block(set_locked_block);
+        self.builder.seal_block(set_locked_block);
+        let new_locked = self.set_data_imm(self.repeater_lock_data[self.node_idx], 1);
+        let new_locked_i32 = self.builder.ins().uextend(types::I32, new_locked);
+        self.call_set_locked(backend, self.node_idx, true);
+        self.builder.ins().jump(main_block, &[new_locked_i32]);
+
+        self.builder.switch_to_block(set_not_locked_block);
+        self.builder.seal_block(set_not_locked_block);
+        let new_locked = self.set_data_imm(self.repeater_lock_data[self.node_idx], 0);
+        let new_locked_i32 = self.builder.ins().uextend(types::I32, new_locked);
+        self.call_set_locked(backend, self.node_idx, false);
+        self.builder.ins().jump(main_block, &[new_locked_i32]);
+
+        self.builder.switch_to_block(main_block);
+        self.builder.seal_block(main_block);
+
+        // condition 1: !locked && !pending_tick_at(self)
+        let locked_i32 = self.builder.block_params(main_block)[0];
+        let locked = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, locked_i32, 0);
+        let not_locked = self.translate_bnot(locked);
+        let pending_tick_at = self.call_pending_tick_at(backend, self.node_idx);
+        let not_pending_tick_at = self.translate_bnot(pending_tick_at);
+        let cond1 = self.builder.ins().band(not_locked, not_pending_tick_at);
+
+        // condition 2: should_be_powered != powered
+        let should_be_powered = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, input_power, 0);
+        let powered_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let powered = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, powered_i32, 0);
+        let cond2 = self.builder.ins().bxor(should_be_powered, powered);
+
+        let cond = self.builder.ins().band(cond1, cond2);
+        let schedule_tick_block = self.builder.create_block();
+        self.builder.ins().brnz(cond, schedule_tick_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(schedule_tick_block);
+        self.builder.seal_block(schedule_tick_block);
+        if self.node.facing_diode {
+            self.call_schedule_tick(backend, self.node_idx, repeater.delay as u32, CLTickPriority::Highest);
+            self.builder.ins().jump(return_block, &[]);
+        } else {
+            let schedule_higher_block = self.builder.create_block();
+            let schedule_high_block = self.builder.create_block();
+            // if !should_be_powered { TickPriority::Higher }
+            self.builder.ins().brz(should_be_powered, schedule_higher_block, &[]);
+            // else { TickPriority::High }
+            self.builder.ins().jump(schedule_high_block, &[]);
+            self.builder.switch_to_block(schedule_high_block);
+            self.builder.seal_block(schedule_high_block);
+            self.call_schedule_tick(backend, self.node_idx, repeater.delay as u32, CLTickPriority::High);
+            self.builder.ins().jump(return_block, &[]);
+            self.builder.switch_to_block(schedule_higher_block);
+            self.builder.seal_block(schedule_higher_block);
+            self.call_schedule_tick(backend, self.node_idx, repeater.delay as u32, CLTickPriority::Higher);
+            self.builder.ins().jump(return_block, &[]);
+        }
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
     }
 
     fn translate_redstone_repeater_tick(&mut self, backend: Value) {
-    
+        let return_block = self.builder.create_block();
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+
+        let main_block = self.builder.create_block();
+        let locked = self.get_data(self.repeater_lock_data[self.node_idx]);
+        self.builder.ins().brnz(locked, return_block, &[]);
+        self.builder.ins().jump(main_block, &[]);
+
+        self.builder.switch_to_block(main_block);
+        self.builder.seal_block(main_block);
+        let should_be_powered = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, input_power, 0);
+        let powered_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let powered = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, powered_i32, 0);
+
+        let set_powered_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        let set_not_powered_block = self.builder.create_block();
+
+        let should_set_powered = self.translate_band_not(should_be_powered, powered);
+        self.builder
+            .ins()
+            .brnz(should_set_powered, set_powered_block, &[]);
+        self.builder.ins().jump(else_block, &[]);
+
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+        let should_set_not_powered = self.translate_band_not(powered, should_be_powered);
+        self.builder
+            .ins()
+            .brnz(should_set_not_powered, set_not_powered_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_powered_block);
+        self.builder.seal_block(set_powered_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 15);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_not_powered_block);
+        self.builder.seal_block(set_not_powered_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 0);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
     }
 
     fn translate_redstone_torch_update(&mut self, backend: Value) {
@@ -751,6 +922,10 @@ impl Default for CraneliftBackend {
             cranelift_jit_set_node as *const u8,
         );
         builder.symbol(
+            "cranelift_jit_set_locked",
+            cranelift_jit_set_locked as *const u8,
+        );
+        builder.symbol(
             "cranelift_jit_debug_val",
             cranelift_jit_debug_val as *const u8,
         );
@@ -792,9 +967,11 @@ impl JITBackend for CraneliftBackend {
 
         let mut output_power_data = Vec::new();
         let mut comparator_output_data = Vec::new();
+        let mut repeater_lock_data = Vec::new();
         for idx in 0..nodes.len() {
             let output_power_name = format!("n{}_output_power", idx);
             let comparator_output_name = format!("n{}_comparator_output", idx);
+            let repeater_lock_name = format!("n{}_repeater_lock", idx);
 
             let power = match nodes[idx].state {
                 Block::RedstoneWire { wire } => wire.power,
@@ -832,6 +1009,21 @@ impl JITBackend for CraneliftBackend {
                 .define_data(comparator_output_id, &data_ctx)
                 .unwrap();
             data_ctx.clear();
+
+            let repeater_lock = match nodes[idx].state {
+                Block::RedstoneRepeater { repeater } => repeater.locked as u8,
+                _ => 0
+            };
+            data_ctx.define(Box::new([comparator_power]));
+            let repeater_lock_id = self
+                .module
+                .declare_data(&repeater_lock_name, Linkage::Local, true, false)
+                .unwrap();
+            repeater_lock_data.push(repeater_lock_id);
+            self.module
+                .define_data(repeater_lock_id, &data_ctx)
+                .unwrap();
+            data_ctx.clear();
         }
 
         for (idx, node) in nodes.iter().enumerate() {
@@ -850,6 +1042,7 @@ impl JITBackend for CraneliftBackend {
                 module: &mut self.module,
                 comparator_output_data: &comparator_output_data,
                 output_power_data: &output_power_data,
+                repeater_lock_data: &repeater_lock_data,
                 node,
                 node_idx: idx,
                 nodes: &nodes,
@@ -892,6 +1085,7 @@ impl JITBackend for CraneliftBackend {
                 module: &mut self.module,
                 comparator_output_data: &comparator_output_data,
                 output_power_data: &output_power_data,
+                repeater_lock_data: &repeater_lock_data,
                 node,
                 node_idx: idx,
                 nodes: &nodes,
@@ -933,6 +1127,7 @@ impl JITBackend for CraneliftBackend {
                     module: &mut self.module,
                     comparator_output_data: &comparator_output_data,
                     output_power_data: &output_power_data,
+                    repeater_lock_data: &repeater_lock_data,
                     node,
                     node_idx: idx,
                     nodes: &nodes,
@@ -994,7 +1189,7 @@ impl JITBackend for CraneliftBackend {
         }
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
             let entry = self.to_be_ticked.remove(0);
-            debug!("Calling tick function at {}", entry.node_id);
+            // debug!("Calling tick function at {}", entry.node_id);
             unsafe {
                 self.run_code(self.tick_fns[entry.node_id]);
             }
@@ -1023,6 +1218,10 @@ impl JITBackend for CraneliftBackend {
         builder.symbol(
             "cranelift_jit_set_node",
             cranelift_jit_set_node as *const u8,
+        );
+        builder.symbol(
+            "cranelift_jit_set_locked",
+            cranelift_jit_set_locked as *const u8,
         );
         builder.symbol(
             "cranelift_jit_debug_val",
@@ -1068,10 +1267,10 @@ extern "C" fn cranelift_jit_schedule_tick(
     delay: u32,
     priority: CLTickPriority,
 ) {
-    debug!(
-        "cranelift_jit_schedule_tick({}, {}, {:?})",
-        node_id, delay, priority
-    );
+    // debug!(
+    //     "cranelift_jit_schedule_tick({}, {}, {:?})",
+    //     node_id, delay, priority
+    // );
     backend.to_be_ticked.push(CLTickEntry {
         ticks_left: delay,
         priority: match priority {
@@ -1090,13 +1289,13 @@ extern "C" fn cranelift_jit_pending_tick_at(
     backend: &mut CraneliftBackend,
     node_id: usize,
 ) -> bool {
-    debug!("cranelift_jit_pending_tick_at({})", node_id);
+    // debug!("cranelift_jit_pending_tick_at({})", node_id);
     backend.to_be_ticked.iter().any(|e| e.node_id == node_id)
 }
 
 #[no_mangle]
 extern "C" fn cranelift_jit_set_node(backend: &mut CraneliftBackend, node_id: usize, power: u32) {
-    debug!("cranelift_jit_set_node({}, {})", node_id, power);
+    // debug!("cranelift_jit_set_node({}, {})", node_id, power);
     let powered = power > 0;
     match &mut backend.nodes[node_id].state {
         Block::RedstoneComparator { comparator } => comparator.powered = powered,
@@ -1108,6 +1307,18 @@ extern "C" fn cranelift_jit_set_node(backend: &mut CraneliftBackend, node_id: us
         Block::StoneButton { button } => button.powered = powered,
         Block::RedstoneLamp { lit } => *lit = powered,
         _ => {}
+    }
+    backend
+        .change_queue
+        .push((backend.nodes[node_id].pos, backend.nodes[node_id].state))
+}
+
+#[no_mangle]
+extern "C" fn cranelift_jit_set_locked(backend: &mut CraneliftBackend, node_id: usize, locked: bool) {
+    // debug!("cranelift_jit_set_locked({}, {})", node_id, locked);
+    match &mut backend.nodes[node_id].state {
+        Block::RedstoneRepeater { repeater } => repeater.locked = locked,
+        _ => panic!("cranelift jit tried to lock a node which wasn't a repeater")
     }
     backend
         .change_queue
