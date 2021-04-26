@@ -283,7 +283,7 @@ impl<'a> FunctionTranslator<'a> {
             }
             Block::RedstoneTorch { .. } => self.translate_redstone_torch_update(backend),
             Block::RedstoneWallTorch { .. } => self.translate_redstone_torch_update(backend),
-            Block::RedstoneRepeater { .. } => {}
+            Block::RedstoneRepeater { .. } => self.translate_redstone_repeater_update(backend),
             Block::RedstoneWire { .. } => self.translate_redstone_wire_update(backend),
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
@@ -302,7 +302,7 @@ impl<'a> FunctionTranslator<'a> {
             }
             Block::RedstoneTorch { .. } => self.translate_redstone_torch_tick(backend),
             Block::RedstoneWallTorch { .. } => self.translate_redstone_torch_tick(backend),
-            Block::RedstoneRepeater { .. } => {}
+            Block::RedstoneRepeater { .. } => self.translate_redstone_repeater_tick(backend),
             Block::RedstoneWire { .. } => {}
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
@@ -505,6 +505,14 @@ impl<'a> FunctionTranslator<'a> {
 
         self.builder.switch_to_block(return_block);
         self.builder.seal_block(return_block);
+    }
+
+    fn translate_redstone_repeater_update(&mut self, backend: Value) {
+        
+    }
+
+    fn translate_redstone_repeater_tick(&mut self, backend: Value) {
+    
     }
 
     fn translate_redstone_torch_update(&mut self, backend: Value) {
@@ -718,6 +726,8 @@ pub struct CraneliftBackend {
     module: JITModule,
     // Execution
     nodes: Vec<Node>,
+    output_power_data: Vec<DataId>,
+    comparator_output_data: Vec<DataId>,
     tick_fns: Vec<FuncId>,
     use_fns: HashMap<BlockPos, FuncId>,
     pos_map: HashMap<BlockPos, usize>,
@@ -750,6 +760,8 @@ impl Default for CraneliftBackend {
             ctx: module.make_context(),
             module,
             nodes: Default::default(),
+            output_power_data: Default::default(),
+            comparator_output_data: Default::default(),
             tick_fns: Default::default(),
             use_fns: Default::default(),
             pos_map: Default::default(),
@@ -767,6 +779,11 @@ impl CraneliftBackend {
         let code_fn = std::mem::transmute::<_, extern "C" fn(&mut CraneliftBackend)>(code_ptr);
         code_fn(self)
     }
+
+    unsafe fn get_data(&mut self, data_id: DataId) -> u8 {
+        let (data_ptr, _) = self.module.get_finalized_data(data_id);
+        *data_ptr
+    }
 }
 
 impl JITBackend for CraneliftBackend {
@@ -779,7 +796,19 @@ impl JITBackend for CraneliftBackend {
             let output_power_name = format!("n{}_output_power", idx);
             let comparator_output_name = format!("n{}_comparator_output", idx);
 
-            data_ctx.define_zeroinit(1);
+            let power = match nodes[idx].state {
+                Block::RedstoneWire { wire } => wire.power,
+                Block::RedstoneComparator { comparator } => comparator.powered.then(|| 15).unwrap_or(0),
+                Block::RedstoneTorch { lit } => lit.then(|| 15).unwrap_or(0),
+                Block::RedstoneWallTorch { lit, .. } => lit.then(|| 15).unwrap_or(0),
+                Block::RedstoneRepeater { repeater } => repeater.powered.then(|| 15).unwrap_or(0),
+                Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
+                Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
+                Block::RedstoneBlock {} => 15,
+                Block::RedstoneLamp { lit } => lit.then(|| 15).unwrap_or(0),
+                _ => 0
+            };
+            data_ctx.define(Box::new([power]));
             let output_power_id = self
                 .module
                 .declare_data(&output_power_name, Linkage::Local, true, false)
@@ -788,7 +817,12 @@ impl JITBackend for CraneliftBackend {
             self.module.define_data(output_power_id, &data_ctx).unwrap();
             data_ctx.clear();
 
-            data_ctx.define_zeroinit(1);
+            let comparator_power = match nodes[idx].state {
+                Block::RedstoneComparator { .. } => self.nodes[idx].comparator_output,
+                s if s.has_comparator_override() => self.nodes[idx].comparator_output,
+                _ => 0
+            };
+            data_ctx.define(Box::new([comparator_power]));
             let comparator_output_id = self
                 .module
                 .declare_data(&comparator_output_name, Linkage::Local, true, false)
