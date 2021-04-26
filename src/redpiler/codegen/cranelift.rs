@@ -1,10 +1,10 @@
 use super::JITBackend;
-use crate::blocks::{self, Block, BlockPos, ComparatorMode, RedstoneComparator};
+use crate::blocks::{self, Block, BlockPos, ComparatorMode, RedstoneComparator, Lever};
 use crate::redpiler::{Link, LinkType, Node};
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
-use cranelift_module::{DataContext, DataId, Linkage, Module};
+use cranelift_module::{DataContext, DataId, Linkage, Module, FuncId};
 use log::{debug, warn};
 use std::collections::HashMap;
 
@@ -410,6 +410,18 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.switch_to_block(return_block);
         self.builder.seal_block(return_block);
     }
+
+    fn translate_lever_use(&mut self, entry_block: cranelift::prelude::Block, _lever: Lever) {
+        let backend = self.builder.block_params(entry_block)[0];
+        let powered_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let powered = self.builder.ins().icmp_imm(IntCC::UnsignedGreaterThan, powered_i32, 0);
+        let no_power = self.builder.ins().iconst(types::I32, 0);
+        let full_power = self.builder.ins().iconst(types::I32, 15);
+        let new_power = self.builder.ins().select(powered, full_power, no_power);
+        self.set_data(self.output_power_data[self.node_idx], new_power);
+        self.call_set_node(backend, self.node_idx, new_power, true);
+        self.builder.ins().return_(&[]);
+    }
 }
 
 pub struct CraneliftBackend {
@@ -419,8 +431,8 @@ pub struct CraneliftBackend {
     module: JITModule,
     // Execution
     nodes: Vec<Node>,
-    tick_fns: Vec<extern "C" fn(&mut CraneliftBackend)>,
-    use_fns: HashMap<BlockPos, extern "C" fn(&mut CraneliftBackend)>,
+    tick_fns: Vec<FuncId>,
+    use_fns: HashMap<BlockPos, FuncId>,
     pos_map: HashMap<BlockPos, usize>,
     to_be_ticked: Vec<CLTickEntry>,
     change_queue: Vec<(BlockPos, Block)>,
@@ -444,6 +456,16 @@ impl Default for CraneliftBackend {
             to_be_ticked: Default::default(),
             change_queue: Default::default(),
         }
+    }
+}
+
+impl CraneliftBackend {
+    /// Safety:
+    /// Function must have signature fn(&mut CraneliftBackend) -> ()
+    unsafe fn run_code(&mut self, func_id: FuncId) {
+        let code_ptr = self.module.get_finalized_function(func_id);
+        let code_fn = std::mem::transmute::<_, fn(&mut CraneliftBackend)>(code_ptr);
+        code_fn(self)
     }
 }
 
@@ -552,6 +574,7 @@ impl JITBackend for CraneliftBackend {
                     &self.ctx.func.signature,
                 )
                 .unwrap();
+            self.tick_fns.push(tick_id);
             self.module
                 .define_function(
                     tick_id,
@@ -561,6 +584,54 @@ impl JITBackend for CraneliftBackend {
                 )
                 .unwrap();
             self.module.clear_context(&mut self.ctx);
+            
+            if matches!(node.state, Block::Lever { .. } | Block::StoneButton { .. }) {
+                self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
+                let mut use_builder =
+                    FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+                let use_entry_block = use_builder.create_block();
+                use_builder.append_block_params_for_function_params(use_entry_block);
+                use_builder.switch_to_block(use_entry_block);
+                use_builder.seal_block(use_entry_block);
+
+                let mut use_translator = FunctionTranslator {
+                    builder: use_builder,
+                    module: &mut self.module,
+                    comparator_output_data: &comparator_output_data,
+                    output_power_data: &output_power_data,
+                    node,
+                    node_idx: idx,
+                    nodes: &nodes,
+                };
+                match node.state {
+                    Block::Lever { lever } => use_translator.translate_lever_use(use_entry_block, lever),
+                    // Block::StoneButton { button } => use_translator.translate_button_use(use_entry_block),
+                    _ => unreachable!()
+                }
+                
+                debug!("n{}_use generated {}", idx, &use_translator.builder.func);
+
+                use_translator.builder.finalize();
+                let use_id = self
+                    .module
+                    .declare_function(
+                        &format!("n{}_use", idx),
+                        Linkage::Export,
+                        &self.ctx.func.signature,
+                    )
+                    .unwrap();
+                self.use_fns.insert(node.pos, use_id);
+                self.module
+                    .define_function(
+                        use_id,
+                        &mut self.ctx,
+                        &mut codegen::binemit::NullTrapSink {},
+                        &mut codegen::binemit::NullStackMapSink {},
+                    )
+                    .unwrap();
+                self.module.clear_context(&mut self.ctx);
+            } 
+            
         }
 
         self.module.finalize_definitions();
@@ -585,12 +656,12 @@ impl JITBackend for CraneliftBackend {
             .sort_by_key(|e| (e.ticks_left, e.priority));
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
             let entry = self.to_be_ticked.remove(0);
-            self.tick_fns[entry.node_id](self);
+            unsafe { self.run_code(self.tick_fns[entry.node_id]); }
         }
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
-        self.use_fns[&pos](self);
+        unsafe { self.run_code(self.use_fns[&pos]); }
     }
 
     fn reset(&mut self) -> Vec<TickEntry> {
