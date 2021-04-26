@@ -148,7 +148,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.append_block_param(merge_block, types::I32);
         self.builder
             .ins()
-            .br_icmp(IntCC::UnsignedGreaterThanOrEqual, a, b, merge_block, &[a]);
+            .br_icmp(IntCC::SignedGreaterThanOrEqual, a, b, merge_block, &[a]);
         self.builder.ins().jump(merge_block, &[b]);
 
         self.builder.switch_to_block(merge_block);
@@ -523,7 +523,7 @@ impl<'a> FunctionTranslator<'a> {
 
         let pending_tick_at = self.call_pending_tick_at(backend, self.node_idx);
         let not_pending_tick_at = self.translate_bnot(pending_tick_at);
-        
+
         let cond1 = self.translate_bxor_not(lit, should_be_off);
         let cond = self.builder.ins().band(cond1, not_pending_tick_at);
         let schedule_tick_block = self.builder.create_block();
@@ -676,9 +676,13 @@ impl<'a> FunctionTranslator<'a> {
         let old_power = self.get_data(self.output_power_data[self.node_idx]);
 
         let set_power_block = self.builder.create_block();
-        // self.call_debug_val(input_power);
-        // self.call_debug_val(old_power);
-        self.builder.ins().br_icmp(IntCC::NotEqual, input_power, old_power, set_power_block, &[]);
+        self.builder.ins().br_icmp(
+            IntCC::NotEqual,
+            input_power,
+            old_power,
+            set_power_block,
+            &[],
+        );
         self.builder.ins().jump(return_block, &[]);
 
         self.builder.switch_to_block(set_power_block);
