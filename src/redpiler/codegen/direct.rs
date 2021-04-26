@@ -124,7 +124,7 @@ impl DirectBackend {
                     }
                 }
             }
-            Block::RedstoneTorch { lit } => {
+            Block::RedstoneTorch { lit } | Block::RedstoneWallTorch { lit, .. } => {
                 if lit == (input_power > 0) && !self.pending_tick_at(node_id) {
                     self.schedule_tick(node_id, 1, TickPriority::Normal);
                 }
@@ -153,11 +153,6 @@ impl DirectBackend {
                         TickPriority::Normal
                     };
                     self.schedule_tick(node_id, 1, priority);
-                }
-            }
-            Block::RedstoneWallTorch { lit, .. } => {
-                if lit == (input_power > 0) && !self.pending_tick_at(node_id) {
-                    self.schedule_tick(node_id, 1, TickPriority::Normal);
                 }
             }
             Block::RedstoneLamp { lit } => {
@@ -259,6 +254,22 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, Block::RedstoneTorch { lit: true }, true);
                     }
                 }
+                Block::RedstoneWallTorch { lit, facing } => {
+                    let should_be_off = input_power > 0;
+                    if lit && should_be_off {
+                        self.set_node(
+                            node_id,
+                            Block::RedstoneWallTorch { lit: false, facing },
+                            true,
+                        );
+                    } else if !lit && !should_be_off {
+                        self.set_node(
+                            node_id,
+                            Block::RedstoneWallTorch { lit: true, facing },
+                            true,
+                        );
+                    }
+                }
                 Block::RedstoneComparator { mut comparator } => {
                     let new_strength = self.calculate_comparator_output(
                         comparator.mode,
@@ -280,22 +291,6 @@ impl JITBackend for DirectBackend {
                             comparator.powered = true;
                         }
                         self.set_node(node_id, Block::RedstoneComparator { comparator }, true);
-                    }
-                }
-                Block::RedstoneWallTorch { lit, facing } => {
-                    let should_be_off = input_power > 0;
-                    if lit && should_be_off {
-                        self.set_node(
-                            node_id,
-                            Block::RedstoneWallTorch { lit: false, facing },
-                            true,
-                        );
-                    } else if !lit && !should_be_off {
-                        self.set_node(
-                            node_id,
-                            Block::RedstoneWallTorch { lit: true, facing },
-                            true,
-                        );
                     }
                 }
                 Block::RedstoneLamp { lit } => {

@@ -156,10 +156,22 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.block_params(merge_block)[0]
     }
 
+    // This is needed because the bnot instruction is unimplemented
+    fn translate_bnot(&mut self, a: Value) -> Value {
+        let int = self.builder.ins().bint(types::I8, a);
+        self.builder.ins().icmp_imm(IntCC::Equal, int, 0)
+    }
+
+    // This is needed because the band_not instruction is unimplemented
     fn translate_band_not(&mut self, a: Value, b: Value) -> Value {
-        let bint = self.builder.ins().bint(types::I8, b);
-        let not_b = self.builder.ins().icmp_imm(IntCC::Equal, bint, 0);
+        let not_b = self.translate_bnot(b);
         self.builder.ins().band(a, not_b)
+    }
+
+    // This is needed because the band_not instruction is unimplemented
+    fn translate_bxor_not(&mut self, a: Value, b: Value) -> Value {
+        let not_b = self.translate_bnot(b);
+        self.builder.ins().bxor(a, not_b)
     }
 
     fn get_data(&mut self, data: DataId) -> Value {
@@ -269,10 +281,10 @@ impl<'a> FunctionTranslator<'a> {
             Block::RedstoneComparator { comparator } => {
                 self.translate_comparator_update(backend, comparator)
             }
-            Block::RedstoneTorch { .. } => {}
-            Block::RedstoneWallTorch { .. } => {}
+            Block::RedstoneTorch { .. } => self.translate_redstone_torch_update(backend),
+            Block::RedstoneWallTorch { .. } => self.translate_redstone_torch_update(backend),
             Block::RedstoneRepeater { .. } => {}
-            Block::RedstoneWire { .. } => {}
+            Block::RedstoneWire { .. } => self.translate_redstone_wire_update(backend),
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
@@ -288,8 +300,8 @@ impl<'a> FunctionTranslator<'a> {
             Block::RedstoneComparator { comparator } => {
                 self.translate_comparator_tick(backend, comparator)
             }
-            Block::RedstoneTorch { .. } => {}
-            Block::RedstoneWallTorch { .. } => {}
+            Block::RedstoneTorch { .. } => self.translate_redstone_torch_tick(backend),
+            Block::RedstoneWallTorch { .. } => self.translate_redstone_torch_tick(backend),
             Block::RedstoneRepeater { .. } => {}
             Block::RedstoneWire { .. } => {}
             Block::Lever { .. } => {}
@@ -495,6 +507,89 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
+    fn translate_redstone_torch_update(&mut self, backend: Value) {
+        let return_block = self.builder.create_block();
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        let should_be_off = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, input_power, 0);
+
+        let lit_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let lit = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, lit_i32, 0);
+
+        let pending_tick_at = self.call_pending_tick_at(backend, self.node_idx);
+        let not_pending_tick_at = self.translate_bnot(pending_tick_at);
+        
+        let cond1 = self.translate_bxor_not(lit, should_be_off);
+        let cond = self.builder.ins().band(cond1, not_pending_tick_at);
+        let schedule_tick_block = self.builder.create_block();
+        self.builder.ins().brnz(cond, schedule_tick_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(schedule_tick_block);
+        self.builder.seal_block(schedule_tick_block);
+        self.call_schedule_tick(backend, self.node_idx, 1, CLTickPriority::Normal);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
+    }
+
+    fn translate_redstone_torch_tick(&mut self, backend: Value) {
+        let return_block = self.builder.create_block();
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        let should_be_off = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, input_power, 0);
+
+        let lit_i32 = self.get_data(self.output_power_data[self.node_idx]);
+        let lit = self
+            .builder
+            .ins()
+            .icmp_imm(IntCC::UnsignedGreaterThan, lit_i32, 0);
+
+        let set_powered_block = self.builder.create_block();
+        let else_block = self.builder.create_block();
+        let set_not_powered_block = self.builder.create_block();
+
+        let not_should_set_powered = self.builder.ins().bor(should_be_off, lit);
+        let should_set_powered = self.translate_bnot(not_should_set_powered);
+        self.builder
+            .ins()
+            .brnz(should_set_powered, set_powered_block, &[]);
+        self.builder.ins().jump(else_block, &[]);
+
+        self.builder.switch_to_block(else_block);
+        self.builder.seal_block(else_block);
+        let should_set_not_powered = self.builder.ins().band(lit, should_be_off);
+        self.builder
+            .ins()
+            .brnz(should_set_not_powered, set_not_powered_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_powered_block);
+        self.builder.seal_block(set_powered_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 15);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_not_powered_block);
+        self.builder.seal_block(set_not_powered_block);
+        let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 0);
+        let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
+    }
+
     fn translate_redstone_lamp_update(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
@@ -569,6 +664,27 @@ impl<'a> FunctionTranslator<'a> {
         let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 0);
         let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
         self.call_set_node(backend, self.node_idx, new_output_power_i32, false);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(return_block);
+        self.builder.seal_block(return_block);
+    }
+
+    fn translate_redstone_wire_update(&mut self, backend: Value) {
+        let return_block = self.builder.create_block();
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        let old_power = self.get_data(self.output_power_data[self.node_idx]);
+
+        let set_power_block = self.builder.create_block();
+        // self.call_debug_val(input_power);
+        // self.call_debug_val(old_power);
+        self.builder.ins().br_icmp(IntCC::NotEqual, input_power, old_power, set_power_block, &[]);
+        self.builder.ins().jump(return_block, &[]);
+
+        self.builder.switch_to_block(set_power_block);
+        self.builder.seal_block(set_power_block);
+        self.set_data(self.output_power_data[self.node_idx], input_power);
+        self.call_set_node(backend, self.node_idx, input_power, false);
         self.builder.ins().jump(return_block, &[]);
 
         self.builder.switch_to_block(return_block);
