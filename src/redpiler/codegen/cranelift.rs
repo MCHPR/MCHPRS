@@ -65,7 +65,20 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.inst_results(call)[0]
     }
 
-    fn call_set_node(&mut self, backend: Value, node_id: usize, power: Value) {
+    fn call_update_node(&mut self, backend: Value, node_id: usize) {
+        let mut sig = self.module.make_signature();
+        let pointer_type = self.module.target_config().pointer_type();
+        sig.params = vec![AbiParam::new(pointer_type)];
+        let callee = self
+            .module
+            .declare_function(&format!("n{}_update", node_id), Linkage::Export, &sig).unwrap();
+        let local_callee = self
+            .module
+            .declare_func_in_func(callee, &mut self.builder.func);
+        self.builder.ins().call(local_callee, &[backend]);
+    }
+
+    fn call_set_node(&mut self, backend: Value, node_id: usize, power: Value, update: bool) {
         let mut sig = self.module.make_signature();
         let pointer_type = self.module.target_config().pointer_type();
         sig.params = vec![AbiParam::new(pointer_type), AbiParam::new(pointer_type), AbiParam::new(types::I32)];
@@ -77,9 +90,16 @@ impl<'a> FunctionTranslator<'a> {
             .module
             .declare_func_in_func(callee, &mut self.builder.func);
 
-        let node_id = self.builder.ins().iconst(pointer_type, node_id as i64);
+        let node_id_v = self.builder.ins().iconst(pointer_type, node_id as i64);
 
-        self.builder.ins().call(local_callee, &[backend, node_id, power]);
+        self.builder.ins().call(local_callee, &[backend, node_id_v, power]);
+
+        if update {
+            for update in self.node.updates.clone() {
+                self.call_update_node(backend, update.index);
+            }
+            self.call_update_node(backend, node_id);
+        }
     }
 
     fn translate_max(&mut self, a: Value, b: Value) -> Value {
@@ -377,14 +397,14 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(set_powered_block);
         let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 15);
         let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
-        self.call_set_node(backend, self.node_idx, new_output_power_i32);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
         self.builder.ins().jump(return_block, &[]);
 
         self.builder.switch_to_block(set_not_powered_block);
         self.builder.seal_block(set_not_powered_block);
         let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 0);
         let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
-        self.call_set_node(backend, self.node_idx, new_output_power_i32);
+        self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
         self.builder.ins().jump(return_block, &[]);
 
         self.builder.switch_to_block(return_block);
@@ -400,7 +420,7 @@ pub struct CraneliftBackend {
     // Execution
     nodes: Vec<Node>,
     tick_fns: Vec<extern "C" fn(&mut CraneliftBackend)>,
-    use_fns: Vec<extern "C" fn(&mut CraneliftBackend)>,
+    use_fns: HashMap<BlockPos, extern "C" fn(&mut CraneliftBackend)>,
     pos_map: HashMap<BlockPos, usize>,
     to_be_ticked: Vec<CLTickEntry>,
     change_queue: Vec<(BlockPos, Block)>,
@@ -434,7 +454,6 @@ impl JITBackend for CraneliftBackend {
         let mut output_power_data = Vec::new();
         let mut comparator_output_data = Vec::new();
         for idx in 0..nodes.len() {
-            dbg!(idx);
             let output_power_name = format!("n{}_output_power", idx);
             let comparator_output_name = format!("n{}_comparator_output", idx);
 
@@ -571,7 +590,7 @@ impl JITBackend for CraneliftBackend {
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
-        self.use_fns[self.pos_map[&pos]](self);
+        self.use_fns[&pos](self);
     }
 
     fn reset(&mut self) -> Vec<TickEntry> {
