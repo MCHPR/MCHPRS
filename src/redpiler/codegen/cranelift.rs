@@ -315,7 +315,8 @@ impl<'a> FunctionTranslator<'a> {
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
             Block::RedstoneLamp { .. } => self.translate_redstone_lamp_update(backend),
-            state => warn!("Trying to compile node with state {:?}", state),
+            _ => {}
+            // state => warn!("Trying to compile node with state {:?}", state),
         }
         self.builder.ins().return_(&[]);
     }
@@ -334,7 +335,8 @@ impl<'a> FunctionTranslator<'a> {
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
             Block::RedstoneLamp { .. } => self.translate_redstone_lamp_tick(backend),
-            state => warn!("Trying to compile node with state {:?}", state),
+            _ => {}
+            // state => warn!("Trying to compile node with state {:?}", state),
         }
         self.builder.ins().return_(&[]);
     }
@@ -346,7 +348,10 @@ impl<'a> FunctionTranslator<'a> {
         power_on_sides: Value,
     ) -> Value {
         if mode == ComparatorMode::Subtract {
-            return self.builder.ins().ssub_sat(input_strength, power_on_sides);
+            let z = self.builder.ins().iconst(types::I32, 0);
+            let output = self.builder.ins().isub(input_strength, power_on_sides);
+            let output_sat = self.translate_max(output, z);
+            return output_sat;
         }
 
         let merge_block = self.builder.create_block();
@@ -470,6 +475,8 @@ impl<'a> FunctionTranslator<'a> {
             side_input_power,
         );
         let old_strength = self.get_data(self.comparator_output_data[self.node_idx]);
+        // self.call_debug_val(new_strength);
+        // self.call_debug_val(old_strength);
         if comparator.mode != ComparatorMode::Compare {
             let change_block = self.builder.create_block();
             self.builder.ins().br_icmp(
@@ -500,6 +507,8 @@ impl<'a> FunctionTranslator<'a> {
         let set_powered_block = self.builder.create_block();
         let else_block = self.builder.create_block();
         let set_not_powered_block = self.builder.create_block();
+        let set_node_block = self.builder.create_block();
+        self.builder.append_block_param(set_node_block, types::I32);
 
         let should_set_powered = self.translate_band_not(should_be_powered, powered);
         self.builder
@@ -513,19 +522,23 @@ impl<'a> FunctionTranslator<'a> {
         self.builder
             .ins()
             .brnz(should_set_not_powered, set_not_powered_block, &[]);
-        self.builder.ins().jump(return_block, &[]);
+        self.builder.ins().jump(set_node_block, &[powered_i32]);
 
         self.builder.switch_to_block(set_powered_block);
         self.builder.seal_block(set_powered_block);
         let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 15);
         let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
-        self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
-        self.builder.ins().jump(return_block, &[]);
+        self.builder.ins().jump(set_node_block, &[new_output_power_i32]);
 
         self.builder.switch_to_block(set_not_powered_block);
         self.builder.seal_block(set_not_powered_block);
         let new_output_power = self.set_data_imm(self.output_power_data[self.node_idx], 0);
         let new_output_power_i32 = self.builder.ins().uextend(types::I32, new_output_power);
+        self.builder.ins().jump(set_node_block, &[new_output_power_i32]);
+
+        self.builder.switch_to_block(set_node_block);
+        self.builder.seal_block(set_node_block);
+        let new_output_power_i32 = self.builder.block_params(set_node_block)[0];
         self.call_set_node(backend, self.node_idx, new_output_power_i32, true);
         self.builder.ins().jump(return_block, &[]);
 
@@ -995,8 +1008,8 @@ impl JITBackend for CraneliftBackend {
             data_ctx.clear();
 
             let comparator_power = match nodes[idx].state {
-                Block::RedstoneComparator { .. } => self.nodes[idx].comparator_output,
-                s if s.has_comparator_override() => self.nodes[idx].comparator_output,
+                Block::RedstoneComparator { .. } => nodes[idx].comparator_output,
+                s if s.has_comparator_override() => nodes[idx].comparator_output,
                 _ => 0
             };
             data_ctx.define(Box::new([comparator_power]));
@@ -1113,7 +1126,7 @@ impl JITBackend for CraneliftBackend {
                 .unwrap();
             self.module.clear_context(&mut self.ctx);
 
-            if matches!(node.state, Block::Lever { .. } | Block::StoneButton { .. }) {
+            if matches!(node.state, Block::Lever { .. }) {
                 self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
                 let mut use_builder =
                     FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
