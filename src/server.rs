@@ -415,7 +415,7 @@ impl MinecraftServer {
             channel: String::from("minecraft:brand"),
             data: {
                 let mut data = Vec::new();
-                data.write_string(32767, "Minecraft High Performace Redstone");
+                data.write_string(32767, "Minecraft High Performance Redstone");
                 data
             },
         }
