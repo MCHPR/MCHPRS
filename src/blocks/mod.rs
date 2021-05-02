@@ -420,7 +420,7 @@ impl Block {
         )
     }
 
-    pub fn get_comparator_override(self, world: &dyn World, pos: BlockPos) -> u8 {
+    pub fn get_comparator_override(self, world: &impl World, pos: BlockPos) -> u8 {
         match self {
             Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
                 if let Some(BlockEntity::Container {
@@ -461,7 +461,7 @@ impl Block {
 
     pub fn on_use(
         self,
-        world: &mut dyn World,
+        world: &mut impl World,
         pos: BlockPos,
         item_in_hand: Option<Item>,
     ) -> ActionResult {
@@ -540,7 +540,7 @@ impl Block {
     }
 
     pub fn get_state_for_placement(
-        world: &dyn World,
+        world: &impl World,
         pos: BlockPos,
         item: Item,
         context: &UseOnBlockContext,
@@ -640,7 +640,7 @@ impl Block {
         }
     }
 
-    pub fn place_in_world(self, world: &mut dyn World, pos: BlockPos, nbt: &Option<nbt::Blob>) {
+    pub fn place_in_world(self, world: &mut impl World, pos: BlockPos, nbt: &Option<nbt::Blob>) {
         if self.has_block_entity() {
             if let Some(nbt) = nbt {
                 if let nbt::Value::Compound(compound) = &nbt["BlockEntityTag"] {
@@ -670,7 +670,7 @@ impl Block {
         }
     }
 
-    pub fn destroy(self, world: &mut dyn World, pos: BlockPos) {
+    pub fn destroy(self, world: &mut impl World, pos: BlockPos) {
         if self.has_block_entity() {
             world.delete_block_entity(pos);
         }
@@ -714,7 +714,7 @@ impl Block {
         }
     }
 
-    fn update(self, world: &mut dyn World, pos: BlockPos) {
+    fn update(self, world: &mut impl World, pos: BlockPos) {
         match self {
             Block::RedstoneWire { wire } => {
                 wire.on_neighbor_updated(world, pos);
@@ -749,7 +749,7 @@ impl Block {
         }
     }
 
-    pub fn tick(self, world: &mut dyn World, pos: BlockPos) {
+    pub fn tick(self, world: &mut impl World, pos: BlockPos) {
         match self {
             Block::RedstoneRepeater { repeater } => {
                 repeater.tick(world, pos);
@@ -806,7 +806,7 @@ impl Block {
         }
     }
 
-    pub fn is_valid_position(self, world: &dyn World, pos: BlockPos) -> bool {
+    pub fn is_valid_position(self, world: &impl World, pos: BlockPos) -> bool {
         match self {
             Block::RedstoneWire { .. }
             | Block::RedstoneComparator { .. }
@@ -858,7 +858,7 @@ impl Block {
         }
     }
 
-    fn change(self, world: &mut dyn World, pos: BlockPos, direction: BlockFace) {
+    fn change(self, world: &mut impl World, pos: BlockPos, direction: BlockFace) {
         if !self.is_valid_position(world, pos) {
             self.destroy(world, pos);
             return;
@@ -871,7 +871,7 @@ impl Block {
         }
     }
 
-    fn update_wire_neighbors(world: &mut dyn World, pos: BlockPos) {
+    fn update_wire_neighbors(world: &mut impl World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
@@ -884,7 +884,7 @@ impl Block {
         }
     }
 
-    fn update_surrounding_blocks(world: &mut dyn World, pos: BlockPos) {
+    fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
@@ -902,7 +902,7 @@ impl Block {
         }
     }
 
-    fn change_surrounding_blocks(world: &mut dyn World, pos: BlockPos) {
+    fn change_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);

@@ -98,8 +98,8 @@ impl ClientBoundPacket for C00SpawnEntity {
         buf.write_double(self.x);
         buf.write_double(self.y);
         buf.write_double(self.z);
-        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_int(self.data);
         buf.write_short(self.velocity_x);
         buf.write_short(self.velocity_y);
@@ -132,9 +132,9 @@ impl ClientBoundPacket for C02SpawnLivingEntity {
         buf.write_double(self.x);
         buf.write_double(self.y);
         buf.write_double(self.z);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
-        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
-        buf.write_byte((self.head_pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_byte(((self.head_pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_short(self.velocity_x);
         buf.write_short(self.velocity_y);
         buf.write_short(self.velocity_z);
@@ -161,8 +161,8 @@ impl ClientBoundPacket for C04SpawnPlayer {
         buf.write_double(self.x);
         buf.write_double(self.y);
         buf.write_double(self.z);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
-        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         PacketEncoder::new(buf, 0x04)
     }
 }
@@ -660,8 +660,8 @@ impl ClientBoundPacket for C28EntityPositionAndRotation {
         buf.write_short(self.delta_x);
         buf.write_short(self.delta_y);
         buf.write_short(self.delta_z);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
-        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
         PacketEncoder::new(buf, 0x28)
     }
@@ -678,8 +678,8 @@ impl ClientBoundPacket for C29EntityRotation {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
-        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
         PacketEncoder::new(buf, 0x29)
     }
@@ -827,7 +827,7 @@ impl ClientBoundPacket for C3AEntityHeadLook {
     fn encode(self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         PacketEncoder::new(buf, 0x3A)
     }
 }
@@ -985,8 +985,8 @@ impl ClientBoundPacket for C56EntityTeleport {
         buf.write_double(self.x);
         buf.write_double(self.y);
         buf.write_double(self.z);
-        buf.write_byte((self.yaw % 350f32 / 350f32 * 256f32) as i8);
-        buf.write_byte((self.pitch % 350f32 / 350f32 * 256f32) as i8);
+        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
         PacketEncoder::new(buf, 0x56)
     }
