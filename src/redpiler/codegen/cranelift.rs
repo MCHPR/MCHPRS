@@ -1,4 +1,4 @@
-use super::JITBackend;
+use super::{JITBackend, JITResetData};
 use crate::blocks::{
     self, Block, BlockPos, ComparatorMode, Lever, RedstoneComparator, RedstoneRepeater,
 };
@@ -1232,7 +1232,7 @@ impl JITBackend for CraneliftBackend {
         }
     }
 
-    fn reset(&mut self) -> Vec<TickEntry> {
+    fn reset(&mut self) -> JITResetData {
         self.tick_fns.clear();
         self.use_fns.clear();
 
@@ -1273,7 +1273,12 @@ impl JITBackend for CraneliftBackend {
                 pos: self.nodes[entry.node_id].pos,
             })
         }
-        ticks
+
+        JITResetData {
+            tick_entries: ticks,
+            // TODO: collect these
+            block_entities: Vec::new(),
+        }
     }
 
     fn block_changes(&mut self) -> &mut Vec<(BlockPos, blocks::Block)> {

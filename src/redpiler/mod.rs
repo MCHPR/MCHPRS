@@ -5,7 +5,7 @@ use crate::blocks::{
 };
 use crate::plot::Plot;
 use crate::world::{TickEntry, World};
-use codegen::JITBackend;
+use codegen::{JITBackend, JITResetData};
 use log::{error, warn};
 use std::collections::{HashMap, VecDeque};
 
@@ -571,12 +571,12 @@ impl Compiler {
         }
     }
 
-    pub fn reset(&mut self) -> Vec<TickEntry> {
+    pub fn reset(&mut self) -> JITResetData {
         self.is_active = false;
         if let Some(jit) = &mut self.jit {
             jit.reset()
         } else {
-            Vec::new()
+            Default::default()
         }
     }
 

@@ -408,7 +408,11 @@ impl Plot {
 
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active {
-            self.to_be_ticked = self.redpiler.reset();
+            let reset_data = self.redpiler.reset();
+            self.to_be_ticked = reset_data.tick_entries;
+            for (pos, block_entity) in reset_data.block_entities {
+                self.set_block_entity(pos, block_entity);
+            }
         }
     }
 

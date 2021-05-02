@@ -1,7 +1,7 @@
 //! The direct backend does not do code generation and executes the graph directly
 
-use super::JITBackend;
-use crate::blocks::{Block, BlockPos, ComparatorMode};
+use super::{JITBackend, JITResetData};
+use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::redpiler::{LinkType, Node, NodeId};
 use crate::world::{TickEntry, TickPriority};
 use log::warn;
@@ -175,7 +175,7 @@ impl DirectBackend {
 }
 
 impl JITBackend for DirectBackend {
-    fn reset(&mut self) -> Vec<TickEntry> {
+    fn reset(&mut self) -> JITResetData {
         let mut ticks = Vec::new();
         for entry in self.to_be_ticked.drain(..) {
             ticks.push(TickEntry {
@@ -185,10 +185,23 @@ impl JITBackend for DirectBackend {
             })
         }
 
+        let mut block_entities = Vec::new();
+        for node in &self.nodes {
+            if let Block::RedstoneComparator { .. } = node.state {
+                let block_entity = BlockEntity::Comparator {
+                    output_strength: node.comparator_output,
+                };
+                block_entities.push((node.pos, block_entity));
+            }
+        }
+
         self.nodes.clear();
         self.pos_map.clear();
 
-        ticks
+        JITResetData {
+            tick_entries: ticks,
+            block_entities,
+        }
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
