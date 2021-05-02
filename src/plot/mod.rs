@@ -9,23 +9,22 @@ use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::{Gamemode, Player};
-use crate::redpiler::Compiler;
+use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use core::time;
-use log::warn;
+use log::debug;
 use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::cmp::Ordering;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime};
+use std::{cmp::Ordering, ops::Index};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {
@@ -184,11 +183,19 @@ impl World for Plot {
             tick_priority: priority,
         });
         self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
     }
 
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
         self.to_be_ticked.iter().any(|e| e.pos == pos)
+    }
+
+    fn get_player(&self, uuid: u128) -> Option<&Player> {
+        self.players.iter().find(|p| p.uuid == uuid)
+    }
+
+    fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player> {
+        self.players.iter_mut().find(|p| p.uuid == uuid)
     }
 }
 
@@ -252,12 +259,11 @@ impl Plot {
             z: player.z,
         }
         .encode();
-        let mut metadata_entries = Vec::new();
-        metadata_entries.push(C44EntityMetadataEntry {
+        let metadata_entries = vec![C44EntityMetadataEntry {
             index: 16,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
-        });
+        }];
         let metadata = C44EntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: metadata_entries,
@@ -296,12 +302,11 @@ impl Plot {
                 player.client.send_packet(&other_entity_equipment);
             }
 
-            let mut other_metadata_entries = Vec::new();
-            other_metadata_entries.push(C44EntityMetadataEntry {
+            let other_metadata_entries = vec![C44EntityMetadataEntry {
                 index: 16,
                 metadata_type: 0,
                 value: vec![other_player.skin_parts.bits() as u8],
-            });
+            }];
             let other_metadata = C44EntityMetadata {
                 entity_id: other_player.entity_id as i32,
                 metadata: other_metadata_entries,
@@ -406,9 +411,22 @@ impl Plot {
         self.players[player_idx].last_chunk_z = chunk_z;
     }
 
+    fn start_redpiler(
+        &mut self,
+        options: CompilerOptions,
+        first_pos: Option<BlockPos>,
+        second_pos: Option<BlockPos>,
+    ) {
+        debug!("Starting redpiler!");
+        let ticks = self.to_be_ticked.drain(..).collect();
+        Compiler::compile(self, options, first_pos, second_pos, ticks);
+    }
+
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active {
+            debug!("Stopping redpiler!");
             let reset_data = self.redpiler.reset();
+            dbg!(&reset_data);
             self.to_be_ticked = reset_data.tick_entries;
             for (pos, block_entity) in reset_data.block_entities {
                 self.set_block_entity(pos, block_entity);
@@ -608,9 +626,7 @@ impl Plot {
                 self.last_update_time = SystemTime::now();
                 while self.lag_time >= dur_per_tick {
                     if self.timings.is_running_behind() && !self.redpiler.is_active {
-                        warn!("Starting redpiler!");
-                        let ticks = self.to_be_ticked.drain(..).collect();
-                        Compiler::compile(self, Default::default(), None, None, ticks);
+                        self.start_redpiler(Default::default(), None, None);
                     }
                     self.tick();
                     self.lag_time -= dur_per_tick;
@@ -676,11 +692,13 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
-                outside_players.push(player);
+                outside_players.push(self.players[player].uuid);
             }
         }
-        for player_index in outside_players {
-            let player = self.leave_plot(player_index);
+
+        for uuid in outside_players {
+            let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
+            let player = self.leave_plot(player_idx);
             let player_leave_plot = Message::PlayerLeavePlot(player);
             self.message_sender.send(player_leave_plot).unwrap();
         }

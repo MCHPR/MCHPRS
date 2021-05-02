@@ -638,7 +638,6 @@ impl ServerBoundPacketHandler for MinecraftServer {
                 .encode();
                 client.send_packet(&disconnect);
                 client.close_connection();
-                return;
             }
         }
     }

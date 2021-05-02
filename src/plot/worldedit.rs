@@ -15,7 +15,7 @@ use std::time::Instant;
 // The command is not handled if it is not found in the worldedit commands and alias lists.
 pub fn execute_command(
     plot: &mut Plot,
-    player_idx: usize,
+    player_uuid: u128,
     command: &str,
     args: &mut Vec<&str>,
 ) -> bool {
@@ -34,7 +34,7 @@ pub fn execute_command(
 
     let mut ctx = CommandExecuteContext {
         plot,
-        player_idx,
+        player_uuid,
         arguments: Vec::new(),
         flags: Vec::new(),
     };
@@ -119,7 +119,7 @@ pub fn execute_command(
             }
         }
     }
-
+    ctx.plot.reset_redpiler();
     (command.execute_fn)(ctx);
     true
 }
@@ -289,7 +289,7 @@ macro_rules! flag {
 
 struct CommandExecuteContext<'a> {
     plot: &'a mut Plot,
-    player_idx: usize,
+    player_uuid: u128,
     arguments: Vec<Argument>,
     flags: Vec<char>,
 }
@@ -300,11 +300,11 @@ impl<'a> CommandExecuteContext<'a> {
     }
 
     fn get_player(&self) -> &Player {
-        &self.plot.players[self.player_idx]
+        self.plot.get_player(self.player_uuid).unwrap()
     }
 
     fn get_player_mut(&mut self) -> &mut Player {
-        &mut self.plot.players[self.player_idx]
+        self.plot.get_player_mut(self.player_uuid).unwrap()
     }
 }
 
@@ -751,8 +751,8 @@ fn worldedit_send_operation(plot: &mut Plot, operation: WorldEditOperation) {
     }
 }
 
-fn worldedit_start_operation(plot: &mut Plot, player: usize) -> WorldEditOperation {
-    let player = &mut plot.players[player];
+fn worldedit_start_operation(plot: &mut Plot, player_uuid: u128) -> WorldEditOperation {
+    let player = plot.get_player(player_uuid).unwrap();
     let first_pos = player.first_position.unwrap();
     let second_pos = player.second_position.unwrap();
     WorldEditOperation::new(first_pos, second_pos)
@@ -762,10 +762,10 @@ fn execute_set(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
     let pattern = ctx.arguments[0].unwrap_pattern();
 
-    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_uuid);
     capture_undo(
         ctx.plot,
-        ctx.player_idx,
+        ctx.player_uuid,
         ctx.get_player().first_position.unwrap(),
         ctx.get_player().second_position.unwrap(),
     );
@@ -798,10 +798,10 @@ fn execute_replace(mut ctx: CommandExecuteContext<'_>) {
     let filter = ctx.arguments[0].unwrap_mask();
     let pattern = ctx.arguments[1].unwrap_pattern();
 
-    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_uuid);
     capture_undo(
         ctx.plot,
-        ctx.player_idx,
+        ctx.player_uuid,
         ctx.get_player().first_position.unwrap(),
         ctx.get_player().second_position.unwrap(),
     );
@@ -837,7 +837,7 @@ fn execute_count(mut ctx: CommandExecuteContext<'_>) {
     let filter = ctx.arguments[0].unwrap_pattern();
 
     let mut blocks_counted = 0;
-    let operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    let operation = worldedit_start_operation(ctx.plot, ctx.player_uuid);
     for x in operation.x_range() {
         for y in operation.y_range() {
             for z in operation.z_range() {
@@ -972,7 +972,7 @@ fn paste_clipboard(plot: &mut Plot, cb: &WorldEditClipboard, pos: BlockPos, igno
     }
 }
 
-fn capture_undo(plot: &mut Plot, player: usize, first_pos: BlockPos, second_pos: BlockPos) {
+fn capture_undo(plot: &mut Plot, player_uuid: u128, first_pos: BlockPos, second_pos: BlockPos) {
     let origin = first_pos.min(second_pos);
     let cb = create_clipboard(plot, origin, first_pos, second_pos);
     let undo = WorldEditUndo {
@@ -981,7 +981,11 @@ fn capture_undo(plot: &mut Plot, player: usize, first_pos: BlockPos, second_pos:
         plot_x: plot.x,
         plot_z: plot.z,
     };
-    plot.players[player].worldedit_undo.push(undo);
+
+    plot.get_player_mut(player_uuid)
+        .unwrap()
+        .worldedit_undo
+        .push(undo);
 }
 
 fn execute_copy(mut ctx: CommandExecuteContext<'_>) {
@@ -1077,7 +1081,7 @@ fn execute_paste(mut ctx: CommandExecuteContext<'_>) {
         let offset_z = pos.z - cb.offset_z;
         capture_undo(
             ctx.plot,
-            ctx.player_idx,
+            ctx.player_uuid,
             BlockPos::new(offset_x, offset_y, offset_z),
             BlockPos::new(
                 offset_x + cb.size_x as i32,

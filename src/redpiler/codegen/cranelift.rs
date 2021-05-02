@@ -7,7 +7,7 @@ use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataContext, DataId, FuncId, Linkage, Module};
-use log::{debug, warn};
+use log::debug;
 use std::collections::HashMap;
 
 struct CLTickEntry {
@@ -993,15 +993,13 @@ impl JITBackend for CraneliftBackend {
     fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
         let mut data_ctx = DataContext::new();
 
-        let mut output_power_data = Vec::new();
-        let mut comparator_output_data = Vec::new();
         let mut repeater_lock_data = Vec::new();
-        for idx in 0..nodes.len() {
+        for (idx, node) in nodes.iter().enumerate() {
             let output_power_name = format!("n{}_output_power", idx);
             let comparator_output_name = format!("n{}_comparator_output", idx);
             let repeater_lock_name = format!("n{}_repeater_lock", idx);
 
-            let power = match nodes[idx].state {
+            let power = match node.state {
                 Block::RedstoneWire { wire } => wire.power,
                 Block::RedstoneComparator { comparator } => {
                     comparator.powered.then(|| 15).unwrap_or(0)
@@ -1020,7 +1018,7 @@ impl JITBackend for CraneliftBackend {
                 .module
                 .declare_data(&output_power_name, Linkage::Local, true, false)
                 .unwrap();
-            output_power_data.push(output_power_id);
+            self.output_power_data.push(output_power_id);
             self.module.define_data(output_power_id, &data_ctx).unwrap();
             data_ctx.clear();
 
@@ -1034,7 +1032,7 @@ impl JITBackend for CraneliftBackend {
                 .module
                 .declare_data(&comparator_output_name, Linkage::Local, true, false)
                 .unwrap();
-            comparator_output_data.push(comparator_output_id);
+            self.comparator_output_data.push(comparator_output_id);
             self.module
                 .define_data(comparator_output_id, &data_ctx)
                 .unwrap();
@@ -1070,8 +1068,8 @@ impl JITBackend for CraneliftBackend {
             let mut update_translator = FunctionTranslator {
                 builder: update_builder,
                 module: &mut self.module,
-                comparator_output_data: &comparator_output_data,
-                output_power_data: &output_power_data,
+                comparator_output_data: &self.comparator_output_data,
+                output_power_data: &self.output_power_data,
                 repeater_lock_data: &repeater_lock_data,
                 node,
                 node_idx: idx,
@@ -1113,8 +1111,8 @@ impl JITBackend for CraneliftBackend {
             let mut tick_translator = FunctionTranslator {
                 builder: tick_builder,
                 module: &mut self.module,
-                comparator_output_data: &comparator_output_data,
-                output_power_data: &output_power_data,
+                comparator_output_data: &self.comparator_output_data,
+                output_power_data: &self.output_power_data,
                 repeater_lock_data: &repeater_lock_data,
                 node,
                 node_idx: idx,
@@ -1155,8 +1153,8 @@ impl JITBackend for CraneliftBackend {
                 let mut use_translator = FunctionTranslator {
                     builder: use_builder,
                     module: &mut self.module,
-                    comparator_output_data: &comparator_output_data,
-                    output_power_data: &output_power_data,
+                    comparator_output_data: &self.comparator_output_data,
+                    output_power_data: &self.output_power_data,
                     repeater_lock_data: &repeater_lock_data,
                     node,
                     node_idx: idx,

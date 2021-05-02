@@ -7,7 +7,7 @@ use crate::world::TickEntry;
 
 use super::Node;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct JITResetData {
     pub tick_entries: Vec<TickEntry>,
     pub block_entities: Vec<(BlockPos, BlockEntity)>,

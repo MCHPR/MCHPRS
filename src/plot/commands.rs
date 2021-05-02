@@ -6,7 +6,7 @@ use crate::network::packets::clientbound::{
 };
 use crate::network::packets::PacketEncoder;
 use crate::player::Gamemode;
-use crate::redpiler::{Compiler, CompilerOptions};
+use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use crate::world::World;
 use bitflags::_core::i32::MAX;
@@ -77,9 +77,7 @@ impl Plot {
                 let pos2 = self.players[player].second_position;
 
                 self.reset_redpiler();
-                let ticks = self.to_be_ticked.drain(..).collect();
-
-                Compiler::compile(self, options, pos1, pos2, ticks);
+                self.start_redpiler(options, pos1, pos2);
 
                 println!("Compile took {:?}", start_time.elapsed())
             }
@@ -105,7 +103,12 @@ impl Plot {
         );
         // Handle worldedit commands
         if command.starts_with("//")
-            && worldedit::execute_command(self, player, command.trim_start_matches("//"), &mut args)
+            && worldedit::execute_command(
+                self,
+                self.players[player].uuid,
+                command.trim_start_matches("//"),
+                &mut args,
+            )
         {
             // If the command was handled, there is no need to continue;
             return false;
@@ -133,8 +136,6 @@ impl Plot {
                         );
                     }
 
-                    // self.players[player]
-                    //     .send_system_message(&);
                     return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
