@@ -101,7 +101,12 @@ impl Block {
         }
     }
 
-    fn get_redstone_power_no_dust(self, world: &impl World, pos: BlockPos, facing: BlockFace) -> u8 {
+    fn get_redstone_power_no_dust(
+        self,
+        world: &impl World,
+        pos: BlockPos,
+        facing: BlockFace,
+    ) -> u8 {
         if self.is_solid() {
             self.get_max_strong_power(world, pos, false)
         } else {
@@ -154,10 +159,10 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct RedstoneRepeater {
-    pub(super) delay: u8,
-    pub(super) facing: BlockDirection,
-    pub(super) locked: bool,
-    pub(super) powered: bool,
+    pub delay: u8,
+    pub facing: BlockDirection,
+    pub locked: bool,
+    pub powered: bool,
 }
 
 impl Default for RedstoneRepeater {
@@ -324,9 +329,9 @@ impl Default for ComparatorMode {
 
 #[derive(Copy, Clone, Debug, PartialEq, Default)]
 pub struct RedstoneComparator {
-    pub(super) facing: BlockDirection,
-    pub(super) mode: ComparatorMode,
-    pub(super) powered: bool,
+    pub facing: BlockDirection,
+    pub mode: ComparatorMode,
+    pub powered: bool,
 }
 
 impl RedstoneComparator {

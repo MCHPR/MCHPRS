@@ -26,7 +26,7 @@ impl<T: Serialize> NBTMap<T> {
 
     pub fn push_element(&mut self, name: String, element: T) {
         let id = self.value.len() as i32;
-        self.value.push(NBTMapEntry { id, name, element });
+        self.value.push(NBTMapEntry { name, id, element });
     }
 }
 

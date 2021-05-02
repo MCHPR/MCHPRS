@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod database;
+mod monitor;
 mod packet_handlers;
 pub mod worldedit;
 
@@ -8,16 +9,19 @@ use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::{Gamemode, Player};
+use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use log::warn;
+use log::debug;
+use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::cmp::Ordering;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::ops::Index;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -44,11 +48,13 @@ pub struct Plot {
     last_player_time: SystemTime,
     sleep_time: Duration,
     running: bool,
-    x: i32,
-    z: i32,
+    pub x: i32,
+    pub z: i32,
     show_redstone: bool,
     always_running: bool,
     chunks: Vec<Chunk>,
+    pub redpiler: Compiler,
+    timings: TimingsMonitor,
 }
 
 impl World for Plot {
@@ -156,6 +162,12 @@ impl World for Plot {
     }
 
     fn tick(&mut self) {
+        self.timings.tick();
+        if self.redpiler.is_active {
+            self.redpiler.tick();
+            return;
+        }
+
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
@@ -172,11 +184,19 @@ impl World for Plot {
             tick_priority: priority,
         });
         self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
     }
 
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
         self.to_be_ticked.iter().any(|e| e.pos == pos)
+    }
+
+    fn get_player(&self, uuid: u128) -> Option<&Player> {
+        self.players.iter().find(|p| p.uuid == uuid)
+    }
+
+    fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player> {
+        self.players.iter_mut().find(|p| p.uuid == uuid)
     }
 }
 
@@ -240,12 +260,11 @@ impl Plot {
             z: player.z,
         }
         .encode();
-        let mut metadata_entries = Vec::new();
-        metadata_entries.push(C44EntityMetadataEntry {
+        let metadata_entries = vec![C44EntityMetadataEntry {
             index: 16,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
-        });
+        }];
         let metadata = C44EntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: metadata_entries,
@@ -284,12 +303,11 @@ impl Plot {
                 player.client.send_packet(&other_entity_equipment);
             }
 
-            let mut other_metadata_entries = Vec::new();
-            other_metadata_entries.push(C44EntityMetadataEntry {
+            let other_metadata_entries = vec![C44EntityMetadataEntry {
                 index: 16,
                 metadata_type: 0,
                 value: vec![other_player.skin_parts.bits() as u8],
-            });
+            }];
             let other_metadata = C44EntityMetadata {
                 entity_id: other_player.entity_id as i32,
                 metadata: other_metadata_entries,
@@ -392,6 +410,28 @@ impl Plot {
         }
         self.players[player_idx].last_chunk_x = chunk_x;
         self.players[player_idx].last_chunk_z = chunk_z;
+    }
+
+    fn start_redpiler(
+        &mut self,
+        options: CompilerOptions,
+        first_pos: Option<BlockPos>,
+        second_pos: Option<BlockPos>,
+    ) {
+        debug!("Starting redpiler!");
+        let ticks = self.to_be_ticked.drain(..).collect();
+        Compiler::compile(self, options, first_pos, second_pos, ticks);
+    }
+
+    fn reset_redpiler(&mut self) {
+        if self.redpiler.is_active {
+            debug!("Stopping redpiler!");
+            let reset_data = self.redpiler.reset();
+            self.to_be_ticked = reset_data.tick_entries;
+            for (pos, block_entity) in reset_data.block_entities {
+                self.set_block_entity(pos, block_entity);
+            }
+        }
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
@@ -571,35 +611,20 @@ impl Plot {
 
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
+            self.timings.set_ticking(true);
             self.last_player_time = SystemTime::now();
             if self.tps != 0 {
                 let dur_per_tick = Duration::from_micros(1_000_000 / self.tps as u64);
                 let elapsed_time = self.last_update_time.elapsed().unwrap();
                 self.lag_time += elapsed_time;
                 self.last_update_time = SystemTime::now();
-                let ticks = self
-                    .lag_time
-                    .as_micros()
-                    .checked_div(dur_per_tick.as_micros())
-                    .unwrap_or_default();
-                if ticks > 4000 {
-                    warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
-                    self.lag_time = Duration::from_secs(0);
-                }
-                // let start_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
+                    if self.timings.is_running_behind() && !self.redpiler.is_active {
+                        self.start_redpiler(Default::default(), None, None);
+                    }
                     self.tick();
                     self.lag_time -= dur_per_tick;
                 }
-                // if ticks > 0 {
-                //     let tick_time = start_time.elapsed().as_micros();
-                //     let time_per_tick = tick_time / ticks;
-                //     if time_per_tick > (1_000_000 / self.tps) as u128 {
-                //         let new_tps = 1_000_000 / time_per_tick;
-                //         self.broadcast_plot_chat_message(format!("Plot is overloaded, setting rtps down to {}", new_tps));
-                //         self.tps = new_tps as u32;
-                //     }
-                // }
             }
 
             let mut multi_block_packets = Vec::new();
@@ -613,11 +638,21 @@ impl Plot {
                 }
             }
         } else {
+            self.timings.set_ticking(false);
             // Unload plot after 600 seconds unless the plot should be always loaded
             if self.last_player_time.elapsed().unwrap().as_secs() > 600 && !self.always_running {
                 self.running = false;
+                self.timings.stop();
             }
         }
+
+        if self.redpiler.is_active {
+            let changes: Vec<(BlockPos, Block)> = self.redpiler.block_changes().drain(..).collect();
+            for (pos, block) in changes {
+                self.set_block(pos, block);
+            }
+        }
+
         // Update players
         for player_idx in 0..self.players.len() {
             if self.players[player_idx].update() {
@@ -659,11 +694,13 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
-                outside_players.push(player);
+                outside_players.push(self.players[player].uuid);
             }
         }
-        for player_index in outside_players {
-            let player = self.leave_plot(player_index);
+
+        for uuid in outside_players {
+            let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
+            let player = self.leave_plot(player_idx);
             let player_leave_plot = Message::PlayerLeavePlot(player);
             self.message_sender.send(player_leave_plot).unwrap();
         }
@@ -714,6 +751,8 @@ impl Plot {
             always_running,
             chunks,
             to_be_ticked: plot_data.pending_ticks,
+            redpiler: Default::default(),
+            timings: TimingsMonitor::new(plot_data.tps),
         }
     }
 
@@ -760,6 +799,8 @@ impl Plot {
                 always_running,
                 chunks,
                 to_be_ticked: Vec::new(),
+                redpiler: Default::default(),
+                timings: TimingsMonitor::new(10),
             }
         }
     }
@@ -805,10 +846,10 @@ impl Plot {
         always_running: bool,
         initial_player: Option<Player>,
     ) {
-        let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
         thread::Builder::new()
             .name(format!("p{},{}", x, z))
             .spawn(move || {
+                let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
                 plot.run(initial_player);
             })
             .unwrap();

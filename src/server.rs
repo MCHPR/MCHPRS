@@ -13,7 +13,8 @@ use crate::network::packets::serverbound::{
 use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::{Gamemode, Player};
-use crate::plot::{self, commands::DECLARE_COMMANDS, database, Plot};
+use crate::plot::commands::DECLARE_COMMANDS;
+use crate::plot::{self, database, Plot};
 use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
@@ -131,15 +132,18 @@ impl MinecraftServer {
                 ))
             })
             .level(log::LevelFilter::Debug)
+            .level_for("regalloc", log::LevelFilter::Warn)
+            .level_for("cranelift_jit", log::LevelFilter::Warn)
+            // .level_for("cranelift_codegen::machinst::compile", log::LevelFilter::Debug)
+            .level_for("cranelift_codegen", log::LevelFilter::Info)
             .chain(std::io::stdout())
             .chain(fern::log_file("output.log").unwrap())
             .apply()
             .unwrap();
 
         std::panic::set_hook(Box::new(|panic_info| {
-            error!("{}", panic_info.to_string());
             let backtrace = Backtrace::new();
-            error!("{}\n{:?}", panic_info.to_string(), backtrace);
+            error!("plot {}\n{:?}", panic_info.to_string(), backtrace);
         }));
 
         info!("Starting server...");
@@ -635,7 +639,6 @@ impl ServerBoundPacketHandler for MinecraftServer {
                 .encode();
                 client.send_packet(&disconnect);
                 client.close_connection();
-                return;
             }
         }
     }

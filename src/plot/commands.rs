@@ -1,16 +1,17 @@
 use super::{database, worldedit, Plot};
+use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::{
     C10DeclareCommands, C10DeclareCommandsNode as Node, C10DeclareCommandsNodeParser as Parser,
     ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use crate::player::Gamemode;
+use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use crate::world::World;
-use log::info;
-
 use bitflags::_core::i32::MAX;
-use std::time::{Duration, Instant};
+use log::info;
+use std::time::{Duration, Instant, SystemTime};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
@@ -54,6 +55,38 @@ impl Plot {
         }
     }
 
+    /// Handles a command that starts with `/redpiler` or `/rp`
+    fn handle_redpiler_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+        match command {
+            "compile" | "c" => {
+                let start_time = SystemTime::now();
+                let args = args.join(" ");
+                let options = CompilerOptions::parse(&args);
+
+                if options.use_worldedit {
+                    if self.players[player].first_position.is_none() {
+                        return;
+                    }
+                    if self.players[player].second_position.is_none() {
+                        return;
+                    }
+                }
+
+                let pos1 = self.players[player].first_position;
+                let pos2 = self.players[player].second_position;
+
+                self.reset_redpiler();
+                self.start_redpiler(options, pos1, pos2);
+
+                println!("Compile took {:?}", start_time.elapsed())
+            }
+            "reset" | "r" => {
+                self.reset_redpiler();
+            }
+            _ => self.players[player].send_error_message("Invalid argument for /redpiler"),
+        }
+    }
+
     // Returns true if packets should stop being handled
     pub(super) fn handle_command(
         &mut self,
@@ -69,7 +102,12 @@ impl Plot {
         );
         // Handle worldedit commands
         if command.starts_with("//")
-            && worldedit::execute_command(self, player, command.trim_start_matches("//"), &mut args)
+            && worldedit::execute_command(
+                self,
+                self.players[player].uuid,
+                command.trim_start_matches("//"),
+                &mut args,
+            )
         {
             // If the command was handled, there is no need to continue;
             return false;
@@ -78,8 +116,25 @@ impl Plot {
         match command {
             "/rtps" => {
                 if args.is_empty() {
-                    self.players[player]
-                        .send_system_message(&format!("The rtps is currently set to {}", self.tps));
+                    let report = self.timings.generate_report();
+                    if let Some(report) = report {
+                        self.players[player].send_chat_message(
+                            0,
+                            ChatComponent::from_legacy_text(format!(
+                                "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
+                                report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
+                            )),
+                        );
+                    } else {
+                        self.players[player].send_chat_message(
+                            0,
+                            ChatComponent::from_legacy_text(format!(
+                                "&6No timings data. &a({})",
+                                self.tps
+                            )),
+                        );
+                    }
+
                     return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
@@ -98,6 +153,7 @@ impl Plot {
                 } else {
                     self.sleep_time = Duration::from_millis(2);
                 }
+                self.timings.set_tps(tps);
                 self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
@@ -169,6 +225,14 @@ impl Plot {
                 }
                 let command = args.remove(0);
                 self.handle_plot_command(player, command, args);
+            }
+            "/redpiler" | "/rp" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return false;
+                }
+                let command = args.remove(0);
+                self.handle_redpiler_command(player, command, args);
             }
             "/speed" => {
                 if args.len() != 1 {

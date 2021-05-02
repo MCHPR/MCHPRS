@@ -1,12 +1,11 @@
 pub mod packets;
 
-use packets::{read_packet, serverbound::ServerBoundPacket, PacketEncoder};
+use packets::serverbound::ServerBoundPacket;
+use packets::{read_packet, PacketEncoder};
 use std::io::Write;
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 use std::thread;
 
 /// The minecraft protocol has these 4 different states.

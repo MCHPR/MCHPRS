@@ -1,9 +1,8 @@
 mod redstone;
 
 use crate::items::{ActionResult, Item, UseOnBlockContext};
-use crate::world::TickPriority;
-use crate::world::World;
-use redstone::*;
+use crate::world::{TickPriority, World};
+pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -156,7 +155,7 @@ pub enum BlockDirection {
 }
 
 impl BlockDirection {
-    fn opposite(self) -> BlockDirection {
+    pub fn opposite(self) -> BlockDirection {
         use BlockDirection::*;
         match self {
             North => South,
@@ -214,7 +213,7 @@ impl BlockDirection {
         }
     }
 
-    fn rotate(self) -> BlockDirection {
+    pub fn rotate(self) -> BlockDirection {
         use BlockDirection::*;
         match self {
             North => East,
@@ -224,7 +223,7 @@ impl BlockDirection {
         }
     }
 
-    fn rotate_ccw(self) -> BlockDirection {
+    pub fn rotate_ccw(self) -> BlockDirection {
         use BlockDirection::*;
         match self {
             North => West,
@@ -335,12 +334,12 @@ impl BlockFace {
         [Top, Bottom, North, South, East, West]
     }
 
-    fn is_horizontal(self) -> bool {
+    pub fn is_horizontal(self) -> bool {
         use BlockFace::*;
         matches!(self, North | South | East | West)
     }
 
-    fn to_direction(self) -> BlockDirection {
+    pub fn to_direction(self) -> BlockDirection {
         match self {
             BlockFace::North => BlockDirection::North,
             BlockFace::South => BlockDirection::South,
@@ -413,15 +412,14 @@ impl Block {
         )
     }
 
-    fn has_comparator_override(self) -> bool {
+    pub fn has_comparator_override(self) -> bool {
         matches!(
             self,
             Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. }
         )
     }
 
-
-    fn get_comparator_override(self, world: &impl World, pos: BlockPos) -> u8 {
+    pub fn get_comparator_override(self, world: &impl World, pos: BlockPos) -> u8 {
         match self {
             Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
                 if let Some(BlockEntity::Container {
@@ -437,7 +435,7 @@ impl Block {
         }
     }
 
-    fn is_diode(self) -> bool {
+    pub fn is_diode(self) -> bool {
         matches!(
             self,
             Block::RedstoneRepeater { .. } | Block::RedstoneComparator { .. }
@@ -1070,7 +1068,7 @@ macro_rules! blocks {
 
         #[allow(clippy::redundant_field_names)]
         impl Block {
-            fn is_solid(self) -> bool {
+            pub fn is_solid(self) -> bool {
                 match self {
                     $(
                         $( Block::$name { .. } => $solid, )?
@@ -1079,7 +1077,7 @@ macro_rules! blocks {
                 }
             }
 
-            fn is_transparent(self) -> bool {
+            pub fn is_transparent(self) -> bool {
                 match self {
                     $(
                         $( Block::$name { .. } => $transparent, )?
@@ -1088,7 +1086,7 @@ macro_rules! blocks {
                 }
             }
 
-            fn is_cube(self) -> bool {
+            pub fn is_cube(self) -> bool {
                 match self {
                     $(
                         $( Block::$name { .. } => $cube, )?
