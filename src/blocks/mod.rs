@@ -1,8 +1,7 @@
 mod redstone;
 
 use crate::items::{ActionResult, Item, UseOnBlockContext};
-use crate::world::TickPriority;
-use crate::world::World;
+use crate::world::{TickPriority, World};
 pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

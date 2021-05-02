@@ -13,7 +13,8 @@ use crate::network::packets::serverbound::{
 use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::{Gamemode, Player};
-use crate::plot::{self, commands::DECLARE_COMMANDS, database, Plot};
+use crate::plot::commands::DECLARE_COMMANDS;
+use crate::plot::{self, database, Plot};
 use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};

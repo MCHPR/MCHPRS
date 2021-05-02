@@ -18,13 +18,14 @@ use log::debug;
 use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::cmp::Ordering;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::ops::Index;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, SystemTime};
-use std::{cmp::Ordering, ops::Index};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {

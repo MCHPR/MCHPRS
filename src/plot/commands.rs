@@ -11,8 +11,7 @@ use crate::server::Message;
 use crate::world::World;
 use bitflags::_core::i32::MAX;
 use log::info;
-use std::time::SystemTime;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`

@@ -101,7 +101,12 @@ impl Block {
         }
     }
 
-    fn get_redstone_power_no_dust(self, world: &impl World, pos: BlockPos, facing: BlockFace) -> u8 {
+    fn get_redstone_power_no_dust(
+        self,
+        world: &impl World,
+        pos: BlockPos,
+        facing: BlockFace,
+    ) -> u8 {
         if self.is_solid() {
             self.get_max_strong_power(world, pos, false)
         } else {

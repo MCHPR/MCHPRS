@@ -10,10 +10,8 @@ use serde::Serialize;
 use serverbound::*;
 use std::io::{self, Cursor, Read, Write};
 use std::net::TcpStream;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct SlotData {
