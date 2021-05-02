@@ -426,7 +426,6 @@ impl Plot {
         if self.redpiler.is_active {
             debug!("Stopping redpiler!");
             let reset_data = self.redpiler.reset();
-            dbg!(&reset_data);
             self.to_be_ticked = reset_data.tick_entries;
             for (pos, block_entity) in reset_data.block_entities {
                 self.set_block_entity(pos, block_entity);
@@ -607,12 +606,6 @@ impl Plot {
     }
 
     fn update(&mut self) {
-        if self.redpiler.is_active {
-            let changes: Vec<(BlockPos, Block)> = self.redpiler.block_changes().drain(..).collect();
-            for (pos, block) in changes {
-                self.set_block(pos, block);
-            }
-        }
         self.handle_messages();
 
         // Only tick if there are players in the plot
@@ -651,6 +644,14 @@ impl Plot {
                 self.timings.stop();
             }
         }
+
+        if self.redpiler.is_active {
+            let changes: Vec<(BlockPos, Block)> = self.redpiler.block_changes().drain(..).collect();
+            for (pos, block) in changes {
+                self.set_block(pos, block);
+            }
+        }
+
         // Update players
         for player_idx in 0..self.players.len() {
             if self.players[player_idx].update() {
