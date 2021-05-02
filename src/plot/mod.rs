@@ -21,7 +21,6 @@ use serde_json::json;
 use std::cmp::Ordering;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
-use std::ops::Index;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
