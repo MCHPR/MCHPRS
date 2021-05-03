@@ -349,7 +349,6 @@ struct NodeId {
 
 struct UpdateNode {
     pos: BlockPos,
-    parent: BlockPos,
     /// The cached state of the block
     state: Block,
     /// This will only be `Some` when all the neighbors are identified.
@@ -361,10 +360,9 @@ struct UpdateNode {
 }
 
 impl UpdateNode {
-    fn new(world: &impl World, pos: BlockPos, parent: BlockPos) -> UpdateNode {
+    fn new(world: &impl World, pos: BlockPos) -> UpdateNode {
         UpdateNode {
             pos,
-            parent,
             state: world.get_block(pos),
             visited: false,
             neighbors: None,
@@ -472,7 +470,7 @@ impl RedstoneWireTurbo {
                     index: self.nodes.len(),
                 };
                 self.node_cache.insert(*neighbor_pos, node_id);
-                self.nodes.push(UpdateNode::new(world, *neighbor_pos, pos));
+                self.nodes.push(UpdateNode::new(world, *neighbor_pos));
                 node_id
             } else {
                 self.node_cache[neighbor_pos]
@@ -576,7 +574,7 @@ impl RedstoneWireTurbo {
     /// This is the start of a great adventure
     fn update_surrounding_neighbors(world: &mut impl World, pos: BlockPos) {
         let mut turbo = RedstoneWireTurbo::new();
-        let mut root_node = UpdateNode::new(world, pos, pos);
+        let mut root_node = UpdateNode::new(world, pos);
         root_node.visited = true;
         let node_id = NodeId { index: 0 };
         turbo.node_cache.insert(pos, node_id);
@@ -591,7 +589,6 @@ impl RedstoneWireTurbo {
         }
         // FIXME: Get rid of this nasty clone
         let neighbors = self.nodes[upd1.index].neighbors.clone().unwrap();
-        let pos = self.nodes[upd1.index].pos;
 
         let layer1 = layer + 1;
 
@@ -600,8 +597,6 @@ impl RedstoneWireTurbo {
             if layer1 > neighbor.layer {
                 neighbor.layer = layer1;
                 self.update_queue[1].push(*neighbor_id);
-
-                neighbor.parent = pos;
             }
         }
 
@@ -612,7 +607,6 @@ impl RedstoneWireTurbo {
             if layer2 > neighbor.layer {
                 neighbor.layer = layer2;
                 self.update_queue[2].push(*neighbor_id);
-                neighbor.parent = pos;
             }
         }
     }
