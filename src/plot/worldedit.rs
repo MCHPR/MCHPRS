@@ -1,5 +1,6 @@
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos};
+use crate::chat::{ChatColor, ChatComponentBuilder};
 use crate::player::Player;
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
@@ -459,6 +460,14 @@ lazy_static! {
             requires_positions: true,
             execute_fn: execute_contract,
             description: "Contract the selection area",
+            ..Default::default()
+        },
+        "help" => WorldeditCommand {
+            arguments: &[
+                argument!("command", String, "Command to retrieve help for"),
+            ],
+            execute_fn: execute_help,
+            description: "Displays help for WorldEdit commands",
             ..Default::default()
         }
     };
@@ -1411,6 +1420,115 @@ fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
     }
 
     player.send_worldedit_message(&format!("Region expanded {} block(s).", amount));
+}
+
+fn execute_help(mut ctx: CommandExecuteContext<'_>) {
+    let command_name = ctx.arguments[0].unwrap_string().clone();
+    let player_uuid = ctx.player_uuid;
+    let player = ctx.get_player_mut();
+
+    let command = match COMMANDS.get(command_name.as_str()) {
+        Some(command) => command,
+        None => {
+            player.send_error_message(&format!("Unknown command: {}", command_name));
+            return;
+        }
+    };
+
+    let mut message = vec![
+        ChatComponentBuilder::new("--------------".to_owned())
+            .color(ChatColor::Yellow)
+            .strikethrough(true)
+            .finish(),
+        ChatComponentBuilder::new(format!(" Help for //{} ", command_name)).finish(),
+        ChatComponentBuilder::new("--------------\n".to_owned())
+            .color(ChatColor::Yellow)
+            .strikethrough(true)
+            .finish(),
+        ChatComponentBuilder::new(command.description.to_owned())
+            .color(ChatColor::Gray)
+            .finish(),
+        ChatComponentBuilder::new("\nUsage: ".to_owned())
+            .color(ChatColor::Gray)
+            .finish(),
+        ChatComponentBuilder::new(format!("//{}", command_name))
+            .color(ChatColor::Gold)
+            .finish(),
+    ];
+
+    for arg in command.arguments {
+        message.append(&mut vec![
+            ChatComponentBuilder::new(" [".to_owned())
+                .color(ChatColor::Yellow)
+                .finish(),
+            ChatComponentBuilder::new(arg.name.to_owned())
+                .color(ChatColor::Gold)
+                .finish(),
+            ChatComponentBuilder::new("]".to_owned())
+                .color(ChatColor::Yellow)
+                .finish(),
+        ]);
+    }
+
+    message.push(
+        ChatComponentBuilder::new("\nArguments:".to_owned())
+            .color(ChatColor::Gray)
+            .finish(),
+    );
+
+    for arg in command.arguments {
+        message.append(&mut vec![
+            ChatComponentBuilder::new("\n  [".to_owned())
+                .color(ChatColor::Yellow)
+                .finish(),
+            ChatComponentBuilder::new(arg.name.to_owned())
+                .color(ChatColor::Gold)
+                .finish(),
+            ChatComponentBuilder::new("]".to_owned())
+                .color(ChatColor::Yellow)
+                .finish(),
+        ]);
+
+        let default = match arg.argument_type {
+            ArgumentType::Direction => Some("forward"),
+            ArgumentType::UnsignedInteger => Some("1"),
+            _ => None,
+        };
+        if let Some(default) = default {
+            message.push(
+                ChatComponentBuilder::new(format!(" (defaults to {})", default))
+                    .color(ChatColor::Gray)
+                    .finish(),
+            );
+        }
+
+        message.push(
+            ChatComponentBuilder::new(format!(": {}", arg.description))
+                .color(ChatColor::Gray)
+                .finish(),
+        );
+    }
+
+    if !command.flags.is_empty() {
+        message.push(
+            ChatComponentBuilder::new("\nFlags:".to_owned())
+                .color(ChatColor::Gray)
+                .finish(),
+        );
+
+        for flag in command.flags {
+            message.append(&mut vec![
+                ChatComponentBuilder::new(format!("\n  -{}", flag.letter))
+                    .color(ChatColor::Gold)
+                    .finish(),
+                ChatComponentBuilder::new(format!(": {}", flag.description))
+                    .color(ChatColor::Gray)
+                    .finish(),
+            ]);
+        }
+    }
+
+    player.send_chat_message(player_uuid, message);
 }
 
 fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {

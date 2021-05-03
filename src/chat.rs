@@ -1,4 +1,5 @@
 use regex::Regex;
+use serde::ser::Serializer;
 use serde::Serialize;
 
 lazy_static! {
@@ -7,7 +8,7 @@ lazy_static! {
 }
 
 #[derive(Serialize, Debug, Clone)]
-enum ChatColor {
+pub enum ChatColor {
     #[serde(rename = "black")]
     Black,
     #[serde(rename = "dark_blue")]
@@ -95,7 +96,7 @@ enum ClickEventType {
 }
 
 #[derive(Serialize, Debug, Clone)]
-struct ClickEvent {
+pub struct ClickEvent {
     action: ClickEventType,
     value: String,
 }
@@ -106,23 +107,59 @@ fn is_false(field: &bool) -> bool {
     !*field
 }
 
+fn ser_bool_str<S: Serializer>(val: &bool, s: S) -> Result<S::Ok, S::Error> {
+    if *val {
+        s.serialize_str("true")
+    } else {
+        s.serialize_str("false")
+    }
+}
+
+pub struct ChatComponentBuilder {
+    component: ChatComponent,
+}
+
+impl ChatComponentBuilder {
+    pub fn new(text: String) -> Self {
+        let component = ChatComponent {
+            text,
+            ..Default::default()
+        };
+        Self { component }
+    }
+
+    pub fn color(mut self, color: ChatColor) -> Self {
+        self.component.color = Some(color);
+        self
+    }
+
+    pub fn strikethrough(mut self, val: bool) -> Self {
+        self.component.strikethrough = val;
+        self
+    }
+
+    pub fn finish(self) -> ChatComponent {
+        self.component
+    }
+}
+
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct ChatComponent {
-    text: String,
-    #[serde(skip_serializing_if = "is_false")]
-    bold: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    italic: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    underlined: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    strikethrough: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    obfuscated: bool,
+    pub text: String,
+    #[serde(skip_serializing_if = "is_false", serialize_with = "ser_bool_str")]
+    pub bold: bool,
+    #[serde(skip_serializing_if = "is_false", serialize_with = "ser_bool_str")]
+    pub italic: bool,
+    #[serde(skip_serializing_if = "is_false", serialize_with = "ser_bool_str")]
+    pub underlined: bool,
+    #[serde(skip_serializing_if = "is_false", serialize_with = "ser_bool_str")]
+    pub strikethrough: bool,
+    #[serde(skip_serializing_if = "is_false", serialize_with = "ser_bool_str")]
+    pub obfuscated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    color: Option<ChatColor>,
+    pub color: Option<ChatColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    click_event: Option<ClickEvent>,
+    pub click_event: Option<ClickEvent>,
 }
 
 impl ChatComponent {
