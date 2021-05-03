@@ -178,9 +178,9 @@ impl Argument {
         }
     }
 
-    fn unwrap_direction(&self) -> &BlockFacing {
+    fn unwrap_direction(&self) -> BlockFacing {
         match self {
-            Argument::Direction(val) => val,
+            Argument::Direction(val) => *val,
             _ => panic!("Argument was not an Direction"),
         }
     }
@@ -229,10 +229,14 @@ impl Argument {
         match arg_type {
             ArgumentType::Direction => {
                 let player_facing = ctx.get_player().get_facing();
-                match arg {
-                    "me" => Ok(Argument::Direction(player_facing)),
-                    _ => Err(ArgumentParseError::new(arg_type, "unknown direction")),
-                }
+                Ok(Argument::Direction(match arg {
+                    "me" => player_facing,
+                    "u" | "up" => BlockFacing::Up,
+                    "d" | "down" => BlockFacing::Down,
+                    "l" | "left" => player_facing.rotate_ccw(),
+                    "r" | "right" => player_facing.rotate(),
+                    _ => return Err(ArgumentParseError::new(arg_type, "unknown direction")),
+                }))
             }
             ArgumentType::UnsignedInteger => match arg.parse::<u32>() {
                 Ok(num) => Ok(Argument::UnsignedInteger(num)),
@@ -436,6 +440,26 @@ lazy_static! {
             execute_fn: execute_load,
             description: "Loads a schematic file into the clipboard",
             ..Default::default()
+        },
+        "expand" => WorldeditCommand {
+            arguments: &[
+                argument!("amount", UnsignedInteger, "Amount to expand the selection by"),
+                argument!("direction", Direction, "Direction to expand")
+            ],
+            requires_positions: true,
+            execute_fn: execute_expand,
+            description: "Expand the selection area",
+            ..Default::default()
+        },
+        "contract" => WorldeditCommand {
+            arguments: &[
+                argument!("amount", UnsignedInteger, "Amount to contract the selection by"),
+                argument!("direction", Direction, "Direction to contract")
+            ],
+            requires_positions: true,
+            execute_fn: execute_contract,
+            description: "Contract the selection area",
+            ..Default::default()
         }
     };
 }
@@ -449,7 +473,8 @@ lazy_static! {
         "v" => "paste",
         "va" => "paste -a",
         "s" => "stack",
-        "sa" => "stack -a"
+        "sa" => "stack -a",
+        "e" => "expand"
     };
 }
 
@@ -1192,6 +1217,200 @@ fn execute_pos2(mut ctx: CommandExecuteContext<'_>) {
     let z = player.z as i32;
 
     player.worldedit_set_second_position(x, y, z);
+}
+
+fn execute_expand(mut ctx: CommandExecuteContext<'_>) {
+    let amount = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
+    let player = ctx.get_player_mut();
+    let first_pos = player.first_position.unwrap();
+    let second_pos = player.second_position.unwrap();
+
+    match direction {
+        BlockFacing::Up => {
+            let (pos, set_fn) = if first_pos.y > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y + amount as i32, pos.z);
+        }
+        BlockFacing::Down => {
+            let (pos, set_fn) = if first_pos.y < second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y - amount as i32, pos.z);
+        }
+        BlockFacing::East => {
+            let (pos, set_fn) = if first_pos.x > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x + amount as i32, pos.y, pos.z);
+        }
+        BlockFacing::West => {
+            let (pos, set_fn) = if first_pos.x < second_pos.x {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x - amount as i32, pos.y, pos.z);
+        }
+        BlockFacing::North => {
+            let (pos, set_fn) = if first_pos.z < second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y, pos.z + amount as i32);
+        }
+        BlockFacing::South => {
+            let (pos, set_fn) = if first_pos.z > second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y, pos.z - amount as i32);
+        }
+    }
+
+    player.send_worldedit_message(&format!("Region expanded {} block(s).", amount));
+}
+
+fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
+    let amount = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
+    let player = ctx.get_player_mut();
+    let first_pos = player.first_position.unwrap();
+    let second_pos = player.second_position.unwrap();
+
+    match direction {
+        BlockFacing::Up => {
+            let (pos, set_fn) = if first_pos.y > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y - amount as i32, pos.z);
+        }
+        BlockFacing::Down => {
+            let (pos, set_fn) = if first_pos.y < second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y + amount as i32, pos.z);
+        }
+        BlockFacing::East => {
+            let (pos, set_fn) = if first_pos.x > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x - amount as i32, pos.y, pos.z);
+        }
+        BlockFacing::West => {
+            let (pos, set_fn) = if first_pos.x < second_pos.x {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x + amount as i32, pos.y, pos.z);
+        }
+        BlockFacing::North => {
+            let (pos, set_fn) = if first_pos.z < second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y, pos.z - amount as i32);
+        }
+        BlockFacing::South => {
+            let (pos, set_fn) = if first_pos.z > second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                )
+            };
+            set_fn(player, pos.x, pos.y, pos.z + amount as i32);
+        }
+    }
+
+    player.send_worldedit_message(&format!("Region expanded {} block(s).", amount));
 }
 
 fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {

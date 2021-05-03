@@ -320,6 +320,28 @@ impl BlockFacing {
         }
         pos
     }
+
+    pub fn rotate(self) -> BlockFacing {
+        use BlockFacing::*;
+        match self {
+            North => East,
+            East => South,
+            South => West,
+            West => North,
+            other => other,
+        }
+    }
+
+    pub fn rotate_ccw(self) -> BlockFacing {
+        use BlockFacing::*;
+        match self {
+            North => West,
+            West => South,
+            South => East,
+            East => North,
+            other => other,
+        }
+    }
 }
 
 impl Default for BlockFacing {
