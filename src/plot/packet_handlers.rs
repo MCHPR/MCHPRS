@@ -364,11 +364,7 @@ impl ServerBoundPacketHandler for Plot {
                             return;
                         }
                     }
-                    self.players[player].worldedit_set_first_position(
-                        block_pos.x,
-                        block_pos.y,
-                        block_pos.z,
-                    );
+                    self.players[player].worldedit_set_first_position(block_pos);
                     return;
                 }
             }

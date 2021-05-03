@@ -47,8 +47,7 @@ impl ItemStack {
                 .second_position
                 .map_or(false, |p| p == use_pos);
             if !same {
-                plot.players[context.player_idx]
-                    .worldedit_set_second_position(use_pos.x, use_pos.y, use_pos.z);
+                plot.players[context.player_idx].worldedit_set_second_position(use_pos);
             }
             cancelled = true;
         }

@@ -106,6 +106,14 @@ impl BlockPos {
         BlockPos { x, y, z }
     }
 
+    pub fn from_pos(x: f64, y: f64, z: f64) -> BlockPos {
+        BlockPos {
+            x: x.floor() as i32,
+            y: y.floor() as i32,
+            z: z.floor() as i32,
+        }
+    }
+
     pub fn offset(self, face: BlockFace) -> BlockPos {
         match face {
             BlockFace::Bottom => BlockPos::new(self.x, self.y.saturating_sub(1), self.z),

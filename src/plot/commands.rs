@@ -101,14 +101,7 @@ impl Plot {
             args.join(" ")
         );
         // Handle worldedit commands
-        if command.starts_with("//")
-            && worldedit::execute_command(
-                self,
-                self.players[player].uuid,
-                command.trim_start_matches("//"),
-                &mut args,
-            )
-        {
+        if worldedit::execute_command(self, self.players[player].uuid, &command[1..], &mut args) {
             // If the command was handled, there is no need to continue;
             return false;
         }

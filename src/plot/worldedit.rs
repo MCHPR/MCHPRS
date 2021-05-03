@@ -1,5 +1,5 @@
 use super::Plot;
-use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos};
+use crate::blocks::{Block, BlockEntity, BlockFace, BlockFacing, BlockPos};
 use crate::chat::{ChatColor, ChatComponentBuilder};
 use crate::player::Player;
 use crate::world::storage::PalettedBitBuffer;
@@ -338,19 +338,27 @@ impl Default for WorldeditCommand {
 
 lazy_static! {
     static ref COMMANDS: HashMap<&'static str, WorldeditCommand> = map! {
-        "copy" => WorldeditCommand {
+        "up" => WorldeditCommand {
+            execute_fn: execute_up,
+            description: "Go upwards some distance",
+            arguments: &[
+                argument!("distance", UnsignedInteger, "Distance to go upwards")
+            ],
+            ..Default::default()
+        },
+        "/copy" => WorldeditCommand {
             requires_positions: true,
             execute_fn: execute_copy,
             description: "Copy the selection to the clipboard",
             ..Default::default()
         },
-        "cut" => WorldeditCommand {
+        "/cut" => WorldeditCommand {
             requires_positions: true,
             execute_fn: execute_cut,
             description: "Cut the selection to the clipboard",
             ..Default::default()
         },
-        "paste" => WorldeditCommand {
+        "/paste" => WorldeditCommand {
             requires_clipboard: true,
             execute_fn: execute_paste,
             description: "Paste the clipboard's contents",
@@ -359,12 +367,12 @@ lazy_static! {
             ],
             ..Default::default()
         },
-        "undo" => WorldeditCommand {
+        "/undo" => WorldeditCommand {
             execute_fn: execute_undo,
             description: "Undo's the last action (from history)",
             ..Default::default()
         },
-        "stack" => WorldeditCommand {
+        "/stack" => WorldeditCommand {
             arguments: &[
                 argument!("count", UnsignedInteger, "# of copies to stack"),
                 argument!("direction", Direction, "The direction to stack")
@@ -377,7 +385,7 @@ lazy_static! {
             ],
             ..Default::default()
         },
-        "move" => WorldeditCommand {
+        "/move" => WorldeditCommand {
             arguments: &[
                 argument!("count", UnsignedInteger, "The distance to move"),
                 argument!("direction", Direction, "The direction to move")
@@ -391,7 +399,7 @@ lazy_static! {
             ],
             ..Default::default()
         },
-        "count" => WorldeditCommand {
+        "/count" => WorldeditCommand {
             arguments: &[
                 argument!("mask", Mask, "The mask of blocks to match")
             ],
@@ -400,12 +408,12 @@ lazy_static! {
             description: "Counts the number of blocks matching a mask",
             ..Default::default()
         },
-        "sel" => WorldeditCommand {
+        "/sel" => WorldeditCommand {
             execute_fn: execute_sel,
             description: "Choose a region selector",
             ..Default::default()
         },
-        "set" => WorldeditCommand {
+        "/set" => WorldeditCommand {
             arguments: &[
                 argument!("pattern", Pattern, "The pattern of blocks to set")
             ],
@@ -414,17 +422,17 @@ lazy_static! {
             description: "Sets all the blocks in the region",
             ..Default::default()
         },
-        "pos1" => WorldeditCommand {
+        "/pos1" => WorldeditCommand {
             execute_fn: execute_pos1,
             description: "Set position 1",
             ..Default::default()
         },
-        "pos2" => WorldeditCommand {
+        "/pos2" => WorldeditCommand {
             execute_fn: execute_pos2,
             description: "Set position 2",
             ..Default::default()
         },
-        "replace" => WorldeditCommand {
+        "/replace" => WorldeditCommand {
             arguments: &[
                 argument!("from", Mask, "The mask representng blocks to replace"),
                 argument!("to", Pattern, "The pattern of blocks to replace with")
@@ -434,7 +442,7 @@ lazy_static! {
             description: "Replace all blocks in a selection with another",
             ..Default::default()
         },
-        "load" => WorldeditCommand {
+        "/load" => WorldeditCommand {
             arguments: &[
                 argument!("name", String, "The file name of the schematic to load")
             ],
@@ -442,7 +450,7 @@ lazy_static! {
             description: "Loads a schematic file into the clipboard",
             ..Default::default()
         },
-        "expand" => WorldeditCommand {
+        "/expand" => WorldeditCommand {
             arguments: &[
                 argument!("amount", UnsignedInteger, "Amount to expand the selection by"),
                 argument!("direction", Direction, "Direction to expand")
@@ -452,7 +460,7 @@ lazy_static! {
             description: "Expand the selection area",
             ..Default::default()
         },
-        "contract" => WorldeditCommand {
+        "/contract" => WorldeditCommand {
             arguments: &[
                 argument!("amount", UnsignedInteger, "Amount to contract the selection by"),
                 argument!("direction", Direction, "Direction to contract")
@@ -462,12 +470,22 @@ lazy_static! {
             description: "Contract the selection area",
             ..Default::default()
         },
-        "help" => WorldeditCommand {
+        "/help" => WorldeditCommand {
             arguments: &[
                 argument!("command", String, "Command to retrieve help for"),
             ],
             execute_fn: execute_help,
             description: "Displays help for WorldEdit commands",
+            ..Default::default()
+        },
+        "/hpos1" => WorldeditCommand {
+            execute_fn: execute_hpos1,
+            description: "Set position 1 to targeted block",
+            ..Default::default()
+        },
+        "/hpos2" => WorldeditCommand {
+            execute_fn: execute_hpos2,
+            description: "Set position 2 to targeted block",
             ..Default::default()
         }
     };
@@ -475,15 +493,18 @@ lazy_static! {
 
 lazy_static! {
     static ref ALIASES: HashMap<&'static str, &'static str> = map! {
-        "1" => "pos1",
-        "2" => "pos2",
-        "c" => "copy",
-        "x" => "cut",
-        "v" => "paste",
-        "va" => "paste -a",
-        "s" => "stack",
-        "sa" => "stack -a",
-        "e" => "expand"
+        "u" => "/up",
+        "/1" => "/pos1",
+        "/2" => "/pos2",
+        "/c" => "/copy",
+        "/x" => "/cut",
+        "/v" => "/paste",
+        "/va" => "/paste -a",
+        "/s" => "/stack",
+        "/sa" => "/stack -a",
+        "/e" => "/expand",
+        "/h1" => "/hpos1",
+        "/h2" => "/hpos2"
     };
 }
 
@@ -770,6 +791,46 @@ impl WorldEditOperation {
     fn z_range(&self) -> RangeInclusive<i32> {
         self.z_range.to_owned()
     }
+}
+
+fn ray_trace_block(
+    world: &impl World,
+    mut x: f64,
+    mut y: f64,
+    mut z: f64,
+    start_pitch: f64,
+    start_yaw: f64,
+    max_distance: f64,
+) -> Option<BlockPos> {
+    let check_distance = 0.2;
+
+    // Player view height
+    y += 1.65;
+    let rot_x = (start_yaw + 90.0) % 360.0;
+    let rot_y = start_pitch * -1.0;
+    let h = check_distance * rot_y.to_radians().cos();
+
+    let offset_x = h * rot_x.to_radians().cos();
+    let offset_y = check_distance * rot_y.to_radians().sin();
+    let offset_z = h * rot_x.to_radians().sin();
+
+    let mut current_distance = 0.0;
+
+    while current_distance < max_distance {
+        let block_pos = BlockPos::from_pos(x, y, z);
+        let block = world.get_block(block_pos);
+
+        if !matches!(block, Block::Air {}) {
+            return Some(block_pos);
+        }
+
+        x += offset_x;
+        y += offset_y;
+        z += offset_z;
+        current_distance += check_distance;
+    }
+
+    None
 }
 
 fn worldedit_send_operation(plot: &mut Plot, operation: WorldEditOperation) {
@@ -1089,8 +1150,8 @@ fn execute_move(mut ctx: CommandExecuteContext<'_>) {
         let first_pos = direction.offset_pos(first_pos, move_amt as i32);
         let second_pos = direction.offset_pos(second_pos, move_amt as i32);
         let player = ctx.get_player_mut();
-        player.worldedit_set_first_position(first_pos.x, first_pos.y, first_pos.z);
-        player.worldedit_set_second_position(second_pos.x, second_pos.y, second_pos.z);
+        player.worldedit_set_first_position(first_pos);
+        player.worldedit_set_second_position(second_pos);
     }
 
     ctx.get_player_mut().send_worldedit_message(&format!(
@@ -1211,21 +1272,51 @@ fn execute_sel(mut ctx: CommandExecuteContext<'_>) {
 fn execute_pos1(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
-    let x = player.x as i32;
-    let y = player.y as i32;
-    let z = player.z as i32;
+    let pos = BlockPos::from_pos(player.x, player.y, player.z);
 
-    player.worldedit_set_first_position(x, y, z);
+    player.worldedit_set_first_position(pos);
 }
 
 fn execute_pos2(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
-    let x = player.x as i32;
-    let y = player.y as i32;
-    let z = player.z as i32;
+    let pos = BlockPos::from_pos(player.x, player.y, player.z);
 
-    player.worldedit_set_second_position(x, y, z);
+    player.worldedit_set_second_position(pos);
+}
+
+fn execute_hpos1(mut ctx: CommandExecuteContext<'_>) {
+    let player = ctx.get_player_mut();
+    let x = player.x;
+    let y = player.y;
+    let z = player.z;
+    let pitch = player.pitch as f64;
+    let yaw = player.yaw as f64;
+
+    let result = ray_trace_block(ctx.plot, x, y, z, pitch, yaw, 300.0);
+
+    let player = ctx.get_player_mut();
+    match result {
+        Some(pos) => player.worldedit_set_first_position(pos),
+        None => player.send_error_message("No block in sight!"),
+    }
+}
+
+fn execute_hpos2(mut ctx: CommandExecuteContext<'_>) {
+    let player = ctx.get_player_mut();
+    let x = player.x;
+    let y = player.y;
+    let z = player.z;
+    let pitch = player.pitch as f64;
+    let yaw = player.yaw as f64;
+
+    let result = ray_trace_block(ctx.plot, x, y, z, pitch, yaw, 300.0);
+
+    let player = ctx.get_player_mut();
+    match result {
+        Some(pos) => player.worldedit_set_second_position(pos),
+        None => player.send_error_message("No block in sight!"),
+    }
 }
 
 fn execute_expand(mut ctx: CommandExecuteContext<'_>) {
@@ -1240,85 +1331,85 @@ fn execute_expand(mut ctx: CommandExecuteContext<'_>) {
             let (pos, set_fn) = if first_pos.y > second_pos.y {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y + amount as i32, pos.z);
+            set_fn(player, BlockPos::new(pos.x, pos.y + amount as i32, pos.z));
         }
         BlockFacing::Down => {
             let (pos, set_fn) = if first_pos.y < second_pos.y {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y - amount as i32, pos.z);
+            set_fn(player, BlockPos::new(pos.x, pos.y - amount as i32, pos.z));
         }
         BlockFacing::East => {
             let (pos, set_fn) = if first_pos.x > second_pos.y {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x + amount as i32, pos.y, pos.z);
+            set_fn(player, BlockPos::new(pos.x + amount as i32, pos.y, pos.z));
         }
         BlockFacing::West => {
             let (pos, set_fn) = if first_pos.x < second_pos.x {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x - amount as i32, pos.y, pos.z);
+            set_fn(player, BlockPos::new(pos.x - amount as i32, pos.y, pos.z));
         }
         BlockFacing::North => {
             let (pos, set_fn) = if first_pos.z < second_pos.z {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y, pos.z + amount as i32);
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
         }
         BlockFacing::South => {
             let (pos, set_fn) = if first_pos.z > second_pos.z {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y, pos.z - amount as i32);
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
         }
     }
 
@@ -1337,85 +1428,85 @@ fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
             let (pos, set_fn) = if first_pos.y > second_pos.y {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y - amount as i32, pos.z);
+            set_fn(player, BlockPos::new(pos.x, pos.y - amount as i32, pos.z));
         }
         BlockFacing::Down => {
             let (pos, set_fn) = if first_pos.y < second_pos.y {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y + amount as i32, pos.z);
+            set_fn(player, BlockPos::new(pos.x, pos.y + amount as i32, pos.z));
         }
         BlockFacing::East => {
             let (pos, set_fn) = if first_pos.x > second_pos.y {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x - amount as i32, pos.y, pos.z);
+            set_fn(player, BlockPos::new(pos.x - amount as i32, pos.y, pos.z));
         }
         BlockFacing::West => {
             let (pos, set_fn) = if first_pos.x < second_pos.x {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x + amount as i32, pos.y, pos.z);
+            set_fn(player, BlockPos::new(pos.x + amount as i32, pos.y, pos.z));
         }
         BlockFacing::North => {
             let (pos, set_fn) = if first_pos.z < second_pos.z {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y, pos.z - amount as i32);
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
         }
         BlockFacing::South => {
             let (pos, set_fn) = if first_pos.z > second_pos.z {
                 (
                     first_pos,
-                    Player::worldedit_set_first_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
                 )
             } else {
                 (
                     second_pos,
-                    Player::worldedit_set_second_position as fn(&mut Player, i32, i32, i32),
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, pos.x, pos.y, pos.z + amount as i32);
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
         }
     }
 
@@ -1424,10 +1515,14 @@ fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
 
 fn execute_help(mut ctx: CommandExecuteContext<'_>) {
     let command_name = ctx.arguments[0].unwrap_string().clone();
+    let slash_command_name = "/".to_owned() + &command_name;
     let player_uuid = ctx.player_uuid;
     let player = ctx.get_player_mut();
 
-    let command = match COMMANDS.get(command_name.as_str()) {
+    let maybe_command = COMMANDS
+        .get(command_name.as_str())
+        .or_else(|| COMMANDS.get(slash_command_name.as_str()));
+    let command = match maybe_command {
         Some(command) => command,
         None => {
             player.send_error_message(&format!("Unknown command: {}", command_name));
@@ -1440,7 +1535,7 @@ fn execute_help(mut ctx: CommandExecuteContext<'_>) {
             .color(ChatColor::Yellow)
             .strikethrough(true)
             .finish(),
-        ChatComponentBuilder::new(format!(" Help for //{} ", command_name)).finish(),
+        ChatComponentBuilder::new(format!(" Help for /{} ", command_name)).finish(),
         ChatComponentBuilder::new("--------------\n".to_owned())
             .color(ChatColor::Yellow)
             .strikethrough(true)
@@ -1451,7 +1546,7 @@ fn execute_help(mut ctx: CommandExecuteContext<'_>) {
         ChatComponentBuilder::new("\nUsage: ".to_owned())
             .color(ChatColor::Gray)
             .finish(),
-        ChatComponentBuilder::new(format!("//{}", command_name))
+        ChatComponentBuilder::new(format!("/{}", command_name))
             .color(ChatColor::Gold)
             .finish(),
     ];
@@ -1529,6 +1624,22 @@ fn execute_help(mut ctx: CommandExecuteContext<'_>) {
     }
 
     player.send_chat_message(player_uuid, message);
+}
+
+fn execute_up(mut ctx: CommandExecuteContext<'_>) {
+    let distance = ctx.arguments[0].unwrap_uint();
+    let player = ctx.get_player();
+
+    let y = player.y + distance as f64;
+    let block_pos = BlockPos::from_pos(player.x, y, player.z);
+    let platform_pos = block_pos.offset(BlockFace::Bottom);
+
+    if matches!(ctx.plot.get_block(platform_pos), Block::Air {}) {
+        ctx.plot.set_block(platform_pos, Block::Glass {});
+    }
+
+    let player = ctx.get_player_mut();
+    player.teleport(player.x, block_pos.y as f64, player.z)
 }
 
 fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {
