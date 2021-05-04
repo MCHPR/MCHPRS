@@ -514,16 +514,10 @@ pub struct WorldEditUndo {
 
 impl WorldEditClipboard {
     fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
-        // I greaty dislike this
-        let mut file = match File::open("./schems/".to_owned() + file_name) {
-            Ok(file) => file,
-            Err(_) => return None,
-        };
-        let nbt = match nbt::Blob::from_gzip_reader(&mut file) {
-            Ok(blob) => blob,
-            Err(_) => return None,
-        };
         use nbt::Value;
+        
+        let mut file = File::open("./schems/".to_owned() + file_name).ok()?;
+        let nbt = nbt::Blob::from_gzip_reader(&mut file).ok()?;
         let size_x = nbt_unwrap_val!(nbt["Width"], Value::Short) as u32;
         let size_z = nbt_unwrap_val!(nbt["Length"], Value::Short) as u32;
         let size_y = nbt_unwrap_val!(nbt["Height"], Value::Short) as u32;
