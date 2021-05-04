@@ -596,11 +596,25 @@ impl MinecraftServer {
             self.handle_message(message);
         }
         self.network.update();
-        for client in 0..self.network.handshaking_clients.len() {
-            let packets = self.network.handshaking_clients[client].receive_packets();
-            for packet in packets {
-                packet.handle(self, client);
+
+        let mut client_idx = 0;
+        let mut clients_len = self.network.handshaking_clients.len(); 
+        loop {
+            if client_idx >= clients_len {
+                break;
             }
+
+            let packets = self.network.handshaking_clients[client_idx].receive_packets();
+            for packet in packets {
+                packet.handle(self, client_idx);
+            }
+
+            let new_len = self.network.handshaking_clients.len();
+            
+            if clients_len == new_len  {
+                client_idx += 1;
+            }
+            clients_len = new_len;
         }
     }
 }
