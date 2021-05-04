@@ -598,7 +598,7 @@ impl MinecraftServer {
         self.network.update();
 
         let mut client_idx = 0;
-        let mut clients_len = self.network.handshaking_clients.len(); 
+        let mut clients_len = self.network.handshaking_clients.len();
         loop {
             if client_idx >= clients_len {
                 break;
@@ -610,8 +610,8 @@ impl MinecraftServer {
             }
 
             let new_len = self.network.handshaking_clients.len();
-            
-            if clients_len == new_len  {
+
+            if clients_len == new_len {
                 client_idx += 1;
             }
             clients_len = new_len;
