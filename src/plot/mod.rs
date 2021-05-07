@@ -523,6 +523,15 @@ impl Plot {
         }
     }
 
+    /// Parses a plot ID of the form "x,z" into the x, z coordinates it
+    /// specifies, or None if the id is invalid.
+    fn parse_id(arg: &str) -> Option<(i32, i32)> {
+        let (x, z) = arg.split_once(',')?;
+        let x = x.parse().ok()?;
+        let z = z.parse().ok()?;
+        Some((x, z))
+    }
+
     fn handle_commands(&mut self) {
         let mut removal_offset = 0;
         for player_idx in 0..self.players.len() {

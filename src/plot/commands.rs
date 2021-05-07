@@ -64,6 +64,19 @@ impl Plot {
                     self.players[player].send_system_message(&format!("{} does not own any plots.", args[0]));
                 }
             }
+            "teleport" | "tp" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return;
+                }
+
+                if let Some((plot_x, plot_z)) = Plot::parse_id(args[0]) {
+                    let center = Plot::get_center(plot_x, plot_z);
+                    self.players[player].teleport(center.0, 64.0, center.1);
+                } else {
+                    self.players[player].send_error_message(&format!("{} is not a valid plot ID.", args[0]));
+                }
+            }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
     }
@@ -353,7 +366,7 @@ lazy_static! {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![7, 8, 9, 10, 38, 39, 40, 41, 43],
+                children: vec![7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -652,6 +665,30 @@ lazy_static! {
                 children: vec![],
                 redirect_node: Some(41),
                 name: Some("v"),
+                parser: None,
+            },
+            // 44: /p teleport
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![45],
+                redirect_node: None,
+                name: Some("teleport"),
+                parser: None,
+            },
+            // 45: /p teleport [plotid]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("plotid"),
+                parser: Some(Parser::Greedy),
+            },
+            // 46: /p tp
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(44),
+                name: Some("tp"),
                 parser: None,
             },
         ],
