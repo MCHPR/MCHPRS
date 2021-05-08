@@ -858,18 +858,30 @@ impl Plot {
 impl Drop for Plot {
     fn drop(&mut self) {
         if !self.players.is_empty() {
-            // TODO: send all players to spawn and send them message along the lines of:
-            // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
             for player in &mut self.players {
-                player.save();
-                // Give the player the bad news.
-                player.kick(
-                    r#"{ "text": "The plot you were previously in has crashed!", "color": "red" }"#
-                        .to_owned(),
+                player.save(); // just in case
+
+                let (px, pz) = if self.x == 0 && self.z == 0 {
+                    // Can't send players to spawn if spawn crashed!
+                    Plot::get_center(1, 0)
+                } else {
+                    Plot::get_center(0, 0)
+                };
+                player.teleport(px, 64.0, pz);
+
+                player.send_raw_system_message(
+                    json!({
+                        "text": "The plot you were previously in has crashed!",
+                        "color": "red"
+                    })
+                    .to_string(),
                 );
-                // Remove the player from the player list
+            }
+
+            for index in 0..self.players.len() {
+                let player = self.leave_plot(index);
                 self.message_sender
-                    .send(Message::PlayerLeft(player.uuid))
+                    .send(Message::PlayerLeavePlot(player))
                     .unwrap();
             }
         }
