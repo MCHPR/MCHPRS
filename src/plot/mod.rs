@@ -62,7 +62,7 @@ impl World for Plot {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
 
         // Check to see if block is within height limit
-        if chunk_index >= 256 || pos.y > 256 {
+        if chunk_index >= 256 || pos.y > 256 || pos.y < 0 {
             return false;
         }
 
