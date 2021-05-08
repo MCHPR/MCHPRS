@@ -74,7 +74,7 @@ fn read_decompressed<T: PacketDecoderExt>(
     let packet_id = reader.read_varint()?;
     Ok(match *state {
         NetworkState::Handshake if packet_id == 0x00 => {
-            let handshake = S00Handshake::decode(reader)?;
+            let handshake = SHandshake::decode(reader)?;
             match handshake.next_state {
                 1 => *state = NetworkState::Status,
                 2 => *state = NetworkState::Login,
@@ -82,29 +82,29 @@ fn read_decompressed<T: PacketDecoderExt>(
             }
             Box::new(handshake)
         }
-        NetworkState::Status if packet_id == 0x00 => Box::new(S00Request::decode(reader)?),
-        NetworkState::Status if packet_id == 0x01 => Box::new(S01Ping::decode(reader)?),
+        NetworkState::Status if packet_id == 0x00 => Box::new(SRequest::decode(reader)?),
+        NetworkState::Status if packet_id == 0x01 => Box::new(SPing::decode(reader)?),
         NetworkState::Login if packet_id == 0x00 => {
             *state = NetworkState::Play;
-            Box::new(S00LoginStart::decode(reader)?)
+            Box::new(SLoginStart::decode(reader)?)
         }
         _ => match packet_id {
-            0x03 => Box::new(S03ChatMessage::decode(reader)?),
-            0x05 => Box::new(S05ClientSettings::decode(reader)?),
-            0x0B => Box::new(S0BPluginMessage::decode(reader)?),
-            0x10 => Box::new(S10KeepAlive::decode(reader)?),
-            0x12 => Box::new(S12PlayerPosition::decode(reader)?),
-            0x13 => Box::new(S13PlayerPositionAndRotation::decode(reader)?),
-            0x14 => Box::new(S14PlayerRotation::decode(reader)?),
-            0x15 => Box::new(S15PlayerMovement::decode(reader)?),
-            0x1A => Box::new(S1APlayerAbilities::decode(reader)?),
-            0x1B => Box::new(S1BPlayerDigging::decode(reader)?),
-            0x1C => Box::new(S1CEntityAction::decode(reader)?),
-            0x25 => Box::new(S25HeldItemChange::decode(reader)?),
-            0x28 => Box::new(S28CreativeInventoryAction::decode(reader)?),
-            0x2B => Box::new(S2BUpdateSign::decode(reader)?),
-            0x2C => Box::new(S2CAnimation::decode(reader)?),
-            0x2E => Box::new(S2EPlayerBlockPlacemnt::decode(reader)?),
+            0x03 => Box::new(SChatMessage::decode(reader)?),
+            0x05 => Box::new(SClientSettings::decode(reader)?),
+            0x0B => Box::new(SPluginMessage::decode(reader)?),
+            0x10 => Box::new(SKeepAlive::decode(reader)?),
+            0x12 => Box::new(SPlayerPosition::decode(reader)?),
+            0x13 => Box::new(SPlayerPositionAndRotation::decode(reader)?),
+            0x14 => Box::new(SPlayerRotation::decode(reader)?),
+            0x15 => Box::new(SPlayerMovement::decode(reader)?),
+            0x1A => Box::new(SPlayerAbilities::decode(reader)?),
+            0x1B => Box::new(SPlayerDigging::decode(reader)?),
+            0x1C => Box::new(SEntityAction::decode(reader)?),
+            0x25 => Box::new(SHeldItemChange::decode(reader)?),
+            0x28 => Box::new(SCreativeInventoryAction::decode(reader)?),
+            0x2B => Box::new(SUpdateSign::decode(reader)?),
+            0x2C => Box::new(SAnimation::decode(reader)?),
+            0x2E => Box::new(SPlayerBlockPlacemnt::decode(reader)?),
             _ => Box::new(SUnknown),
         },
     })

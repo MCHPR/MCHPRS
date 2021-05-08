@@ -1,7 +1,7 @@
 use super::{database, worldedit, Plot};
 use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::{
-    C10DeclareCommands, C10DeclareCommandsNode as Node, C10DeclareCommandsNodeParser as Parser,
+    CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
     ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
@@ -287,7 +287,7 @@ lazy_static! {
     // For more information, see https://wiki.vg/Command_Data
     /// The DeclareCommands packet that is sent when the player joins.
     /// This is used for command autocomplete.
-    pub static ref DECLARE_COMMANDS: PacketEncoder = C10DeclareCommands {
+    pub static ref DECLARE_COMMANDS: PacketEncoder = CDeclareCommands {
         nodes: vec![
             // 0: Root Node
             Node {

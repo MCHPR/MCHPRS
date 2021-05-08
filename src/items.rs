@@ -1,5 +1,5 @@
 use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPos};
-use crate::network::packets::clientbound::{C2EOpenSignEditor, ClientBoundPacket};
+use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
 
@@ -66,7 +66,7 @@ impl ItemStack {
 
             match block {
                 Block::Sign { .. } | Block::WallSign { .. } => {
-                    let open_sign_editor = C2EOpenSignEditor {
+                    let open_sign_editor = COpenSignEditor {
                         pos_x: block_pos.x,
                         pos_y: block_pos.y,
                         pos_z: block_pos.z,

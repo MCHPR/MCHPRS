@@ -134,7 +134,7 @@ impl World for Plot {
             return;
         }
         if let Some(nbt) = block_entity.to_nbt(pos) {
-            let block_entity_data = C09BlockEntityData {
+            let block_entity_data = CBlockEntityData {
                 x: pos.x,
                 y: pos.y,
                 z: pos.z,
@@ -214,7 +214,7 @@ impl Plot {
 
     /// Send a block change to all connected players
     pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
-        let block_change = C0BBlockChange {
+        let block_change = CBlockChange {
             block_id: id as i32,
             x: pos.x,
             y: pos.y as i32,
@@ -248,7 +248,7 @@ impl Plot {
 
     fn enter_plot(&mut self, mut player: Player) {
         self.save();
-        let spawn_player = C04SpawnPlayer {
+        let spawn_player = CSpawnPlayer {
             entity_id: player.entity_id as i32,
             uuid: player.uuid,
             on_ground: player.on_ground,
@@ -259,12 +259,12 @@ impl Plot {
             z: player.z,
         }
         .encode();
-        let metadata_entries = vec![C44EntityMetadataEntry {
+        let metadata_entries = vec![CEntityMetadataEntry {
             index: 16,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
         }];
-        let metadata = C44EntityMetadata {
+        let metadata = CEntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: metadata_entries,
         }
@@ -273,7 +273,7 @@ impl Plot {
             other_player.client.send_packet(&spawn_player);
             other_player.client.send_packet(&metadata);
 
-            let spawn_other_player = C04SpawnPlayer {
+            let spawn_other_player = CSpawnPlayer {
                 entity_id: other_player.entity_id as i32,
                 uuid: other_player.uuid,
                 on_ground: other_player.on_ground,
@@ -287,9 +287,9 @@ impl Plot {
             player.client.send_packet(&spawn_other_player);
 
             if let Some(item) = &other_player.inventory[other_player.selected_slot as usize + 36] {
-                let other_entity_equipment = C47EntityEquipment {
+                let other_entity_equipment = CEntityEquipment {
                     entity_id: other_player.entity_id as i32,
-                    equipment: vec![C47EntityEquipmentEquipment {
+                    equipment: vec![CEntityEquipmentEquipment {
                         slot: 0, // Main hand
                         item: Some(SlotData {
                             item_count: item.count as i8,
@@ -302,12 +302,12 @@ impl Plot {
                 player.client.send_packet(&other_entity_equipment);
             }
 
-            let other_metadata_entries = vec![C44EntityMetadataEntry {
+            let other_metadata_entries = vec![CEntityMetadataEntry {
                 index: 16,
                 metadata_type: 0,
                 value: vec![other_player.skin_parts.bits() as u8],
             }];
-            let other_metadata = C44EntityMetadata {
+            let other_metadata = CEntityMetadata {
                 entity_id: other_player.entity_id as i32,
                 metadata: other_metadata_entries,
             }
@@ -316,9 +316,9 @@ impl Plot {
         }
 
         if let Some(item) = &player.inventory[player.selected_slot as usize + 36] {
-            let entity_equipment = C47EntityEquipment {
+            let entity_equipment = CEntityEquipment {
                 entity_id: player.entity_id as i32,
-                equipment: vec![C47EntityEquipmentEquipment {
+                equipment: vec![CEntityEquipmentEquipment {
                     slot: 0, // Main hand
                     item: Some(SlotData {
                         item_count: item.count as i8,
@@ -353,7 +353,7 @@ impl Plot {
         should_be_loaded: bool,
     ) {
         if was_loaded && !should_be_loaded {
-            let unload_chunk = C1CUnloadChunk { chunk_x, chunk_z }.encode();
+            let unload_chunk = CUnloadChunk { chunk_x, chunk_z }.encode();
             self.players[player_idx].client.send_packet(&unload_chunk);
         } else if !was_loaded && should_be_loaded {
             if !Plot::chunk_in_plot_bounds(self.x, self.z, chunk_x, chunk_z) {
@@ -375,7 +375,7 @@ impl Plot {
         let last_chunk_x = self.players[player_idx].last_chunk_x;
         let last_chunk_z = self.players[player_idx].last_chunk_z;
 
-        let update_view = C40UpdateViewPosition { chunk_x, chunk_z }.encode();
+        let update_view = CUpdateViewPosition { chunk_x, chunk_z }.encode();
         self.players[player_idx].client.send_packet(&update_view);
 
         if ((last_chunk_x - chunk_x).abs() <= view_distance * 2
@@ -434,7 +434,7 @@ impl Plot {
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
-        let destroy_entities = C36DestroyEntities {
+        let destroy_entities = CDestroyEntities {
             entity_ids: vec![entity_id as i32],
         }
         .encode();
@@ -449,13 +449,13 @@ impl Plot {
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
         }
-        let destroy_other_entities = C36DestroyEntities { entity_ids }.encode();
+        let destroy_other_entities = CDestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.x << 4;
         let chunk_offset_z = self.z << 4;
         for chunk in &self.chunks {
             player.client.send_packet(
-                &C1CUnloadChunk {
+                &CUnloadChunk {
                     chunk_x: chunk_offset_x + chunk.x,
                     chunk_z: chunk_offset_z + chunk.z,
                 }
@@ -547,7 +547,7 @@ impl Plot {
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
-                    let player_info = C32PlayerInfo::AddPlayer(vec![C32PlayerInfoAddPlayer {
+                    let player_info = CPlayerInfo::AddPlayer(vec![CPlayerInfoAddPlayer {
                         name: player_join_info.username,
                         properties: Vec::new(),
                         gamemode: 1,
@@ -561,7 +561,7 @@ impl Plot {
                     }
                 }
                 BroadcastMessage::PlayerLeft(uuid) => {
-                    let player_info = C32PlayerInfo::RemovePlayer(vec![uuid]).encode();
+                    let player_info = CPlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
@@ -582,7 +582,7 @@ impl Plot {
                     return;
                 }
                 BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode) => {
-                    let player_info = C32PlayerInfo::UpdateGamemode(uuid, gamemode).encode();
+                    let player_info = CPlayerInfo::UpdateGamemode(uuid, gamemode).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }

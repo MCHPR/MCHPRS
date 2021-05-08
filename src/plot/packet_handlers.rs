@@ -20,13 +20,13 @@ impl Plot {
 }
 
 impl ServerBoundPacketHandler for Plot {
-    fn handle_keep_alive(&mut self, _keep_alive: S10KeepAlive, player_idx: usize) {
+    fn handle_keep_alive(&mut self, _keep_alive: SKeepAlive, player_idx: usize) {
         self.players[player_idx].last_keep_alive_received = Instant::now();
     }
 
     fn handle_creative_inventory_action(
         &mut self,
-        creative_inventory_action: S28CreativeInventoryAction,
+        creative_inventory_action: SCreativeInventoryAction,
         player: usize,
     ) {
         if let Some(slot_data) = creative_inventory_action.clicked_item {
@@ -41,9 +41,9 @@ impl ServerBoundPacketHandler for Plot {
             };
             self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
             if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
-                let entity_equipment = C47EntityEquipment {
+                let entity_equipment = CEntityEquipment {
                     entity_id: self.players[player].entity_id as i32,
-                    equipment: vec![C47EntityEquipmentEquipment {
+                    equipment: vec![CEntityEquipmentEquipment {
                         slot: 0, // Main hand
                         item: self.players[player].inventory
                             [creative_inventory_action.slot as usize]
@@ -70,17 +70,17 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_player_abilities(&mut self, player_abilities: S1APlayerAbilities, player: usize) {
+    fn handle_player_abilities(&mut self, player_abilities: SPlayerAbilities, player: usize) {
         self.players[player].flying = player_abilities.is_flying;
     }
 
-    fn handle_animation(&mut self, animation: S2CAnimation, player: usize) {
+    fn handle_animation(&mut self, animation: SAnimation, player: usize) {
         let animation_id = match animation.hand {
             0 => 0,
             1 => 3,
             _ => 0,
         };
-        let entity_animation = C05EntityAnimation {
+        let entity_animation = CEntityAnimation {
             entity_id: self.players[player].entity_id as i32,
             animation: animation_id,
         }
@@ -97,7 +97,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_block_placement(
         &mut self,
-        player_block_placement: S2EPlayerBlockPlacemnt,
+        player_block_placement: SPlayerBlockPlacemnt,
         player: usize,
     ) {
         let block_face = BlockFace::from_id(player_block_placement.face as u32);
@@ -153,7 +153,7 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     // Returns true if packets should stop being handled
-    fn handle_chat_message(&mut self, chat_message: S03ChatMessage, player: usize) {
+    fn handle_chat_message(&mut self, chat_message: SChatMessage, player: usize) {
         let message = chat_message.message;
         if message.starts_with('/') {
             self.players[player].command_queue.push(message);
@@ -165,16 +165,16 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_client_settings(&mut self, client_settings: S05ClientSettings, player: usize) {
+    fn handle_client_settings(&mut self, client_settings: SClientSettings, player: usize) {
         let player = &mut self.players[player];
         player.skin_parts =
             SkinParts::from_bits_truncate(client_settings.displayed_skin_parts as u32);
-        let metadata_entry = C44EntityMetadataEntry {
+        let metadata_entry = CEntityMetadataEntry {
             index: 16,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
         };
-        let entity_metadata = C44EntityMetadata {
+        let entity_metadata = CEntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: vec![metadata_entry],
         }
@@ -184,13 +184,13 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_plugin_message(&mut self, plugin_message: S0BPluginMessage, player: usize) {
+    fn handle_plugin_message(&mut self, plugin_message: SPluginMessage, player: usize) {
         if plugin_message.channel == "worldedit:cui" {
             self.players[player].worldedit_send_cui("s|cuboid");
         }
     }
 
-    fn handle_player_position(&mut self, player_position: S12PlayerPosition, player: usize) {
+    fn handle_player_position(&mut self, player_position: SPlayerPosition, player: usize) {
         let old_x = self.players[player].x;
         let old_y = self.players[player].y;
         let old_z = self.players[player].z;
@@ -205,7 +205,7 @@ impl ServerBoundPacketHandler for Plot {
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
         {
-            C56EntityTeleport {
+            CEntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
                 x: new_x,
                 y: new_y,
@@ -219,7 +219,7 @@ impl ServerBoundPacketHandler for Plot {
             let delta_x = ((player_position.x * 32.0 - old_x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            C27EntityPosition {
+            CEntityPosition {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -238,7 +238,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_position_and_rotation(
         &mut self,
-        player_position_and_rotation: S13PlayerPositionAndRotation,
+        player_position_and_rotation: SPlayerPositionAndRotation,
         player: usize,
     ) {
         // This is beautiful
@@ -258,7 +258,7 @@ impl ServerBoundPacketHandler for Plot {
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
         {
-            C56EntityTeleport {
+            CEntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
                 x: new_x,
                 y: new_y,
@@ -272,7 +272,7 @@ impl ServerBoundPacketHandler for Plot {
             let delta_x = ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
-            C28EntityPositionAndRotation {
+            CEntityPositionAndRotation {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -283,7 +283,7 @@ impl ServerBoundPacketHandler for Plot {
             }
             .encode()
         };
-        let entity_head_look = C3AEntityHeadLook {
+        let entity_head_look = CEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_position_and_rotation.yaw,
         }
@@ -299,18 +299,18 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_player_rotation(&mut self, player_rotation: S14PlayerRotation, player: usize) {
+    fn handle_player_rotation(&mut self, player_rotation: SPlayerRotation, player: usize) {
         self.players[player].yaw = player_rotation.yaw;
         self.players[player].pitch = player_rotation.pitch;
         self.players[player].on_ground = player_rotation.on_ground;
-        let rotation_packet = C29EntityRotation {
+        let rotation_packet = CEntityRotation {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
             pitch: player_rotation.pitch,
             on_ground: player_rotation.on_ground,
         }
         .encode();
-        let entity_head_look = C3AEntityHeadLook {
+        let entity_head_look = CEntityHeadLook {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
         }
@@ -328,9 +328,9 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_player_movement(&mut self, player_movement: S15PlayerMovement, player: usize) {
+    fn handle_player_movement(&mut self, player_movement: SPlayerMovement, player: usize) {
         self.players[player].on_ground = player_movement.on_ground;
-        let packet = C2AEntityMovement {
+        let packet = CEntityMovement {
             entity_id: self.players[player].entity_id as i32,
         }
         .encode();
@@ -342,7 +342,7 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_player_digging(&mut self, player_digging: S1BPlayerDigging, player: usize) {
+    fn handle_player_digging(&mut self, player_digging: SPlayerDigging, player: usize) {
         if player_digging.status == 0 {
             let block_pos = BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
 
@@ -374,7 +374,7 @@ impl ServerBoundPacketHandler for Plot {
             let other_block = self.get_block(block_pos);
             other_block.destroy(self, block_pos);
 
-            let effect = C21Effect {
+            let effect = CEffect {
                 effect_id: 2001,
                 x: player_digging.x,
                 y: player_digging.y,
@@ -406,7 +406,7 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_entity_action(&mut self, entity_action: S1CEntityAction, player: usize) {
+    fn handle_entity_action(&mut self, entity_action: SEntityAction, player: usize) {
         match entity_action.action_id {
             0 => self.players[player].crouching = true,
             1 => self.players[player].crouching = false,
@@ -422,17 +422,17 @@ impl ServerBoundPacketHandler for Plot {
             bitfield |= 0x08
         };
         let mut metadata_entries = Vec::new();
-        metadata_entries.push(C44EntityMetadataEntry {
+        metadata_entries.push(CEntityMetadataEntry {
             index: 0,
             metadata_type: 0,
             value: vec![bitfield],
         });
-        metadata_entries.push(C44EntityMetadataEntry {
+        metadata_entries.push(CEntityMetadataEntry {
             index: 6,
             metadata_type: 18,
             value: vec![if self.players[player].crouching { 5 } else { 0 }],
         });
-        let entity_metadata = C44EntityMetadata {
+        let entity_metadata = CEntityMetadata {
             entity_id: self.players[player].entity_id as i32,
             metadata: metadata_entries,
         }
@@ -447,10 +447,10 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    fn handle_held_item_change(&mut self, held_item_change: S25HeldItemChange, player: usize) {
-        let entity_equipment = C47EntityEquipment {
+    fn handle_held_item_change(&mut self, held_item_change: SHeldItemChange, player: usize) {
+        let entity_equipment = CEntityEquipment {
             entity_id: self.players[player].entity_id as i32,
-            equipment: vec![C47EntityEquipmentEquipment {
+            equipment: vec![CEntityEquipmentEquipment {
                 slot: 0, // Main hand
                 item: self.players[player].inventory[held_item_change.slot as usize + 36]
                     .as_ref()
@@ -473,7 +473,7 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].selected_slot = held_item_change.slot as u32;
     }
 
-    fn handle_update_sign(&mut self, packet: S2BUpdateSign, _player: usize) {
+    fn handle_update_sign(&mut self, packet: SUpdateSign, _player: usize) {
         let pos = BlockPos::new(packet.x, packet.y, packet.z);
         let mut rows = packet
             .lines

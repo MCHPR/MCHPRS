@@ -289,7 +289,7 @@ impl Player {
 
     /// Sends the keep alive packet to the client and updates `last_keep_alive_sent`
     pub fn send_keep_alive(&mut self) {
-        let keep_alive = C1FKeepAlive {
+        let keep_alive = CKeepAlive {
             id: SystemTime::now()
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
@@ -329,7 +329,7 @@ impl Player {
     }
 
     pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
-        let player_position_and_look = C34PlayerPositionAndLook {
+        let player_position_and_look = CPlayerPositionAndLook {
             x,
             y,
             z,
@@ -348,7 +348,7 @@ impl Player {
     /// Sends the ChatMessage packet containing the raw json data.
     /// Position 0: chat (chat box)
     pub fn send_raw_chat(&mut self, sender: u128, message: String) {
-        let chat_message = C0EChatMessage {
+        let chat_message = CChatMessage {
             message,
             sender,
             position: 0,
@@ -360,7 +360,7 @@ impl Player {
     /// Sends the ChatMessage packet containing the raw json data.
     /// Position 1: system message (chat box)
     pub fn send_raw_system_message(&mut self, message: String) {
-        let chat_message = C0EChatMessage {
+        let chat_message = CChatMessage {
             message,
             sender: 0,
             position: 1,
@@ -427,7 +427,7 @@ impl Player {
     }
 
     pub fn worldedit_send_cui(&mut self, message: &str) {
-        let cui_plugin_message = C17PluginMessage {
+        let cui_plugin_message = CPluginMessage {
             channel: String::from("worldedit:cui"),
             data: Vec::from(message.as_bytes()),
         }
@@ -437,12 +437,12 @@ impl Player {
 
     /// Sends the player the disconnect packet, it is still up to the player to end the network stream.
     pub fn kick(&mut self, reason: String) {
-        let disconnect = C19Disconnect { reason }.encode();
+        let disconnect = CDisconnect { reason }.encode();
         self.client.send_packet(&disconnect);
     }
 
     pub fn update_player_abilities(&mut self) {
-        let player_abilities = C30PlayerAbilities {
+        let player_abilities = CPlayerAbilities {
             flags: 0x0D | ((self.flying as u8) << 1),
             fly_speed: 0.05 * self.fly_speed,
             fov_modifier: 0.1,
@@ -453,8 +453,8 @@ impl Player {
 
     pub fn set_gamemode(&mut self, gamemode: Gamemode) {
         self.gamemode = gamemode;
-        let change_game_state = C1DChangeGameState {
-            reason: C1DChangeGameStateReason::ChangeGamemode,
+        let change_game_state = CChangeGameState {
+            reason: CChangeGameStateReason::ChangeGamemode,
             value: self.gamemode.get_id() as f32,
         }
         .encode();
