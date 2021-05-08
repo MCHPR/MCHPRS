@@ -52,6 +52,10 @@ impl Plot {
                 self.players[player].teleport(center.0, 64.0, center.1);
             }
             "visit" | "v" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return;
+                }
                 let plot = database::get_owned_plot(args[0]);
                 if let Some((plot_x, plot_z)) = plot {
                     let center = Plot::get_center(plot_x, plot_z);
