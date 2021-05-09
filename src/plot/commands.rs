@@ -15,7 +15,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
-    fn handle_plot_command(&mut self, player: usize, command: &str, _args: Vec<&str>) {
+    fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
         match command {
@@ -50,6 +50,19 @@ impl Plot {
             "middle" => {
                 let center = Plot::get_center(plot_x, plot_z);
                 self.players[player].teleport(center.0, 64.0, center.1);
+            }
+            "visit" | "v" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return;
+                }
+                let plot = database::get_owned_plot(args[0]);
+                if let Some((plot_x, plot_z)) = plot {
+                    let center = Plot::get_center(plot_x, plot_z);
+                    self.players[player].teleport(center.0, 64.0, center.1);
+                } else {
+                    self.players[player].send_system_message(&format!("{} does not own any plots.", args[0]));
+                }
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
@@ -340,7 +353,7 @@ lazy_static! {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![7, 8, 9, 10, 38, 39, 40],
+                children: vec![7, 8, 9, 10, 38, 39, 40, 41, 43],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -609,12 +622,36 @@ lazy_static! {
                 name: Some("a"),
                 parser: None,
             },
-            // 40: /p auto
+            // 40: /p middle
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![],
                 redirect_node: None,
                 name: Some("middle"),
+                parser: None,
+            },
+            // 41: /p visit
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![42],
+                redirect_node: None,
+                name: Some("visit"),
+                parser: None,
+            },
+            // 42: /p visit [player]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("player"),
+                parser: Some(Parser::Entity(3)),
+            },
+            // 43: /p v
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(41),
+                name: Some("v"),
                 parser: None,
             },
         ],
