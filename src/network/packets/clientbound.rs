@@ -235,12 +235,12 @@ impl ClientBoundPacket for CChatMessage {
 
 pub enum CDeclareCommandsNodeParser {
     Entity(i8),
+    Vec2,
     Vec3,
     Integer(i32, i32),
     Float(f32, f32),
     BlockPos,
     BlockState,
-    Greedy,
 }
 
 impl CDeclareCommandsNodeParser {
@@ -251,6 +251,7 @@ impl CDeclareCommandsNodeParser {
                 buf.write_string(32767, "minecraft:entity");
                 buf.write_byte(*flags);
             }
+            Vec2 => buf.write_string(32767, "minecraft:vec2"),
             Vec3 => buf.write_string(32767, "minecraft:vec3"),
             BlockPos => buf.write_string(32767, "minecraft:block_pos"),
             BlockState => buf.write_string(32767, "minecraft:block_state"),
@@ -265,10 +266,6 @@ impl CDeclareCommandsNodeParser {
                 buf.write_byte(3);
                 buf.write_float(*min);
                 buf.write_float(*max);
-            }
-            Greedy => {
-                buf.write_string(32767, "brigadier:string");
-                buf.write_byte(2); // Read anything after this argument
             }
         }
     }

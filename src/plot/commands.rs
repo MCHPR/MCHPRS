@@ -65,17 +65,29 @@ impl Plot {
                 }
             }
             "teleport" | "tp" => {
-                if args.is_empty() {
+                if args.len() != 2 {
                     self.players[player].send_error_message("Invalid number of arguments!");
                     return;
                 }
 
-                if let Some((plot_x, plot_z)) = Plot::parse_id(args[0]) {
-                    let center = Plot::get_center(plot_x, plot_z);
-                    self.players[player].teleport(center.0, 64.0, center.1);
+                let plot_x;
+                let plot_z;
+                if let Ok(x_arg) = args[0].parse() {
+                    plot_x = x_arg;
                 } else {
-                    self.players[player].send_error_message(&format!("{} is not a valid plot ID.", args[0]));
+                    self.players[player].send_error_message("Unable to parse x coordinate!");
+                    return;
                 }
+                if let Ok(z_arg) = args[1].parse() {
+                    plot_z = z_arg;
+                } else {
+                    self.players[player].send_error_message("Unable to parse z coordinate!");
+                    return;
+                }
+
+                let center = Plot::get_center(plot_x, plot_z);
+                self.players[player].teleport(center.0, 64.0, center.1);
+                return;
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
@@ -262,10 +274,6 @@ impl Plot {
                     if speed_arg < 0.0 {
                         self.players[player]
                             .send_error_message("Silly child, you can't have a negative flyspeed");
-                        return false;
-                    } else if speed_arg > 10.0 {
-                        self.players[player]
-                            .send_error_message("You cannot have a flyspeed greater than 10");
                         return false;
                     }
                     self.players[player].fly_speed = speed_arg;
@@ -675,13 +683,13 @@ lazy_static! {
                 name: Some("teleport"),
                 parser: None,
             },
-            // 45: /p teleport [plotid]
+            // 45: /p teleport [x, z]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![],
                 redirect_node: None,
-                name: Some("plotid"),
-                parser: Some(Parser::Greedy),
+                name: Some("x, z"),
+                parser: Some(Parser::Vec2),
             },
             // 46: /p tp
             Node {
