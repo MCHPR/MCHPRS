@@ -4,7 +4,7 @@ use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::SlotData;
-use crate::player::SkinParts;
+use crate::player::{DamageSource, Gamemode, SkinParts};
 use crate::server::Message;
 use crate::world::World;
 use serde_json::json;
@@ -22,6 +22,45 @@ impl Plot {
 impl ServerBoundPacketHandler for Plot {
     fn handle_keep_alive(&mut self, _keep_alive: S10KeepAlive, player_idx: usize) {
         self.players[player_idx].last_keep_alive_received = Instant::now();
+    }
+
+    fn handle_interact_entity(&mut self, packet: S0EInteractEntity, player: usize) {
+        if matches!(packet.action, S0EInteractEntityAction::Attack) {
+            let entity_id = packet.entity_id as u32;
+            let mut victim_check: Option<usize> = None;
+
+            for n in 0..self.players.len() {
+                if self.players[n].entity_id == entity_id {
+                    victim_check = Some(n);
+                    break;
+                }
+            }
+
+            if let Some(victim) = victim_check {
+                if matches!(self.players[victim].gamemode, Gamemode::Survival) && self.players[victim].health > 0.0 {
+                    let entity_animation_crit = C05EntityAnimation {
+                        entity_id: packet.entity_id,
+                        animation: 4,
+                    }
+                    .encode();
+                    let take_crit = self.players[player].fall_distance > 0.0;
+
+                    self.player_hurt(victim, DamageSource::Generic, if take_crit { 2.0 } else { 1.0 });
+
+                    if take_crit {
+                        self.player_emit_sound(victim, 638, C50EntitySoundEffectCategories::Players, 0.7, 1.0);
+                    }
+                    
+                    for other_player in 0..self.players.len() {
+                        if take_crit {
+                            self.players[other_player]
+                                .client
+                                .send_packet(&entity_animation_crit);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fn handle_creative_inventory_action(
@@ -72,6 +111,10 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_abilities(&mut self, player_abilities: S1APlayerAbilities, player: usize) {
         self.players[player].flying = player_abilities.is_flying;
+
+        if self.players[player].flying {
+            self.players[player].fall_distance = 0.0;
+        }
     }
 
     fn handle_animation(&mut self, animation: S2CAnimation, player: usize) {
@@ -154,6 +197,13 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
+    fn handle_client_status(&mut self, client_status: S04ClientStatus, player: usize) {
+        match client_status.action {
+            S04ClientStatusAction::PreformRespawn => self.player_respawn(player),
+            _ => {}
+        };
+    }
+
     fn handle_client_settings(&mut self, client_settings: S05ClientSettings, player: usize) {
         let player = &mut self.players[player];
         player.skin_parts =
@@ -186,10 +236,23 @@ impl ServerBoundPacketHandler for Plot {
         let new_x = player_position.x;
         let new_y = player_position.y;
         let new_z = player_position.z;
+
+        let was_on_ground = self.players[player].on_ground;
+
         self.players[player].x = player_position.x;
         self.players[player].y = player_position.y;
         self.players[player].z = player_position.z;
         self.players[player].on_ground = player_position.on_ground;
+
+        self.player_determin_falling(was_on_ground, player);
+
+        if self.players[player].on_ground || new_y > old_y || self.players[player].flying {
+            self.players[player].fall_distance = 0.0;
+        } else if old_y > new_y {
+            self.players[player].fall_distance =
+                self.players[player].fall_distance + (old_y - new_y);
+        }
+
         let packet = if (new_x - old_x).abs() > 8.0
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
@@ -237,12 +300,25 @@ impl ServerBoundPacketHandler for Plot {
         let new_x = player_position_and_rotation.x;
         let new_y = player_position_and_rotation.y;
         let new_z = player_position_and_rotation.z;
+
+        let was_on_ground = self.players[player].on_ground;
+
         self.players[player].x = player_position_and_rotation.x;
         self.players[player].y = player_position_and_rotation.y;
         self.players[player].z = player_position_and_rotation.z;
         self.players[player].yaw = player_position_and_rotation.yaw;
         self.players[player].pitch = player_position_and_rotation.pitch;
         self.players[player].on_ground = player_position_and_rotation.on_ground;
+
+        self.player_determin_falling(was_on_ground, player);
+
+        if self.players[player].on_ground || new_y > old_y || self.players[player].flying {
+            self.players[player].fall_distance = 0.0;
+        } else if old_y > new_y {
+            self.players[player].fall_distance =
+                self.players[player].fall_distance + (old_y - new_y);
+        }
+
         let packet = if (new_x - old_x).abs() > 8.0
             || (new_y - old_y).abs() > 8.0
             || (new_z - old_z).abs() > 8.0
@@ -289,9 +365,14 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     fn handle_player_rotation(&mut self, player_rotation: S14PlayerRotation, player: usize) {
+        let was_on_ground = self.players[player].on_ground;
+
         self.players[player].yaw = player_rotation.yaw;
         self.players[player].pitch = player_rotation.pitch;
         self.players[player].on_ground = player_rotation.on_ground;
+
+        self.player_determin_falling(was_on_ground, player);
+
         let rotation_packet = C29EntityRotation {
             entity_id: self.players[player].entity_id as i32,
             yaw: player_rotation.yaw,
@@ -318,7 +399,12 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     fn handle_player_movement(&mut self, player_movement: S15PlayerMovement, player: usize) {
+        let was_on_ground = self.players[player].on_ground;
+
         self.players[player].on_ground = player_movement.on_ground;
+
+        self.player_determin_falling(was_on_ground, player);
+
         let packet = C2AEntityMovement {
             entity_id: self.players[player].entity_id as i32,
         }
@@ -365,6 +451,10 @@ impl ServerBoundPacketHandler for Plot {
             let other_block = self.get_block(block_pos);
             other_block.destroy(self, block_pos);
 
+            if self.players[player].enable_food() {
+                self.players[player].exhaustion += 0.005;
+            }
+
             let effect = C21Effect {
                 effect_id: 2001,
                 x: player_digging.x,
@@ -393,6 +483,15 @@ impl ServerBoundPacketHandler for Plot {
                 if stack_empty {
                     self.players[player].inventory[selected_slot] = None;
                 }
+            } else if player_digging.status == 5 {
+                self.players[player].eating = 0;
+            } else if player_digging.status == 6 {
+                dbg!(selected_slot);
+                let main_hand_item = self.players[player].inventory[selected_slot].clone();
+                let off_hand_item = self.players[player].inventory[45].clone();
+
+                self.players[player].set_inventory_item(45, main_hand_item);
+                self.players[player].set_inventory_item(selected_slot, off_hand_item);
             }
         }
     }
@@ -439,6 +538,8 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     fn handle_held_item_change(&mut self, held_item_change: S25HeldItemChange, player: usize) {
+        self.players[player].eating = 0;
+
         let entity_equipment = C47EntityEquipment {
             entity_id: self.players[player].entity_id as i32,
             equipment: vec![C47EntityEquipmentEquipment {
@@ -479,5 +580,20 @@ impl ServerBoundPacketHandler for Plot {
             ],
         }));
         self.set_block_entity(pos, block_entity);
+    }
+
+    fn handle_use_item(&mut self, use_item: S2FUseItem, player: usize) {
+        let selected_slot = self.players[player].selected_slot as usize;
+        let item_in_hand = if use_item.hand == 0 {
+            self.players[player].inventory[selected_slot + 36].clone()
+        } else {
+            self.players[player].inventory[45].clone()
+        };
+
+        if let Some(item_stack) = item_in_hand {
+            if self.players[player].food < 20 && item_stack.item_type.food() > 0 {
+                self.players[player].eating = 33;
+            }
+        }
     }
 }

@@ -335,6 +335,34 @@ impl ClientBoundPacket for C13WindowItems {
     }
 }
 
+pub struct C15SetSlot {
+    pub window: i8,
+    pub slot: i16,
+    pub slot_data: Option<SlotData>,
+}
+
+impl ClientBoundPacket for C15SetSlot {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_byte(self.window);
+        buf.write_short(self.slot);
+        if let Some(slot) = self.slot_data {
+            buf.write_bool(true);
+            buf.write_varint(slot.item_id);
+            buf.write_byte(slot.item_count);
+            if let Some(nbt) = slot.nbt {
+                buf.write_nbt_blob(nbt);
+            } else {
+                buf.write_byte(0); // End tag
+            }
+        } else {
+            buf.write_bool(false);
+        }
+
+        PacketEncoder::new(buf, 0x15)
+    }
+}
+
 pub struct C17PluginMessage {
     pub channel: String,
     pub data: Vec<u8>,
@@ -361,6 +389,34 @@ impl ClientBoundPacket for C19Disconnect {
     }
 }
 
+pub enum C1AEntityStatuses {
+    LivingEntityGenericHurt,
+    LivingEntityDeath,
+    LivingEntityDrownHurt,
+    LivingEntityFireHurt,
+    LivingEntitySweetBerryBushHurt,
+}
+
+pub struct C1AEntityStatus {
+    pub entity_id: i32,
+    pub status: C1AEntityStatuses,
+}
+
+impl ClientBoundPacket for C1AEntityStatus {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_int(self.entity_id);
+        buf.write_byte(match self.status {
+            C1AEntityStatuses::LivingEntityGenericHurt => 2,
+            C1AEntityStatuses::LivingEntityDeath => 3,
+            C1AEntityStatuses::LivingEntityDrownHurt => 36,
+            C1AEntityStatuses::LivingEntityFireHurt => 37,
+            C1AEntityStatuses::LivingEntitySweetBerryBushHurt => 44,
+        });
+        PacketEncoder::new(buf, 0x1A)
+    }
+}
+
 #[derive(Debug)]
 pub struct C1CUnloadChunk {
     pub chunk_x: i32,
@@ -378,6 +434,9 @@ impl ClientBoundPacket for C1CUnloadChunk {
 
 pub enum C1DChangeGameStateReason {
     ChangeGamemode,
+    // WinGame,
+    // ArrowHitPlayer,
+    ChangeRespawnScreenMode,
 }
 
 pub struct C1DChangeGameState {
@@ -390,6 +449,9 @@ impl ClientBoundPacket for C1DChangeGameState {
         let mut buf = Vec::new();
         match self.reason {
             C1DChangeGameStateReason::ChangeGamemode => buf.write_unsigned_byte(3),
+            // C1DChangeGameStateReason::WinGame => buf.write_unsigned_byte(4),
+            // C1DChangeGameStateReason::ArrowHitPlayer => buf.write_unsigned_byte(6),
+            C1DChangeGameStateReason::ChangeRespawnScreenMode => buf.write_unsigned_byte(11),
         }
         buf.write_float(self.value);
         PacketEncoder::new(buf, 0x1D)
@@ -713,6 +775,24 @@ impl ClientBoundPacket for C30PlayerAbilities {
     }
 }
 
+/// The Notchain client only uses the entity dead event, so all other events are ignroed
+pub struct C31CombatEvent {
+    pub player_id: i32,  // Target player
+    pub entity_id: i32,  // Killer entity/player
+    pub message: String, // Death message
+}
+
+impl ClientBoundPacket for C31CombatEvent {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(2); // entity dead event enum
+        buf.write_varint(self.player_id);
+        buf.write_int(self.entity_id);
+        buf.write_string(32767, &self.message);
+        PacketEncoder::new(buf, 0x31)
+    }
+}
+
 pub struct C32PlayerInfoAddPlayerProperty {
     name: String,
     value: String,
@@ -815,6 +895,32 @@ impl ClientBoundPacket for C36DestroyEntities {
             buf.write_varint(entity_id);
         }
         PacketEncoder::new(buf, 0x36)
+    }
+}
+
+pub struct C39Respawn {
+    pub dimension: C24JoinGameDimensionElement,
+    pub world_name: String,
+    pub hashed_seed: i64,
+    pub gamemode: u8,
+    pub previous_gamemode: u8,
+    pub is_debug: bool,
+    pub is_flat: bool,
+    pub copy_metadata: bool,
+}
+
+impl ClientBoundPacket for C39Respawn {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_nbt(self.dimension);
+        buf.write_string(32767, &self.world_name);
+        buf.write_long(self.hashed_seed);
+        buf.write_unsigned_byte(self.gamemode);
+        buf.write_unsigned_byte(self.previous_gamemode);
+        buf.write_boolean(self.is_debug);
+        buf.write_boolean(self.is_flat);
+        buf.write_boolean(self.copy_metadata);
+        PacketEncoder::new(buf, 0x39)
     }
 }
 
@@ -954,6 +1060,24 @@ impl ClientBoundPacket for C47EntityEquipment {
     }
 }
 
+pub struct C49UpdateHealth {
+    pub health: f32,
+    pub food: i32,
+    pub saturation: f32,
+}
+
+impl ClientBoundPacket for C49UpdateHealth {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+
+        buf.write_float(self.health);
+        buf.write_varint(self.food);
+        buf.write_float(self.saturation);
+
+        PacketEncoder::new(buf, 0x49)
+    }
+}
+
 pub struct C4ETimeUpdate {
     pub world_age: i64,
     pub time_of_day: i64,
@@ -965,6 +1089,53 @@ impl ClientBoundPacket for C4ETimeUpdate {
         buf.write_long(self.world_age);
         buf.write_long(self.time_of_day);
         PacketEncoder::new(buf, 0x4E)
+    }
+}
+
+pub enum C50EntitySoundEffectCategories {
+    Master,
+    Music,
+    Records,
+    Weather,
+    Blocks,
+    Hostile,
+    Neutral,
+    Players,
+    Ambient,
+    Voice,
+}
+
+pub struct C50EntitySoundEffect {
+    pub sound_id: i32,
+    pub sound_category: C50EntitySoundEffectCategories,
+    pub entity_id: i32,
+    // Currently, the following fields are ignored by the Notchian client
+    pub volume: f32,
+    pub pitch: f32,
+}
+
+impl ClientBoundPacket for C50EntitySoundEffect {
+    fn encode(self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        
+        buf.write_varint(self.sound_id);
+        buf.write_varint(match self.sound_category {
+            C50EntitySoundEffectCategories::Master => 0,
+            C50EntitySoundEffectCategories::Music => 1,
+            C50EntitySoundEffectCategories::Records => 2,
+            C50EntitySoundEffectCategories::Weather => 3,
+            C50EntitySoundEffectCategories::Blocks => 4,
+            C50EntitySoundEffectCategories::Hostile => 5,
+            C50EntitySoundEffectCategories::Neutral => 6,
+            C50EntitySoundEffectCategories::Players => 7,
+            C50EntitySoundEffectCategories::Ambient => 8,
+            C50EntitySoundEffectCategories::Voice => 9,
+        });
+        buf.write_varint(self.entity_id);
+        buf.write_float(self.volume);
+        buf.write_float(self.pitch);
+
+        PacketEncoder::new(buf, 0x50)
     }
 }
 

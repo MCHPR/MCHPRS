@@ -6,8 +6,10 @@ pub trait ServerBoundPacketHandler {
     fn handle_ping(&mut self, _packet: S01Ping, _player_idx: usize) {}
     fn handle_login_start(&mut self, _packet: S00LoginStart, _player_idx: usize) {}
     fn handle_chat_message(&mut self, _packet: S03ChatMessage, _player_idx: usize) {}
+    fn handle_client_status(&mut self, _packet: S04ClientStatus, _player_idx: usize) {}
     fn handle_client_settings(&mut self, _packet: S05ClientSettings, _player_idx: usize) {}
     fn handle_plugin_message(&mut self, _packet: S0BPluginMessage, _player_idx: usize) {}
+    fn handle_interact_entity(&mut self, _packet: S0EInteractEntity, _player_idx: usize) {}
     fn handle_keep_alive(&mut self, _packet: S10KeepAlive, _player_idx: usize) {}
     fn handle_player_position(&mut self, _packet: S12PlayerPosition, _player_idx: usize) {}
     fn handle_player_position_and_rotation(
@@ -36,6 +38,7 @@ pub trait ServerBoundPacketHandler {
     ) {
     }
     fn handle_update_sign(&mut self, _packet: S2BUpdateSign, _player_idx: usize) {}
+    fn handle_use_item(&mut self, _packet: S2FUseItem, _player_idx: usize) {}
     fn handle_unknown(&mut self, _packet: SUnknown, _player_idx: usize) {}
 }
 
@@ -141,6 +144,32 @@ impl ServerBoundPacket for S03ChatMessage {
     }
 }
 
+pub enum S04ClientStatusAction {
+    PreformRespawn,
+    RequestStats,
+    Unknown,
+}
+
+pub struct S04ClientStatus {
+    pub action: S04ClientStatusAction,
+}
+
+impl ServerBoundPacket for S04ClientStatus {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        Ok(S04ClientStatus {
+            action: match decoder.read_varint()? {
+                0 => S04ClientStatusAction::PreformRespawn,
+                1 => S04ClientStatusAction::RequestStats,
+                _ => S04ClientStatusAction::Unknown,
+            },
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_client_status(*self, player_idx);
+    }
+}
+
 pub struct S05ClientSettings {
     pub locale: String,
     pub view_distance: i8,
@@ -182,6 +211,64 @@ impl ServerBoundPacket for S0BPluginMessage {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_plugin_message(*self, player_idx);
+    }
+}
+
+pub enum S0EInteractEntityAction {
+    Interact,
+    Attack,
+    InteractAt,
+}
+
+pub struct S0EInteractEntity {
+    pub entity_id: i32,
+    pub action: S0EInteractEntityAction,
+    pub target_x: f32,
+    pub target_y: f32,
+    pub target_z: f32,
+    pub hand: i32,
+    pub sneaking: bool,
+}
+
+impl ServerBoundPacket for S0EInteractEntity {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let entity_id = decoder.read_varint()?;
+        let action = match decoder.read_varint()? {
+            1 => S0EInteractEntityAction::Attack,
+            2 => S0EInteractEntityAction::InteractAt,
+            _ => S0EInteractEntityAction::Interact,
+        };
+        let target_x;
+        let target_y;
+        let target_z;
+        let hand;
+
+        if matches!(action, S0EInteractEntityAction::InteractAt) {
+            target_x = decoder.read_float()?;
+            target_y = decoder.read_float()?;
+            target_z = decoder.read_float()?;
+            hand = decoder.read_varint()?;
+        } else {
+            target_x = 0.0;
+            target_y = 0.0;
+            target_z = 0.0;
+            hand = 0;
+        }
+
+        let sneaking = decoder.read_bool()?;
+        Ok(S0EInteractEntity {
+            entity_id,
+            action,
+            target_x,
+            target_y,
+            target_z,
+            hand,
+            sneaking,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_interact_entity(*self, player_idx);
     }
 }
 
@@ -465,5 +552,20 @@ impl ServerBoundPacket for S2BUpdateSign {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_update_sign(*self, player_idx);
+    }
+}
+
+pub struct S2FUseItem {
+    pub hand: i32,
+}
+
+impl ServerBoundPacket for S2FUseItem {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let hand = decoder.read_varint()?;
+        Ok(S2FUseItem { hand })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_use_item(*self, player_idx);
     }
 }

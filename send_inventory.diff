@@ -1,0 +1,84 @@
+diff --git a/src/player.rs b/src/player.rs
+index b32487d..591a7ff 100644
+--- a/src/player.rs
++++ b/src/player.rs
+@@ -2,6 +2,7 @@ use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
+ use crate::chat::ChatComponent;
+ use crate::items::{Item, ItemStack};
+ use crate::network::packets::clientbound::*;
++use crate::network::packets::SlotData;
+ use crate::network::NetworkClient;
+ use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
+ use byteorder::{BigEndian, ReadBytesExt};
+@@ -454,4 +455,24 @@ impl Player {
+         .encode();
+         self.client.send_packet(&change_game_state);
+     }
++
++    pub fn send_inventory(&mut self) {
++        let slot_data: Vec<Option<SlotData>> = self
++            .inventory
++            .iter()
++            .map(|op| {
++                op.as_ref().map(|item| SlotData {
++                    item_count: item.count as i8,
++                    item_id: item.item_type.get_id() as i32,
++                    nbt: item.nbt.clone(),
++                })
++            })
++            .collect();
++        let window_items = C13WindowItems {
++            window_id: 0,
++            slot_data,
++        }
++        .encode();
++        self.client.send_packet(&window_items);
++    }
+ }
+diff --git a/src/server.rs b/src/server.rs
+index 87eb11b..b986f76 100644
+--- a/src/server.rs
++++ b/src/server.rs
+@@ -1,7 +1,7 @@
+ use crate::chat::ChatComponent;
+ use crate::config::CONFIG;
+ use crate::network::packets::clientbound::{
+-    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression, C13WindowItems,
++    C00DisconnectLogin, C00Response, C01Pong, C02LoginSuccess, C03SetCompression,
+     C17PluginMessage, C24JoinGame, C24JoinGameBiomeEffects, C24JoinGameBiomeEffectsMoodSound,
+     C24JoinGameBiomeElement, C24JoinGameDimensionCodec, C24JoinGameDimensionElement, C32PlayerInfo,
+     C32PlayerInfoAddPlayer, C34PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate,
+@@ -10,7 +10,7 @@ use crate::network::packets::clientbound::{
+ use crate::network::packets::serverbound::{
+     S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
+ };
+-use crate::network::packets::{PacketEncoderExt, SlotData};
++use crate::network::packets::PacketEncoderExt;
+ use crate::network::{NetworkServer, NetworkState};
+ use crate::player::{Gamemode, Player};
+ use crate::plot::{self, commands::DECLARE_COMMANDS, database, Plot};
+@@ -460,23 +460,7 @@ impl MinecraftServer {
+         player.client.send_packet(&player_info);
+ 
+         // Send the player's inventory
+-        let slot_data: Vec<Option<SlotData>> = player
+-            .inventory
+-            .iter()
+-            .map(|op| {
+-                op.as_ref().map(|item| SlotData {
+-                    item_count: item.count as i8,
+-                    item_id: item.item_type.get_id() as i32,
+-                    nbt: item.nbt.clone(),
+-                })
+-            })
+-            .collect();
+-        let window_items = C13WindowItems {
+-            window_id: 0,
+-            slot_data,
+-        }
+-        .encode();
+-        player.client.send_packet(&window_items);
++        player.send_inventory();
+ 
+         // Send the player's selected item slot
+         let held_item_change = C3FHeldItemChange {

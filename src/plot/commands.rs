@@ -191,8 +191,9 @@ impl Plot {
                     self.players[player].send_error_message("Unable to parse speed value");
                 }
             }
-            "/gmsp" => self.change_player_gamemode(player, Gamemode::Spectator),
-            "/gmc" => self.change_player_gamemode(player, Gamemode::Creative),
+            "/gmsp" => self.player_change_gamemode(player, Gamemode::Spectator),
+            "/gmc" => self.player_change_gamemode(player, Gamemode::Creative),
+            "/gms" => self.player_change_gamemode(player, Gamemode::Survival),
             "/gamemode" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Invalid number of arguments!");
@@ -200,6 +201,7 @@ impl Plot {
                 }
                 let name = args.remove(0);
                 let gamemode = match name {
+                    "survival" | "0" => Gamemode::Survival,
                     "creative" | "1" => Gamemode::Creative,
                     "spectator" | "3" => Gamemode::Spectator,
                     _ => {
@@ -207,7 +209,53 @@ impl Plot {
                         return false;
                     }
                 };
-                self.change_player_gamemode(player, gamemode);
+                self.player_change_gamemode(player, gamemode);
+            }
+            "/heal" => {
+                let health;
+
+                if args.len() > 0 {
+                    if let Ok(health_arg) = args[0].parse::<f32>() {
+                        health = health_arg;
+                    } else {
+                        self.players[player].send_error_message("Unable to parse health value!");
+                        return false;
+                    }
+                } else {
+                    health = 20.0;
+                }
+
+                self.players[player].set_health(health);
+                self.players[player].send_system_message("You were healed");
+            }
+            "/feed" => {
+                let food;
+                let saturation;
+
+                if args.len() > 0 {
+                    if let Ok(food_arg) = args[0].parse::<i8>() {
+                        food = food_arg;
+                    } else {
+                        self.players[player].send_error_message("Unable to parse food value!");
+                        return false;
+                    }
+                } else {
+                    food = 20;
+                }
+
+                if args.len() > 1 {
+                    if let Ok(sat_arg) = args[1].parse::<f32>() {
+                        saturation = sat_arg;
+                    } else {
+                        self.players[player].send_error_message("Unable to parse saturation value!");
+                        return false;
+                    }
+                } else {
+                    saturation = 5.0;
+                }
+
+                self.players[player].set_food(food, saturation);
+                self.players[player].send_system_message("You were fed");
             }
             _ => self.players[player].send_error_message("Command not found!"),
         }

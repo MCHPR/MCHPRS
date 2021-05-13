@@ -2,12 +2,14 @@ use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
 use crate::chat::ChatComponent;
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
+use crate::network::packets::SlotData;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use byteorder::{BigEndian, ReadBytesExt};
 use log::warn;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::cmp;
 use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Write};
@@ -25,6 +27,7 @@ pub struct InventoryEntry {
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Gamemode {
+    Survival,
     Creative,
     Spectator,
 }
@@ -32,8 +35,86 @@ pub enum Gamemode {
 impl Gamemode {
     pub fn get_id(self) -> u32 {
         match self {
+            Gamemode::Survival => 0,
             Gamemode::Creative => 1,
             Gamemode::Spectator => 3,
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+pub enum DamageSource {
+    InFire,
+    LightningBolt,
+    OnFire,
+    Lava,
+    HotFloor,
+    InWall,
+    Cramming,
+    Drown,
+    Starve,
+    Cactus,
+    Fall,
+    FlyIntoWall,
+    OutOfWorld,
+    Generic,
+    Magic,
+    Wither,
+    Anvil,
+    FallingBlock,
+    DragonBreath,
+    DryOut,
+    SweetBerryBush,
+}
+
+impl DamageSource {
+    pub fn bypass_armor(self) -> bool {
+        match self {
+            DamageSource::InFire
+            | DamageSource::OnFire
+            | DamageSource::InWall
+            | DamageSource::Cramming
+            | DamageSource::Drown
+            | DamageSource::Starve
+            | DamageSource::Fall
+            | DamageSource::FlyIntoWall
+            | DamageSource::OutOfWorld
+            | DamageSource::Generic
+            | DamageSource::Magic
+            | DamageSource::Wither
+            | DamageSource::DragonBreath => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_fire(self) -> bool {
+        match self {
+            DamageSource::InFire
+            | DamageSource::OnFire
+            | DamageSource::Lava
+            | DamageSource::HotFloor => true,
+            _ => false,
+        }
+    }
+
+    pub fn bypass_magic(self) -> bool {
+        match self {
+            DamageSource::Starve => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_magic(self) -> bool {
+        match self {
+            DamageSource::Magic => true,
+            _ => false,
+        }
+    }
+
+    pub fn bypass_invulnerable(self) -> bool {
+        match self {
+            DamageSource::OutOfWorld => true,
+            _ => false,
         }
     }
 }
@@ -52,6 +133,12 @@ pub struct PlayerData {
     fly_speed: f32,
     walk_speed: f32,
     gamemode: Gamemode,
+    health: f32,
+    food: i8,
+    saturation: f32,
+    exhaustion: f32,
+    food_timer: i8,
+    fall_distance: f64,
 }
 
 bitflags! {
@@ -110,6 +197,17 @@ pub struct Player {
     pub worldedit_undo: Vec<WorldEditUndo>,
     /// Commands are stored so they can be handled after packets
     pub command_queue: Vec<String>,
+    pub health: f32,
+    pub food: i8,
+    pub saturation: f32,
+    pub exhaustion: f32,
+    pub food_timer: i8,
+    // When the player starts falling, this is the block they started falling at
+    pub fall_distance: f64,
+    pub invulnerable: bool,
+    pub allow_flight: bool,
+
+    pub eating: i8,
 }
 
 impl fmt::Debug for Player {
@@ -194,6 +292,15 @@ impl Player {
                 worldedit_clipboard: None,
                 worldedit_undo: Vec::new(),
                 command_queue: Vec::new(),
+                health: player_data.health,
+                food: player_data.food,
+                saturation: player_data.saturation,
+                exhaustion: player_data.exhaustion,
+                food_timer: player_data.food_timer,
+                fall_distance: player_data.fall_distance,
+                invulnerable: false,
+                allow_flight: true,
+                eating: 0,
             }
         } else {
             Player::create_player(uuid, username, client)
@@ -209,7 +316,7 @@ impl Player {
             skin_parts: Default::default(),
             selected_slot: 0,
             x: 128f64,
-            y: 128f64,
+            y: 9f64,
             z: 128f64,
             last_chunk_x: 8,
             last_chunk_z: 8,
@@ -218,7 +325,7 @@ impl Player {
             entity_id: client.id,
             client,
             inventory,
-            flying: false,
+            flying: true,
             sprinting: false,
             crouching: false,
             gamemode: Gamemode::Creative,
@@ -232,6 +339,15 @@ impl Player {
             worldedit_clipboard: None,
             worldedit_undo: Vec::new(),
             command_queue: Vec::new(),
+            health: 20.0,
+            food: 20,
+            saturation: 5.0,
+            exhaustion: 0.0,
+            food_timer: 0,
+            fall_distance: 0f64,
+            invulnerable: false,
+            allow_flight: true,
+            eating: 0,
         }
     }
 
@@ -271,9 +387,117 @@ impl Player {
             rotation: vec![self.pitch, self.yaw],
             selected_item_slot: self.selected_slot as i32,
             walk_speed: self.walk_speed,
+            health: self.health,
+            food: self.food,
+            saturation: self.saturation,
+            exhaustion: self.exhaustion,
+            food_timer: self.food_timer,
+            fall_distance: self.fall_distance,
         })
         .unwrap();
         file.write_all(&data).unwrap();
+    }
+
+    pub fn enable_food(&self) -> bool {
+        match self.gamemode {
+            Gamemode::Creative | Gamemode::Spectator => false,
+            _ => false,
+        }
+    }
+
+    pub fn tick(&mut self, tick_count: u64) {
+        if self.y <= -64.0 && tick_count % 10 == 0 && self.health > 0.0 {
+            self.hurt(DamageSource::OutOfWorld, 4.0);
+        }
+
+        if self.eating > 0 {
+            self.eating -= 1;
+
+            if self.eating == 0 {
+                let mut stack_empty = false;
+                let current_food = self.food;
+                let current_saturation = self.saturation;
+                let selected_slot = self.selected_slot as usize + 36;
+
+                if let Some(item_stack) = &mut self.inventory[selected_slot] {
+                    let food = item_stack.item_type.food();
+                    if food > 0 {
+                        let saturation = item_stack.item_type.saturation();
+
+                        let new_food_level = current_food + food;
+                        let new_saturation_level = if current_saturation + saturation > 5.0 {
+                            5.0
+                        } else {
+                            current_saturation + saturation
+                        };
+                        item_stack.count -= 1;
+                        stack_empty = item_stack.count == 0;
+
+                        self.set_food(cmp::min(new_food_level, 20), new_saturation_level);
+                        self.update_inventory_item(selected_slot);
+                    }
+                }
+                if stack_empty {
+                    self.inventory[selected_slot] = None;
+                }
+            }
+        }
+
+        if self.enable_food() {
+            if self.food >= 20 && self.food_timer >= 10 && self.saturation > 0.0 {
+                let heal_amount = if self.saturation >= 1.5 {
+                    self.saturation -= 1.5;
+                    2.0
+                } else {
+                    self.saturation = 0.0;
+                    self.saturation * 2.0 + (2.0 / 3.0)
+                };
+
+                let new_health = if self.health + heal_amount < 20.0 {
+                    self.health + heal_amount
+                } else {
+                    20.0
+                };
+
+                self.set_health(new_health);
+                self.food_timer = 0;
+            } else if self.food > 17 && self.food_timer >= 80 {
+                self.health += 1.0;
+                self.exhaustion += 6.0;
+                self.send_health();
+            } else if self.food == 0 && self.food_timer >= 80 {
+                if self.health > 10.0 {
+                    let take = if self.health < 11.0 {
+                        self.health - 10.0
+                    } else {
+                        1.0
+                    };
+                    self.hurt(DamageSource::Starve, take);
+                }
+            }
+            if self.food_timer >= 80 {
+                self.food_timer = 0;
+            }
+
+            if self.food > 17 || self.food == 0 {
+                self.food_timer += 1;
+            }
+
+            if self.exhaustion > 4.0 {
+                if self.saturation > 0.0 {
+                    self.saturation -= if self.saturation >= 1.0 {
+                        1.0
+                    } else {
+                        self.saturation
+                    };
+                } else {
+                    if self.food > 0 {
+                        self.food -= 1;
+                    }
+                }
+                self.exhaustion = 0.0;
+            }
+        }
     }
 
     /// Manages keep alives and packet reading. Return true if the view position should be updated.
@@ -298,6 +522,71 @@ impl Player {
         .encode();
         self.client.send_packet(&keep_alive);
         self.last_keep_alive_sent = Instant::now();
+    }
+
+    pub fn send_health(&mut self) {
+        let update_health = C49UpdateHealth {
+            health: self.health,
+            food: self.food as i32,
+            saturation: self.saturation,
+        }
+        .encode();
+        self.client.send_packet(&update_health);
+
+        if self.health <= 0.0 {
+            let death_screen = C31CombatEvent {
+                player_id: self.entity_id as i32,
+                entity_id: -1,
+                message: json!({ "text": "You died!"}).to_string(),
+            }
+            .encode();
+            self.client.send_packet(&death_screen);
+
+            // let death_status = C1AEntityStatus {
+            //     entity_id: self.entity_id as i32,
+            //     status: C1AEntityStatuses::Death,
+            // };
+            // for other_player in 0..self.plot.players.len() {
+            //   other_player.client.send_packet(&death_status);
+            // }
+        }
+    }
+
+    pub fn respawn(&mut self) {
+        let respawn = C39Respawn {
+            // this should be exactly the same has the dimension listed in dimension_codec
+            dimension: C24JoinGameDimensionElement {
+                natural: 1,
+                ambient_light: 1.0,
+                has_ceiling: 0,
+                has_skylight: 1,
+                fixed_time: 6000,
+                shrunk: 0,
+                ultrawarm: 0,
+                has_raids: 0,
+                respawn_anchor_works: 0,
+                bed_works: 0,
+                coordinate_scale: 1.0,
+                piglin_safe: 0,
+                logical_height: 256,
+                infiniburn: "".to_owned(),
+            },
+            world_name: "mchprs:world".to_string(),
+            hashed_seed: 0,
+            gamemode: self.gamemode.get_id() as u8,
+            previous_gamemode: self.gamemode.get_id() as u8,
+            is_debug: false,
+            is_flat: true,
+            copy_metadata: true,
+        }
+        .encode();
+        self.client.send_packet(&respawn);
+
+        self.teleport(128f64, 9f64, 128f64);
+        self.health = 20.0;
+        self.food = 20;
+        self.saturation = 5.0;
+        self.send_health()
     }
 
     pub fn get_direction(&self) -> BlockDirection {
@@ -437,7 +726,10 @@ impl Player {
 
     pub fn update_player_abilities(&mut self) {
         let player_abilities = C30PlayerAbilities {
-            flags: 0x0D | ((self.flying as u8) << 1),
+            flags: (self.invulnerable as u8)
+                | ((self.flying as u8) << 1)
+                | ((self.allow_flight as u8) << 2)
+                | ((matches!(self.gamemode, Gamemode::Creative) as u8) << 3),
             fly_speed: 0.05 * self.fly_speed,
             fov_modifier: 0.1,
         }
@@ -446,6 +738,7 @@ impl Player {
     }
 
     pub fn set_gamemode(&mut self, gamemode: Gamemode) {
+        self.fall_distance = 0.0;
         self.gamemode = gamemode;
         let change_game_state = C1DChangeGameState {
             reason: C1DChangeGameStateReason::ChangeGamemode,
@@ -453,5 +746,66 @@ impl Player {
         }
         .encode();
         self.client.send_packet(&change_game_state);
+        self.update_player_abilities();
+    }
+
+    pub fn set_health(&mut self, health: f32) {
+        self.health = health;
+
+        self.send_health()
+    }
+
+    pub fn hurt(&mut self, source: DamageSource, amount: f32) {
+        if (self.invulnerable || matches!(self.gamemode, Gamemode::Creative | Gamemode::Spectator))
+            && !source.bypass_invulnerable()
+        {
+            return;
+        }
+
+        self.health -= amount;
+
+        if !source.bypass_armor() && self.enable_food() {
+            self.exhaustion += 0.1;
+        }
+
+        let entity_animation_damage = C05EntityAnimation {
+            entity_id: self.entity_id as i32,
+            animation: 1,
+        }
+        .encode();
+
+        self.client.send_packet(&entity_animation_damage);
+
+        self.send_health();
+    }
+
+    pub fn set_food(&mut self, food: i8, saturation: f32) {
+        self.food = food;
+        self.saturation = saturation;
+
+        if self.saturation > food as f32 {
+            self.saturation = food as f32;
+        }
+
+        self.send_health();
+    }
+
+    pub fn update_inventory_item(&mut self, slot: usize) {
+        let set_slot = C15SetSlot {
+            window: if slot >= 36 && slot <= 45 { 0 } else { -2 },
+            slot: slot as i16,
+            slot_data: self.inventory[slot].as_ref().map(|item| SlotData {
+                item_count: item.count as i8,
+                item_id: item.item_type.get_id() as i32,
+                nbt: item.nbt.clone(),
+            }),
+        }
+        .encode();
+        self.client.send_packet(&set_slot);
+    }
+
+    pub fn set_inventory_item(&mut self, slot: usize, item: Option<ItemStack>) {
+        self.inventory[slot] = item.clone();
+        self.update_inventory_item(slot);
     }
 }

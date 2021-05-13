@@ -5,7 +5,7 @@ use crate::network::packets::clientbound::{
     C17PluginMessage, C24JoinGame, C24JoinGameBiomeEffects, C24JoinGameBiomeEffectsMoodSound,
     C24JoinGameBiomeElement, C24JoinGameDimensionCodec, C24JoinGameDimensionElement, C32PlayerInfo,
     C32PlayerInfoAddPlayer, C34PlayerPositionAndLook, C3FHeldItemChange, C4ETimeUpdate,
-    ClientBoundPacket,
+    C1DChangeGameState, C1DChangeGameStateReason, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
     S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
@@ -402,7 +402,7 @@ impl MinecraftServer {
             max_players: 0,
             view_distance: 8,
             reduced_debug_info: false,
-            enable_respawn_screen: false,
+            enable_respawn_screen: true,
             is_debug: false,
             is_flat: true,
         }
@@ -496,6 +496,7 @@ impl MinecraftServer {
         player.client.send_packet(&time_update);
 
         player.update_player_abilities();
+        player.send_health();
 
         self.plot_sender
             .send(Message::PlayerJoined(player))

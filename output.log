@@ -1,0 +1,127 @@
+[[32m2021-05-06 18:12:37[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-06 18:12:37[0m][mchprs::server][[32mINFO[0m] Done! Start took 526.5289ms[0m
+[[32m2021-05-06 18:12:39[0m][mchprs::server][[32mINFO[0m] AL_Duck joined the game[0m
+[[32m2021-05-06 18:12:43[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-06 18:12:48[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gms [0m
+[[32m2021-05-06 18:12:53[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gmc [0m
+[[32m2021-05-06 18:12:55[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gms [0m
+[[32m2021-05-06 18:13:12[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gmc [0m
+[[32m2021-05-06 18:13:40[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gms [0m
+[[32m2021-05-06 18:14:17[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-06 18:17:01[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-06 18:17:01[0m][mchprs::server][[32mINFO[0m] Done! Start took 133.303ms[0m
+[[32m2021-05-06 18:45:52[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-06 18:45:53[0m][mchprs::plot][[33mWARN[0m] Is the plot overloaded? Skipping 34634 ticks.[0m
+[[32m2021-05-06 18:52:09[0m][mchprs::server][[32mINFO[0m] AL_Duck joined the game[0m
+[[32m2021-05-06 18:53:17[0m][mchprs::plot::commands][[32mINFO[0m] AL_Duck issued command: /gms [0m
+[[32m2021-05-07 20:27:41[0m][mchprs::server][[32mINFO[0m] AL_1 left the game[0m
+[[32m2021-05-07 20:27:42[0m][mchprs::server][[32mINFO[0m] AL_Duck left the game[0m
+[[32m2021-05-11 20:22:42[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-11 20:22:42[0m][mchprs::plot][[33mWARN[0m] Is the plot overloaded? Skipping 6905994 ticks.[0m
+[[32m2021-05-11 20:22:46[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gmc [0m
+[[32m2021-05-11 20:24:00[0m][mchprs::server][[32mINFO[0m] AL_1 left the game[0m
+[[32m2021-05-11 21:28:15[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-11 21:28:15[0m][mchprs::plot][[33mWARN[0m] Is the plot overloaded? Skipping 77101 ticks.[0m
+[[32m2021-05-11 21:28:16[0m][mchprs::server][[31mERROR[0m] panicked at 'index out of bounds: the len is 4 but the index is 4', src/server.rs:597:27[0m
+[[32m2021-05-11 21:28:18[0m][mchprs::server][[31mERROR[0m] panicked at 'index out of bounds: the len is 4 but the index is 4', src/server.rs:597:27
+   0: mchprs::server::MinecraftServer::run::{{closure}}
+             at src/server.rs:141:29
+   1: std::panicking::rust_panic_with_hook
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/panicking.rs:595:17
+   2: std::panicking::begin_panic_handler::{{closure}}
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/panicking.rs:497:13
+   3: std::sys_common::backtrace::__rust_end_short_backtrace
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/sys_common/backtrace.rs:141:18
+   4: rust_begin_unwind
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/panicking.rs:493:5
+   5: core::panicking::panic_fmt
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/core/src/panicking.rs:92:14
+   6: core::panicking::panic_bounds_check
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/core/src/panicking.rs:69:5
+   7: <usize as core::slice::index::SliceIndex<[T]>>::index_mut
+             at /home/al_1/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/core/src/slice/index.rs:188:14
+   8: core::slice::index::<impl core::ops::index::IndexMut<I> for [T]>::index_mut
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/core/src/slice/index.rs:26:9
+   9: <alloc::vec::Vec<T,A> as core::ops::index::IndexMut<I>>::index_mut
+             at /home/al_1/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/alloc/src/vec/mod.rs:2188:9
+  10: mchprs::server::MinecraftServer::update
+             at src/server.rs:597:27
+  11: mchprs::server::MinecraftServer::run
+             at src/server.rs:197:13
+  12: mchprs::main
+             at src/main.rs:4:5
+  13: core::ops::function::FnOnce::call_once
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/core/src/ops/function.rs:227:5
+  14: std::sys_common::backtrace::__rust_begin_short_backtrace
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/sys_common/backtrace.rs:125:18
+  15: std::rt::lang_start::{{closure}}
+             at /home/al_1/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:66:18
+  16: core::ops::function::impls::<impl core::ops::function::FnOnce<A> for &F>::call_once
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/core/src/ops/function.rs:259:13
+      std::panicking::try::do_call
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/panicking.rs:379:40
+      std::panicking::try
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/panicking.rs:343:19
+      std::panic::catch_unwind
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/panic.rs:431:14
+      std::rt::lang_start_internal
+             at /rustc/2fd73fabe469357a12c2c974c140f67e7cdd76d0/library/std/src/rt.rs:51:25
+  17: std::rt::lang_start
+             at /home/al_1/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/lib/rustlib/src/rust/library/std/src/rt.rs:65:5
+  18: main
+  19: __libc_start_main
+  20: _start
+[0m
+[[32m2021-05-11 21:28:35[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-11 21:28:35[0m][mchprs::server][[32mINFO[0m] Done! Start took 151.766ms[0m
+[[32m2021-05-11 21:28:37[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-11 21:28:39[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-11 21:29:28[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gms [0m
+[[32m2021-05-12 22:51:43[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gmc [0m
+[[32m2021-05-12 22:52:49[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gms [0m
+[[32m2021-05-12 22:53:14[0m][mchprs::server][[32mINFO[0m] AL_1 left the game[0m
+[[32m2021-05-12 22:53:15[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-12 23:17:12[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-12 23:18:04[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-12 23:18:04[0m][mchprs::server][[32mINFO[0m] Done! Start took 125.0506ms[0m
+[[32m2021-05-12 23:18:06[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-12 23:18:09[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-12 23:24:52[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-12 23:34:27[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-12 23:34:27[0m][mchprs::server][[32mINFO[0m] Done! Start took 134.3827ms[0m
+[[32m2021-05-12 23:34:41[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-12 23:34:43[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-12 23:36:54[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-12 23:37:43[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-12 23:37:43[0m][mchprs::server][[32mINFO[0m] Done! Start took 134.9311ms[0m
+[[32m2021-05-12 23:38:01[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-12 23:38:04[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-13 00:02:25[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-13 00:03:08[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-13 00:03:08[0m][mchprs::server][[32mINFO[0m] Done! Start took 132.702ms[0m
+[[32m2021-05-13 00:03:11[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-13 00:03:14[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-13 00:07:11[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-13 00:07:56[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-13 00:07:56[0m][mchprs::server][[32mINFO[0m] Done! Start took 125.4569ms[0m
+[[32m2021-05-13 00:09:15[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-13 00:09:19[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-13 00:11:01[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-13 00:11:47[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-13 00:11:47[0m][mchprs::server][[32mINFO[0m] Done! Start took 118.5807ms[0m
+[[32m2021-05-13 00:12:07[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-13 00:12:11[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-13 00:28:23[0m][mchprs::server][[32mINFO[0m] AL_1 left the game[0m
+[[32m2021-05-13 00:48:10[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-13 00:52:46[0m][mchprs::server][[32mINFO[0m] Commencing graceful shutdown...[0m
+[[32m2021-05-13 00:53:31[0m][mchprs::server][[32mINFO[0m] Starting server...[0m
+[[32m2021-05-13 00:53:31[0m][mchprs::server][[32mINFO[0m] Done! Start took 116.0653ms[0m
+[[32m2021-05-13 00:53:38[0m][mchprs::server][[32mINFO[0m] AL_2 joined the game[0m
+[[32m2021-05-13 00:53:40[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-13 00:53:47[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /fly [0m
+[[32m2021-05-13 00:53:48[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gms [0m
+[[32m2021-05-13 00:53:51[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gmc [0m
+[[32m2021-05-13 00:53:52[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gms [0m
+[[32m2021-05-13 00:53:56[0m][mchprs::server][[32mINFO[0m] AL_1 left the game[0m
+[[32m2021-05-13 00:53:56[0m][mchprs::server][[32mINFO[0m] AL_1 joined the game[0m
+[[32m2021-05-13 00:57:22[0m][mchprs::plot::commands][[32mINFO[0m] AL_1 issued command: /gmc [0m

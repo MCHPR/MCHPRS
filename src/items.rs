@@ -111,6 +111,8 @@ macro_rules! items {
                 },
                 $( max_stack: $max_stack:literal, )?
                 $( block: $block:literal, )?
+                $( food: $food:literal, )?
+                $( saturation: $saturation:literal, )?
             }
         ),*
     ) => {
@@ -161,6 +163,24 @@ macro_rules! items {
                         $( Item::$name { .. } => $block, )?
                     )*
                     _ => false
+                }
+            }
+
+            pub fn food(self) -> i8 {
+                match self {
+                    $(
+                        $( Item::$name { .. } => $food, )?
+                    )*
+                    _ => 0
+                }
+            }
+
+            pub fn saturation(self) -> f32 {
+                match self {
+                    $(
+                        $( Item::$name { .. } => $saturation, )?
+                    )*
+                    _ => 0.0
                 }
             }
 
@@ -358,6 +378,16 @@ items! {
         from_id(_id): 155 => {},
         block: true,
     },
+
+    // Food
+    Apple {
+        props: {},
+        get_id: 573,
+        from_id(_id): 573 => {},
+        food: 4,
+        saturation: 2.4,
+    },
+
     Unknown {
         props: {
             id: u32

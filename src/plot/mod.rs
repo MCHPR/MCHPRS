@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod database;
 mod packet_handlers;
+pub mod player_controller;
 pub mod worldedit;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};
@@ -26,6 +27,7 @@ use std::time::{Duration, SystemTime};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {
     pub tps: u32,
+    pub life: u64,
     pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,
@@ -38,6 +40,7 @@ pub struct Plot {
     // It's kinda dumb making this pub but it would be too much work to do it differently.
     pub players: Vec<Player>,
     tps: u32,
+    life: u64,
     to_be_ticked: Vec<TickEntry>,
     last_update_time: SystemTime,
     lag_time: Duration,
@@ -156,13 +159,21 @@ impl World for Plot {
     }
 
     fn tick(&mut self) {
-        for pending in &mut self.to_be_ticked {
-            pending.ticks_left = pending.ticks_left.saturating_sub(1);
+        if self.life & 1 == 0 {
+            for pending in &mut self.to_be_ticked {
+                pending.ticks_left = pending.ticks_left.saturating_sub(1);
+            }
+            while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
+                let entry = self.to_be_ticked.remove(0);
+                self.get_block(entry.pos).tick(self, entry.pos);
+            }
         }
-        while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
-            let entry = self.to_be_ticked.remove(0);
-            self.get_block(entry.pos).tick(self, entry.pos);
+
+        for player in &mut self.players {
+            player.tick(self.life);
         }
+
+        self.life += 1;
     }
 
     fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
@@ -217,14 +228,6 @@ impl Plot {
         for player in &mut self.players {
             player.send_chat_message(0, ChatComponent::from_legacy_text(message.clone()));
         }
-    }
-
-    fn change_player_gamemode(&mut self, player_idx: usize, gamemode: Gamemode) {
-        self.players[player_idx].set_gamemode(gamemode);
-        let _ = self.message_sender.send(Message::PlayerUpdateGamemode(
-            self.players[player_idx].uuid,
-            gamemode,
-        ));
     }
 
     fn enter_plot(&mut self, mut player: Player) {
@@ -318,7 +321,7 @@ impl Plot {
 
         player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
         self.players.push(player);
-        self.update_view_pos_for_player(self.players.len() - 1, true);
+        self.player_update_view_pos(self.players.len() - 1, true);
     }
 
     fn get_chunk_distance(x1: i32, z1: i32, x2: i32, z2: i32) -> u32 {
@@ -351,48 +354,6 @@ impl Plot {
         }
     }
 
-    pub fn update_view_pos_for_player(&mut self, player_idx: usize, force_load: bool) {
-        let view_distance = 8;
-        let chunk_x = self.players[player_idx].x as i32 >> 4;
-        let chunk_z = self.players[player_idx].z as i32 >> 4;
-        let last_chunk_x = self.players[player_idx].last_chunk_x;
-        let last_chunk_z = self.players[player_idx].last_chunk_z;
-
-        let update_view = C40UpdateViewPosition { chunk_x, chunk_z }.encode();
-        self.players[player_idx].client.send_packet(&update_view);
-
-        if ((last_chunk_x - chunk_x).abs() <= view_distance * 2
-            && (last_chunk_z - chunk_z).abs() <= view_distance * 2)
-            && !force_load
-        {
-            let nx = chunk_x.min(last_chunk_x) - view_distance;
-            let nz = chunk_z.min(last_chunk_z) - view_distance;
-            let px = chunk_x.max(last_chunk_x) + view_distance;
-            let pz = chunk_z.max(last_chunk_z) + view_distance;
-            for x in nx..=px {
-                for z in nz..=pz {
-                    let was_loaded = Self::get_chunk_distance(x, z, last_chunk_x, last_chunk_z)
-                        <= view_distance as u32;
-                    let should_be_loaded =
-                        Self::get_chunk_distance(x, z, chunk_x, chunk_z) <= view_distance as u32;
-                    self.set_chunk_loaded_at_player(player_idx, x, z, was_loaded, should_be_loaded);
-                }
-            }
-        } else {
-            for x in last_chunk_x - view_distance..=last_chunk_x + view_distance {
-                for z in last_chunk_z - view_distance..=last_chunk_z + view_distance {
-                    self.set_chunk_loaded_at_player(player_idx, x, z, true, false);
-                }
-            }
-            for x in chunk_x - view_distance..=chunk_x + view_distance {
-                for z in chunk_z - view_distance..=chunk_z + view_distance {
-                    self.set_chunk_loaded_at_player(player_idx, x, z, false, true);
-                }
-            }
-        }
-        self.players[player_idx].last_chunk_x = chunk_x;
-        self.players[player_idx].last_chunk_z = chunk_z;
-    }
 
     fn destroy_entity(&mut self, entity_id: u32) {
         let destroy_entities = C36DestroyEntities {
@@ -621,7 +582,7 @@ impl Plot {
         // Update players
         for player_idx in 0..self.players.len() {
             if self.players[player_idx].update() {
-                self.update_view_pos_for_player(player_idx, false);
+                self.player_update_view_pos(player_idx, false);
             }
         }
         // Handle received packets
@@ -709,6 +670,7 @@ impl Plot {
             running: true,
             show_redstone: plot_data.show_redstone,
             tps: plot_data.tps,
+            life: plot_data.life,
             x,
             z,
             always_running,
@@ -754,7 +716,8 @@ impl Plot {
                 players: Vec::new(),
                 running: true,
                 show_redstone: true,
-                tps: 10,
+                tps: 20,
+                life: 0,
                 x,
                 z,
                 always_running,
@@ -773,6 +736,7 @@ impl Plot {
         let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
             tps: self.tps,
+            life: self.life,
             show_redstone: self.show_redstone,
             chunk_data,
             pending_ticks: self.to_be_ticked.clone(),

@@ -92,8 +92,10 @@ fn read_decompressed<T: PacketDecoderExt>(
         }
         _ => match packet_id {
             0x03 => Box::new(S03ChatMessage::decode(reader)?),
+            0x04 => Box::new(S04ClientStatus::decode(reader)?),
             0x05 => Box::new(S05ClientSettings::decode(reader)?),
             0x0B => Box::new(S0BPluginMessage::decode(reader)?),
+            0x0E => Box::new(S0EInteractEntity::decode(reader)?),
             0x10 => Box::new(S10KeepAlive::decode(reader)?),
             0x12 => Box::new(S12PlayerPosition::decode(reader)?),
             0x13 => Box::new(S13PlayerPositionAndRotation::decode(reader)?),
@@ -107,6 +109,7 @@ fn read_decompressed<T: PacketDecoderExt>(
             0x2B => Box::new(S2BUpdateSign::decode(reader)?),
             0x2C => Box::new(S2CAnimation::decode(reader)?),
             0x2E => Box::new(S2EPlayerBlockPlacemnt::decode(reader)?),
+            0x2F => Box::new(S2FUseItem::decode(reader)?),
             _ => Box::new(SUnknown),
         },
     })
