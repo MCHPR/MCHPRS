@@ -1,7 +1,6 @@
 use crate::blocks::{BlockEntity, BlockPos};
 use crate::network::packets::clientbound::{
-    C20ChunkData, C20ChunkDataSection, C3BMultiBlockChange, C3BMultiBlockChangeRecord,
-    ClientBoundPacket,
+    C3BMultiBlockChangeRecord, CChunkData, CChunkDataSection, CMultiBlockChange, ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
@@ -288,8 +287,8 @@ impl ChunkSection {
         }
     }
 
-    fn encode_packet(&self) -> C20ChunkDataSection {
-        C20ChunkDataSection {
+    fn encode_packet(&self) -> CChunkDataSection {
+        CChunkDataSection {
             bits_per_block: self.buffer.data.bits_per_entry as u8,
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
@@ -308,14 +307,9 @@ impl ChunkSection {
         }
     }
 
-    fn drain_multi_block(
-        &mut self,
-        chunk_x: i32,
-        chunk_y: u32,
-        chunk_z: i32,
-    ) -> C3BMultiBlockChange {
+    fn drain_multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> CMultiBlockChange {
         let multi_block = self.multi_block.drain(..).collect();
-        C3BMultiBlockChange {
+        CMultiBlockChange {
             records: multi_block,
             chunk_x,
             chunk_y,
@@ -369,7 +363,7 @@ impl Chunk {
                     .map(|blob| block_entities.push(blob))
             })
             .for_each(drop);
-        C20ChunkData {
+        CChunkData {
             // Use `bool_to_option` feature when stabalized
             // Tracking issue: https://github.com/rust-lang/rust/issues/80967
             biomes: if full_chunk {
@@ -512,7 +506,7 @@ impl Chunk {
         chunk
     }
 
-    pub fn drain_multi_block(&mut self) -> Vec<C3BMultiBlockChange> {
+    pub fn drain_multi_block(&mut self) -> Vec<CMultiBlockChange> {
         let mut packets = Vec::new();
         for (y, section) in &mut self.sections {
             let packet = section.drain_multi_block(self.x, *y as u32, self.z);

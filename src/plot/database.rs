@@ -46,6 +46,26 @@ pub fn get_cached_username(uuid: String) -> Option<String> {
         .ok()
 }
 
+pub fn get_owned_plot(player: &str) -> Option<(i32, i32)> {
+    lock()
+        .query_row(
+            "SELECT
+                plot_x, plot_z
+            FROM
+                plot
+            JOIN
+                userplot ON userplot.plot_id = plot.id
+            JOIN
+                user ON user.id = userplot.user_id
+            WHERE
+                name=?1
+                AND is_owner=TRUE",
+            params![player],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .ok()
+}
+
 pub fn is_claimed(plot_x: i32, plot_z: i32) -> Option<bool> {
     lock()
         .query_row(

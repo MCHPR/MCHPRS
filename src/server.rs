@@ -8,12 +8,13 @@ use crate::network::packets::clientbound::{
     C1DChangeGameState, C1DChangeGameStateReason, ClientBoundPacket,
 };
 use crate::network::packets::serverbound::{
-    S00Handshake, S00LoginStart, S00Request, S01Ping, ServerBoundPacketHandler,
+    SHandshake, SLoginStart, SPing, SRequest, ServerBoundPacketHandler,
 };
 use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
 use crate::player::{Gamemode, Player};
-use crate::plot::{self, commands::DECLARE_COMMANDS, database, Plot};
+use crate::plot::commands::DECLARE_COMMANDS;
+use crate::plot::{self, database, Plot};
 use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
@@ -131,15 +132,18 @@ impl MinecraftServer {
                 ))
             })
             .level(log::LevelFilter::Debug)
+            .level_for("regalloc", log::LevelFilter::Warn)
+            .level_for("cranelift_jit", log::LevelFilter::Warn)
+            // .level_for("cranelift_codegen::machinst::compile", log::LevelFilter::Debug)
+            .level_for("cranelift_codegen", log::LevelFilter::Info)
             .chain(std::io::stdout())
             .chain(fern::log_file("output.log").unwrap())
             .apply()
             .unwrap();
 
         std::panic::set_hook(Box::new(|panic_info| {
-            error!("{}", panic_info.to_string());
             let backtrace = Backtrace::new();
-            error!("{}\n{:?}", panic_info.to_string(), backtrace);
+            error!("plot {}\n{:?}", panic_info.to_string(), backtrace);
         }));
 
         info!("Starting server...");
@@ -284,10 +288,10 @@ impl MinecraftServer {
         }
     }
 
-    fn handle_player_login(&mut self, client_idx: usize, login_start: S00LoginStart) {
+    fn handle_player_login(&mut self, client_idx: usize, login_start: SLoginStart) {
         let clients = &mut self.network.handshaking_clients;
         clients[client_idx].username = Some(login_start.name);
-        let set_compression = C03SetCompression { threshold: 256 }.encode();
+        let set_compression = CSetCompression { threshold: 256 }.encode();
         clients[client_idx].send_packet(&set_compression);
         clients[client_idx].set_compressed(true);
         let username = if let Some(name) = &clients[client_idx].username {
@@ -299,7 +303,7 @@ impl MinecraftServer {
             .uuid
             .unwrap_or_else(|| Player::generate_offline_uuid(&username));
 
-        let login_success = C02LoginSuccess {
+        let login_success = CLoginSuccess {
             uuid,
             username: username.clone(),
         }
@@ -311,16 +315,16 @@ impl MinecraftServer {
 
         let mut player = Player::load_player(uuid, username, client);
 
-        let join_game = C24JoinGame {
+        let join_game = CJoinGame {
             entity_id: player.client.id as i32,
             is_hardcore: false,
             gamemode: player.gamemode.get_id() as u8,
             previous_gamemode: 1,
             world_count: 1,
             world_names: vec!["mchprs:world".to_owned()],
-            dimension_codec: C24JoinGameDimensionCodec {
+            dimension_codec: CJoinGameDimensionCodec {
                 dimensions: map! {
-                    "mchprs:world".to_owned() => C24JoinGameDimensionElement {
+                    "mchprs:world".to_owned() => CJoinGameDimensionElement {
                         natural: 1,
                         ambient_light: 1.0,
                         has_ceiling: 0,
@@ -338,14 +342,14 @@ impl MinecraftServer {
                     }
                 },
                 biomes: map! {
-                    "mchprs:plot".to_owned() => C24JoinGameBiomeElement {
+                    "mchprs:plot".to_owned() => CJoinGameBiomeElement {
                         precipitation: "none".to_owned(),
-                        effects: C24JoinGameBiomeEffects {
+                        effects: CJoinGameBiomeEffects {
                             sky_color: 0x7BA4FF,
                             water_fog_color: 0x050533,
                             fog_color: 0xC0D8FF,
                             water_color: 0x3F76E4,
-                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
+                            mood_sound: CJoinGameBiomeEffectsMoodSound {
                                 tick_delay: 6000,
                                 offset: 2.0,
                                 sound: "minecraft:ambient.cave".to_owned(),
@@ -358,14 +362,14 @@ impl MinecraftServer {
                         downfall: 0.5,
                         category: "none".to_owned(),
                     },
-                    "minecraft:plains".to_owned() => C24JoinGameBiomeElement {
+                    "minecraft:plains".to_owned() => CJoinGameBiomeElement {
                         precipitation: "none".to_owned(),
-                        effects: C24JoinGameBiomeEffects {
+                        effects: CJoinGameBiomeEffects {
                             sky_color: 7907327,
                             water_fog_color: 329011,
                             fog_color: 12638463,
                             water_color: 4159204,
-                            mood_sound: C24JoinGameBiomeEffectsMoodSound {
+                            mood_sound: CJoinGameBiomeEffectsMoodSound {
                                 tick_delay: 6000,
                                 offset: 2.0,
                                 sound: "minecraft:ambient.cave".to_owned(),
@@ -381,7 +385,7 @@ impl MinecraftServer {
                 },
             },
             // this should be exactly the same has the dimension listed in dimension_codec
-            dimension: C24JoinGameDimensionElement {
+            dimension: CJoinGameDimensionElement {
                 natural: 1,
                 ambient_light: 1.0,
                 has_ceiling: 0,
@@ -411,11 +415,11 @@ impl MinecraftServer {
 
         // Sends the custom brand name to the player
         // (This can be seen in the f3 debug menu in-game)
-        let brand = C17PluginMessage {
+        let brand = CPluginMessage {
             channel: String::from("minecraft:brand"),
             data: {
                 let mut data = Vec::new();
-                data.write_string(32767, "Minecraft High Performace Redstone");
+                data.write_string(32767, "Minecraft High Performance Redstone");
                 data
             },
         }
@@ -423,7 +427,7 @@ impl MinecraftServer {
         player.client.send_packet(&brand);
 
         // Send the player's position and rotation.
-        let player_pos_and_look = C34PlayerPositionAndLook {
+        let player_pos_and_look = CPlayerPositionAndLook {
             x: player.x,
             y: player.y,
             z: player.z,
@@ -439,7 +443,7 @@ impl MinecraftServer {
         // (This is the list you see when you press tab in-game)
         let mut add_player_list = Vec::new();
         for (uuid, player) in &self.online_players {
-            add_player_list.push(C32PlayerInfoAddPlayer {
+            add_player_list.push(CPlayerInfoAddPlayer {
                 uuid: *uuid,
                 name: player.username.clone(),
                 display_name: None,
@@ -448,7 +452,7 @@ impl MinecraftServer {
                 properties: Vec::new(),
             });
         }
-        add_player_list.push(C32PlayerInfoAddPlayer {
+        add_player_list.push(CPlayerInfoAddPlayer {
             uuid: player.uuid,
             name: player.username.clone(),
             display_name: None,
@@ -456,7 +460,7 @@ impl MinecraftServer {
             ping: 0,
             properties: Vec::new(),
         });
-        let player_info = C32PlayerInfo::AddPlayer(add_player_list).encode();
+        let player_info = CPlayerInfo::AddPlayer(add_player_list).encode();
         player.client.send_packet(&player_info);
 
         // Send the player's inventory
@@ -471,7 +475,7 @@ impl MinecraftServer {
                 })
             })
             .collect();
-        let window_items = C13WindowItems {
+        let window_items = CWindowItems {
             window_id: 0,
             slot_data,
         }
@@ -479,7 +483,7 @@ impl MinecraftServer {
         player.client.send_packet(&window_items);
 
         // Send the player's selected item slot
-        let held_item_change = C3FHeldItemChange {
+        let held_item_change = CHeldItemChange {
             slot: player.selected_slot as i8,
         }
         .encode();
@@ -487,7 +491,7 @@ impl MinecraftServer {
 
         player.client.send_packet(&DECLARE_COMMANDS);
 
-        let time_update = C4ETimeUpdate {
+        let time_update = CTimeUpdate {
             world_age: 0,
             // Noon
             time_of_day: -6000,
@@ -593,17 +597,31 @@ impl MinecraftServer {
             self.handle_message(message);
         }
         self.network.update();
-        for client in 0..self.network.handshaking_clients.len() {
-            let packets = self.network.handshaking_clients[client].receive_packets();
-            for packet in packets {
-                packet.handle(self, client);
+
+        let mut client_idx = 0;
+        let mut clients_len = self.network.handshaking_clients.len();
+        loop {
+            if client_idx >= clients_len {
+                break;
             }
+
+            let packets = self.network.handshaking_clients[client_idx].receive_packets();
+            for packet in packets {
+                packet.handle(self, client_idx);
+            }
+
+            let new_len = self.network.handshaking_clients.len();
+
+            if clients_len == new_len {
+                client_idx += 1;
+            }
+            clients_len = new_len;
         }
     }
 }
 
 impl ServerBoundPacketHandler for MinecraftServer {
-    fn handle_handshake(&mut self, handshake: S00Handshake, client_idx: usize) {
+    fn handle_handshake(&mut self, handshake: SHandshake, client_idx: usize) {
         let clients = &mut self.network.handshaking_clients;
         let client = &mut clients[client_idx];
         match handshake.next_state {
@@ -613,7 +631,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
         }
         if client.state == NetworkState::Login && handshake.protocol_version != 754 {
             warn!("A player tried to connect using the wrong version");
-            let disconnect = C00DisconnectLogin {
+            let disconnect = CDisconnectLogin {
                 reason: json!({
                     "text": "Version mismatch, I'm on 1.16.4!"
                 })
@@ -627,7 +645,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
             if split.len() == 3 || split.len() == 4 {
                 client.uuid = u128::from_str_radix(split[2], 16).ok();
             } else {
-                let disconnect = C00DisconnectLogin {
+                let disconnect = CDisconnectLogin {
                     reason: json!({
                         "text": "If you wish to use IP forwarding, please enable it in your BungeeCord config as well!"
                     })
@@ -636,14 +654,13 @@ impl ServerBoundPacketHandler for MinecraftServer {
                 .encode();
                 client.send_packet(&disconnect);
                 client.close_connection();
-                return;
             }
         }
     }
 
-    fn handle_request(&mut self, _request: S00Request, client_idk: usize) {
+    fn handle_request(&mut self, _request: SRequest, client_idk: usize) {
         let client = &mut self.network.handshaking_clients[client_idk];
-        let response = C00Response {
+        let response = CResponse {
             json_response: json!({
                 "version": {
                     "name": "1.16.4",
@@ -664,16 +681,16 @@ impl ServerBoundPacketHandler for MinecraftServer {
         client.send_packet(&response);
     }
 
-    fn handle_ping(&mut self, ping: S01Ping, client_idx: usize) {
+    fn handle_ping(&mut self, ping: SPing, client_idx: usize) {
         let client = &mut self.network.handshaking_clients[client_idx];
-        let pong = C01Pong {
+        let pong = CPong {
             payload: ping.payload,
         }
         .encode();
         client.send_packet(&pong);
     }
 
-    fn handle_login_start(&mut self, login_start: S00LoginStart, client_idx: usize) {
+    fn handle_login_start(&mut self, login_start: SLoginStart, client_idx: usize) {
         self.handle_player_login(client_idx, login_start);
     }
 }

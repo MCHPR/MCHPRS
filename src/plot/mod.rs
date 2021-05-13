@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod database;
+mod monitor;
 mod packet_handlers;
 pub mod player_controller;
 pub mod worldedit;
@@ -9,11 +10,13 @@ use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::{Gamemode, Player};
+use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use log::warn;
+use log::debug;
+use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::cmp::Ordering;
@@ -47,11 +50,13 @@ pub struct Plot {
     last_player_time: SystemTime,
     sleep_time: Duration,
     running: bool,
-    x: i32,
-    z: i32,
+    pub x: i32,
+    pub z: i32,
     show_redstone: bool,
     always_running: bool,
     chunks: Vec<Chunk>,
+    pub redpiler: Compiler,
+    timings: TimingsMonitor,
 }
 
 impl World for Plot {
@@ -60,7 +65,7 @@ impl World for Plot {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
 
         // Check to see if block is within height limit
-        if chunk_index >= 256 || pos.y > 256 {
+        if chunk_index >= 256 || pos.y > 256 || pos.y < 0 {
             return false;
         }
 
@@ -132,7 +137,7 @@ impl World for Plot {
             return;
         }
         if let Some(nbt) = block_entity.to_nbt(pos) {
-            let block_entity_data = C09BlockEntityData {
+            let block_entity_data = CBlockEntityData {
                 x: pos.x,
                 y: pos.y,
                 z: pos.z,
@@ -183,11 +188,19 @@ impl World for Plot {
             tick_priority: priority,
         });
         self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority.clone()));
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
     }
 
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
         self.to_be_ticked.iter().any(|e| e.pos == pos)
+    }
+
+    fn get_player(&self, uuid: u128) -> Option<&Player> {
+        self.players.iter().find(|p| p.uuid == uuid)
+    }
+
+    fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player> {
+        self.players.iter_mut().find(|p| p.uuid == uuid)
     }
 }
 
@@ -206,7 +219,7 @@ impl Plot {
 
     /// Send a block change to all connected players
     pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
-        let block_change = C0BBlockChange {
+        let block_change = CBlockChange {
             block_id: id as i32,
             x: pos.x,
             y: pos.y as i32,
@@ -232,7 +245,7 @@ impl Plot {
 
     fn enter_plot(&mut self, mut player: Player) {
         self.save();
-        let spawn_player = C04SpawnPlayer {
+        let spawn_player = CSpawnPlayer {
             entity_id: player.entity_id as i32,
             uuid: player.uuid,
             on_ground: player.on_ground,
@@ -243,13 +256,12 @@ impl Plot {
             z: player.z,
         }
         .encode();
-        let mut metadata_entries = Vec::new();
-        metadata_entries.push(C44EntityMetadataEntry {
+        let metadata_entries = vec![CEntityMetadataEntry {
             index: 16,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
-        });
-        let metadata = C44EntityMetadata {
+        }];
+        let metadata = CEntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: metadata_entries,
         }
@@ -258,7 +270,7 @@ impl Plot {
             other_player.client.send_packet(&spawn_player);
             other_player.client.send_packet(&metadata);
 
-            let spawn_other_player = C04SpawnPlayer {
+            let spawn_other_player = CSpawnPlayer {
                 entity_id: other_player.entity_id as i32,
                 uuid: other_player.uuid,
                 on_ground: other_player.on_ground,
@@ -272,9 +284,9 @@ impl Plot {
             player.client.send_packet(&spawn_other_player);
 
             if let Some(item) = &other_player.inventory[other_player.selected_slot as usize + 36] {
-                let other_entity_equipment = C47EntityEquipment {
+                let other_entity_equipment = CEntityEquipment {
                     entity_id: other_player.entity_id as i32,
-                    equipment: vec![C47EntityEquipmentEquipment {
+                    equipment: vec![CEntityEquipmentEquipment {
                         slot: 0, // Main hand
                         item: Some(SlotData {
                             item_count: item.count as i8,
@@ -287,13 +299,12 @@ impl Plot {
                 player.client.send_packet(&other_entity_equipment);
             }
 
-            let mut other_metadata_entries = Vec::new();
-            other_metadata_entries.push(C44EntityMetadataEntry {
+            let other_metadata_entries = vec![CEntityMetadataEntry {
                 index: 16,
                 metadata_type: 0,
                 value: vec![other_player.skin_parts.bits() as u8],
-            });
-            let other_metadata = C44EntityMetadata {
+            }];
+            let other_metadata = CEntityMetadata {
                 entity_id: other_player.entity_id as i32,
                 metadata: other_metadata_entries,
             }
@@ -302,9 +313,9 @@ impl Plot {
         }
 
         if let Some(item) = &player.inventory[player.selected_slot as usize + 36] {
-            let entity_equipment = C47EntityEquipment {
+            let entity_equipment = CEntityEquipment {
                 entity_id: player.entity_id as i32,
-                equipment: vec![C47EntityEquipmentEquipment {
+                equipment: vec![CEntityEquipmentEquipment {
                     slot: 0, // Main hand
                     item: Some(SlotData {
                         item_count: item.count as i8,
@@ -339,7 +350,7 @@ impl Plot {
         should_be_loaded: bool,
     ) {
         if was_loaded && !should_be_loaded {
-            let unload_chunk = C1CUnloadChunk { chunk_x, chunk_z }.encode();
+            let unload_chunk = CUnloadChunk { chunk_x, chunk_z }.encode();
             self.players[player_idx].client.send_packet(&unload_chunk);
         } else if !was_loaded && should_be_loaded {
             if !Plot::chunk_in_plot_bounds(self.x, self.z, chunk_x, chunk_z) {
@@ -356,7 +367,7 @@ impl Plot {
 
 
     fn destroy_entity(&mut self, entity_id: u32) {
-        let destroy_entities = C36DestroyEntities {
+        let destroy_entities = CDestroyEntities {
             entity_ids: vec![entity_id as i32],
         }
         .encode();
@@ -371,13 +382,13 @@ impl Plot {
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
         }
-        let destroy_other_entities = C36DestroyEntities { entity_ids }.encode();
+        let destroy_other_entities = CDestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.x << 4;
         let chunk_offset_z = self.z << 4;
         for chunk in &self.chunks {
             player.client.send_packet(
-                &C1CUnloadChunk {
+                &CUnloadChunk {
                     chunk_x: chunk_offset_x + chunk.x,
                     chunk_z: chunk_offset_z + chunk.z,
                 }
@@ -469,7 +480,7 @@ impl Plot {
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
-                    let player_info = C32PlayerInfo::AddPlayer(vec![C32PlayerInfoAddPlayer {
+                    let player_info = CPlayerInfo::AddPlayer(vec![CPlayerInfoAddPlayer {
                         name: player_join_info.username,
                         properties: Vec::new(),
                         gamemode: 1,
@@ -483,7 +494,7 @@ impl Plot {
                     }
                 }
                 BroadcastMessage::PlayerLeft(uuid) => {
-                    let player_info = C32PlayerInfo::RemovePlayer(vec![uuid]).encode();
+                    let player_info = CPlayerInfo::RemovePlayer(vec![uuid]).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
@@ -504,7 +515,7 @@ impl Plot {
                     return;
                 }
                 BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode) => {
-                    let player_info = C32PlayerInfo::UpdateGamemode(uuid, gamemode).encode();
+                    let player_info = CPlayerInfo::UpdateGamemode(uuid, gamemode).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
@@ -532,35 +543,20 @@ impl Plot {
 
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
+            self.timings.set_ticking(true);
             self.last_player_time = SystemTime::now();
             if self.tps != 0 {
                 let dur_per_tick = Duration::from_micros(1_000_000 / self.tps as u64);
                 let elapsed_time = self.last_update_time.elapsed().unwrap();
                 self.lag_time += elapsed_time;
                 self.last_update_time = SystemTime::now();
-                let ticks = self
-                    .lag_time
-                    .as_micros()
-                    .checked_div(dur_per_tick.as_micros())
-                    .unwrap_or_default();
-                if ticks > 4000 {
-                    warn!("Is the plot overloaded? Skipping {} ticks.", ticks);
-                    self.lag_time = Duration::from_secs(0);
-                }
-                // let start_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
+                    if self.timings.is_running_behind() && !self.redpiler.is_active {
+                        self.start_redpiler(Default::default(), None, None);
+                    }
                     self.tick();
                     self.lag_time -= dur_per_tick;
                 }
-                // if ticks > 0 {
-                //     let tick_time = start_time.elapsed().as_micros();
-                //     let time_per_tick = tick_time / ticks;
-                //     if time_per_tick > (1_000_000 / self.tps) as u128 {
-                //         let new_tps = 1_000_000 / time_per_tick;
-                //         self.broadcast_plot_chat_message(format!("Plot is overloaded, setting rtps down to {}", new_tps));
-                //         self.tps = new_tps as u32;
-                //     }
-                // }
             }
 
             let mut multi_block_packets = Vec::new();
@@ -574,11 +570,21 @@ impl Plot {
                 }
             }
         } else {
+            self.timings.set_ticking(false);
             // Unload plot after 600 seconds unless the plot should be always loaded
             if self.last_player_time.elapsed().unwrap().as_secs() > 600 && !self.always_running {
                 self.running = false;
+                self.timings.stop();
             }
         }
+
+        if self.redpiler.is_active {
+            let changes: Vec<(BlockPos, Block)> = self.redpiler.block_changes().drain(..).collect();
+            for (pos, block) in changes {
+                self.set_block(pos, block);
+            }
+        }
+
         // Update players
         for player_idx in 0..self.players.len() {
             if self.players[player_idx].update() {
@@ -620,11 +626,13 @@ impl Plot {
                 self.players[player].x as i32,
                 self.players[player].z as i32,
             ) {
-                outside_players.push(player);
+                outside_players.push(self.players[player].uuid);
             }
         }
-        for player_index in outside_players {
-            let player = self.leave_plot(player_index);
+
+        for uuid in outside_players {
+            let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
+            let player = self.leave_plot(player_idx);
             let player_leave_plot = Message::PlayerLeavePlot(player);
             self.message_sender.send(player_leave_plot).unwrap();
         }
@@ -676,6 +684,8 @@ impl Plot {
             always_running,
             chunks,
             to_be_ticked: plot_data.pending_ticks,
+            redpiler: Default::default(),
+            timings: TimingsMonitor::new(plot_data.tps),
         }
     }
 
@@ -723,6 +733,8 @@ impl Plot {
                 always_running,
                 chunks,
                 to_be_ticked: Vec::new(),
+                redpiler: Default::default(),
+                timings: TimingsMonitor::new(10),
             }
         }
     }
@@ -769,10 +781,10 @@ impl Plot {
         always_running: bool,
         initial_player: Option<Player>,
     ) {
-        let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
         thread::Builder::new()
             .name(format!("p{},{}", x, z))
             .spawn(move || {
+                let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
                 plot.run(initial_player);
             })
             .unwrap();
@@ -782,18 +794,30 @@ impl Plot {
 impl Drop for Plot {
     fn drop(&mut self) {
         if !self.players.is_empty() {
-            // TODO: send all players to spawn and send them message along the lines of:
-            // "The plot you were previously in has crashed, you have been teleported to the spawn plot."
             for player in &mut self.players {
-                player.save();
-                // Give the player the bad news.
-                player.kick(
-                    r#"{ "text": "The plot you were previously in has crashed!", "color": "red" }"#
-                        .to_owned(),
+                player.save(); // just in case
+
+                let (px, pz) = if self.x == 0 && self.z == 0 {
+                    // Can't send players to spawn if spawn crashed!
+                    Plot::get_center(1, 0)
+                } else {
+                    Plot::get_center(0, 0)
+                };
+                player.teleport(px, 64.0, pz);
+
+                player.send_raw_system_message(
+                    json!({
+                        "text": "The plot you were previously in has crashed!",
+                        "color": "red"
+                    })
+                    .to_string(),
                 );
-                // Remove the player from the player list
+            }
+
+            for index in 0..self.players.len() {
+                let player = self.leave_plot(index);
                 self.message_sender
-                    .send(Message::PlayerLeft(player.uuid))
+                    .send(Message::PlayerLeavePlot(player))
                     .unwrap();
             }
         }

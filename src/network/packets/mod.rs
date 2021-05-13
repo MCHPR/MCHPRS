@@ -10,10 +10,8 @@ use serde::Serialize;
 use serverbound::*;
 use std::io::{self, Cursor, Read, Write};
 use std::net::TcpStream;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct SlotData {
@@ -76,7 +74,7 @@ fn read_decompressed<T: PacketDecoderExt>(
     let packet_id = reader.read_varint()?;
     Ok(match *state {
         NetworkState::Handshake if packet_id == 0x00 => {
-            let handshake = S00Handshake::decode(reader)?;
+            let handshake = SHandshake::decode(reader)?;
             match handshake.next_state {
                 1 => *state = NetworkState::Status,
                 2 => *state = NetworkState::Login,
@@ -84,11 +82,11 @@ fn read_decompressed<T: PacketDecoderExt>(
             }
             Box::new(handshake)
         }
-        NetworkState::Status if packet_id == 0x00 => Box::new(S00Request::decode(reader)?),
-        NetworkState::Status if packet_id == 0x01 => Box::new(S01Ping::decode(reader)?),
+        NetworkState::Status if packet_id == 0x00 => Box::new(SRequest::decode(reader)?),
+        NetworkState::Status if packet_id == 0x01 => Box::new(SPing::decode(reader)?),
         NetworkState::Login if packet_id == 0x00 => {
             *state = NetworkState::Play;
-            Box::new(S00LoginStart::decode(reader)?)
+            Box::new(SLoginStart::decode(reader)?)
         }
         _ => match packet_id {
             0x03 => Box::new(S03ChatMessage::decode(reader)?),

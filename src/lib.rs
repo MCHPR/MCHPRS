@@ -9,6 +9,7 @@ mod items;
 mod network;
 mod player;
 mod plot;
+mod redpiler;
 pub mod server;
 pub mod world;
 
