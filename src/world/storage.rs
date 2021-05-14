@@ -1,6 +1,6 @@
 use crate::blocks::{BlockEntity, BlockPos};
 use crate::network::packets::clientbound::{
-    C3BMultiBlockChangeRecord, CChunkData, CChunkDataSection, CMultiBlockChange, ClientBoundPacket,
+    CMultiBlockChangeRecord, CChunkData, CChunkDataSection, CMultiBlockChange, ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use serde::{Deserialize, Serialize};
