@@ -14,7 +14,7 @@ macro_rules! clientbound_packets {
             $(#[$($struct_meta:meta),+])?
             $name:ident -> $packet_id:literal {
                 $(pub $pfield:ident: $pfield_ty:ident,)*
-                $(fn $field_write:ident($($field:ident: $field_ty:path),+) => ($($field_expr:expr),+),)*
+                $(|$($field:ident: $field_ty:path),+| $field_write:ident($($field_expr:expr),+); )*
             },
         )*
     ) => {
@@ -31,7 +31,7 @@ macro_rules! clientbound_packets {
                     $( let $pfield = self.$pfield; )*
                     $($( let $field = self.$field; )*)*
 
-                    $( buf.$field_write($($field_expr),*);)*
+                    $( buf.$field_write($($field_expr),*); )*
 
                     PacketEncoder::new(buf, $packet_id)
                 }
@@ -43,92 +43,92 @@ macro_rules! clientbound_packets {
 clientbound_packets!(
     // Server List Ping Packets
     CResponse -> 0x00 {
-        fn write_string(json_response: String) => (32767, &json_response),
+        |json_response: String| write_string(32767, &json_response);
     },
 
     // Login Packets
     CDisconnectLogin -> 0x00 {
-        fn write_string(reason: String) => (32767, &reason),
+        |reason: String| write_string(32767, &reason);
     },
     CPong -> 0x01 {
-        fn write_long(payload: i64) => (payload),
+        |payload: i64| write_long(payload);
     },
     CLoginSuccess -> 0x02 {
-        fn write_uuid(uuid: u128) => (uuid),
-        fn write_string(username: String) => (16, &username),
+        |uuid: u128| write_uuid(uuid);
+        |username: String| write_string(16, &username);
     },
     CSetCompression -> 0x03 {
-        fn write_varint(threshold: i32) => (threshold),
+        |threshold: i32| write_varint(threshold);
     },
 
     // Play Packets
     CSpawnEntity -> 0x00 {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_uuid(object_uuid: u128) => (object_uuid),
-        fn write_varint(entity_type: i32) => (entity_type),
-        fn write_double(x: f64) => (x),
-        fn write_double(y: f64) => (y),
-        fn write_double(z: f64) => (z),
-        fn write_byte(yaw: f32) => (((yaw / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_byte(pitch: f32) => (((pitch / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_int(data: i32) => (data),
-        fn write_short(velocity_x: i16) => (velocity_x),
-        fn write_short(velocity_y: i16) => (velocity_y),
-        fn write_short(velocity_z: i16) => (velocity_z),
+        |entity_id: i32| write_varint(entity_id);
+        |object_uuid: u128| write_uuid(object_uuid);
+        |entity_type: i32| write_varint(entity_type);
+        |x: f64| write_double(x);
+        |y: f64| write_double(y);
+        |z: f64| write_double(z);
+        |yaw: f32| write_byte(((yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        |pitch: f32| write_byte(((pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        |data: i32| write_int(data);
+        |velocity_x: i16| write_short(velocity_x);
+        |velocity_y: i16| write_short(velocity_y);
+        |velocity_z: i16| write_short(velocity_z);
     },
     CSpawnLivingEntity -> 0x00 {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_uuid(entity_uuid: u128) => (entity_uuid),
-        fn write_varint(entity_type: i32) => (entity_type),
-        fn write_double(x: f64) => (x),
-        fn write_double(y: f64) => (y),
-        fn write_double(z: f64) => (z),
-        fn write_byte(yaw: f32) => (((yaw / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_byte(pitch: f32) => (((pitch / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_byte(head_pitch: f32) => (((pitch / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_short(velocity_x: i16) => (velocity_x),
-        fn write_short(velocity_y: i16) => (velocity_y),
-        fn write_short(velocity_z: i16) => (velocity_z),
+        |entity_id: i32| write_varint(entity_id);
+        |entity_uuid: u128| write_uuid(entity_uuid);
+        |entity_type: i32| write_varint(entity_type);
+        |x: f64| write_double(x);
+        |y: f64| write_double(y);
+        |z: f64| write_double(z);
+        |yaw: f32| write_byte(((yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        |pitch: f32| write_byte(((pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        |head_pitch: f32| write_byte(((pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        |velocity_x: i16| write_short(velocity_x);
+        |velocity_y: i16| write_short(velocity_y);
+        |velocity_z: i16| write_short(velocity_z);
     },
     CSpawnPlayer -> 0x04 {
         pub on_ground: bool,
 
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_uuid(uuid: u128) => (uuid),
-        fn write_double(x: f64) => (x),
-        fn write_double(y: f64) => (y),
-        fn write_double(z: f64) => (z),
-        fn write_byte(yaw: f32) => (((yaw / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_byte(pitch: f32) => (((pitch / 360f32 * 256f32) as i32 % 256) as i8),
+        |entity_id: i32| write_varint(entity_id);
+        |uuid: u128| write_uuid(uuid);
+        |x: f64| write_double(x);
+        |y: f64| write_double(y);
+        |z: f64| write_double(z);
+        |yaw: f32| write_byte(((yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        |pitch: f32| write_byte(((pitch / 360f32 * 256f32) as i32 % 256) as i8);
     },
     CEntityAnimation -> 0x05 {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_unsigned_byte(animation: u8) => (animation),
+        |entity_id: i32| write_varint(entity_id);
+        |animation: u8| write_unsigned_byte(animation);
     },
     CBlockEntityData -> 0x09 {
-        fn write_position(x: i32, y: i32, z: i32) => (x, y, z),
-        fn write_unsigned_byte(action: u8) => (action),
-        fn write_nbt_blob(nbt: nbt::Blob) => (nbt),
+        |x: i32, y: i32, z: i32| write_position(x, y, z);
+        |action: u8| write_unsigned_byte(action);
+        |nbt: nbt::Blob| write_nbt_blob(nbt);
     },
     CBlockChange -> 0x0B {
-        fn write_position(x: i32, y: i32, z: i32) => (x, y, z),
-        fn write_varint(block_id: i32) => (block_id),
+        |x: i32, y: i32, z: i32| write_position(x, y, z);
+        |block_id: i32| write_varint(block_id);
     },
     CChatMessage -> 0x0E {
-        fn write_string(message: String) => (32767, &message),
-        fn write_byte(position: i8) => (position),
-        fn write_uuid(sender: u128) => (sender),
+        |message: String| write_string(32767, &message);
+        |position: i8| write_byte(position);
+        |sender: u128| write_uuid(sender);
     },
     CPluginMessage -> 0x17 {
-        fn write_string(channel: String) => (32767, &channel),
-        fn write_bytes(data: Vec<u8>) => (data),
+        |channel: String| write_string(32767, &channel);
+        |data: Vec<u8>| write_bytes(data);
     },
     CDisconnect -> 0x19 {
-        fn write_string(reason: String) => (32767, &reason),
+        |reason: String| write_string(32767, &reason);
     },
     CEntityStatus -> 0x1A {
-        fn write_int(entity_id: i32) => (entity_id),
-        fn write_byte(status: CEntityStatuses) => (match status {
+        |entity_id: i32| write_int(entity_id);
+        |status: CEntityStatuses| write_byte(match status {
             CEntityStatuses::LivingEntityGenericHurt => 2,
             CEntityStatuses::LivingEntityDeath => 3,
             CEntityStatuses::LivingEntityDrownHurt => 36,
@@ -138,104 +138,104 @@ clientbound_packets!(
     },
     #[derive(Debug)]
     CUnloadChunk -> 0x1C {
-        fn write_int(chunk_x: i32) => (chunk_x),
-        fn write_int(chunk_z: i32) => (chunk_z),
+        |chunk_x: i32| write_int(chunk_x);
+        |chunk_z: i32| write_int(chunk_z);
     },
     CChangeGameState -> 0x1D {
-        fn write_unsigned_byte(reason: CChangeGameStateReason) => (match reason {
+        |reason: CChangeGameStateReason| write_unsigned_byte(match reason {
             CChangeGameStateReason::ChangeGamemode => 3,
             // CChangeGameStateReason::WinGame => buf.write_unsigned_byte(4),
             // CChangeGameStateReason::ArrowHitPlayer => buf.write_unsigned_byte(6),
             CChangeGameStateReason::ChangeRespawnScreenMode => 11,
         }),
-        fn write_float(value: f32) => (value),
+        |value: f32| write_float(value);
     },
     CKeepAlive -> 0x1F {
-        fn write_long(id: i64) => (id),
+        |id: i64| write_long(id);
     },
     CEffect -> 0x21 {
-        fn write_int(effect_id: i32) => (effect_id),
-        fn write_position(x: i32, y: i32, z: i32) => (x, y, z),
-        fn write_int(data: i32) => (data),
-        fn write_bool(disable_relative_volume: bool) => (disable_relative_volume),
+        |effect_id: i32| write_int(effect_id);
+        |x: i32, y: i32, z: i32| write_position(x, y, z);
+        |data: i32| write_int(data);
+        |disable_relative_volume: bool| write_bool(disable_relative_volume);
     },
     COpenSignEditor -> 0x2E {
-        fn write_position(pos_x: i32, pos_y: i32, pos_z: i32) => (pos_x, pos_y, pos_z),
+        |pos_x: i32, pos_y: i32, pos_z: i32| write_position(pos_x, pos_y, pos_z);
     },
     CEntityPosition -> 0x27 {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_short(delta_x: i16) => (delta_x),
-        fn write_short(delta_y: i16) => (delta_y),
-        fn write_short(delta_z: i16) => (delta_z),
-        fn write_bool(on_ground: bool) => (on_ground),
+        |entity_id: i32| write_varint(entity_id);
+        |delta_x: i16| write_short(delta_x);
+        |delta_y: i16| write_short(delta_y);
+        |delta_z: i16| write_short(delta_z);
+        |on_ground: bool| write_bool(on_ground);
     },
     CEntityPositionAndRotation -> 0x28 {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_short(delta_x: i16) => (delta_x),
-        fn write_short(delta_y: i16) => (delta_y),
-        fn write_short(delta_z: i16) => (delta_z),
-        fn write_byte(yaw: f32) => (((yaw / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_byte(pitch: f32) => (((pitch / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_bool(on_ground: bool) => (on_ground),
+        |entity_id: i32| write_varint(entity_id);
+        |delta_x: i16| write_short(delta_x);
+        |delta_y: i16| write_short(delta_y);
+        |delta_z: i16| write_short(delta_z);
+        |yaw: f32| write_byte(((yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        |pitch: f32| write_byte(((pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        |on_ground: bool| write_bool(on_ground);
     },
     CEntityRotation -> 0x29 {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_byte(yaw: f32) => (((yaw / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_byte(pitch: f32) => (((pitch / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_bool(on_ground: bool) => (on_ground),
+        |entity_id: i32| write_varint(entity_id);
+        |yaw: f32| write_byte(((yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        |pitch: f32| write_byte(((pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        |on_ground: bool| write_bool(on_ground);
     },
     CEntityMovement -> 0x2A {
-        fn write_varint(entity_id: i32) => (entity_id),
+        |entity_id: i32| write_varint(entity_id);
     },
     CPlayerAbilities -> 0x30 {
-        fn write_unsigned_byte(flags: u8) => (flags),
-        fn write_float(fly_speed: f32) => (fly_speed),
-        fn write_float(fov_modifier: f32) => (fov_modifier),
+        |flags: u8| write_unsigned_byte(flags);
+        |fly_speed: f32| write_float(fly_speed);
+        |fov_modifier: f32| write_float(fov_modifier);
     },
     CPlayerPositionAndLook -> 0x34 {
-        fn write_double(x: f64) => (x),
-        fn write_double(y: f64) => (y),
-        fn write_double(z: f64) => (z),
-        fn write_float(yaw: f32) => (yaw),
-        fn write_float(pitch: f32) => (pitch),
-        fn write_unsigned_byte(flags: u8) => (flags),
-        fn write_varint(teleport_id: i32) => (teleport_id),
+        |x: f64| write_double(x);
+        |y: f64| write_double(y);
+        |z: f64| write_double(z);
+        |yaw: f32| write_float(yaw);
+        |pitch: f32| write_float(pitch);
+        |flags: u8| write_unsigned_byte(flags);
+        |teleport_id: i32| write_varint(teleport_id);
     },
     CRespawn -> 0x39 {
-        fn write_nbt(dimension: CJoinGameDimensionElement) => (dimension),
-        fn write_string(world_name: String) => (32767, &world_name),
-        fn write_long(hashed_seed: i64) => (hashed_seed),
-        fn write_unsigned_byte(gamemode: u8) => (gamemode),
-        fn write_unsigned_byte(previous_gamemode: u8) => (previous_gamemode),
-        fn write_boolean(is_debug: bool) => (is_debug),
-        fn write_boolean(is_flat: bool) => (is_flat),
-        fn write_boolean(copy_metadata: bool) => (copy_metadata),
+        |dimension: CJoinGameDimensionElement| write_nbt(dimension);
+        |world_name: String| write_string(32767, &world_name);
+        |hashed_seed: i64| write_long(hashed_seed);
+        |gamemode: u8| write_unsigned_byte(gamemode);
+        |previous_gamemode: u8| write_unsigned_byte(previous_gamemode);
+        |is_debug: bool| write_boolean(is_debug);
+        |is_flat: bool| write_boolean(is_flat);
+        |copy_metadata: bool| write_boolean(copy_metadata);
     },
     CEntityHeadLook -> 0x3A {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_byte(yaw: f32) => (((yaw / 360f32 * 256f32) as i32 % 256) as i8),
+        |entity_id: i32| write_varint(entity_id);
+        |yaw: f32| write_byte(((yaw / 360f32 * 256f32) as i32 % 256) as i8);
     },
     CHeldItemChange -> 0x3F {
-        fn write_byte(slot: i8) => (slot),
+        |slot: i8| write_byte(slot);
     },
     CUpdateViewPosition -> 0x40 {
-        fn write_varint(chunk_x: i32) => (chunk_x),
-        fn write_varint(chunk_z: i32) => (chunk_z),
+        |chunk_x: i32| write_varint(chunk_x);
+        |chunk_z: i32| write_varint(chunk_z);
     },
     CEntityTeleport -> 0x56 {
-        fn write_varint(entity_id: i32) => (entity_id),
-        fn write_double(x: f64) => (x),
-        fn write_double(y: f64) => (y),
-        fn write_double(z: f64) => (z),
-        fn write_byte(yaw: f32) => (((yaw / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_byte(pitch: f32) => (((pitch / 360f32 * 256f32) as i32 % 256) as i8),
-        fn write_bool(on_ground: bool) => (on_ground),
+        |entity_id: i32| write_varint(entity_id);
+        |x: f64| write_double(x);
+        |y: f64| write_double(y);
+        |z: f64| write_double(z);
+        |yaw: f32| write_byte(((yaw / 360f32 * 256f32) as i32 % 256) as i8);
+        |pitch: f32| write_byte(((pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        |on_ground: bool| write_bool(on_ground);
     },
 
 
     CTimeUpdate -> 0x4E {
-        fn write_long(world_age: i64) => (world_age),
-        fn write_long(time_of_day: i64) => (time_of_day),
+        |world_age: i64| write_long(world_age);
+        |time_of_day: i64| write_long(time_of_day);
     },
 );
 
