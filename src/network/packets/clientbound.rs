@@ -134,7 +134,7 @@ clientbound_packets!(
             CEntityStatuses::LivingEntityDrownHurt => 36,
             CEntityStatuses::LivingEntityFireHurt => 37,
             CEntityStatuses::LivingEntitySweetBerryBushHurt => 44,
-        }),
+        });
     },
     #[derive(Debug)]
     CUnloadChunk -> 0x1C {
@@ -147,7 +147,7 @@ clientbound_packets!(
             // CChangeGameStateReason::WinGame => buf.write_unsigned_byte(4),
             // CChangeGameStateReason::ArrowHitPlayer => buf.write_unsigned_byte(6),
             CChangeGameStateReason::ChangeRespawnScreenMode => 11,
-        }),
+        });
         |value: f32| write_float(value);
     },
     CKeepAlive -> 0x1F {
