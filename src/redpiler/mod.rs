@@ -643,37 +643,3 @@ impl Compiler {
     }
 }
 
-// impl Display for Compiler {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         f.write_str("digraph{")?;
-//         for (id, node) in self.nodes.iter().enumerate() {
-//             write!(
-//                 f,
-//                 "n{}[label=\"{}\\n({}, {}, {})\"];",
-//                 id,
-//                 format!("{:?}", node.state)
-//                     .split_whitespace()
-//                     .next()
-//                     .unwrap(),
-//                 node.pos.x,
-//                 node.pos.y,
-//                 node.pos.z
-//             )?;
-//             for link in &node.inputs {
-//                 let color = match link.ty {
-//                     LinkType::Default => "",
-//                     LinkType::Side => ",color=\"blue\"",
-//                 };
-//                 write!(
-//                     f,
-//                     "n{}->n{}[label=\"{}\"{}];",
-//                     link.end.index, link.start.index, link.weight, color
-//                 )?;
-//             }
-//             // for update in &node.updates {
-//             //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
-//             // }
-//         }
-//         f.write_str("}\n")
-//     }
-// }

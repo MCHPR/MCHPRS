@@ -4,8 +4,9 @@ use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::redpiler::{LinkType, Node, NodeId};
 use crate::world::{TickEntry, TickPriority};
-use log::warn;
 use std::collections::HashMap;
+use log::warn;
+use std::fmt;
 
 struct RPTickEntry {
     ticks_left: u32,
@@ -337,9 +338,46 @@ impl JITBackend for DirectBackend {
                 });
             }
         }
+        // Dot file output
+        // println!("{}", self);
     }
 
     fn block_changes(&mut self) -> &mut Vec<(BlockPos, Block)> {
         &mut self.change_queue
+    }
+}
+
+impl fmt::Display for DirectBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("digraph{")?;
+        for (id, node) in self.nodes.iter().enumerate() {
+            write!(
+                f,
+                "n{}[label=\"{}\\n({}, {}, {})\"];",
+                id,
+                format!("{:?}", node.state)
+                    .split_whitespace()
+                    .next()
+                    .unwrap(),
+                node.pos.x,
+                node.pos.y,
+                node.pos.z
+            )?;
+            for link in &node.inputs {
+                let color = match link.ty {
+                    LinkType::Default => "",
+                    LinkType::Side => ",color=\"blue\"",
+                };
+                write!(
+                    f,
+                    "n{}->n{}[label=\"{}\"{}];",
+                    link.end.index, link.start.index, link.weight, color
+                )?;
+            }
+            // for update in &node.updates {
+            //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
+            // }
+        }
+        f.write_str("}\n")
     }
 }
