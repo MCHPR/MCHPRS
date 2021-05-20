@@ -65,9 +65,11 @@ The networking thread handles all incoming clients. The client is then sent to t
 
 ### Plot thread
 
-The plot thread handles most of the logic for the server. The plot thread is where the real magic happens. Player movement, player rotation, WorldEdit, command handling, world-saving/loading, etc. are all handled by this thread. If this thread crashes somehow, the player will be sent back to the server thread to be moved to another plot*.
-
-\* Not yet implemented.
+The plot thread handles most of the logic for the server. The plot
+thread is where the real magic happens. Player movement, player
+rotation, WorldEdit, command handling, world-saving/loading, etc. are
+all handled by this thread. If this thread crashes somehow, the player
+will be sent back to the server thread to be moved to another plot.
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
