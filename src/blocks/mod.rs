@@ -1538,7 +1538,7 @@ blocks! {
                 facing: Default::default()
             }
         },
-        get_name: "redstone_block",
+        get_name: "observer",
         solid: true,
         cube: true,
     },
