@@ -24,7 +24,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, Instant};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {
@@ -826,13 +826,25 @@ impl Plot {
         if let Some(player) = initial_player {
             self.enter_plot(player);
         }
+
         while self.running {
+            // Fast path, for super high RTPS
+            if self.sleep_time <= Duration::from_millis(5) {
+                self.update();
+                thread::yield_now();
+                continue;
+            }
+
+            let before = Instant::now();
             self.update();
-            // This is a little hacky.
-            // Here we should calculate how much time has passed and how long we should sleep
-            // until the next tick (Maybe don't even sleep at all if tps is set extremely high?)
-            thread::yield_now();
-            // thread::sleep(self.sleep_time);
+            let delta = Instant::now().duration_since(before);
+
+            if delta < self.sleep_time {
+                let sleep_time = self.sleep_time - delta;
+                thread::sleep(sleep_time);
+            } else {
+                thread::yield_now();
+            }
         }
     }
 
