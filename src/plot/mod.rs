@@ -632,11 +632,7 @@ impl Plot {
                 }
             }
 
-            let mut multi_block_packets = Vec::new();
-            for chunk in &mut self.chunks {
-                multi_block_packets.append(&mut chunk.drain_multi_block());
-            }
-            for packet in multi_block_packets {
+            for packet in self.chunks.iter_mut().flat_map(|c| c.drain_multi_block()) {
                 let encoded = packet.encode();
                 for player in &mut self.players {
                     player.client.send_packet(&encoded);
