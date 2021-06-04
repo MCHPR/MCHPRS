@@ -328,7 +328,7 @@ lazy_static! {
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36],
+                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36, 47],
                 redirect_node: None,
                 name: None,
                 parser: None,
@@ -700,6 +700,22 @@ lazy_static! {
                 redirect_node: Some(44),
                 name: Some("tp"),
                 parser: None,
+            },
+            // 47: //shift
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![35],
+                redirect_node: None,
+                name: Some("/shift"),
+                parser: None,
+            },
+            // 48: //shift [amount]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("amount"),
+                parser: Some(Parser::Integer(0, 256)),
             },
         ],
         root_index: 0

@@ -472,6 +472,16 @@ lazy_static! {
             description: "Contract the selection area",
             ..Default::default()
         },
+        "/shift" => WorldeditCommand {
+            arguments: &[
+                argument!("amount", UnsignedInteger, "Amount to shift the selection by"),
+                argument!("direction", Direction, "Direction to shift")
+            ],
+            requires_positions: true,
+            execute_fn: execute_shift,
+            description: "Shift the selection area",
+            ..Default::default()
+        },
         "/help" => WorldeditCommand {
             arguments: &[
                 argument!("command", String, "Command to retrieve help for"),
@@ -1424,6 +1434,30 @@ fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
     }
 
     player.send_worldedit_message(&format!("Region contracted {} block(s).", amount));
+}
+
+fn execute_shift(mut ctx: CommandExecuteContext<'_>) {
+    let amount = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
+    let player = ctx.get_player_mut();
+    let first_pos = player.first_position.unwrap();
+    let second_pos = player.second_position.unwrap();
+
+    let mut move_both_points = |x, y, z| {
+        player.worldedit_set_first_position(BlockPos::new(first_pos.x + x, first_pos.y + y, first_pos.z + z));
+        player.worldedit_set_second_position(BlockPos::new(second_pos.x + x, second_pos.y + y, second_pos.z + z));
+    };
+
+    match direction {
+        BlockFacing::Up => move_both_points(0, amount as i32, 0),
+        BlockFacing::Down => move_both_points(0, -(amount as i32), 0),
+        BlockFacing::East => move_both_points(amount as i32, 0, 0),
+        BlockFacing::West => move_both_points(-(amount as i32), 0, 0),
+        BlockFacing::South => move_both_points(0, 0, amount as i32),
+        BlockFacing::North => move_both_points(0, 0, -(amount as i32)),
+    }
+
+    player.send_worldedit_message(&format!("Region shifted {} block(s).", amount));
 }
 
 fn execute_help(mut ctx: CommandExecuteContext<'_>) {
