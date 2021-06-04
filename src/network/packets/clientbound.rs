@@ -543,7 +543,7 @@ pub struct CJoinGameDimensionCodec {
 
 #[derive(Serialize)]
 struct CJoinGameDimensionCodecInner {
-    #[serde(rename = "minecraft:dimention_type")]
+    #[serde(rename = "minecraft:dimension_type")]
     pub dimensions: NBTMap<CJoinGameDimensionElement>,
     #[serde(rename = "minecraft:worldgen/biome")]
     pub biomes: NBTMap<CJoinGameBiomeElement>,
@@ -551,16 +551,16 @@ struct CJoinGameDimensionCodecInner {
 
 impl CJoinGameDimensionCodec {
     fn encode(self, buf: &mut Vec<u8>) {
-        let mut dimention_map = NBTMap::new("minecraft:dimension_type".to_owned());
+        let mut dimension_map = NBTMap::new("minecraft:dimension_type".to_owned());
         for (name, element) in self.dimensions {
-            dimention_map.push_element(name, element);
+            dimension_map.push_element(name, element);
         }
         let mut biome_map = NBTMap::new("minecraft:worldgen/biome".to_owned());
         for (name, element) in self.biomes {
             biome_map.push_element(name, element);
         }
         let codec = CJoinGameDimensionCodecInner {
-            dimensions: dimention_map,
+            dimensions: dimension_map,
             biomes: biome_map,
         };
         buf.write_nbt(codec);

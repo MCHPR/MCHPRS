@@ -836,6 +836,10 @@ impl Block {
     }
 
     pub fn is_valid_position(self, world: &impl World, pos: BlockPos) -> bool {
+        if world.is_cursed() {
+            return true;
+        }
+
         match self {
             Block::RedstoneWire { .. }
             | Block::RedstoneComparator { .. }

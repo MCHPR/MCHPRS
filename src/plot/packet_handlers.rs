@@ -152,7 +152,6 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
-    // Returns true if packets should stop being handled
     fn handle_chat_message(&mut self, chat_message: SChatMessage, player: usize) {
         let message = chat_message.message;
         if message.starts_with('/') {
@@ -421,17 +420,18 @@ impl ServerBoundPacketHandler for Plot {
         if self.players[player].sprinting {
             bitfield |= 0x08
         };
-        let mut metadata_entries = Vec::new();
-        metadata_entries.push(CEntityMetadataEntry {
-            index: 0,
-            metadata_type: 0,
-            value: vec![bitfield],
-        });
-        metadata_entries.push(CEntityMetadataEntry {
-            index: 6,
-            metadata_type: 18,
-            value: vec![if self.players[player].crouching { 5 } else { 0 }],
-        });
+        let metadata_entries = vec![
+            CEntityMetadataEntry {
+                index: 0,
+                metadata_type: 0,
+                value: vec![bitfield],
+            },
+            CEntityMetadataEntry {
+                index: 6,
+                metadata_type: 18,
+                value: vec![if self.players[player].crouching { 5 } else { 0 }],
+            },
+        ];
         let entity_metadata = CEntityMetadata {
             entity_id: self.players[player].entity_id as i32,
             metadata: metadata_entries,

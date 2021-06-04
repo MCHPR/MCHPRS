@@ -61,7 +61,8 @@ impl Plot {
                     let center = Plot::get_center(plot_x, plot_z);
                     self.players[player].teleport(center.0, 64.0, center.1);
                 } else {
-                    self.players[player].send_system_message(&format!("{} does not own any plots.", args[0]));
+                    self.players[player]
+                        .send_system_message(&format!("{} does not own any plots.", args[0]));
                 }
             }
             "teleport" | "tp" => {
@@ -236,7 +237,8 @@ impl Plot {
                     }
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
-                    let player = self.leave_plot(player);
+                    let uuid = self.players[player].uuid;
+                    let player = self.leave_plot(uuid);
                     let _ = self
                         .message_sender
                         .send(Message::PlayerTeleportOther(player, args[0].to_string()));

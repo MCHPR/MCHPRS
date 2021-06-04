@@ -495,7 +495,7 @@ lazy_static! {
 
 lazy_static! {
     static ref ALIASES: HashMap<&'static str, &'static str> = map! {
-        "u" => "/up",
+        "u" => "up",
         "/1" => "/pos1",
         "/2" => "/pos2",
         "/c" => "/copy",

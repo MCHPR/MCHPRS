@@ -62,8 +62,8 @@ pub fn get_owned_plot(player: &str) -> Option<(i32, i32)> {
                 AND is_owner=TRUE",
             params![player],
             |row| Ok((row.get(0)?, row.get(1)?)),
-    )
-    .ok()
+        )
+        .ok()
 }
 
 pub fn is_claimed(plot_x: i32, plot_z: i32) -> Option<bool> {

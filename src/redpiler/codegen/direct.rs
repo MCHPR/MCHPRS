@@ -4,8 +4,8 @@ use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::redpiler::{LinkType, Node, NodeId};
 use crate::world::{TickEntry, TickPriority};
-use std::collections::HashMap;
 use log::warn;
+use std::collections::HashMap;
 use std::fmt;
 
 struct RPTickEntry {

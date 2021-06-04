@@ -50,6 +50,8 @@ pub trait World {
     fn get_player(&self, uuid: u128) -> Option<&Player>;
 
     fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player>;
+
+    fn is_cursed(&self) -> bool;
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

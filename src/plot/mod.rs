@@ -54,6 +54,7 @@ pub struct Plot {
     chunks: Vec<Chunk>,
     pub redpiler: Compiler,
     timings: TimingsMonitor,
+    cursed_mode: bool,
 }
 
 impl World for Plot {
@@ -196,6 +197,10 @@ impl World for Plot {
 
     fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player> {
         self.players.iter_mut().find(|p| p.uuid == uuid)
+    }
+
+    fn is_cursed(&self) -> bool {
+        self.cursed_mode
     }
 }
 
@@ -443,8 +448,9 @@ impl Plot {
         }
     }
 
-    fn leave_plot(&mut self, player_index: usize) -> Player {
-        let mut player = self.players.remove(player_index);
+    fn leave_plot(&mut self, uuid: u128) -> Player {
+        let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
+        let mut player = self.players.remove(player_idx);
         let mut entity_ids = Vec::new();
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
@@ -698,8 +704,7 @@ impl Plot {
         }
 
         for uuid in outside_players {
-            let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
-            let player = self.leave_plot(player_idx);
+            let player = self.leave_plot(uuid);
             let player_leave_plot = Message::PlayerLeavePlot(player);
             self.message_sender.send(player_leave_plot).unwrap();
         }
@@ -752,6 +757,7 @@ impl Plot {
             to_be_ticked: plot_data.pending_ticks,
             redpiler: Default::default(),
             timings: TimingsMonitor::new(plot_data.tps),
+            cursed_mode: false,
         }
     }
 
@@ -800,6 +806,7 @@ impl Plot {
                 to_be_ticked: Vec::new(),
                 redpiler: Default::default(),
                 timings: TimingsMonitor::new(10),
+                cursed_mode: false,
             }
         }
     }
@@ -879,7 +886,8 @@ impl Drop for Plot {
             }
 
             for index in 0..self.players.len() {
-                let player = self.leave_plot(index);
+                let uuid = self.players[index].uuid;
+                let player = self.leave_plot(uuid);
                 self.message_sender
                     .send(Message::PlayerLeavePlot(player))
                     .unwrap();
