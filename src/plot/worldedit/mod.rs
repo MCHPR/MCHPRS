@@ -1308,7 +1308,7 @@ fn execute_expand(mut ctx: CommandExecuteContext<'_>) {
                     Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
         }
         BlockFacing::South => {
             let (pos, set_fn) = if first_pos.z > second_pos.z {
@@ -1322,7 +1322,7 @@ fn execute_expand(mut ctx: CommandExecuteContext<'_>) {
                     Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
         }
     }
 
@@ -1405,7 +1405,7 @@ fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
                     Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
         }
         BlockFacing::South => {
             let (pos, set_fn) = if first_pos.z > second_pos.z {
@@ -1419,11 +1419,11 @@ fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
                     Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
                 )
             };
-            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
         }
     }
 
-    player.send_worldedit_message(&format!("Region expanded {} block(s).", amount));
+    player.send_worldedit_message(&format!("Region contracted {} block(s).", amount));
 }
 
 fn execute_help(mut ctx: CommandExecuteContext<'_>) {
