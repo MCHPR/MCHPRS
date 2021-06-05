@@ -72,9 +72,9 @@ impl NetworkClient {
 
     pub fn send_packet(&mut self, data: &PacketEncoder) {
         if self.compressed.load(Ordering::Relaxed) {
-            let _ = self.stream.write_all(&data.compressed());
+            let _ = data.write_compressed(&self.stream);
         } else {
-            let _ = self.stream.write_all(&data.uncompressed());
+            let _ = data.write_uncompressed(&self.stream);
         }
     }
 

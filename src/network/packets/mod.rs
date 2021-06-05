@@ -321,22 +321,25 @@ pub trait PacketEncoderExt: Write {
         self.write_u8(val as u8).unwrap();
     }
 
-    fn write_nbt_blob(&mut self, blob: nbt::Blob);
-
     fn write_nbt<T: Serialize>(&mut self, nbt: T) {
         let _ = nbt::to_writer(self, &nbt, None);
     }
-}
 
-impl PacketEncoderExt for Vec<u8> {
-    fn write_nbt_blob(&mut self, blob: nbt::Blob) {
+    fn write_nbt_blob(&mut self, blob: nbt::Blob)
+    where
+        Self: Sized,
+    {
         blob.to_writer(self).unwrap();
     }
 }
 
+impl PacketEncoderExt for Vec<u8> {}
+
 pub struct PacketEncoder {
     buffer: Vec<u8>,
     packet_id: u32,
+    // c_cache: Option<Vec<u8>>,
+    // unc_cache: Option<Vec<u8>>,
 }
 
 impl PacketEncoder {
@@ -361,29 +364,53 @@ impl PacketEncoder {
         }
     }
 
-    pub fn compressed(&self) -> Vec<u8> {
+    pub fn write_compressed(&self, mut w: impl Write) -> io::Result<()> {
+        // TODO: zero allocation
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
-        let data = [&packet_id[..], &self.buffer[..]].concat();
+        let data = [packet_id.as_slice(), self.buffer.as_slice()].concat();
         if self.buffer.len() < 256 {
-            let data_length = PacketEncoder::varint(0);
-            let packet_length = PacketEncoder::varint((data_length.len() + data.len()) as i32);
-            [&packet_length[..], &data_length[..], &data[..]].concat()
+            // Data Length adds another byte
+            let packet_length = PacketEncoder::varint((1 + data.len()) as i32);
+
+            w.write_all(&packet_length)?;
+            // Data Length: 0 because uncompressed
+            w.write_all(&[0])?;
+            w.write_all(&data)?;
         } else {
             let data_length = PacketEncoder::varint(data.len() as i32);
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-            encoder.write_all(&data).unwrap();
+            encoder.write_all(&data)?;
             let compressed = encoder.finish().unwrap();
             let packet_length =
                 PacketEncoder::varint((data_length.len() + compressed.len()) as i32);
 
-            [&packet_length[..], &data_length[..], &compressed[..]].concat()
+            w.write_all(&packet_length)?;
+            w.write_all(&data_length)?;
+            w.write_all(&compressed)?;
         }
+
+        // self.c_cache = Some(finished);
+        // return self.c_cache.as_ref().unwrap();
+
+        Ok(())
     }
 
-    pub fn uncompressed(&self) -> Vec<u8> {
+    pub fn write_uncompressed(&self, mut w: impl Write) -> io::Result<()> {
+        // if let Some(data) = &self.unc_cache {
+        //     return &data;
+        // }
+
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
         let length = PacketEncoder::varint((self.buffer.len() + packet_id.len()) as i32);
 
-        [&length[..], &packet_id[..], &self.buffer[..]].concat()
+        // https://github.com/rust-lang/rust/issues/70436
+        w.write_all(&length)?;
+        w.write_all(&packet_id)?;
+        w.write_all(&self.buffer)?;
+
+        // self.unc_cache = Some([&length[..], &packet_id[..], &self.buffer[..]].concat());
+        // return self.c_cache.as_ref().unwrap();
+
+        Ok(())
     }
 }

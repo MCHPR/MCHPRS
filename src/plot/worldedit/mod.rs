@@ -1444,8 +1444,16 @@ fn execute_shift(mut ctx: CommandExecuteContext<'_>) {
     let second_pos = player.second_position.unwrap();
 
     let mut move_both_points = |x, y, z| {
-        player.worldedit_set_first_position(BlockPos::new(first_pos.x + x, first_pos.y + y, first_pos.z + z));
-        player.worldedit_set_second_position(BlockPos::new(second_pos.x + x, second_pos.y + y, second_pos.z + z));
+        player.worldedit_set_first_position(BlockPos::new(
+            first_pos.x + x,
+            first_pos.y + y,
+            first_pos.z + z,
+        ));
+        player.worldedit_set_second_position(BlockPos::new(
+            second_pos.x + x,
+            second_pos.y + y,
+            second_pos.z + z,
+        ));
     };
 
     match direction {
