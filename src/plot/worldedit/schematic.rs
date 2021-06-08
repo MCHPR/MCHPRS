@@ -146,7 +146,6 @@ pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result
                     idx
                 } else {
                     let idx = pallette.len();
-                    dbg!(&full_name);
                     pallette.push(full_name);
                     idx
                 };
