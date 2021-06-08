@@ -2,9 +2,23 @@ mod redstone;
 
 use crate::items::{ActionResult, Item, UseOnBlockContext};
 use crate::world::{TickPriority, World};
+use mchprs_proc_macros::BlockProperty;
 pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+trait BlockProperty: Sized {
+    fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str);
+}
+
+impl<T> BlockProperty for T
+where
+    T: ToString,
+{
+    fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str) {
+        props.insert(name, self.to_string());
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
@@ -242,6 +256,17 @@ impl BlockDirection {
     }
 }
 
+impl ToString for BlockDirection {
+    fn to_string(&self) -> String {
+        match self {
+            BlockDirection::North => "north".to_owned(),
+            BlockDirection::South => "south".to_owned(),
+            BlockDirection::East => "east".to_owned(),
+            BlockDirection::West => "west".to_owned(),
+        }
+    }
+}
+
 impl Default for BlockDirection {
     fn default() -> Self {
         BlockDirection::West
@@ -352,6 +377,19 @@ impl BlockFacing {
     }
 }
 
+impl ToString for BlockFacing {
+    fn to_string(&self) -> String {
+        match self {
+            BlockFacing::North => "north".to_owned(),
+            BlockFacing::South => "south".to_owned(),
+            BlockFacing::East => "east".to_owned(),
+            BlockFacing::West => "west".to_owned(),
+            BlockFacing::Up => "up".to_owned(),
+            BlockFacing::Down => "down".to_owned(),
+        }
+    }
+}
+
 impl Default for BlockFacing {
     fn default() -> Self {
         BlockFacing::West
@@ -427,6 +465,11 @@ impl BlockColorVariant {
             _ => unreachable!(),
         }
     }
+}
+
+impl BlockProperty for BlockColorVariant {
+    // Don't encode: the color is encoded in the block name
+    fn encode(self, _props: &mut HashMap<&'static str, String>, _name: &'static str) {}
 }
 
 impl Block {
@@ -1188,6 +1231,24 @@ macro_rules! blocks {
                         } => $get_name,
                     )*
                 }
+            }
+
+            pub fn properties<'a>(&'a self) -> HashMap<&'static str, String> {
+                let mut props = HashMap::new();
+                match self {
+                    $(
+                        Block::$name {
+                            $(
+                                $prop_name,
+                            )*
+                        } => {
+                            $(
+                                <$prop_type as BlockProperty>::encode(*$prop_name, &mut props, stringify!($prop_name));
+                            )*
+                        },
+                    )*
+                }
+                props
             }
         }
     }

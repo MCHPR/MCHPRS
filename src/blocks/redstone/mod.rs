@@ -2,7 +2,7 @@ mod redstone_wire;
 
 pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 
-use crate::blocks::{Block, BlockDirection, BlockEntity, BlockFace, BlockPos};
+use crate::blocks::{Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty};
 use crate::world::{TickPriority, World};
 use std::cmp;
 
@@ -157,7 +157,7 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     power
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, BlockProperty)]
 pub struct RedstoneRepeater {
     pub delay: u8,
     pub facing: BlockDirection,
@@ -321,13 +321,22 @@ impl ComparatorMode {
     }
 }
 
+impl ToString for ComparatorMode {
+    fn to_string(&self) -> String {
+        match self {
+            ComparatorMode::Subtract => "subtract".to_owned(),
+            ComparatorMode::Compare => "compare".to_owned(),
+        }
+    }
+}
+
 impl Default for ComparatorMode {
     fn default() -> Self {
         ComparatorMode::Compare
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
 pub struct RedstoneComparator {
     pub facing: BlockDirection,
     pub mode: ComparatorMode,
@@ -518,13 +527,23 @@ impl LeverFace {
     }
 }
 
+impl ToString for LeverFace {
+    fn to_string(&self) -> String {
+        match self {
+            LeverFace::Floor => "floor".to_owned(),
+            LeverFace::Ceiling => "ceiling".to_owned(),
+            LeverFace::Wall => "wall".to_owned(),
+        }
+    }
+}
+
 impl Default for LeverFace {
     fn default() -> Self {
         LeverFace::Wall
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
 pub struct Lever {
     pub face: LeverFace,
     pub facing: BlockDirection,
@@ -575,13 +594,23 @@ impl ButtonFace {
     }
 }
 
+impl ToString for ButtonFace {
+    fn to_string(&self) -> String {
+        match self {
+            ButtonFace::Floor => "floor".to_owned(),
+            ButtonFace::Ceiling => "ceiling".to_owned(),
+            ButtonFace::Wall => "wall".to_owned(),
+        }
+    }
+}
+
 impl Default for ButtonFace {
     fn default() -> Self {
         ButtonFace::Wall
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
 pub struct StoneButton {
     pub face: ButtonFace,
     pub facing: BlockDirection,

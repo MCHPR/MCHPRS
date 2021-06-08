@@ -115,6 +115,7 @@ impl TimingsMonitor {
         ticking: &Arc<AtomicBool>,
         timings_record: &Arc<Mutex<Vec<u32>>>,
     ) -> JoinHandle<()> {
+        // Put this stuff in a struct?
         let running = Arc::clone(running);
         let tps = Arc::clone(tps);
         let ticks_count = Arc::clone(ticks_passed);

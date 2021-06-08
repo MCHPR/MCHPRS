@@ -1,4 +1,4 @@
-use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos};
+use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos, BlockProperty};
 use crate::world::World;
 use std::collections::HashMap;
 
@@ -39,6 +39,16 @@ impl RedstoneWireSide {
     }
 }
 
+impl ToString for RedstoneWireSide {
+    fn to_string(&self) -> String {
+        match self {
+            RedstoneWireSide::Up => "up".to_owned(),
+            RedstoneWireSide::Side => "side".to_owned(),
+            RedstoneWireSide::None => "none".to_owned(),
+        }
+    }
+}
+
 impl Default for RedstoneWireSide {
     fn default() -> RedstoneWireSide {
         RedstoneWireSide::None
@@ -64,7 +74,7 @@ impl RedstoneWireSide {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
 pub struct RedstoneWire {
     pub north: RedstoneWireSide,
     pub south: RedstoneWireSide,

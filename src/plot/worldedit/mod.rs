@@ -6,9 +6,10 @@ use crate::chat::{ChatColor, ChatComponentBuilder};
 use crate::player::Player;
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
+use log::error;
 use rand::Rng;
 use regex::Regex;
-use schematic::load_schematic;
+use schematic::{load_schematic, save_schematic};
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::RangeInclusive;
@@ -450,6 +451,15 @@ lazy_static! {
             ],
             execute_fn: execute_load,
             description: "Loads a schematic file into the clipboard",
+            ..Default::default()
+        },
+        "/save" => WorldeditCommand {
+            arguments: &[
+                argument!("name", String, "The file name of the schematic to save")
+            ],
+            requires_clipboard: true,
+            execute_fn: execute_save,
+            description: "Save a schematic file from the clipboard",
             ..Default::default()
         },
         "/expand" => WorldeditCommand {
@@ -1133,8 +1143,31 @@ fn execute_load(mut ctx: CommandExecuteContext<'_>) {
             ));
         }
         None => {
+            error!("There was an error loading a schematic.");
             ctx.get_player_mut()
                 .send_error_message("There was an error loading the schematic.");
+        }
+    }
+}
+
+fn execute_save(mut ctx: CommandExecuteContext<'_>) {
+    let start_time = Instant::now();
+
+    let file_name = ctx.arguments[0].unwrap_string();
+    let clipboard = ctx.get_player().worldedit_clipboard.as_ref().unwrap();
+
+    match save_schematic(file_name, clipboard) {
+        Ok(_) => {
+            ctx.get_player_mut().send_worldedit_message(&format!(
+                "The schematic was saved sucessfuly. ({:?})",
+                start_time.elapsed()
+            ));
+        }
+        Err(err) => {
+            error!("There was an error saving a schematic: ");
+            error!("{:?}", err);
+            ctx.get_player_mut()
+                .send_error_message("There was an error saving the schematic.");
         }
     }
 }

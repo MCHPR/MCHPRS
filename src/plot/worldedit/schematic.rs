@@ -1,7 +1,9 @@
 use super::WorldEditClipboard;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::world::storage::PalettedBitBuffer;
+use anyhow::Result;
 use regex::Regex;
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
 
@@ -82,4 +84,106 @@ pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
         data,
         block_entities: parsed_block_entities,
     })
+}
+
+#[derive(Serialize)]
+struct Metadata {
+    #[serde(rename = "WEOffsetX")]
+    offset_x: i32,
+    #[serde(rename = "WEOffsetY")]
+    offset_y: i32,
+    #[serde(rename = "WEOffsetZ")]
+    offset_z: i32,
+}
+
+/// Used to serialize schematics in NBT. This cannot be used for deserialization because of
+/// [a bug](https://github.com/PistonDevelopers/hematite_nbt/issues/45) in `hematite-nbt`.
+#[derive(Serialize)]
+#[serde(rename_all = "PascalCase")]
+struct Schematic {
+    width: i16,
+    length: i16,
+    height: i16,
+    palette: nbt::Blob,
+    metadata: Metadata,
+    #[serde(serialize_with="nbt::i8_array")]
+    block_data: Vec<i8>,
+    block_entities: Vec<nbt::Blob>,
+    version: i32,
+    data_version: i32,
+}
+
+pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result<()> {
+    let mut file = File::create("./schems/".to_owned() + file_name)?;
+    let size_x = clipboard.size_x;
+    let size_y = clipboard.size_y;
+    let size_z = clipboard.size_z;
+    let offset_x = -clipboard.offset_x;
+    let offset_y = -clipboard.offset_y;
+    let offset_z = -clipboard.offset_z;
+    let blocks = &clipboard.data;
+
+    let mut data = Vec::new();
+    let mut pallette = Vec::new();
+    for y_offset in (0..size_y).map(|y| y * size_z * size_x) {
+        for z_offset in (0..size_z).map(|z| z * size_x) {
+            for x in 0..size_x {
+                let entry = blocks.get_entry((y_offset + z_offset + x) as usize);
+                let block = Block::from_id(entry);
+
+                let name = format!("minecraft:{}", block.get_name());
+                let props = block.properties();
+                let full_name = if !props.is_empty() {
+                    let props_strs: Vec<String> = props
+                        .iter()
+                        .map(|(name, val)| format!("{}={}", name, val))
+                        .collect();
+                    format!("{}[{}]", name, props_strs.join(","))
+                } else {
+                    name
+                };
+                let idx = if let Some(idx) = pallette.iter().position(|s| *s == full_name) {
+                    idx
+                } else {
+                    let idx = pallette.len();
+                    dbg!(&full_name);
+                    pallette.push(full_name);
+                    idx
+                };
+                data.push(idx as i8);
+            }
+        }
+    }
+
+    let mut encoded_pallete = nbt::Blob::named("Palette");
+    for (i, entry) in pallette.iter().enumerate() {
+        encoded_pallete.insert(entry, i as i32)?;
+    }
+
+    let mut block_entities = Vec::new();
+    for (pos, block_entity) in &clipboard.block_entities {
+        if let Some(blob) = block_entity.to_nbt(*pos) {
+            block_entities.push(blob);
+        }
+    }
+
+    let metadata = Metadata {
+        offset_x,
+        offset_y,
+        offset_z,
+    };
+    let schematic = Schematic {
+        width: size_x as i16,
+        length: size_z as i16,
+        height: size_y as i16,
+        block_data: data,
+        block_entities,
+        palette: encoded_pallete,
+        metadata,
+        version: 2,
+        data_version: 2586,
+    };
+    nbt::to_gzip_writer(&mut file, &schematic, Some("Schematic"))?;
+
+    Ok(())
 }

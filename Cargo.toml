@@ -1,3 +1,6 @@
+[workspace]
+members = ["proc_macros"]
+
 [package]
 name = "mchprs"
 version = "0.3.0"
@@ -26,6 +29,7 @@ name = "bitbuffer"
 harness = false
 
 [dependencies]
+mchprs_proc_macros = { path = "./proc_macros" }
 toml = "0.5.8"
 flate2 = "1.0.20"
 byteorder = "1.4.2"
@@ -45,6 +49,7 @@ regex = "1.4.3"
 lazy_static = "1.4.0"
 backtrace = "0.3.56"
 rusqlite = { version="0.24.2", features=["bundled"] }
+anyhow = "1.0"
 # TODO: Put the cranelift stuff behind a feature flag
 cranelift = "0.73.0"
 cranelift-jit = "0.73.0"

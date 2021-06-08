@@ -663,6 +663,7 @@ checksum = "60302e4db3a61da70c0cb7991976248362f30319e88850c487b9b95bbf059e00"
 name = "mchprs"
 version = "0.3.0"
 dependencies = [
+ "anyhow",
  "backtrace",
  "bincode",
  "bitflags",
@@ -679,6 +680,7 @@ dependencies = [
  "hematite-nbt",
  "lazy_static",
  "log",
+ "mchprs_proc_macros",
  "md5",
  "rand",
  "regex",
@@ -686,6 +688,14 @@ dependencies = [
  "serde",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "mchprs_proc_macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
