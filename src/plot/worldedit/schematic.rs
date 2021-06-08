@@ -1,3 +1,6 @@
+//! This implements Sponge Schematic Specification ver. 2
+//! https://github.com/SpongePowered/Schematic-Specification/blob/master/versions/schematic-2.md
+
 use super::WorldEditClipboard;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::world::storage::PalettedBitBuffer;
@@ -106,7 +109,7 @@ struct Schematic {
     height: i16,
     palette: nbt::Blob,
     metadata: Metadata,
-    #[serde(serialize_with="nbt::i8_array")]
+    #[serde(serialize_with = "nbt::i8_array")]
     block_data: Vec<i8>,
     block_entities: Vec<nbt::Blob>,
     version: i32,

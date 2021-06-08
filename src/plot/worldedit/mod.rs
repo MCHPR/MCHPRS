@@ -549,7 +549,7 @@ pub struct WorldEditClipboard {
 
 #[derive(Clone, Debug)]
 pub struct WorldEditUndo {
-    clipboard: WorldEditClipboard,
+    clipboards: Vec<WorldEditClipboard>,
     pos: BlockPos,
     plot_x: i32,
     plot_z: i32,
@@ -1004,7 +1004,7 @@ fn capture_undo(plot: &mut Plot, player_uuid: u128, first_pos: BlockPos, second_
     let origin = first_pos.min(second_pos);
     let cb = create_clipboard(plot, origin, first_pos, second_pos);
     let undo = WorldEditUndo {
-        clipboard: cb,
+        clipboards: vec![cb],
         pos: origin,
         plot_x: plot.x,
         plot_z: plot.z,
@@ -1044,6 +1044,8 @@ fn execute_cut(mut ctx: CommandExecuteContext<'_>) {
     let first_pos = ctx.get_player().first_position.unwrap();
     let second_pos = ctx.get_player().second_position.unwrap();
 
+    capture_undo(ctx.plot, ctx.player_uuid, first_pos, second_pos);
+
     let origin = BlockPos::new(
         ctx.get_player().x.floor() as i32,
         ctx.get_player().y.floor() as i32,
@@ -1069,6 +1071,22 @@ fn execute_move(mut ctx: CommandExecuteContext<'_>) {
     let second_pos = ctx.get_player().second_position.unwrap();
 
     let zero_pos = BlockPos::new(0, 0, 0);
+
+    let undo = WorldEditUndo {
+        clipboards: vec![
+            create_clipboard(ctx.plot, first_pos.min(second_pos), first_pos, second_pos),
+            create_clipboard(
+                ctx.plot,
+                first_pos.min(second_pos),
+                direction.offset_pos(first_pos, move_amt as i32),
+                direction.offset_pos(second_pos, move_amt as i32),
+            ),
+        ],
+        pos: first_pos.min(second_pos),
+        plot_x: ctx.plot.x,
+        plot_z: ctx.plot.z,
+    };
+    ctx.get_player_mut().worldedit_undo.push(undo);
 
     let clipboard = create_clipboard(ctx.plot, zero_pos, first_pos, second_pos);
     clear_area(ctx.plot, first_pos, second_pos);
@@ -1214,7 +1232,9 @@ fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
             .send_error_message("Cannot undo outside of your current plot.");
         return;
     }
-    paste_clipboard(ctx.plot, &undo.clipboard, undo.pos, false);
+    for clipboard in &undo.clipboards {
+        paste_clipboard(ctx.plot, clipboard, undo.pos, false);
+    }
 }
 
 fn execute_sel(mut ctx: CommandExecuteContext<'_>) {

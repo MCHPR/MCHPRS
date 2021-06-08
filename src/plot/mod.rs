@@ -24,7 +24,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::{Duration, SystemTime, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {
