@@ -1196,24 +1196,33 @@ fn execute_stack(mut ctx: CommandExecuteContext<'_>) {
     let stack_amt = ctx.arguments[0].unwrap_uint();
     let direction = ctx.arguments[1].unwrap_direction();
     let pos1 = ctx.get_player().first_position.unwrap();
-    let clipboard = create_clipboard(
-        ctx.plot,
-        pos1,
-        pos1,
-        ctx.get_player().second_position.unwrap(),
-    );
-    let mut all_pos: Vec<BlockPos> = Vec::new();
+    let pos2 = ctx.get_player().second_position.unwrap();
+    let clipboard = create_clipboard(ctx.plot, pos1, pos1, pos2);
     let stack_offset = match direction {
         BlockFacing::North | BlockFacing::South => clipboard.size_z,
         BlockFacing::East | BlockFacing::West => clipboard.size_x,
         BlockFacing::Up | BlockFacing::Down => clipboard.size_y,
     };
+    let mut undo_cbs = Vec::new();
     for i in 1..stack_amt + 1 {
-        all_pos.push(direction.offset_pos(pos1, (i * stack_offset) as i32));
-    }
-    for block_pos in all_pos {
+        let offset = (i * stack_offset) as i32;
+        let block_pos = direction.offset_pos(pos1, offset);
+        undo_cbs.push(create_clipboard(
+            ctx.plot,
+            pos1,
+            block_pos,
+            direction.offset_pos(pos2, offset),
+        ));
         paste_clipboard(ctx.plot, &clipboard, block_pos, ctx.has_flag('a'));
     }
+    let undo = WorldEditUndo {
+        clipboards: undo_cbs,
+        pos: pos1,
+        plot_x: ctx.plot.x,
+        plot_z: ctx.plot.z,
+    };
+    ctx.get_player_mut().worldedit_undo.push(undo);
+
     ctx.get_player_mut().send_worldedit_message(&format!(
         "Your clipboard was stacked. ({:?})",
         start_time.elapsed()
