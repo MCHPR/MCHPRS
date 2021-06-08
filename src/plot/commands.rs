@@ -88,7 +88,6 @@ impl Plot {
 
                 let center = Plot::get_center(plot_x, plot_z);
                 self.players[player].teleport(center.0, 64.0, center.1);
-                return;
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }

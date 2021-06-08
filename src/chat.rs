@@ -8,50 +8,29 @@ lazy_static! {
 }
 
 #[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum ChatColor {
-    #[serde(rename = "black")]
     Black,
-    #[serde(rename = "dark_blue")]
     DarkBlue,
-    #[serde(rename = "dark_green")]
     DarkGreen,
-    #[serde(rename = "dark_aqua")]
     DarkAqua,
-    #[serde(rename = "dark_red")]
     DarkRed,
-    #[serde(rename = "dark_purple")]
     DarkPurple,
-    #[serde(rename = "gold")]
     Gold,
-    #[serde(rename = "gray")]
     Gray,
-    #[serde(rename = "dark_gray")]
     DarkGray,
-    #[serde(rename = "blue")]
     Blue,
-    #[serde(rename = "green")]
     Green,
-    #[serde(rename = "aqua")]
     Aqua,
-    #[serde(rename = "red")]
     Red,
-    #[serde(rename = "light_purple")]
     LightPurple,
-    #[serde(rename = "yellow")]
     Yellow,
-    #[serde(rename = "white")]
     White,
-    #[serde(rename = "obfuscated")]
     Obfuscated,
-    #[serde(rename = "bold")]
     Bold,
-    #[serde(rename = "strikethrough")]
     Strikethrough,
-    #[serde(rename = "underline")]
     Underline,
-    #[serde(rename = "italic")]
     Italic,
-    #[serde(rename = "reset")]
     Reset,
 }
 
@@ -86,12 +65,10 @@ impl ChatColor {
 }
 
 #[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 enum ClickEventType {
-    #[serde(rename = "open_url")]
     OpenUrl,
-    #[serde(rename = "run_command")]
     RunCommand,
-    #[serde(rename = "suggest_command")]
     SuggestCommand,
 }
 
