@@ -183,7 +183,7 @@ impl Plot {
                 if tps > 10 {
                     self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
                 } else {
-                    self.sleep_time = Duration::from_millis(2);
+                    self.sleep_time = Duration::from_millis(50);
                 }
                 self.timings.set_tps(tps);
                 self.lag_time = Duration::from_millis(0);
