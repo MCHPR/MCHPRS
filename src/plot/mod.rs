@@ -632,11 +632,14 @@ impl Plot {
                 }
             }
 
-            for packet in self.chunks.iter_mut().flat_map(|c| c.drain_multi_block()) {
+            for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
                 let encoded = packet.encode();
                 for player in &mut self.players {
                     player.client.send_packet(&encoded);
                 }
+            }
+            for chunk in &mut self.chunks {
+                chunk.reset_multi_blocks();
             }
         } else {
             self.timings.set_ticking(false);

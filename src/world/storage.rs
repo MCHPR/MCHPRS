@@ -514,12 +514,18 @@ impl Chunk {
         chunk
     }
 
-    pub fn drain_multi_block(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
+    pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
         let x = self.x;
         let z = self.z;
         self.sections.iter_mut()
             .map(move |(y, section)| section.drain_multi_block(x, *y as u32, z))
             .filter(|packet| !packet.records.is_empty())
+    }
+
+    pub fn reset_multi_blocks(&mut self) {
+        for section in self.sections.values_mut() {
+            section.multi_block.records.clear();
+        }
     }
 }
 
