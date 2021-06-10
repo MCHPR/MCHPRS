@@ -217,7 +217,7 @@ impl Default for PalettedBitBuffer {
 pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
-    multi_block: Vec<C3BMultiBlockChangeRecord>,
+    multi_block: CMultiBlockChange,
 }
 
 impl ChunkSection {
@@ -250,7 +250,12 @@ impl ChunkSection {
         ChunkSection {
             buffer,
             block_count: data.block_count as u32,
-            multi_block: Vec::new(),
+            multi_block: CMultiBlockChange {
+                chunk_x: 0,
+                chunk_y: 0,
+                chunk_z: 0,
+                records: Vec::new(),
+            },
         }
     }
 
@@ -283,7 +288,12 @@ impl ChunkSection {
         ChunkSection {
             buffer: Default::default(),
             block_count: 0,
-            multi_block: Vec::new(),
+            multi_block: CMultiBlockChange {
+                chunk_x: 0,
+                chunk_y: 0,
+                chunk_z: 0,
+                records: Vec::new(),
+            },
         }
     }
 
@@ -307,14 +317,12 @@ impl ChunkSection {
         }
     }
 
-    fn drain_multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> CMultiBlockChange {
-        let multi_block = self.multi_block.drain(..).collect();
-        CMultiBlockChange {
-            records: multi_block,
-            chunk_x,
-            chunk_y,
-            chunk_z,
-        }
+    fn drain_multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &CMultiBlockChange {
+        self.multi_block.chunk_x = chunk_x;
+        self.multi_block.chunk_y = chunk_y;
+        self.multi_block.chunk_z = chunk_z;
+        
+        &self.multi_block
     }
 }
 
@@ -415,7 +423,7 @@ impl Chunk {
         let changed = self.set_block_raw(x, y, z, block_id);
         if changed {
             let section_y = (y >> 4) as u8;
-            self.sections.get_mut(&section_y).unwrap().multi_block.push(
+            self.sections.get_mut(&section_y).unwrap().multi_block.records.push(
                 C3BMultiBlockChangeRecord {
                     block_id,
                     x: x as u8,
@@ -506,15 +514,12 @@ impl Chunk {
         chunk
     }
 
-    pub fn drain_multi_block(&mut self) -> Vec<CMultiBlockChange> {
-        let mut packets = Vec::new();
-        for (y, section) in &mut self.sections {
-            let packet = section.drain_multi_block(self.x, *y as u32, self.z);
-            if !packet.records.is_empty() {
-                packets.push(packet);
-            }
-        }
-        packets
+    pub fn drain_multi_block(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
+        let x = self.x;
+        let z = self.z;
+        self.sections.iter_mut()
+            .map(move |(y, section)| section.drain_multi_block(x, *y as u32, z))
+            .filter(|packet| !packet.records.is_empty())
     }
 }
 

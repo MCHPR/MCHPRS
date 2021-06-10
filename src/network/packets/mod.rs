@@ -246,8 +246,8 @@ pub trait PacketEncoderExt: Write {
     fn write_boolean(&mut self, val: bool) {
         self.write_all(&[val as u8]).unwrap();
     }
-    fn write_bytes(&mut self, val: Vec<u8>) {
-        self.write_all(&val).unwrap();
+    fn write_bytes(&mut self, val: &[u8]) {
+        self.write_all(val).unwrap();
     }
     fn write_varint(&mut self, val: i32) {
         let _ = self.write_all(&PacketEncoder::varint(val));
@@ -321,11 +321,11 @@ pub trait PacketEncoderExt: Write {
         self.write_u8(val as u8).unwrap();
     }
 
-    fn write_nbt<T: Serialize>(&mut self, nbt: T) {
-        let _ = nbt::to_writer(self, &nbt, None);
+    fn write_nbt<T: Serialize>(&mut self, nbt: &T) {
+        let _ = nbt::to_writer(self, nbt, None);
     }
 
-    fn write_nbt_blob(&mut self, blob: nbt::Blob)
+    fn write_nbt_blob(&mut self, blob: &nbt::Blob)
     where
         Self: Sized,
     {

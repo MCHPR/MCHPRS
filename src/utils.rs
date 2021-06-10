@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 struct NBTMapEntry<T: Serialize> {
     name: String,
     id: i32,
@@ -9,7 +9,7 @@ struct NBTMapEntry<T: Serialize> {
 
 /// This is a format used in the current network protocol,
 /// most notably used in the JoinGame packet.
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct NBTMap<T: Serialize> {
     #[serde(rename = "type")]
     self_type: String,
