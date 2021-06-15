@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, NO_PARAMS};
+use rusqlite::{params, Connection};
 use std::sync::{Mutex, MutexGuard};
 
 lazy_static! {
@@ -116,7 +116,7 @@ pub fn init() {
             uuid BLOB(16) UNIQUE NOT NULL,
             name VARCHAR(16) NOT NULL
         )",
-        NO_PARAMS,
+        [],
     )
     .unwrap();
 
@@ -126,7 +126,7 @@ pub fn init() {
             plot_x INTEGER NOT NULL,
             plot_z INTEGER NOT NULL
         )",
-        NO_PARAMS,
+        [],
     )
     .unwrap();
 
@@ -138,7 +138,7 @@ pub fn init() {
             FOREIGN KEY(user_id) REFERENCES user(id),
             FOREIGN KEY(plot_id) REFERENCES plot(id)
         )",
-        NO_PARAMS,
+        [],
     )
     .unwrap();
 }
