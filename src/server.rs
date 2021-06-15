@@ -635,10 +635,8 @@ impl ServerBoundPacketHandler for MinecraftServer {
         if client.state == NetworkState::Login && handshake.protocol_version != PROTOCOL_VERSION {
             warn!("A player tried to connect using the wrong version");
             let disconnect = CDisconnectLogin {
-                reason: json!({
-                    "text": format!("Version mismatch, I'm on {}!", MC_VERSION)
-                })
-                .to_string(),
+                reason: json!({ "text": format!("Version mismatch, I'm on {}!", MC_VERSION) })
+                    .to_string(),
             }
             .encode();
             client.send_packet(&disconnect);

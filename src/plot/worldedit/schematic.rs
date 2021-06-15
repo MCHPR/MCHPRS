@@ -3,8 +3,8 @@
 
 use super::WorldEditClipboard;
 use crate::blocks::{Block, BlockEntity, BlockPos};
-use crate::world::storage::PalettedBitBuffer;
 use crate::server::MC_DATA_VERSION;
+use crate::world::storage::PalettedBitBuffer;
 use anyhow::Result;
 use regex::Regex;
 use serde::Serialize;
