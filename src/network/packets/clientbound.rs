@@ -551,7 +551,8 @@ struct CJoinGameDimensionCodecInner {
 
 impl CJoinGameDimensionCodec {
     fn encode(&self, buf: &mut Vec<u8>) {
-        let mut dimension_map: NBTMap<CJoinGameDimensionElement> = NBTMap::new("minecraft:dimension_type".to_owned());
+        let mut dimension_map: NBTMap<CJoinGameDimensionElement> =
+            NBTMap::new("minecraft:dimension_type".to_owned());
         for (name, element) in &self.dimensions {
             dimension_map.push_element(name.clone(), element.clone());
         }

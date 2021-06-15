@@ -317,11 +317,16 @@ impl ChunkSection {
         }
     }
 
-    fn drain_multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &CMultiBlockChange {
+    fn drain_multi_block(
+        &mut self,
+        chunk_x: i32,
+        chunk_y: u32,
+        chunk_z: i32,
+    ) -> &CMultiBlockChange {
         self.multi_block.chunk_x = chunk_x;
         self.multi_block.chunk_y = chunk_y;
         self.multi_block.chunk_z = chunk_z;
-        
+
         &self.multi_block
     }
 }
@@ -423,14 +428,17 @@ impl Chunk {
         let changed = self.set_block_raw(x, y, z, block_id);
         if changed {
             let section_y = (y >> 4) as u8;
-            self.sections.get_mut(&section_y).unwrap().multi_block.records.push(
-                C3BMultiBlockChangeRecord {
+            self.sections
+                .get_mut(&section_y)
+                .unwrap()
+                .multi_block
+                .records
+                .push(C3BMultiBlockChangeRecord {
                     block_id,
                     x: x as u8,
                     y: y as u8 & 0xF,
                     z: z as u8,
-                },
-            );
+                });
         }
         changed
     }
@@ -517,7 +525,8 @@ impl Chunk {
     pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
         let x = self.x;
         let z = self.z;
-        self.sections.iter_mut()
+        self.sections
+            .iter_mut()
             .map(move |(y, section)| section.drain_multi_block(x, *y as u32, z))
             .filter(|packet| !packet.records.is_empty())
     }
