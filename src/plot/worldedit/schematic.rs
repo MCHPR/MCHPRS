@@ -4,6 +4,7 @@
 use super::WorldEditClipboard;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::world::storage::PalettedBitBuffer;
+use crate::server::MC_DATA_VERSION;
 use anyhow::Result;
 use regex::Regex;
 use serde::Serialize;
@@ -183,7 +184,7 @@ pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result
         palette: encoded_pallete,
         metadata,
         version: 2,
-        data_version: 2586,
+        data_version: MC_DATA_VERSION,
     };
     nbt::to_gzip_writer(&mut file, &schematic, Some("Schematic"))?;
 

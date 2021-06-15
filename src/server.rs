@@ -25,6 +25,10 @@ use std::fs;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
+pub const MC_VERSION: &str = "1.16.4";
+pub const MC_DATA_VERSION: i32 = 2586;
+pub const PROTOCOL_VERSION: i32 = 754;
+
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
 pub enum Message {
@@ -628,11 +632,11 @@ impl ServerBoundPacketHandler for MinecraftServer {
             2 => client.state = NetworkState::Login,
             _ => {}
         }
-        if client.state == NetworkState::Login && handshake.protocol_version != 754 {
+        if client.state == NetworkState::Login && handshake.protocol_version != PROTOCOL_VERSION {
             warn!("A player tried to connect using the wrong version");
             let disconnect = CDisconnectLogin {
                 reason: json!({
-                    "text": "Version mismatch, I'm on 1.16.4!"
+                    "text": format!("Version mismatch, I'm on {}!", MC_VERSION)
                 })
                 .to_string(),
             }
@@ -662,8 +666,8 @@ impl ServerBoundPacketHandler for MinecraftServer {
         let response = CResponse {
             json_response: json!({
                 "version": {
-                    "name": "1.16.4",
-                    "protocol": 754
+                    "name": MC_VERSION,
+                    "protocol": PROTOCOL_VERSION
                 },
                 "players": {
                     "max": CONFIG.max_players,
