@@ -1,3 +1,4 @@
+#[cfg(feature = "jit_cranelift")]
 pub mod cranelift;
 pub mod direct;
 pub mod llvm;
