@@ -27,6 +27,7 @@ enum PNodeType {
     Lamp,
     RedstoneBlock,
     Container,
+    Lever,
 }
 
 struct PNode {
@@ -57,6 +58,7 @@ impl From<Node> for PNode {
                 Block::StoneButton { .. } => PNodeType::StoneButton,
                 Block::RedstoneLamp { .. } => PNodeType::Lamp,
                 Block::RedstoneBlock { .. } => PNodeType::RedstoneBlock,
+                Block::Lever { .. } => PNodeType::Lever,
                 block if block.has_comparator_override() => PNodeType::Container,
                 _ => unreachable!(),
             },
@@ -71,6 +73,7 @@ impl From<Node> for PNode {
                 Block::RedstoneWallTorch { lit, .. } => lit,
                 Block::StoneButton { button } => button.powered,
                 Block::RedstoneLamp { lit } => lit,
+                Block::Lever { lever } => lever.powered,
                 Block::RedstoneBlock {} => true,
                 Block::RedstoneWire { .. } => false,
                 _ => unreachable!(),
@@ -142,40 +145,61 @@ impl JITBackend for ParDirectBackend {
         Default::default()
     }
 
-    fn on_use_block(&mut self, pos: BlockPos) {}
+    fn on_use_block(&mut self, pos: BlockPos) {
+        let node_id = self.pos_map[&pos];
+        let node = &self.nodes[node_id];
+        match node.ty {
+            PNodeType::Lever => {
+                node.powered.store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
+                schedule_updates(&self.updates_tx, node);
+            }
+            PNodeType::StoneButton => {
+                node.powered.store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
+                schedule_tick(&self.ticks_tx, node_id, 10, TickPriority::Normal);
+                schedule_updates(&self.updates_tx, node);
+            }
+            _ => {}
+        }
+        self.run_updates();
+    }
 
     fn tick(&mut self) {
-        let updates_tx = self.updates_tx.clone();
-        let ticks_tx = self.ticks_tx.clone();
-        let changes_tx = self.changes_tx.clone();
-        let nodes = self.nodes.clone();
-
+        // TODO: Tick priorities
         self.ticks.clear();
         self.ticks.extend(self.ticks_rx.try_iter());
         self.ticks.par_iter().for_each_with(
-            (updates_tx, changes_tx.clone(), nodes.clone()),
+            (self.updates_tx.clone(), self.changes_tx.clone(), self.nodes.clone()),
             |(updates_tx, changes_tx, nodes), tick: &RPTickEntry| {
                 tick_single(tick.node, nodes, updates_tx, &changes_tx)
             },
         );
 
-        self.updates.clear();
-        self.updates.extend(self.updates_rx.try_iter());
-        self.updates.par_iter().for_each_with(
-            (ticks_tx, changes_tx, nodes),
-            |(ticks_tx, changes_tx, nodes), node_id| {
-                update_single(*node_id, nodes, &ticks_tx, &changes_tx)
-            },
-        );
+        self.run_updates();
     }
 
     fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
+        for (i, node) in nodes.iter().enumerate() {
+            self.pos_map.insert(node.pos, i);
+        }
         let pnodes = nodes.into_iter().map(Into::into).collect();
         self.nodes = Arc::new(pnodes);
     }
 
     fn block_changes(&mut self) -> &mut Vec<(BlockPos, Block)> {
         &mut self.block_changes
+    }
+}
+
+impl ParDirectBackend {
+    fn run_updates(&mut self) {
+        self.updates.clear();
+        self.updates.extend(self.updates_rx.try_iter());
+        self.updates.par_iter().for_each_with(
+            (self.ticks_tx.clone(), self.changes_tx.clone(), self.nodes.clone()),
+            |(ticks_tx, changes_tx, nodes), node_id| {
+                update_single(*node_id, nodes, &ticks_tx, &changes_tx)
+            },
+        );
     }
 }
 
