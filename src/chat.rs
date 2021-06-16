@@ -11,7 +11,7 @@ fn is_valid_hex(ch: char) -> bool {
     ch.is_numeric() || ('a'..='f').contains(&ch) || ('A'..='F').contains(&ch)
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum ColorCode {
     Black,
@@ -38,16 +38,9 @@ pub enum ColorCode {
     Reset,
 }
 
-#[derive(Serialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum ChatColor {
-    Hex(String),
-    ColorCode(ColorCode)
-}
-
-impl ChatColor {
-    fn from_color_code(code: char) -> Option<ChatColor> {
-        Some(ChatColor::ColorCode(match code {
+impl ColorCode {
+    fn parse(code: char) -> Option<ColorCode> {
+        Some(match code {
             '0' => ColorCode::Black,
             '1' => ColorCode::DarkBlue,
             '2' => ColorCode::DarkGreen,
@@ -71,8 +64,20 @@ impl ChatColor {
             'o' => ColorCode::Italic,
             'r' => ColorCode::Reset,
             _ => return None,
-        }))
+        })
     }
+
+    fn is_formatting(self) -> bool {
+        use ColorCode::*;
+        matches!(self, Obfuscated | Bold | Strikethrough | Underline | Italic | Reset)
+    }
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum ChatColor {
+    Hex(String),
+    ColorCode(ColorCode)
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -157,25 +162,22 @@ impl ChatComponent {
         'main_loop: while let Some(c) = chars.next() {
             if c == '&' {
                 if let Some(code) = chars.next() {
-                    if let Some(color) = ChatColor::from_color_code(code) {
+                    if let Some(color) = ColorCode::parse(code) {
                         let make_new = !cur_component.text.is_empty();
-                        if make_new {
-                            components.push(cur_component);
-                            cur_component = Default::default();
+                        if color.is_formatting() && make_new {
+                            components.push(cur_component.clone());
+                            cur_component.text.clear();
                         }
                         match color {
-                            ChatColor::ColorCode(ColorCode::Bold) => cur_component.bold = true,
-                            ChatColor::ColorCode(ColorCode::Italic) => cur_component.italic = true,
-                            ChatColor::ColorCode(ColorCode::Underline) => cur_component.underlined = true,
-                            ChatColor::ColorCode(ColorCode::Strikethrough) => cur_component.strikethrough = true,
-                            ChatColor::ColorCode(ColorCode::Obfuscated) => cur_component.obfuscated = true,
+                            ColorCode::Bold => cur_component.bold = true,
+                            ColorCode::Italic => cur_component.italic = true,
+                            ColorCode::Underline => cur_component.underlined = true,
+                            ColorCode::Strikethrough => cur_component.strikethrough = true,
+                            ColorCode::Obfuscated => cur_component.obfuscated = true,
                             _ => {
-                                if !make_new {
-                                    // Make a new one anyways
-                                    components.push(cur_component);
-                                    cur_component = Default::default();
-                                }
-                                cur_component.color = Some(color);
+                                components.push(cur_component);
+                                cur_component = Default::default();
+                                cur_component.color = Some(ChatColor::ColorCode(color));
                             }
                         }
                         continue;
