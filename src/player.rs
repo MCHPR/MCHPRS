@@ -369,7 +369,7 @@ impl Player {
         self.client.send_packet(&chat_message);
     }
 
-    /// Sends a regular chat message to the player (`message` is not in json format)
+    /// Sends a raw chat message to the player
     pub fn send_chat_message(&mut self, sender: u128, message: Vec<ChatComponent>) {
         let json = json!({ "text": "", "extra": message }).to_string();
         self.send_raw_chat(sender, json);
