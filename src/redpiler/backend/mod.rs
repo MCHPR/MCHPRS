@@ -1,7 +1,6 @@
 #[cfg(feature = "jit_cranelift")]
 pub mod cranelift;
 pub mod direct;
-pub mod llvm;
 pub mod par_direct;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};

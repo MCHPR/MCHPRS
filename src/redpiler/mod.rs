@@ -1,11 +1,11 @@
-mod codegen;
+mod backend;
 
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
 };
 use crate::plot::Plot;
 use crate::world::{TickEntry, World};
-use codegen::{JITBackend, JITResetData};
+use backend::{JITBackend, JITResetData};
 use log::{error, warn};
 use std::collections::{HashMap, VecDeque};
 
@@ -559,7 +559,7 @@ impl Compiler {
 
         // TODO: Remove this once there is proper backend switching
         if compiler.jit.is_none() {
-            let jit: Box<codegen::direct::DirectBackend> = Default::default();
+            let jit: Box<backend::direct::DirectBackend> = Default::default();
             // let jit: Box<codegen::cranelift::CraneliftBackend> = Default::default();
             compiler.use_jit(jit);
         }
