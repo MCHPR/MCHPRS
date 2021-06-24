@@ -19,13 +19,6 @@ impl Plot {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
         match command {
-            "claim" | "c" => {
-                if database::is_claimed(plot_x, plot_z).unwrap() {
-                    self.players[player].send_system_message("Plot is already claimed!");
-                } else {
-                    self.claim_plot(plot_x, plot_z, player);
-                }
-            }
             "info" | "i" => {
                 if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
                     self.players[player].send_system_message(&format!(
@@ -34,6 +27,13 @@ impl Plot {
                     ));
                 } else {
                     self.players[player].send_system_message("Plot is not owned by anyone.");
+                }
+            }
+            "claim" | "c" => {
+                if database::is_claimed(plot_x, plot_z).unwrap() {
+                    self.players[player].send_system_message("Plot is already claimed!");
+                } else {
+                    self.claim_plot(plot_x, plot_z, player);
                 }
             }
             "auto" | "a" => {

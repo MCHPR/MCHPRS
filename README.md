@@ -7,9 +7,6 @@ A Minecraft creative server built for redstone. Each 256x256 plot runs on a sepa
 
 MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
-## Goals
-
-
 ## Building
 
 If the Rust compiler is not already installed, you can find out how [on their official website](https://www.rust-lang.org/tools/install).
@@ -25,15 +22,27 @@ Once complete, the optimized executable will be located at `./target/release/mch
 
 ## Usage
 
-### Commands
+### General Commands
 | Command | Alias | Description |
 | --- | --- |--- |
 | `/rtps [rtps]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two redstone ticks in a game tick) |
 | `/radvance [ticks]` | `/radv` | Advances the plot by `[ticks]` redstone ticks. |
 | `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
+| `/speed [speed]` | `/tp` | Sets your flyspeed. |
+| `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
 | `/stop` | None | Stops the server. |
+
+### Plot ownership
+The plot ownership system in MCHPRS is very incomplete.
+These are the commands that are currently implemented:
+| Command | Alias | Description |
+| --- | --- |--- |
 | `/plot info` | `/p i` | Gets the owner of the plot you are in. |
 | `/plot claim` | `/p c` | Claims the plot you are in if it is not already claimed. |
+| `/plot auto` | `/p a` | Automatically finds an unclaimed plot and claims. |
+| `/plot middle` | None | Teleports you to the center of the plot you are in. |
+| `/plot visit [player]` | `/p v` | Teleports you to a player's plot. |
+| `/plot tp [x] [z]` | `/p v` | Teleports you to a plot at (x, z). |
 
 ### Worldedit
 MCHPRS provides its own implementation of [WorldEdit](https://github.com/EngineHub/WorldEdit). Visit their [documentation](https://worldedit.enginehub.org/en/latest/commands/) for more information.
