@@ -349,6 +349,50 @@ lazy_static! {
             ],
             ..Default::default()
         },
+        "/pos1" => WorldeditCommand {
+            execute_fn: execute_pos1,
+            description: "Set position 1",
+            ..Default::default()
+        },
+        "/pos2" => WorldeditCommand {
+            execute_fn: execute_pos2,
+            description: "Set position 2",
+            ..Default::default()
+        },
+        "/hpos1" => WorldeditCommand {
+            execute_fn: execute_hpos1,
+            description: "Set position 1 to targeted block",
+            ..Default::default()
+        },
+        "/hpos2" => WorldeditCommand {
+            execute_fn: execute_hpos2,
+            description: "Set position 2 to targeted block",
+            ..Default::default()
+        },
+        "/sel" => WorldeditCommand {
+            execute_fn: execute_sel,
+            description: "Choose a region selector",
+            ..Default::default()
+        },
+        "/set" => WorldeditCommand {
+            arguments: &[
+                argument!("pattern", Pattern, "The pattern of blocks to set")
+            ],
+            requires_positions: true,
+            execute_fn: execute_set,
+            description: "Sets all the blocks in the region",
+            ..Default::default()
+        },
+        "/replace" => WorldeditCommand {
+            arguments: &[
+                argument!("from", Mask, "The mask representng blocks to replace"),
+                argument!("to", Pattern, "The pattern of blocks to replace with")
+            ],
+            requires_positions: true,
+            execute_fn: execute_replace,
+            description: "Replace all blocks in a selection with another",
+            ..Default::default()
+        },
         "/copy" => WorldeditCommand {
             requires_positions: true,
             execute_fn: execute_copy,
@@ -411,40 +455,6 @@ lazy_static! {
             description: "Counts the number of blocks matching a mask",
             ..Default::default()
         },
-        "/sel" => WorldeditCommand {
-            execute_fn: execute_sel,
-            description: "Choose a region selector",
-            ..Default::default()
-        },
-        "/set" => WorldeditCommand {
-            arguments: &[
-                argument!("pattern", Pattern, "The pattern of blocks to set")
-            ],
-            requires_positions: true,
-            execute_fn: execute_set,
-            description: "Sets all the blocks in the region",
-            ..Default::default()
-        },
-        "/pos1" => WorldeditCommand {
-            execute_fn: execute_pos1,
-            description: "Set position 1",
-            ..Default::default()
-        },
-        "/pos2" => WorldeditCommand {
-            execute_fn: execute_pos2,
-            description: "Set position 2",
-            ..Default::default()
-        },
-        "/replace" => WorldeditCommand {
-            arguments: &[
-                argument!("from", Mask, "The mask representng blocks to replace"),
-                argument!("to", Pattern, "The pattern of blocks to replace with")
-            ],
-            requires_positions: true,
-            execute_fn: execute_replace,
-            description: "Replace all blocks in a selection with another",
-            ..Default::default()
-        },
         "/load" => WorldeditCommand {
             arguments: &[
                 argument!("name", String, "The file name of the schematic to load")
@@ -498,16 +508,6 @@ lazy_static! {
             ],
             execute_fn: execute_help,
             description: "Displays help for WorldEdit commands",
-            ..Default::default()
-        },
-        "/hpos1" => WorldeditCommand {
-            execute_fn: execute_hpos1,
-            description: "Set position 1 to targeted block",
-            ..Default::default()
-        },
-        "/hpos2" => WorldeditCommand {
-            execute_fn: execute_hpos2,
-            description: "Set position 2 to targeted block",
             ..Default::default()
         }
     };

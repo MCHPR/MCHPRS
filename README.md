@@ -8,6 +8,9 @@ A Minecraft creative server built for redstone. Each 256x256 plot runs on a sepa
 
 MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
+## Goals
+
+
 ## Building
 
 If the Rust compiler is not already installed, you can find out how [on their official website](https://www.rust-lang.org/tools/install).
@@ -32,17 +35,33 @@ Once complete, the optimized executable will be located at `./target/release/mch
 | `/stop` | None | Stops the server. |
 | `/plot info` | `/p i` | Gets the owner of the plot you are in. |
 | `/plot claim` | `/p c` | Claims the plot you are in if it is not already claimed. |
-| `//pos1` | `//1` | Sets your worldedit first position. |
-| `//pos2` | `//2` | Sets your worldedit second position. |
-| `//set [block]` | None | Sets all the blocks in your selection to `[block]` |
-| `//replace [oldblock] [newblock]` | None | Replaces all of the `[oldblock]` in your selection with `[newblock]`. |
-| `//copy` | `//c` | Copies your selection into your clipboard. |
-| `//paste` | `//p` | Pastes your clipboard into the world. |
-| `//undo` | None | Undos the last operation. |
+
+### Worldedit
+MCHPRS provides its own implementation of [WorldEdit](https://github.com/EngineHub/WorldEdit). Visit their [documentation](https://worldedit.enginehub.org/en/latest/commands/) for more information.
+These are the commands that are currently implemented:
+| Command | Alias | Description |
+| --- | --- |--- |
+| `/up` | `/u` | Go upwards some distance |
+| `//pos1` | `//1` | Set position 1 |
+| `//pos2` | `//2` | Set position 2 |
+| `//hpos1` | `//h1` | Set position 1 to targeted block |
+| `//hpos2` | `//h2` | Set position 2 to targeted block |
 | `//sel` | None | Clears your worldedit first and second positions. |
-| `//stack` | None | Stacks your selection in the direction you are facing. |
-| `//count [block]` | None | Counts all `[block]` in your selection. |
+| `//set` | None | Sets all the blocks in the region |
+| `//replace` | None | Replace all blocks in a selection with another |
+| `//copy` | `//c` | Copy the selection to the clipboard |
+| `//cut` | `//x` | Cut the selection to the clipboard |
+| `//paste` | `//v` | Paste the clipboard's contents |
+| `//undo` | None | Undo's the last action (from history) |
+| `//stack` | `//s` | Repeat the contents of the selection |
+| `//move` | None | Move the contents of the selection |
+| `//count` | None | Counts the number of blocks matching a mask |
 | `//load` | None | Loads a schematic from the `./schems/` folder. Make sure the schematic in the Sponge format if there are any issues. |
+| `//save` | None | Save a schematic to the `./schems/` folder. |
+| `//expand` | `//e` | Expand the selection area |
+| `//contract` | None | Contract the selection area |
+| `//shift` | None | Shift the selection area |
+| `//help` | None | Displays help for WorldEdit commands |
 
 ## Acknowledgments
 - [@AL1L](https://github.com/AL1L) for his contributions to worldedit and other various features.
@@ -50,26 +69,6 @@ Once complete, the optimized executable will be located at `./target/release/mch
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
-
-## Under the hood
-
-When the server starts up, the main thread, which will from now on be referred to as the server thread, loads the `Config.toml` file and starts the networking thread. Threads communicate using message passing.
-
-### Server thread
-
-The server thread handles the initialization process of the server and the login/ping procedure for connecting clients. If a client completes the login procedure, a `Player` struct will be loaded containing the client.
-
-### Networking thread
-
-The networking thread handles all incoming clients. The client is then sent to the server thread through message passing.
-
-### Plot thread
-
-The plot thread handles most of the logic for the server. The plot
-thread is where the real magic happens. Player movement, player
-rotation, WorldEdit, command handling, world-saving/loading, etc. are
-all handled by this thread. If this thread crashes somehow, the player
-will be sent back to the server thread to be moved to another plot.
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
