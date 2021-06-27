@@ -2,7 +2,7 @@ mod schematic;
 
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockFace, BlockFacing, BlockPos};
-use crate::chat::{ColorCode, ChatComponentBuilder};
+use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::player::Player;
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;

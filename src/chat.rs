@@ -1,5 +1,4 @@
 use regex::Regex;
-use serde::ser::Serializer;
 use serde::Serialize;
 
 lazy_static! {
@@ -69,7 +68,10 @@ impl ColorCode {
 
     fn is_formatting(self) -> bool {
         use ColorCode::*;
-        matches!(self, Obfuscated | Bold | Strikethrough | Underline | Italic | Reset)
+        matches!(
+            self,
+            Obfuscated | Bold | Strikethrough | Underline | Italic | Reset
+        )
     }
 }
 
@@ -77,7 +79,7 @@ impl ColorCode {
 #[serde(untagged)]
 pub enum ChatColor {
     Hex(String),
-    ColorCode(ColorCode)
+    ColorCode(ColorCode),
 }
 
 #[derive(Serialize, Debug, Clone)]

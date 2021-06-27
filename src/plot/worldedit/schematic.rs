@@ -30,7 +30,7 @@ pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
     let mut palette: HashMap<u32, u32> = HashMap::new();
     for (k, v) in nbt_palette {
         let id = *nbt_unwrap_val!(v, Value::Int) as u32;
-        let captures = RE.captures(&k)?;
+        let captures = RE.captures(k)?;
         let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
         if let Some(properties_match) = captures.get(2) {
             let properties: Vec<&str> = properties_match.as_str().split(&[',', '='][..]).collect();

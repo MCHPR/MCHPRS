@@ -150,11 +150,13 @@ impl JITBackend for ParDirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             PNodeType::Lever => {
-                node.powered.store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
+                node.powered
+                    .store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
                 schedule_updates(&self.updates_tx, node);
             }
             PNodeType::StoneButton => {
-                node.powered.store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
+                node.powered
+                    .store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
                 schedule_tick(&self.ticks_tx, node_id, 10, TickPriority::Normal);
                 schedule_updates(&self.updates_tx, node);
             }
@@ -168,7 +170,11 @@ impl JITBackend for ParDirectBackend {
         self.ticks.clear();
         self.ticks.extend(self.ticks_rx.try_iter());
         self.ticks.par_iter().for_each_with(
-            (self.updates_tx.clone(), self.changes_tx.clone(), self.nodes.clone()),
+            (
+                self.updates_tx.clone(),
+                self.changes_tx.clone(),
+                self.nodes.clone(),
+            ),
             |(updates_tx, changes_tx, nodes), tick: &RPTickEntry| {
                 tick_single(tick.node, nodes, updates_tx, &changes_tx)
             },
@@ -195,7 +201,11 @@ impl ParDirectBackend {
         self.updates.clear();
         self.updates.extend(self.updates_rx.try_iter());
         self.updates.par_iter().for_each_with(
-            (self.ticks_tx.clone(), self.changes_tx.clone(), self.nodes.clone()),
+            (
+                self.ticks_tx.clone(),
+                self.changes_tx.clone(),
+                self.nodes.clone(),
+            ),
             |(ticks_tx, changes_tx, nodes), node_id| {
                 update_single(*node_id, nodes, &ticks_tx, &changes_tx)
             },
