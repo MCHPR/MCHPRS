@@ -15,13 +15,15 @@ use crate::network::{NetworkServer, NetworkState};
 use crate::player::{Gamemode, Player};
 use crate::plot::commands::DECLARE_COMMANDS;
 use crate::plot::{self, database, Plot};
+use crate::utils::HyphenatedUUID;
 use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
-use std::fs;
+use std::fs::{self, File};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
@@ -105,6 +107,12 @@ struct PlotListEntry {
     priv_message_sender: mpsc::Sender<PrivMessage>,
 }
 
+#[derive(Serialize, Deserialize)]
+struct WhitelistEntry {
+    uuid: HyphenatedUUID,
+    name: String,
+}
+
 /// This represents a minecraft server
 pub struct MinecraftServer {
     network: NetworkServer,
@@ -113,6 +121,7 @@ pub struct MinecraftServer {
     plot_sender: Sender<Message>,
     online_players: HashMap<u128, PlayerListEntry>,
     running_plots: Vec<PlotListEntry>,
+    whitelist: Option<Vec<WhitelistEntry>>,
 }
 
 impl MinecraftServer {
@@ -171,6 +180,11 @@ impl MinecraftServer {
         })
         .expect("There was an error setting the ctrlc handler");
 
+        let whitelist = CONFIG.whitelist.then(|| {
+            let whitelist_file = File::open("whitelist.json").unwrap();
+            serde_json::from_reader(whitelist_file).unwrap()
+        });
+
         // Create server struct
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
@@ -179,6 +193,7 @@ impl MinecraftServer {
             plot_sender: plot_tx,
             online_players: HashMap::new(),
             running_plots: Vec::new(),
+            whitelist,
         };
 
         // Load the spawn area plot on server start
@@ -294,15 +309,30 @@ impl MinecraftServer {
 
     fn handle_player_login(&mut self, client_idx: usize, login_start: SLoginStart) {
         let clients = &mut self.network.handshaking_clients;
-        clients[client_idx].username = Some(login_start.name);
+        let username = login_start.name;
+        clients[client_idx].username = Some(username.clone());
         let set_compression = CSetCompression { threshold: 256 }.encode();
         clients[client_idx].send_packet(&set_compression);
         clients[client_idx].set_compressed(true);
-        let username = if let Some(name) = &clients[client_idx].username {
-            name.clone()
-        } else {
-            Default::default()
-        };
+
+        if let Some(whitelist) = &self.whitelist {
+            let whitelisted = if let Some(uuid) = clients[client_idx].uuid {
+                whitelist.iter().any(|entry| entry.uuid.0 == uuid)
+            } else {
+                whitelist.iter().any(|entry| entry.name == username)
+            };
+            if !whitelisted {
+                let disconnect = CDisconnectLogin {
+                    reason: json!({
+                        "text": "You are not whitelisted on this server"
+                    })
+                    .to_string(),
+                }
+                .encode();
+                clients[client_idx].send_packet(&disconnect);
+            }
+        }
+
         let uuid = clients[client_idx]
             .uuid
             .unwrap_or_else(|| Player::generate_offline_uuid(&username));

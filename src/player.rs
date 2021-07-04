@@ -4,6 +4,7 @@ use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
+use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
 use log::warn;
 use serde::{Deserialize, Serialize};
@@ -116,7 +117,7 @@ impl fmt::Debug for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Player")
             .field("username", &self.username)
-            .field("uuid", &Player::uuid_with_hyphens(self.uuid))
+            .field("uuid", &HyphenatedUUID(self.uuid).to_string())
             .finish()
     }
 }
@@ -129,15 +130,6 @@ impl Player {
             // Encode version and varient into uuid
             & (!(0xC << 60) & !(0xF << 76))
             | ((0x8 << 60) | (0x3 << 76))
-    }
-
-    pub fn uuid_with_hyphens(uuid: u128) -> String {
-        let mut hex = format!("{:032x}", uuid);
-        hex.insert(8, '-');
-        hex.insert(13, '-');
-        hex.insert(18, '-');
-        hex.insert(23, '-');
-        hex
     }
 
     /// This will load the player from the file. If the file does not exist,

@@ -207,7 +207,7 @@ impl ParDirectBackend {
                 self.nodes.clone(),
             ),
             |(ticks_tx, changes_tx, nodes), node_id| {
-                update_single(*node_id, nodes, &ticks_tx, &changes_tx)
+                update_single(*node_id, nodes, ticks_tx, changes_tx)
             },
         );
     }
