@@ -611,6 +611,18 @@ impl Plot {
         }
     }
 
+    fn flush_block_changes(&mut self) {
+        for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
+            let encoded = packet.encode();
+            for player in &mut self.players {
+                player.client.send_packet(&encoded);
+            }
+        }
+        for chunk in &mut self.chunks {
+            chunk.reset_multi_blocks();
+        }
+    }
+
     fn update(&mut self) {
         self.handle_messages();
 
@@ -632,15 +644,7 @@ impl Plot {
                 }
             }
 
-            for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
-                let encoded = packet.encode();
-                for player in &mut self.players {
-                    player.client.send_packet(&encoded);
-                }
-            }
-            for chunk in &mut self.chunks {
-                chunk.reset_multi_blocks();
-            }
+            self.flush_block_changes();
         } else {
             self.timings.set_ticking(false);
             // Unload plot after 600 seconds unless the plot should be always loaded

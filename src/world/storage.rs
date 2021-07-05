@@ -218,6 +218,8 @@ pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
     multi_block: CMultiBlockChange,
+    changed_blocks: [i16; 16 * 16 * 16],
+    changed: bool,
 }
 
 impl ChunkSection {
@@ -237,9 +239,14 @@ impl ChunkSection {
         } else if old_block != 0 && block == 0 {
             self.block_count -= 1;
         }
-        self.buffer
-            .set_entry(ChunkSection::get_index(x, y, z), block);
-        old_block != block
+        let idx = ChunkSection::get_index(x, y, z);
+        self.buffer.set_entry(idx, block);
+        let changed = old_block != block;
+        if changed {
+            self.changed = true;
+            self.changed_blocks[idx] = block as i16;
+        }
+        changed
     }
 
     fn load(data: ChunkSectionData) -> ChunkSection {
@@ -256,6 +263,8 @@ impl ChunkSection {
                 chunk_z: 0,
                 records: Vec::new(),
             },
+            changed_blocks: [-1; 16 * 16 * 16],
+            changed: false,
         }
     }
 
@@ -294,6 +303,8 @@ impl ChunkSection {
                 chunk_z: 0,
                 records: Vec::new(),
             },
+            changed_blocks: [-1; 16 * 16 * 16],
+            changed: false,
         }
     }
 
@@ -317,16 +328,22 @@ impl ChunkSection {
         }
     }
 
-    fn drain_multi_block(
-        &mut self,
-        chunk_x: i32,
-        chunk_y: u32,
-        chunk_z: i32,
-    ) -> &CMultiBlockChange {
+    fn multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &CMultiBlockChange {
         self.multi_block.chunk_x = chunk_x;
         self.multi_block.chunk_y = chunk_y;
         self.multi_block.chunk_z = chunk_z;
-
+        for (i, block) in self.changed_blocks.iter().enumerate() {
+            if *block >= 0 {
+                self.multi_block.records.push(C3BMultiBlockChangeRecord {
+                    block_id: *block as u32,
+                    x: (i & 0xF) as u8,
+                    y: (i >> 8) as u8,
+                    z: ((i & 0xF0) >> 4) as u8,
+                })
+            }
+        }
+        self.changed = false;
+        self.changed_blocks = [-1; 16 * 16 * 16];
         &self.multi_block
     }
 }
@@ -425,22 +442,7 @@ impl Chunk {
     }
 
     pub fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
-        let changed = self.set_block_raw(x, y, z, block_id);
-        if changed {
-            let section_y = (y >> 4) as u8;
-            self.sections
-                .get_mut(&section_y)
-                .unwrap()
-                .multi_block
-                .records
-                .push(C3BMultiBlockChangeRecord {
-                    block_id,
-                    x: x as u8,
-                    y: y as u8 & 0xF,
-                    z: z as u8,
-                });
-        }
-        changed
+        self.set_block_raw(x, y, z, block_id)
     }
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
@@ -525,10 +527,11 @@ impl Chunk {
     pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
         let x = self.x;
         let z = self.z;
-        self.sections
-            .iter_mut()
-            .map(move |(y, section)| section.drain_multi_block(x, *y as u32, z))
-            .filter(|packet| !packet.records.is_empty())
+        self.sections.iter_mut().filter_map(move |(y, section)| {
+            section
+                .changed
+                .then(move || section.multi_block(x, *y as u32, z))
+        })
     }
 
     pub fn reset_multi_blocks(&mut self) {
