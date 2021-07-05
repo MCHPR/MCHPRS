@@ -313,18 +313,14 @@ impl ChunkSection {
             bits_per_block: self.buffer.data.bits_per_entry as u8,
             block_count: self.block_count as i16,
             data_array: self.buffer.data.longs.clone(),
-            palette: if self.buffer.use_palette {
-                Some(
-                    self.buffer
-                        .palette
-                        .clone()
-                        .into_iter()
-                        .map(|x| x as i32)
-                        .collect(),
-                )
-            } else {
-                None
-            },
+            palette: self.buffer.use_palette.then(|| {
+                self.buffer
+                    .palette
+                    .clone()
+                    .into_iter()
+                    .map(|x| x as i32)
+                    .collect()
+            }),
         }
     }
 
@@ -394,13 +390,7 @@ impl Chunk {
             })
             .for_each(drop);
         CChunkData {
-            // Use `bool_to_option` feature when stabalized
-            // Tracking issue: https://github.com/rust-lang/rust/issues/80967
-            biomes: if full_chunk {
-                Some(vec![0; 1024])
-            } else {
-                None
-            },
+            biomes: full_chunk.then(|| vec![0; 1024]),
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,
