@@ -5,13 +5,13 @@ use crate::world::{TickEntry, TickPriority};
 use log::warn;
 use rayon::prelude::*;
 use std::collections::HashMap;
-use std::mem;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
 
+#[derive(Debug)]
 struct RPTickEntry {
-    ticks_left: u32,
+    ticks_left: i32,
     tick_priority: TickPriority,
     node: usize,
 }
@@ -28,6 +28,11 @@ enum PNodeType {
     RedstoneBlock,
     Container,
     Lever,
+}
+
+enum BlockChange {
+    Power(usize, u8),
+    RepeaterLock(usize, bool),
 }
 
 struct PNode {
@@ -111,8 +116,8 @@ pub struct ParDirectBackend {
     updates_rx: Receiver<usize>,
     ticks_tx: Sender<RPTickEntry>,
     ticks_rx: Receiver<RPTickEntry>,
-    changes_tx: Sender<(usize, u8)>,
-    changes_rx: Receiver<(usize, u8)>,
+    changes_tx: Sender<BlockChange>,
+    changes_rx: Receiver<BlockChange>,
     updates: Vec<usize>,
     ticks: Vec<RPTickEntry>,
     pos_map: HashMap<BlockPos, usize>,
@@ -142,6 +147,28 @@ impl Default for ParDirectBackend {
 
 impl JITBackend for ParDirectBackend {
     fn reset(&mut self) -> JITResetData {
+        let mut ticks = Vec::new();
+        self.ticks.retain(|tick| tick.ticks_left >= 0);
+        for entry in self.ticks.drain(..) {
+            ticks.push(TickEntry {
+                ticks_left: entry.ticks_left as u32,
+                tick_priority: entry.tick_priority,
+                pos: self.blocks[entry.node].0,
+            })
+        }
+
+        let mut block_entities = Vec::new();
+        for (node_id, node) in self.nodes.iter().enumerate() {
+            if let PNodeType::Comparator(_) = node.ty {
+                let block_entity = BlockEntity::Comparator {
+                    output_strength: node.output_strength.load(Ordering::Relaxed),
+                };
+                block_entities.push((self.blocks[node_id].0, block_entity));
+            }
+        }
+
+        // TODO: Reuse the old allocations
+        *self = Default::default();
         Default::default()
     }
 
@@ -150,42 +177,63 @@ impl JITBackend for ParDirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             PNodeType::Lever => {
-                node.powered
-                    .store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
-                schedule_updates(&self.updates_tx, node);
+                let powered = !node.powered.load(Ordering::Relaxed);
+                node.powered.store(powered, Ordering::Relaxed);
+                self.changes_tx
+                    .send(BlockChange::Power(node_id, powered as u8))
+                    .unwrap();
+                schedule_updates(&self.updates_tx, &self.nodes, node_id);
             }
             PNodeType::StoneButton => {
-                node.powered
-                    .store(!node.powered.load(Ordering::Relaxed), Ordering::Relaxed);
+                let powered = !node.powered.load(Ordering::Relaxed);
+                node.powered.store(powered, Ordering::Relaxed);
+                self.changes_tx
+                    .send(BlockChange::Power(node_id, powered as u8))
+                    .unwrap();
                 schedule_tick(&self.ticks_tx, node_id, 10, TickPriority::Normal);
-                schedule_updates(&self.updates_tx, node);
+                schedule_updates(&self.updates_tx, &self.nodes, node_id);
             }
             _ => {}
         }
         self.run_updates();
+        self.collect_changes();
     }
 
     fn tick(&mut self) {
         // TODO: Tick priorities
-        self.ticks.clear();
         self.ticks.extend(self.ticks_rx.try_iter());
-        self.ticks.par_iter().for_each_with(
+        self.ticks.par_iter_mut().for_each_with(
             (
                 self.updates_tx.clone(),
                 self.changes_tx.clone(),
                 self.nodes.clone(),
             ),
-            |(updates_tx, changes_tx, nodes), tick: &RPTickEntry| {
-                tick_single(tick.node, nodes, updates_tx, &changes_tx)
+            |(updates_tx, changes_tx, nodes), tick: &mut RPTickEntry| {
+                if tick.ticks_left == 0 {
+                    tick_single(tick.node, nodes, updates_tx, changes_tx)
+                }
+                tick.ticks_left -= 1;
             },
         );
+        self.ticks.retain(|tick| tick.ticks_left >= 0);
 
         self.run_updates();
+        self.collect_changes();
     }
 
     fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
         for (i, node) in nodes.iter().enumerate() {
+            self.blocks.push((node.pos, node.state));
             self.pos_map.insert(node.pos, i);
+        }
+        for entry in ticks {
+            if let Some(node) = self.pos_map.get(&entry.pos) {
+                self.ticks.push(RPTickEntry {
+                    ticks_left: entry.ticks_left as i32,
+                    tick_priority: entry.tick_priority,
+                    node: *node,
+                });
+            }
         }
         let pnodes = nodes.into_iter().map(Into::into).collect();
         self.nodes = Arc::new(pnodes);
@@ -210,6 +258,32 @@ impl ParDirectBackend {
                 update_single(*node_id, nodes, ticks_tx, changes_tx)
             },
         );
+    }
+
+    fn collect_changes(&mut self) {
+        for change in self.changes_rx.try_iter() {
+            match change {
+                BlockChange::Power(node_id, power) => {
+                    let powered = power > 0;
+                    match &mut self.blocks[node_id].1 {
+                        Block::RedstoneComparator { comparator } => comparator.powered = powered,
+                        Block::RedstoneTorch { lit } => *lit = powered,
+                        Block::RedstoneWallTorch { lit, .. } => *lit = powered,
+                        Block::RedstoneRepeater { repeater } => repeater.powered = powered,
+                        Block::RedstoneWire { wire } => wire.power = power as u8,
+                        Block::Lever { lever } => lever.powered = powered,
+                        Block::StoneButton { button } => button.powered = powered,
+                        Block::RedstoneLamp { lit } => *lit = powered,
+                        _ => {}
+                    }
+                    self.block_changes.push(self.blocks[node_id]);
+                }
+                BlockChange::RepeaterLock(node_id, locked) => match &mut self.blocks[node_id].1 {
+                    Block::RedstoneRepeater { repeater } => repeater.locked = locked,
+                    _ => panic!("tried to lock a node which wasn't a repeater"),
+                },
+            }
+        }
     }
 }
 
@@ -247,14 +321,16 @@ fn schedule_tick(
         .send(RPTickEntry {
             node: node_id,
             tick_priority: priority,
-            ticks_left: delay,
+            ticks_left: delay as i32,
         })
         .unwrap()
 }
 
-fn schedule_updates(updates_tx: &Sender<usize>, node: &PNode) {
-    for link in &node.outputs {
-        updates_tx.send(*link).unwrap();
+fn schedule_updates(updates_tx: &Sender<usize>, nodes: &Arc<Vec<PNode>>, node_id: usize) {
+    for link in &nodes[node_id].outputs {
+        if !nodes[*link].update_queued.load(Ordering::Relaxed) {
+            updates_tx.send(*link).unwrap();
+        }
     }
 }
 
@@ -262,9 +338,10 @@ fn update_single(
     node_id: usize,
     nodes: &Arc<Vec<PNode>>,
     ticks_tx: &Sender<RPTickEntry>,
-    changes_tx: &Sender<(usize, u8)>,
+    changes_tx: &Sender<BlockChange>,
 ) {
     let node = &nodes[node_id];
+    node.update_queued.store(false, Ordering::Relaxed);
 
     let mut input_power = 0u8;
     let mut side_input_power = 0u8;
@@ -287,9 +364,15 @@ fn update_single(
             if !locked && should_be_locked {
                 locked = true;
                 node.locked.store(true, Ordering::Relaxed);
+                changes_tx
+                    .send(BlockChange::RepeaterLock(node_id, true))
+                    .unwrap();
             } else if locked && !should_be_locked {
                 locked = false;
                 node.locked.store(false, Ordering::Relaxed);
+                changes_tx
+                    .send(BlockChange::RepeaterLock(node_id, false))
+                    .unwrap();
             }
 
             if !locked && !nodes[node_id].pending_tick.load(Ordering::Relaxed) {
@@ -338,12 +421,16 @@ fn update_single(
                 schedule_tick(ticks_tx, node_id, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
                 node.powered.store(true, Ordering::Relaxed);
+                changes_tx.send(BlockChange::Power(node_id, 15)).unwrap();
             }
         }
         PNodeType::Wire => {
             let power = node.output_strength.load(Ordering::Relaxed);
             if power != input_power {
                 node.output_strength.store(input_power, Ordering::Relaxed);
+                changes_tx
+                    .send(BlockChange::Power(node_id, input_power))
+                    .unwrap();
             }
         }
         _ => {}
@@ -354,7 +441,7 @@ fn tick_single(
     node_id: usize,
     nodes: &Arc<Vec<PNode>>,
     updates_tx: &Sender<usize>,
-    changes_tx: &Sender<(usize, u8)>,
+    changes_tx: &Sender<BlockChange>,
 ) {
     let node = &nodes[node_id];
     node.pending_tick.store(false, Ordering::Relaxed);
@@ -383,10 +470,12 @@ fn tick_single(
             let powered = node.powered.load(Ordering::Relaxed);
             if powered && !should_be_powered {
                 node.powered.store(false, Ordering::Relaxed);
-                schedule_updates(updates_tx, node);
+                changes_tx.send(BlockChange::Power(node_id, 0)).unwrap();
+                schedule_updates(updates_tx, nodes, node_id);
             } else if !powered {
                 node.powered.store(true, Ordering::Relaxed);
-                schedule_updates(updates_tx, node);
+                changes_tx.send(BlockChange::Power(node_id, 15)).unwrap();
+                schedule_updates(updates_tx, nodes, node_id);
             }
         }
         PNodeType::Torch | PNodeType::WallTorch => {
@@ -394,10 +483,12 @@ fn tick_single(
             let lit = node.powered.load(Ordering::Relaxed);
             if lit && should_be_off {
                 node.powered.store(false, Ordering::Relaxed);
-                schedule_updates(updates_tx, node);
+                changes_tx.send(BlockChange::Power(node_id, 0)).unwrap();
+                schedule_updates(updates_tx, nodes, node_id);
             } else if !lit && !should_be_off {
                 node.powered.store(true, Ordering::Relaxed);
-                schedule_updates(updates_tx, node);
+                changes_tx.send(BlockChange::Power(node_id, 15)).unwrap();
+                schedule_updates(updates_tx, nodes, node_id);
             }
         }
         PNodeType::Comparator(mode) => {
@@ -410,10 +501,12 @@ fn tick_single(
                 let powered = node.powered.load(Ordering::Relaxed);
                 if powered && !should_be_powered {
                     node.powered.store(false, Ordering::Relaxed);
+                    changes_tx.send(BlockChange::Power(node_id, 0)).unwrap();
                 } else if !powered && should_be_powered {
                     node.powered.store(true, Ordering::Relaxed);
+                    changes_tx.send(BlockChange::Power(node_id, 15)).unwrap();
                 }
-                schedule_updates(updates_tx, node);
+                schedule_updates(updates_tx, nodes, node_id);
             }
         }
         PNodeType::Lamp => {
@@ -421,13 +514,15 @@ fn tick_single(
             let should_be_lit = input_power > 0;
             if lit && !should_be_lit {
                 node.powered.store(false, Ordering::Relaxed);
+                changes_tx.send(BlockChange::Power(node_id, 0)).unwrap();
             }
         }
         PNodeType::StoneButton => {
             let powered = node.powered.load(Ordering::Relaxed);
             if powered {
                 node.powered.store(false, Ordering::Relaxed);
-                schedule_updates(updates_tx, node);
+                changes_tx.send(BlockChange::Power(node_id, 0)).unwrap();
+                schedule_updates(updates_tx, nodes, node_id);
             }
         }
         _ => warn!("Node {:?} should not be ticked!", node.ty),
