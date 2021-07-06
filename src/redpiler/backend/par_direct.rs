@@ -81,6 +81,7 @@ impl From<Node> for PNode {
                 Block::Lever { lever } => lever.powered,
                 Block::RedstoneBlock {} => true,
                 Block::RedstoneWire { .. } => false,
+                block if block.has_comparator_override() => false,
                 _ => unreachable!(),
             }),
             output_strength: AtomicU8::new(node.comparator_output),
@@ -97,7 +98,7 @@ impl From<Node> for PNode {
 impl PNode {
     fn get_output_power(&self) -> u8 {
         match self.ty {
-            PNodeType::Comparator(_) => self.output_strength.load(Ordering::Relaxed),
+            PNodeType::Comparator(_) | PNodeType::Container => self.output_strength.load(Ordering::Relaxed),
             _ => {
                 if self.powered.load(Ordering::Relaxed) {
                     15
@@ -169,7 +170,9 @@ impl JITBackend for ParDirectBackend {
 
         // TODO: Reuse the old allocations
         *self = Default::default();
-        Default::default()
+        JITResetData {
+            block_entities, tick_entries: ticks
+        }
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
@@ -200,22 +203,23 @@ impl JITBackend for ParDirectBackend {
     }
 
     fn tick(&mut self) {
-        // TODO: Tick priorities
         self.ticks.extend(self.ticks_rx.try_iter());
-        self.ticks.par_iter_mut().for_each_with(
-            (
-                self.updates_tx.clone(),
-                self.changes_tx.clone(),
-                self.nodes.clone(),
-            ),
-            |(updates_tx, changes_tx, nodes), tick: &mut RPTickEntry| {
-                if tick.ticks_left == 0 {
-                    tick_single(tick.node, nodes, updates_tx, changes_tx)
-                }
-                tick.ticks_left -= 1;
-            },
-        );
-        self.ticks.retain(|tick| tick.ticks_left >= 0);
+        self.ticks.par_iter_mut().for_each(|tick| tick.ticks_left -= 1);
+        for priority in [TickPriority::Normal, TickPriority::High, TickPriority::Higher, TickPriority::Highest] {
+            self.ticks.par_iter_mut().for_each_with(
+                (
+                    self.updates_tx.clone(),
+                    self.changes_tx.clone(),
+                    self.nodes.clone(),
+                ),
+                |(updates_tx, changes_tx, nodes), tick: &mut RPTickEntry| {
+                    if tick.ticks_left == 0 && tick.tick_priority == priority {
+                        tick_single(tick.node, nodes, updates_tx, changes_tx)
+                    }
+                },
+            );
+        }
+        self.ticks.retain(|tick| tick.ticks_left > 0);
 
         self.run_updates();
         self.collect_changes();
@@ -327,6 +331,7 @@ fn schedule_tick(
 }
 
 fn schedule_updates(updates_tx: &Sender<usize>, nodes: &Arc<Vec<PNode>>, node_id: usize) {
+    updates_tx.send(node_id).unwrap();
     for link in &nodes[node_id].outputs {
         if !nodes[*link].update_queued.load(Ordering::Relaxed) {
             updates_tx.send(*link).unwrap();
