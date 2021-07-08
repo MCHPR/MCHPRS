@@ -167,7 +167,9 @@ impl World for Plot {
             self.redpiler.tick();
             return;
         }
-
+        
+        self.to_be_ticked
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
@@ -183,8 +185,6 @@ impl World for Plot {
             ticks_left: delay,
             tick_priority: priority,
         });
-        self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
     }
 
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool {

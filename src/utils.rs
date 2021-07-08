@@ -1,5 +1,5 @@
 use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::num::ParseIntError;
 use std::str::FromStr;
 

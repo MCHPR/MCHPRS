@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
+use std::fmt;
 
 #[derive(Debug)]
 struct RPTickEntry {
@@ -151,7 +152,7 @@ impl JITBackend for ParDirectBackend {
         self.ticks.retain(|tick| tick.ticks_left >= 0);
         for entry in self.ticks.drain(..) {
             ticks.push(TickEntry {
-                ticks_left: entry.ticks_left as u32 / 4,
+                ticks_left: entry.ticks_left as u32 / 5,
                 tick_priority: match entry.ticks_left % 4 {
                     0 => TickPriority::Highest,
                     1 => TickPriority::Higher,
@@ -238,7 +239,7 @@ impl JITBackend for ParDirectBackend {
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
                 self.ticks.push(RPTickEntry {
-                    ticks_left: entry.ticks_left as i32 * 4 + entry.tick_priority as i32,
+                    ticks_left: entry.ticks_left as i32 * 5 + entry.tick_priority as i32,
                     node: *node,
                 });
             }
@@ -326,20 +327,20 @@ fn schedule_tick(
     delay: u32,
     priority: TickPriority,
 ) {
-    
-    nodes[node_id].pending_tick.store(true, Ordering::Relaxed);
-    ticks_tx
+    if let Ok(false) = nodes[node_id].pending_tick.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed) {
+        ticks_tx
         .send(RPTickEntry {
             node: node_id,
-            ticks_left: (delay as i32 - 1) * 4 + priority as i32,
+            ticks_left: (delay as i32 - 1) * 5 + priority as i32,
         })
-        .unwrap()
+        .unwrap();
+    }
 }
 
 fn schedule_updates(updates_tx: &Sender<usize>, nodes: &Arc<Vec<PNode>>, node_id: usize) {
     updates_tx.send(node_id).unwrap();
     for link in &nodes[node_id].outputs {
-        if !nodes[*link].update_queued.load(Ordering::Relaxed) {
+        if let Ok(false) = nodes[*link].update_queued.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed) {
             updates_tx.send(*link).unwrap();
         }
     }
@@ -537,5 +538,43 @@ fn tick_single(
             }
         }
         _ => warn!("Node {:?} should not be ticked!", node.ty),
+    }
+}
+
+impl fmt::Display for ParDirectBackend {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("digraph{")?;
+        for (id, node) in self.nodes.iter().enumerate() {
+            let pos = self.blocks[id].0;
+            write!(
+                f,
+                "n{}[label=\"{}: {}\\n({}, {}, {})\"];",
+                id,
+                id,
+                format!("{:?}", node.ty)
+                    .split_whitespace()
+                    .next()
+                    .unwrap(),
+                pos.x,
+                pos.y,
+                pos.z
+            )?;
+            
+            for link in &node.inputs {
+                let color = match link.ty {
+                    LinkType::Default => "",
+                    LinkType::Side => ",color=\"blue\"",
+                };
+                write!(
+                    f,
+                    "n{}->n{}[label=\"{}\"{}];",
+                    link.end.index, link.start.index, link.weight, color
+                )?;
+            }
+            // for update in &node.updates {
+            //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
+            // }
+        }
+        f.write_str("}\n")
     }
 }

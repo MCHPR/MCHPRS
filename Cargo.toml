@@ -13,6 +13,9 @@ keywords = ["minecraft", "server", "redstone"]
 repository = "https://github.com/MCHPR/MCHPRS"
 homepage = "https://github.com/MCHPR/MCHPRS"
 
+[profile.release]
+debug = true
+
 include = [
     "**/*.rs",
     "Cargo.toml",
