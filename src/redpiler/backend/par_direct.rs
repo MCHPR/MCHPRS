@@ -12,7 +12,6 @@ use std::sync::Arc;
 #[derive(Debug)]
 struct RPTickEntry {
     ticks_left: i32,
-    tick_priority: TickPriority,
     node: usize,
 }
 
@@ -152,8 +151,14 @@ impl JITBackend for ParDirectBackend {
         self.ticks.retain(|tick| tick.ticks_left >= 0);
         for entry in self.ticks.drain(..) {
             ticks.push(TickEntry {
-                ticks_left: entry.ticks_left as u32,
-                tick_priority: entry.tick_priority,
+                ticks_left: entry.ticks_left as u32 / 4,
+                tick_priority: match entry.ticks_left % 4 {
+                    0 => TickPriority::Highest,
+                    1 => TickPriority::Higher,
+                    2 => TickPriority::High,
+                    3 => TickPriority::Normal,
+                    _ => unreachable!()
+                },
                 pos: self.blocks[entry.node].0,
             })
         }
@@ -193,7 +198,7 @@ impl JITBackend for ParDirectBackend {
                 self.changes_tx
                     .send(BlockChange::Power(node_id, powered as u8))
                     .unwrap();
-                schedule_tick(&self.ticks_tx, node_id, 10, TickPriority::Normal);
+                schedule_tick(&self.ticks_tx, &self.nodes, node_id, 10, TickPriority::Normal);
                 schedule_updates(&self.updates_tx, &self.nodes, node_id);
             }
             _ => {}
@@ -204,8 +209,7 @@ impl JITBackend for ParDirectBackend {
 
     fn tick(&mut self) {
         self.ticks.extend(self.ticks_rx.try_iter());
-        self.ticks.par_iter_mut().for_each(|tick| tick.ticks_left -= 1);
-        for priority in [TickPriority::Normal, TickPriority::High, TickPriority::Higher, TickPriority::Highest] {
+        for _ in [TickPriority::Normal, TickPriority::High, TickPriority::Higher, TickPriority::Highest] {
             self.ticks.par_iter_mut().for_each_with(
                 (
                     self.updates_tx.clone(),
@@ -213,9 +217,10 @@ impl JITBackend for ParDirectBackend {
                     self.nodes.clone(),
                 ),
                 |(updates_tx, changes_tx, nodes), tick: &mut RPTickEntry| {
-                    if tick.ticks_left == 0 && tick.tick_priority == priority {
+                    if tick.ticks_left == 0 {
                         tick_single(tick.node, nodes, updates_tx, changes_tx)
                     }
+                    tick.ticks_left -= 1;
                 },
             );
         }
@@ -233,8 +238,7 @@ impl JITBackend for ParDirectBackend {
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
                 self.ticks.push(RPTickEntry {
-                    ticks_left: entry.ticks_left as i32,
-                    tick_priority: entry.tick_priority,
+                    ticks_left: entry.ticks_left as i32 * 4 + entry.tick_priority as i32,
                     node: *node,
                 });
             }
@@ -317,15 +321,17 @@ fn comparator_should_be_powered(
 
 fn schedule_tick(
     ticks_tx: &Sender<RPTickEntry>,
+    nodes: &Arc<Vec<PNode>>,
     node_id: usize,
     delay: u32,
     priority: TickPriority,
 ) {
+    
+    nodes[node_id].pending_tick.store(true, Ordering::Relaxed);
     ticks_tx
         .send(RPTickEntry {
             node: node_id,
-            tick_priority: priority,
-            ticks_left: delay as i32,
+            ticks_left: (delay as i32 - 1) * 4 + priority as i32,
         })
         .unwrap()
 }
@@ -391,14 +397,14 @@ fn update_single(
                     } else {
                         TickPriority::High
                     };
-                    schedule_tick(ticks_tx, node_id, delay as u32, priority);
+                    schedule_tick(ticks_tx, nodes, node_id, delay as u32, priority);
                 }
             }
         }
         PNodeType::Torch | PNodeType::WallTorch => {
             let lit = node.powered.load(Ordering::Relaxed);
             if lit == (input_power > 0) && !nodes[node_id].pending_tick.load(Ordering::Relaxed) {
-                schedule_tick(ticks_tx, node_id, 1, TickPriority::Normal);
+                schedule_tick(ticks_tx, nodes, node_id, 1, TickPriority::Normal);
             }
         }
         PNodeType::Comparator(mode) => {
@@ -416,14 +422,14 @@ fn update_single(
                 } else {
                     TickPriority::Normal
                 };
-                schedule_tick(ticks_tx, node_id, 1, priority);
+                schedule_tick(ticks_tx, nodes, node_id, 1, priority);
             }
         }
         PNodeType::Lamp => {
             let should_be_lit = input_power > 0;
             let lit = node.powered.load(Ordering::Relaxed);
             if lit && !should_be_lit {
-                schedule_tick(ticks_tx, node_id, 2, TickPriority::Normal);
+                schedule_tick(ticks_tx, nodes, node_id, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
                 node.powered.store(true, Ordering::Relaxed);
                 changes_tx.send(BlockChange::Power(node_id, 15)).unwrap();
