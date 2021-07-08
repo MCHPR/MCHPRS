@@ -298,7 +298,7 @@ impl ClientBoundPacket for CDeclareCommands {
                 buf.write_varint(redirect_node);
             }
             if let Some(name) = node.name {
-                buf.write_string(32767, &name);
+                buf.write_string(32767, name);
             }
             if let Some(parser) = &node.parser {
                 parser.write(&mut buf);
@@ -753,14 +753,14 @@ impl ClientBoundPacket for CPlayerInfo {
                         buf.write_string(32767, &prop.value);
                         buf.write_boolean(prop.signature.is_some());
                         if let Some(signature) = &prop.signature {
-                            buf.write_string(32767, &signature);
+                            buf.write_string(32767, signature);
                         }
                     }
                     buf.write_varint(p.gamemode);
                     buf.write_varint(p.ping);
                     buf.write_boolean(p.display_name.is_some());
                     if let Some(display_name) = &p.display_name {
-                        buf.write_string(32767, &display_name);
+                        buf.write_string(32767, display_name);
                     }
                 }
             }
@@ -944,7 +944,7 @@ impl ClientBoundPacket for CEntityEquipment {
                 buf.write_varint(slot.item_id);
                 buf.write_byte(slot.item_count);
                 if let Some(nbt) = &slot.nbt {
-                    buf.write_nbt_blob(&nbt);
+                    buf.write_nbt_blob(nbt);
                 } else {
                     buf.write_byte(0); // End tag
                 }

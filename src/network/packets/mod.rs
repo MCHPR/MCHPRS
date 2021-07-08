@@ -24,26 +24,26 @@ pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
 
 #[derive(Debug)]
 pub enum PacketDecodeError {
-    IoError(io::Error),
-    FromUtf8Error(std::string::FromUtf8Error),
-    NbtError(nbt::Error),
+    Io(io::Error),
+    FromUtf8(std::string::FromUtf8Error),
+    Nbt(nbt::Error),
 }
 
 impl From<nbt::Error> for PacketDecodeError {
     fn from(err: nbt::Error) -> PacketDecodeError {
-        PacketDecodeError::NbtError(err)
+        PacketDecodeError::Nbt(err)
     }
 }
 
 impl From<io::Error> for PacketDecodeError {
     fn from(err: io::Error) -> PacketDecodeError {
-        PacketDecodeError::IoError(err)
+        PacketDecodeError::Io(err)
     }
 }
 
 impl From<std::string::FromUtf8Error> for PacketDecodeError {
     fn from(err: std::string::FromUtf8Error) -> PacketDecodeError {
-        PacketDecodeError::FromUtf8Error(err)
+        PacketDecodeError::FromUtf8(err)
     }
 }
 
