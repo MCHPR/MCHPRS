@@ -908,6 +908,7 @@ impl Drop for Plot {
                     .unwrap();
             }
         }
+        self.reset_redpiler();
         self.save();
         self.message_sender
             .send(Message::PlotUnload(self.x, self.z))
