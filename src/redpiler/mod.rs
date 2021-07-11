@@ -616,7 +616,11 @@ impl Compiler {
         }
     }
 
-    fn identify_nodes(plot: &mut Plot, first_pos: BlockPos, second_pos: BlockPos) -> Vec<CompileNode> {
+    fn identify_nodes(
+        plot: &mut Plot,
+        first_pos: BlockPos,
+        second_pos: BlockPos,
+    ) -> Vec<CompileNode> {
         let mut nodes = Vec::new();
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);

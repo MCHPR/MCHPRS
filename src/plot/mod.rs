@@ -167,7 +167,7 @@ impl World for Plot {
             self.redpiler.tick();
             return;
         }
-        
+
         self.to_be_ticked
             .sort_by_key(|e| (e.ticks_left, e.tick_priority));
         for pending in &mut self.to_be_ticked {

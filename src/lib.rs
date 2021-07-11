@@ -8,6 +8,7 @@ mod chat;
 mod config;
 mod items;
 mod network;
+mod permissions;
 mod player;
 mod plot;
 mod redpiler;

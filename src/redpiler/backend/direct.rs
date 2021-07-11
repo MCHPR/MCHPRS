@@ -2,7 +2,7 @@
 
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
-use crate::redpiler::{LinkType, CompileNode};
+use crate::redpiler::{CompileNode, LinkType};
 use crate::world::{TickEntry, TickPriority};
 use log::warn;
 use std::collections::HashMap;

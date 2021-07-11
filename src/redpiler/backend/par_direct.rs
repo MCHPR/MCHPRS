@@ -2,15 +2,15 @@
 
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
-use crate::redpiler::{Link, LinkType, CompileNode};
+use crate::redpiler::{CompileNode, Link, LinkType};
 use crate::world::{TickEntry, TickPriority};
 use log::warn;
 use rayon::prelude::*;
 use std::collections::HashMap;
+use std::fmt;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::Arc;
-use std::fmt;
 
 #[derive(Debug)]
 struct RPTickEntry {
@@ -100,7 +100,9 @@ impl From<CompileNode> for Node {
 impl Node {
     fn get_output_power(&self) -> u8 {
         match self.ty {
-            NodeType::Comparator(_) | NodeType::Container => self.output_strength.load(Ordering::Relaxed),
+            NodeType::Comparator(_) | NodeType::Container => {
+                self.output_strength.load(Ordering::Relaxed)
+            }
             _ => {
                 if self.powered.load(Ordering::Relaxed) {
                     15
@@ -160,7 +162,7 @@ impl JITBackend for ParDirectBackend {
                     1 => TickPriority::Higher,
                     2 => TickPriority::High,
                     3 => TickPriority::Normal,
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 },
                 pos: self.blocks[entry.node].0,
             })
@@ -179,7 +181,8 @@ impl JITBackend for ParDirectBackend {
         // TODO: Reuse the old allocations
         *self = Default::default();
         JITResetData {
-            block_entities, tick_entries: ticks
+            block_entities,
+            tick_entries: ticks,
         }
     }
 
@@ -201,7 +204,13 @@ impl JITBackend for ParDirectBackend {
                 self.changes_tx
                     .send(BlockChange::Power(node_id, powered as u8))
                     .unwrap();
-                schedule_tick(&self.ticks_tx, &self.nodes, node_id, 10, TickPriority::Normal);
+                schedule_tick(
+                    &self.ticks_tx,
+                    &self.nodes,
+                    node_id,
+                    10,
+                    TickPriority::Normal,
+                );
                 schedule_updates(&self.updates_tx, &self.nodes, node_id);
             }
             _ => {}
@@ -212,7 +221,12 @@ impl JITBackend for ParDirectBackend {
 
     fn tick(&mut self) {
         self.ticks.extend(self.ticks_rx.try_iter());
-        for _ in [TickPriority::Normal, TickPriority::High, TickPriority::Higher, TickPriority::Highest] {
+        for _ in [
+            TickPriority::Normal,
+            TickPriority::High,
+            TickPriority::Higher,
+            TickPriority::Highest,
+        ] {
             self.ticks.par_iter_mut().for_each_with(
                 (
                     self.updates_tx.clone(),
@@ -329,20 +343,30 @@ fn schedule_tick(
     delay: u32,
     priority: TickPriority,
 ) {
-    if let Ok(false) = nodes[node_id].pending_tick.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed) {
+    if let Ok(false) = nodes[node_id].pending_tick.compare_exchange(
+        false,
+        true,
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+    ) {
         ticks_tx
-        .send(RPTickEntry {
-            node: node_id,
-            ticks_left: (delay as i32 - 1) * 5 + priority as i32,
-        })
-        .unwrap();
+            .send(RPTickEntry {
+                node: node_id,
+                ticks_left: (delay as i32 - 1) * 5 + priority as i32,
+            })
+            .unwrap();
     }
 }
 
 fn schedule_updates(updates_tx: &Sender<usize>, nodes: &Arc<Vec<Node>>, node_id: usize) {
     updates_tx.send(node_id).unwrap();
     for link in &nodes[node_id].outputs {
-        if let Ok(false) = nodes[*link].update_queued.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed) {
+        if let Ok(false) = nodes[*link].update_queued.compare_exchange(
+            false,
+            true,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
+        ) {
             updates_tx.send(*link).unwrap();
         }
     }
@@ -553,15 +577,12 @@ impl fmt::Display for ParDirectBackend {
                 "n{}[label=\"{}: {}\\n({}, {}, {})\"];",
                 id,
                 id,
-                format!("{:?}", node.ty)
-                    .split_whitespace()
-                    .next()
-                    .unwrap(),
+                format!("{:?}", node.ty).split_whitespace().next().unwrap(),
                 pos.x,
                 pos.y,
                 pos.z
             )?;
-            
+
             for link in &node.inputs {
                 let color = match link.ty {
                     LinkType::Default => "",
