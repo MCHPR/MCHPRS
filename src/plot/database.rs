@@ -1,10 +1,10 @@
 use rusqlite::{params, Connection};
+use std::lazy::SyncLazy;
 use std::sync::{Mutex, MutexGuard};
 
-lazy_static! {
-    static ref CONN: Mutex<Connection> =
-        Mutex::new(Connection::open("./world/plots.db").expect("Error opening plot database!"));
-}
+static CONN: SyncLazy<Mutex<Connection>> = SyncLazy::new(|| {
+    Mutex::new(Connection::open("./world/plots.db").expect("Error opening plot database!"))
+});
 
 fn lock<'a>() -> MutexGuard<'a, Connection> {
     CONN.lock().unwrap()

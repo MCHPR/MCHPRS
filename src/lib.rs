@@ -1,5 +1,5 @@
 #![deny(rust_2018_idioms)]
-#![feature(min_specialization)]
+#![feature(min_specialization, once_cell)]
 
 #[macro_use]
 mod utils;
@@ -17,6 +17,3 @@ pub mod world;
 
 #[macro_use]
 extern crate bitflags;
-
-#[macro_use]
-extern crate lazy_static;

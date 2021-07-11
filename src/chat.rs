@@ -1,10 +1,10 @@
 use regex::Regex;
 use serde::Serialize;
+use std::lazy::SyncLazy;
 
-lazy_static! {
-    static ref URL_REGEX: Regex =
-        Regex::new("^(?:(https?)://)?([-\\w_\\.]{2,}\\.[a-z]{2,4})(/\\S*)?$").unwrap();
-}
+static URL_REGEX: SyncLazy<Regex> = SyncLazy::new(|| {
+    Regex::new("^(?:(https?)://)?([-\\w_\\.]{2,}\\.[a-z]{2,4})(/\\S*)?$").unwrap()
+});
 
 fn is_valid_hex(ch: char) -> bool {
     ch.is_numeric() || ('a'..='f').contains(&ch) || ('A'..='F').contains(&ch)

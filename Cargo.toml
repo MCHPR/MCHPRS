@@ -49,7 +49,6 @@ fern = { version = "0.6.0", features = ["colored"] }
 chrono = "0.4"
 rand = "0.8.3"
 regex = "1.4.3"
-lazy_static = "1.4.0"
 backtrace = "0.3.56"
 rusqlite = { version="0.25.3", features=["bundled"] }
 anyhow = "1.0"
@@ -58,6 +57,7 @@ cranelift = { version = "0.75", optional = true }
 cranelift-jit  = { version = "0.75", optional = true }
 cranelift-module  = { version = "0.75", optional = true }
 toml_edit = "0.2.0"
+mysql = "21.0.0"
 
 [features]
 jit_cranelift = ["cranelift", "cranelift-jit", "cranelift-module"]

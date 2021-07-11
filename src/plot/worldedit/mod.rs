@@ -12,6 +12,7 @@ use regex::Regex;
 use schematic::{load_schematic, save_schematic};
 use std::collections::HashMap;
 use std::fmt;
+use std::lazy::SyncLazy;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
@@ -339,8 +340,8 @@ impl Default for WorldeditCommand {
     }
 }
 
-lazy_static! {
-    static ref COMMANDS: HashMap<&'static str, WorldeditCommand> = map! {
+static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::new(|| {
+    map! {
         "up" => WorldeditCommand {
             execute_fn: execute_up,
             description: "Go upwards some distance",
@@ -510,11 +511,11 @@ lazy_static! {
             description: "Displays help for WorldEdit commands",
             ..Default::default()
         }
-    };
-}
+    }
+});
 
-lazy_static! {
-    static ref ALIASES: HashMap<&'static str, &'static str> = map! {
+static ALIASES: SyncLazy<HashMap<&'static str, &'static str>> = SyncLazy::new(|| {
+    map! {
         "u" => "up",
         "/1" => "/pos1",
         "/2" => "/pos2",
@@ -527,8 +528,8 @@ lazy_static! {
         "/e" => "/expand",
         "/h1" => "/hpos1",
         "/h2" => "/hpos2"
-    };
-}
+    }
+});
 
 pub struct WorldEditPatternPart {
     pub weight: f32,
@@ -579,9 +580,10 @@ impl WorldEditPattern {
     pub fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(',') {
-            lazy_static! {
-                static ref RE: Regex = Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap();
-            }
+            static RE: SyncLazy<Regex> = SyncLazy::new(|| {
+                Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap()
+            });
+
             let pattern_match = RE
                 .captures(part)
                 .ok_or_else(|| PatternParseError::InvalidPattern(part.to_owned()))?;

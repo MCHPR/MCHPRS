@@ -11,6 +11,7 @@ use crate::server::Message;
 use crate::world::World;
 use bitflags::_core::i32::MAX;
 use log::info;
+use std::lazy::SyncLazy;
 use std::time::{Duration, Instant, SystemTime};
 
 impl Plot {
@@ -317,17 +318,20 @@ bitflags! {
     }
 }
 
-lazy_static! {
-    // In the future a DSL or some type of generation would be much better.
-    // For more information, see https://wiki.vg/Command_Data
-    /// The DeclareCommands packet that is sent when the player joins.
-    /// This is used for command autocomplete.
-    pub static ref DECLARE_COMMANDS: PacketEncoder = CDeclareCommands {
+// In the future a DSL or some type of generation would be much better.
+// For more information, see https://wiki.vg/Command_Data
+/// The DeclareCommands packet that is sent when the player joins.
+/// This is used for command autocomplete.
+pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
+    CDeclareCommands {
         nodes: vec![
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36, 47],
+                children: vec![
+                    1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
+                    47,
+                ],
                 redirect_node: None,
                 name: None,
                 parser: None,
@@ -717,6 +721,7 @@ lazy_static! {
                 parser: Some(Parser::Integer(0, 256)),
             },
         ],
-        root_index: 0
-    }.encode();
-}
+        root_index: 0,
+    }
+    .encode()
+});

@@ -10,6 +10,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::File;
+use std::lazy::SyncLazy;
 
 pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
     use nbt::Value;
@@ -24,9 +25,8 @@ pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
     let offset_x = -nbt_unwrap_val!(metadata["WEOffsetX"], Value::Int);
     let offset_y = -nbt_unwrap_val!(metadata["WEOffsetY"], Value::Int);
     let offset_z = -nbt_unwrap_val!(metadata["WEOffsetZ"], Value::Int);
-    lazy_static! {
-        static ref RE: Regex = Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap();
-    }
+    static RE: SyncLazy<Regex> =
+        SyncLazy::new(|| Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap());
     let mut palette: HashMap<u32, u32> = HashMap::new();
     for (k, v) in nbt_palette {
         let id = *nbt_unwrap_val!(v, Value::Int) as u32;
