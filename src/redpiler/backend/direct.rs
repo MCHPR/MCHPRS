@@ -1,8 +1,8 @@
-//! The direct backend does not do code generation and executes the graph directly
+//! The direct backend does not do code generation and operates on the CompileNode graph directly
 
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
-use crate::redpiler::{LinkType, CompileNode, NodeId};
+use crate::redpiler::{LinkType, CompileNode};
 use crate::world::{TickEntry, TickPriority};
 use log::warn;
 use std::collections::HashMap;
@@ -11,7 +11,7 @@ use std::fmt;
 struct RPTickEntry {
     ticks_left: u32,
     tick_priority: TickPriority,
-    node: NodeId,
+    node: usize,
 }
 
 #[derive(Default)]
@@ -19,11 +19,11 @@ pub struct DirectBackend {
     change_queue: Vec<(BlockPos, Block)>,
     nodes: Vec<CompileNode>,
     to_be_ticked: Vec<RPTickEntry>,
-    pos_map: HashMap<BlockPos, NodeId>,
+    pos_map: HashMap<BlockPos, usize>,
 }
 
 impl DirectBackend {
-    fn schedule_tick(&mut self, node_id: NodeId, delay: u32, priority: TickPriority) {
+    fn schedule_tick(&mut self, node_id: usize, delay: u32, priority: TickPriority) {
         self.to_be_ticked.push(RPTickEntry {
             node: node_id,
             ticks_left: delay,
@@ -31,16 +31,17 @@ impl DirectBackend {
         });
     }
 
-    fn pending_tick_at(&mut self, node: NodeId) -> bool {
+    fn pending_tick_at(&mut self, node: usize) -> bool {
         self.to_be_ticked.iter().any(|e| e.node == node)
     }
 
-    fn set_node(&mut self, node_id: NodeId, new_block: Block, update: bool) {
-        let node = &mut self.nodes[node_id.index];
+    fn set_node(&mut self, node_id: usize, new_block: Block, update: bool) {
+        let node = &mut self.nodes[node_id];
         node.state = new_block;
         let pos = node.pos;
         if update {
-            for update in node.updates.clone() {
+            for i in 0..node.updates.len() {
+                let update = self.nodes[node_id].updates[i].index;
                 self.update_node(update);
             }
             self.update_node(node_id);
@@ -78,8 +79,8 @@ impl DirectBackend {
         }
     }
 
-    fn update_node(&mut self, node_id: NodeId) {
-        let node = &self.nodes[node_id.index];
+    fn update_node(&mut self, node_id: usize) {
+        let node = &self.nodes[node_id];
 
         let mut input_power = 0;
         let mut side_input_power = 0;
@@ -180,7 +181,7 @@ impl JITBackend for DirectBackend {
             ticks.push(TickEntry {
                 ticks_left: entry.ticks_left,
                 tick_priority: entry.tick_priority,
-                pos: self.nodes[entry.node.index].pos,
+                pos: self.nodes[entry.node].pos,
             })
         }
 
@@ -205,7 +206,7 @@ impl JITBackend for DirectBackend {
 
     fn on_use_block(&mut self, pos: BlockPos) {
         let node_id = self.pos_map[&pos];
-        let node = self.nodes[node_id.index].clone();
+        let node = &self.nodes[node_id];
         match node.state {
             Block::StoneButton { mut button } => {
                 button.powered = !button.powered;
@@ -229,7 +230,7 @@ impl JITBackend for DirectBackend {
         while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
             let entry = self.to_be_ticked.remove(0);
             let node_id = entry.node;
-            let node = self.nodes[node_id.index].clone();
+            let node = &self.nodes[node_id];
 
             let mut input_power = 0u8;
             let mut side_input_power = 0u8;
@@ -285,14 +286,15 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 Block::RedstoneComparator { mut comparator } => {
+                    let comparator_output = node.comparator_output;
                     let new_strength = self.calculate_comparator_output(
                         comparator.mode,
                         input_power,
                         side_input_power,
                     );
-                    let old_strength = node.comparator_output;
+                    let old_strength = comparator_output;
                     if new_strength != old_strength || comparator.mode == ComparatorMode::Compare {
-                        self.nodes[node_id.index].comparator_output = new_strength;
+                        self.nodes[node_id].comparator_output = new_strength;
                         let should_be_powered = self.comparator_should_be_powered(
                             comparator.mode,
                             input_power,
@@ -326,7 +328,7 @@ impl JITBackend for DirectBackend {
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
         for (i, node) in nodes.iter().enumerate() {
-            self.pos_map.insert(node.pos, NodeId { index: i });
+            self.pos_map.insert(node.pos, i);
         }
         self.nodes = nodes;
         for entry in ticks {

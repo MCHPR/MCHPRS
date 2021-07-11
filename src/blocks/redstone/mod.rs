@@ -233,20 +233,12 @@ impl RedstoneRepeater {
 
     pub fn schedule_tick(self, world: &mut impl World, pos: BlockPos, should_be_powered: bool) {
         let front_block = world.get_block(pos.offset(self.facing.opposite().block_face()));
-        #[allow(clippy::collapsible_else_if)]
         let priority = if front_block.is_diode() {
-            if !should_be_powered {
-                // TickPriority::Highester
-                TickPriority::Highest
-            } else {
-                TickPriority::Highest
-            }
-        } else { 
-            if !should_be_powered {
-                TickPriority::Higher
-            } else {
-                TickPriority::High
-            }
+            TickPriority::Highest
+        } else if !should_be_powered {
+            TickPriority::Higher
+        } else {
+            TickPriority::High
         };
         world.schedule_tick(pos, self.delay as u32, priority);
     }

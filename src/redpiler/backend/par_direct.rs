@@ -1,3 +1,5 @@
+//! The par_direct backend operates on CompileNodes directly in parallel
+
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::redpiler::{Link, LinkType, CompileNode};

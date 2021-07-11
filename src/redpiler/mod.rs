@@ -406,10 +406,12 @@ impl<'a> InputSearch<'a> {
                 let facing = repeater.facing;
 
                 let mut inputs = self.search_diode_inputs(id, node.pos, facing);
-                self.search_repeater_side(id, node.pos, facing.rotate())
-                    .map(|l| inputs.push(l));
-                self.search_repeater_side(id, node.pos, facing.rotate_ccw())
-                    .map(|l| inputs.push(l));
+                if let Some(l) = self.search_repeater_side(id, node.pos, facing.rotate()) {
+                    inputs.push(l)
+                }
+                if let Some(l) = self.search_repeater_side(id, node.pos, facing.rotate_ccw()) {
+                    inputs.push(l)
+                }
                 self.nodes[id.index].inputs = inputs;
             }
             Block::RedstoneWire { .. } => {
