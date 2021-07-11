@@ -6,7 +6,7 @@ pub mod par_direct;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::world::TickEntry;
 
-use super::Node;
+use super::CompileNode;
 
 #[derive(Default, Debug)]
 pub struct JITResetData {
@@ -15,7 +15,7 @@ pub struct JITResetData {
 }
 
 pub trait JITBackend {
-    fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>);
+    fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>);
     fn tick(&mut self);
     fn on_use_block(&mut self, pos: BlockPos);
     fn reset(&mut self) -> JITResetData;

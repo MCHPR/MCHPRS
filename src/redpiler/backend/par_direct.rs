@@ -1,6 +1,6 @@
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
-use crate::redpiler::{Link, LinkType, Node};
+use crate::redpiler::{Link, LinkType, CompileNode};
 use crate::world::{TickEntry, TickPriority};
 use log::warn;
 use rayon::prelude::*;
@@ -17,7 +17,7 @@ struct RPTickEntry {
 }
 
 #[derive(Debug)]
-enum PNodeType {
+enum NodeType {
     Repeater(u8),
     Comparator(ComparatorMode),
     Torch,
@@ -35,9 +35,9 @@ enum BlockChange {
     RepeaterLock(usize, bool),
 }
 
-struct PNode {
+struct Node {
     // Constant
-    ty: PNodeType,
+    ty: NodeType,
     facing_diode: bool,
     inputs: Vec<Link>,
     outputs: Vec<usize>,
@@ -51,20 +51,20 @@ struct PNode {
     pending_tick: AtomicBool,
 }
 
-impl From<Node> for PNode {
-    fn from(node: Node) -> Self {
-        PNode {
+impl From<CompileNode> for Node {
+    fn from(node: CompileNode) -> Self {
+        Node {
             ty: match node.state {
-                Block::RedstoneRepeater { repeater } => PNodeType::Repeater(repeater.delay),
-                Block::RedstoneComparator { comparator } => PNodeType::Comparator(comparator.mode),
-                Block::RedstoneTorch { .. } => PNodeType::Torch,
-                Block::RedstoneWallTorch { .. } => PNodeType::WallTorch,
-                Block::RedstoneWire { .. } => PNodeType::Wire,
-                Block::StoneButton { .. } => PNodeType::StoneButton,
-                Block::RedstoneLamp { .. } => PNodeType::Lamp,
-                Block::RedstoneBlock { .. } => PNodeType::RedstoneBlock,
-                Block::Lever { .. } => PNodeType::Lever,
-                block if block.has_comparator_override() => PNodeType::Container,
+                Block::RedstoneRepeater { repeater } => NodeType::Repeater(repeater.delay),
+                Block::RedstoneComparator { comparator } => NodeType::Comparator(comparator.mode),
+                Block::RedstoneTorch { .. } => NodeType::Torch,
+                Block::RedstoneWallTorch { .. } => NodeType::WallTorch,
+                Block::RedstoneWire { .. } => NodeType::Wire,
+                Block::StoneButton { .. } => NodeType::StoneButton,
+                Block::RedstoneLamp { .. } => NodeType::Lamp,
+                Block::RedstoneBlock { .. } => NodeType::RedstoneBlock,
+                Block::Lever { .. } => NodeType::Lever,
+                block if block.has_comparator_override() => NodeType::Container,
                 _ => unreachable!(),
             },
             facing_diode: node.facing_diode,
@@ -95,10 +95,10 @@ impl From<Node> for PNode {
     }
 }
 
-impl PNode {
+impl Node {
     fn get_output_power(&self) -> u8 {
         match self.ty {
-            PNodeType::Comparator(_) | PNodeType::Container => self.output_strength.load(Ordering::Relaxed),
+            NodeType::Comparator(_) | NodeType::Container => self.output_strength.load(Ordering::Relaxed),
             _ => {
                 if self.powered.load(Ordering::Relaxed) {
                     15
@@ -112,7 +112,7 @@ impl PNode {
 pub struct ParDirectBackend {
     blocks: Vec<(BlockPos, Block)>,
     block_changes: Vec<(BlockPos, Block)>,
-    nodes: Arc<Vec<PNode>>,
+    nodes: Arc<Vec<Node>>,
     updates_tx: Sender<usize>,
     updates_rx: Receiver<usize>,
     ticks_tx: Sender<RPTickEntry>,
@@ -166,7 +166,7 @@ impl JITBackend for ParDirectBackend {
 
         let mut block_entities = Vec::new();
         for (node_id, node) in self.nodes.iter().enumerate() {
-            if let PNodeType::Comparator(_) = node.ty {
+            if let NodeType::Comparator(_) = node.ty {
                 let block_entity = BlockEntity::Comparator {
                     output_strength: node.output_strength.load(Ordering::Relaxed),
                 };
@@ -185,7 +185,7 @@ impl JITBackend for ParDirectBackend {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.ty {
-            PNodeType::Lever => {
+            NodeType::Lever => {
                 let powered = !node.powered.load(Ordering::Relaxed);
                 node.powered.store(powered, Ordering::Relaxed);
                 self.changes_tx
@@ -193,7 +193,7 @@ impl JITBackend for ParDirectBackend {
                     .unwrap();
                 schedule_updates(&self.updates_tx, &self.nodes, node_id);
             }
-            PNodeType::StoneButton => {
+            NodeType::StoneButton => {
                 let powered = !node.powered.load(Ordering::Relaxed);
                 node.powered.store(powered, Ordering::Relaxed);
                 self.changes_tx
@@ -231,7 +231,7 @@ impl JITBackend for ParDirectBackend {
         self.collect_changes();
     }
 
-    fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
+    fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
         for (i, node) in nodes.iter().enumerate() {
             self.blocks.push((node.pos, node.state));
             self.pos_map.insert(node.pos, i);
@@ -322,7 +322,7 @@ fn comparator_should_be_powered(
 
 fn schedule_tick(
     ticks_tx: &Sender<RPTickEntry>,
-    nodes: &Arc<Vec<PNode>>,
+    nodes: &Arc<Vec<Node>>,
     node_id: usize,
     delay: u32,
     priority: TickPriority,
@@ -337,7 +337,7 @@ fn schedule_tick(
     }
 }
 
-fn schedule_updates(updates_tx: &Sender<usize>, nodes: &Arc<Vec<PNode>>, node_id: usize) {
+fn schedule_updates(updates_tx: &Sender<usize>, nodes: &Arc<Vec<Node>>, node_id: usize) {
     updates_tx.send(node_id).unwrap();
     for link in &nodes[node_id].outputs {
         if let Ok(false) = nodes[*link].update_queued.compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed) {
@@ -348,7 +348,7 @@ fn schedule_updates(updates_tx: &Sender<usize>, nodes: &Arc<Vec<PNode>>, node_id
 
 fn update_single(
     node_id: usize,
-    nodes: &Arc<Vec<PNode>>,
+    nodes: &Arc<Vec<Node>>,
     ticks_tx: &Sender<RPTickEntry>,
     changes_tx: &Sender<BlockChange>,
 ) {
@@ -370,7 +370,7 @@ fn update_single(
     }
 
     match node.ty {
-        PNodeType::Repeater(delay) => {
+        NodeType::Repeater(delay) => {
             let should_be_locked = side_input_power > 0;
             let mut locked = node.locked.load(Ordering::Relaxed);
             if !locked && should_be_locked {
@@ -402,13 +402,13 @@ fn update_single(
                 }
             }
         }
-        PNodeType::Torch | PNodeType::WallTorch => {
+        NodeType::Torch | NodeType::WallTorch => {
             let lit = node.powered.load(Ordering::Relaxed);
             if lit == (input_power > 0) && !nodes[node_id].pending_tick.load(Ordering::Relaxed) {
                 schedule_tick(ticks_tx, nodes, node_id, 1, TickPriority::Normal);
             }
         }
-        PNodeType::Comparator(mode) => {
+        NodeType::Comparator(mode) => {
             if nodes[node_id].pending_tick.load(Ordering::Relaxed) {
                 return;
             }
@@ -426,7 +426,7 @@ fn update_single(
                 schedule_tick(ticks_tx, nodes, node_id, 1, priority);
             }
         }
-        PNodeType::Lamp => {
+        NodeType::Lamp => {
             let should_be_lit = input_power > 0;
             let lit = node.powered.load(Ordering::Relaxed);
             if lit && !should_be_lit {
@@ -436,7 +436,7 @@ fn update_single(
                 changes_tx.send(BlockChange::Power(node_id, 15)).unwrap();
             }
         }
-        PNodeType::Wire => {
+        NodeType::Wire => {
             let power = node.output_strength.load(Ordering::Relaxed);
             if power != input_power {
                 node.output_strength.store(input_power, Ordering::Relaxed);
@@ -451,7 +451,7 @@ fn update_single(
 
 fn tick_single(
     node_id: usize,
-    nodes: &Arc<Vec<PNode>>,
+    nodes: &Arc<Vec<Node>>,
     updates_tx: &Sender<usize>,
     changes_tx: &Sender<BlockChange>,
 ) {
@@ -473,7 +473,7 @@ fn tick_single(
     }
 
     match node.ty {
-        PNodeType::Repeater(_) => {
+        NodeType::Repeater(_) => {
             if node.locked.load(Ordering::Relaxed) {
                 return;
             }
@@ -490,7 +490,7 @@ fn tick_single(
                 schedule_updates(updates_tx, nodes, node_id);
             }
         }
-        PNodeType::Torch | PNodeType::WallTorch => {
+        NodeType::Torch | NodeType::WallTorch => {
             let should_be_off = input_power > 0;
             let lit = node.powered.load(Ordering::Relaxed);
             if lit && should_be_off {
@@ -503,7 +503,7 @@ fn tick_single(
                 schedule_updates(updates_tx, nodes, node_id);
             }
         }
-        PNodeType::Comparator(mode) => {
+        NodeType::Comparator(mode) => {
             let new_strength = calculate_comparator_output(mode, input_power, side_input_power);
             let old_strength = node.output_strength.load(Ordering::Relaxed);
             if new_strength != old_strength || mode == ComparatorMode::Compare {
@@ -521,7 +521,7 @@ fn tick_single(
                 schedule_updates(updates_tx, nodes, node_id);
             }
         }
-        PNodeType::Lamp => {
+        NodeType::Lamp => {
             let lit = node.powered.load(Ordering::Relaxed);
             let should_be_lit = input_power > 0;
             if lit && !should_be_lit {
@@ -529,7 +529,7 @@ fn tick_single(
                 changes_tx.send(BlockChange::Power(node_id, 0)).unwrap();
             }
         }
-        PNodeType::StoneButton => {
+        NodeType::StoneButton => {
             let powered = node.powered.load(Ordering::Relaxed);
             if powered {
                 node.powered.store(false, Ordering::Relaxed);

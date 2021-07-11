@@ -44,7 +44,7 @@ impl Link {
 }
 
 #[derive(Debug, Clone)]
-pub struct Node {
+pub struct CompileNode {
     pos: BlockPos,
     state: Block,
     inputs: Vec<Link>,
@@ -54,9 +54,9 @@ pub struct Node {
     facing_diode: bool,
 }
 
-impl Node {
-    fn new(pos: BlockPos, state: Block, facing_diode: bool) -> Node {
-        Node {
+impl CompileNode {
+    fn new(pos: BlockPos, state: Block, facing_diode: bool) -> CompileNode {
+        CompileNode {
             pos,
             state,
             inputs: vec![],
@@ -67,7 +67,7 @@ impl Node {
         }
     }
 
-    fn from_block(pos: BlockPos, block: Block, facing_diode: bool) -> Option<Node> {
+    fn from_block(pos: BlockPos, block: Block, facing_diode: bool) -> Option<CompileNode> {
         let is_node = matches!(
             block,
             Block::RedstoneComparator { .. }
@@ -82,7 +82,7 @@ impl Node {
         );
 
         if is_node || block.has_comparator_override() {
-            Some(Node::new(pos, block, facing_diode))
+            Some(CompileNode::new(pos, block, facing_diode))
         } else {
             None
         }
@@ -108,12 +108,12 @@ impl Node {
 
 struct InputSearch<'a> {
     plot: &'a mut Plot,
-    nodes: &'a mut Vec<Node>,
+    nodes: &'a mut Vec<CompileNode>,
     pos_map: HashMap<BlockPos, NodeId>,
 }
 
 impl<'a> InputSearch<'a> {
-    fn new(plot: &'a mut Plot, nodes: &'a mut Vec<Node>) -> InputSearch<'a> {
+    fn new(plot: &'a mut Plot, nodes: &'a mut Vec<CompileNode>) -> InputSearch<'a> {
         let mut pos_map = HashMap::new();
         for (i, node) in nodes.iter().enumerate() {
             pos_map.insert(node.pos, NodeId { index: i });
@@ -342,7 +342,7 @@ impl<'a> InputSearch<'a> {
         }
     }
 
-    fn search_node(&mut self, id: NodeId, node: Node) {
+    fn search_node(&mut self, id: NodeId, node: CompileNode) {
         match node.state {
             Block::RedstoneTorch { .. } => {
                 let bottom_pos = node.pos.offset(BlockFace::Bottom);
@@ -614,7 +614,7 @@ impl Compiler {
         }
     }
 
-    fn identify_nodes(plot: &mut Plot, first_pos: BlockPos, second_pos: BlockPos) -> Vec<Node> {
+    fn identify_nodes(plot: &mut Plot, first_pos: BlockPos, second_pos: BlockPos) -> Vec<CompileNode> {
         let mut nodes = Vec::new();
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
@@ -633,7 +633,7 @@ impl Compiler {
                         false
                     };
 
-                    if let Some(node) = Node::from_block(pos, block, facing_diode) {
+                    if let Some(node) = CompileNode::from_block(pos, block, facing_diode) {
                         nodes.push(node);
                     }
                 }

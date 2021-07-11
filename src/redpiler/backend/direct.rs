@@ -2,7 +2,7 @@
 
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
-use crate::redpiler::{LinkType, Node, NodeId};
+use crate::redpiler::{LinkType, CompileNode, NodeId};
 use crate::world::{TickEntry, TickPriority};
 use log::warn;
 use std::collections::HashMap;
@@ -17,7 +17,7 @@ struct RPTickEntry {
 #[derive(Default)]
 pub struct DirectBackend {
     change_queue: Vec<(BlockPos, Block)>,
-    nodes: Vec<Node>,
+    nodes: Vec<CompileNode>,
     to_be_ticked: Vec<RPTickEntry>,
     pos_map: HashMap<BlockPos, NodeId>,
 }
@@ -324,7 +324,7 @@ impl JITBackend for DirectBackend {
         }
     }
 
-    fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
+    fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
         for (i, node) in nodes.iter().enumerate() {
             self.pos_map.insert(node.pos, NodeId { index: i });
         }
