@@ -530,6 +530,15 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             permission_node: "worldedit.selection.shift",
             ..Default::default()
         },
+        "/flip" => WorldeditCommand {
+            arguments: &[
+                argument!("direction", Direction, "The direction to flip, defaults to look direction"),
+            ],
+            requires_clipboard: true,
+            execute_fn: execute_flip,
+            description: "Flip the contents of the clipboard across the origin",
+            ..Default::default()
+        },
         "/help" => WorldeditCommand {
             arguments: &[
                 argument!("command", String, "Command to retrieve help for"),
@@ -1558,6 +1567,82 @@ fn execute_shift(mut ctx: CommandExecuteContext<'_>) {
     }
 
     player.send_worldedit_message(&format!("Region shifted {} block(s).", amount));
+}
+
+fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
+    let start_time = Instant::now();
+
+    let direction = ctx.arguments[0].unwrap_direction();
+    let clipboard = ctx.get_player().worldedit_clipboard.as_ref().unwrap();
+    let size_x = clipboard.size_x;
+    let size_y = clipboard.size_y;
+    let size_z = clipboard.size_z;
+
+    let volume = size_x * size_y * size_z;
+
+    let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
+
+    let mut c_x = 0;
+    let mut c_y = 0;
+    let mut c_z = 0;
+
+    for i in 0..volume {
+        let n_x;
+        let n_y;
+        let n_z;
+
+        if matches!(direction, BlockFacing::East | BlockFacing::West) {
+            n_x = size_x - 1 - c_x;
+        } else {
+            n_x = c_x;
+        }
+
+        if matches!(direction, BlockFacing::Up | BlockFacing::Down) {
+            n_y = size_y - 1 - c_y;
+        } else {
+            n_y = c_y;
+        }
+
+        if matches!(direction, BlockFacing::North | BlockFacing::South) {
+            n_z = size_z - 1 - c_z;
+        } else {
+            n_z = c_z;
+        }
+
+        let n_i = (n_y * size_x * size_z) + (n_z * size_x) + n_x;
+        newcpdata.set_entry(n_i as usize, clipboard.data.get_entry(i as usize));
+
+        // Ok now lets increment the coordinates for the next block
+        c_x += 1;
+
+        if c_x == size_x {
+            c_x = 0;
+            c_z += 1;
+
+            if c_z == size_z {
+                c_z = 0;
+                c_y += 1;
+            }
+        }
+    }
+
+    let cb = WorldEditClipboard {
+        offset_x: clipboard.offset_x,
+        offset_y: clipboard.offset_y,
+        offset_z: clipboard.offset_z,
+        size_x,
+        size_y,
+        size_z,
+        data: newcpdata,
+        // TODO: Get the block entities in the selection
+        block_entities: HashMap::new(),
+    };
+
+    ctx.get_player_mut().worldedit_clipboard = Some(cb);
+    ctx.get_player_mut().send_worldedit_message(&format!(
+        "Your selection was flipped. ({:?})",
+        start_time.elapsed()
+    ));
 }
 
 fn execute_help(mut ctx: CommandExecuteContext<'_>) {
