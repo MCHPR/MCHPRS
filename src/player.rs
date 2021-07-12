@@ -1,8 +1,10 @@
 use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
 use crate::chat::ChatComponent;
+use crate::config::CONFIG;
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::NetworkClient;
+use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
@@ -111,6 +113,7 @@ pub struct Player {
     pub worldedit_undo: Vec<WorldEditUndo>,
     /// Commands are stored so they can be handled after packets
     pub command_queue: Vec<String>,
+    permissions_cache: Option<PlayerPermissionsCache>,
 }
 
 impl fmt::Debug for Player {
@@ -157,6 +160,11 @@ impl Player {
                     nbt,
                 });
             }
+            let permissions_cache = CONFIG
+                .luckperms
+                .is_some()
+                .then(|| permissions::load_player_cache(uuid).unwrap());
+            dbg!(&permissions_cache);
             Player {
                 uuid,
                 username,
@@ -186,6 +194,7 @@ impl Player {
                 worldedit_clipboard: None,
                 worldedit_undo: Vec::new(),
                 command_queue: Vec::new(),
+                permissions_cache,
             }
         } else {
             Player::create_player(uuid, username, client)
@@ -195,6 +204,10 @@ impl Player {
     /// Returns the default player struct
     fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
         let inventory: Vec<Option<ItemStack>> = vec![None; 46];
+        let permissions_cache = CONFIG
+            .luckperms
+            .is_some()
+            .then(|| permissions::load_player_cache(uuid).unwrap());
         Player {
             uuid,
             username,
@@ -224,6 +237,7 @@ impl Player {
             worldedit_clipboard: None,
             worldedit_undo: Vec::new(),
             command_queue: Vec::new(),
+            permissions_cache,
         }
     }
 
@@ -378,6 +392,10 @@ impl Player {
         );
     }
 
+    pub fn send_no_permission_message(&mut self) {
+        self.send_error_message("You do not have permission to perform this action.");
+    }
+
     /// Sends the player a red system message (`message` is not in json format)
     pub fn send_error_message(&mut self, message: &str) {
         self.send_raw_system_message(
@@ -451,5 +469,19 @@ impl Player {
         }
         .encode();
         self.client.send_packet(&change_game_state);
+    }
+
+    pub fn has_permission(&self, node: &str) -> bool {
+        if let Some(cache) = &self.permissions_cache {
+            if let Some(val) = cache.get_node_val(node) {
+                val > 0
+            } else {
+                // Node is not in database
+                false
+            }
+        } else {
+            // Permissions is not enabled
+            true
+        }
     }
 }

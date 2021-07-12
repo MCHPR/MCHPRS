@@ -55,7 +55,7 @@ macro_rules! gen_config {
 
                 let patched = doc.to_string();
                 if str != patched {
-                    let mut file = fs::OpenOptions::new().write(true).open(&config_file).unwrap();
+                    let mut file = fs::OpenOptions::new().create(true).write(true).open(&config_file).unwrap();
                     write!(file, "{}", patched).unwrap();
                 }
 

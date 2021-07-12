@@ -44,6 +44,13 @@ pub fn execute_command(
         flags: Vec::new(),
     };
 
+    if !command.permission_node.is_empty()
+        && !ctx.get_player_mut().has_permission(command.permission_node)
+    {
+        ctx.get_player_mut().send_no_permission_message();
+        return true;
+    }
+
     if command.requires_positions {
         let plot_x = ctx.plot.x;
         let plot_z = ctx.plot.z;
@@ -323,8 +330,8 @@ struct WorldeditCommand {
     requires_positions: bool,
     requires_clipboard: bool,
     execute_fn: fn(CommandExecuteContext<'_>),
-    // TODO: Use description in help command
     description: &'static str,
+    permission_node: &'static str,
 }
 
 impl Default for WorldeditCommand {
@@ -336,6 +343,7 @@ impl Default for WorldeditCommand {
             description: "",
             requires_clipboard: false,
             requires_positions: false,
+            permission_node: "",
         }
     }
 }
@@ -348,26 +356,31 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             arguments: &[
                 argument!("distance", UnsignedInteger, "Distance to go upwards")
             ],
+            permission_node: "worldedit.navigation.up",
             ..Default::default()
         },
         "/pos1" => WorldeditCommand {
             execute_fn: execute_pos1,
             description: "Set position 1",
+            permission_node: "worldedit.selection.pos",
             ..Default::default()
         },
         "/pos2" => WorldeditCommand {
             execute_fn: execute_pos2,
             description: "Set position 2",
+            permission_node: "worldedit.selection.pos",
             ..Default::default()
         },
         "/hpos1" => WorldeditCommand {
             execute_fn: execute_hpos1,
             description: "Set position 1 to targeted block",
+            permission_node: "worldedit.selection.hpos",
             ..Default::default()
         },
         "/hpos2" => WorldeditCommand {
             execute_fn: execute_hpos2,
             description: "Set position 2 to targeted block",
+            permission_node: "worldedit.selection.hpos",
             ..Default::default()
         },
         "/sel" => WorldeditCommand {
@@ -382,6 +395,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             requires_positions: true,
             execute_fn: execute_set,
             description: "Sets all the blocks in the region",
+            permission_node: "worldedit.region.stack",
             ..Default::default()
         },
         "/replace" => WorldeditCommand {
@@ -392,18 +406,21 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             requires_positions: true,
             execute_fn: execute_replace,
             description: "Replace all blocks in a selection with another",
+            permission_node: "worldedit.region.replace",
             ..Default::default()
         },
         "/copy" => WorldeditCommand {
             requires_positions: true,
             execute_fn: execute_copy,
             description: "Copy the selection to the clipboard",
+            permission_node: "worldedit.clipboard.copy",
             ..Default::default()
         },
         "/cut" => WorldeditCommand {
             requires_positions: true,
             execute_fn: execute_cut,
             description: "Cut the selection to the clipboard",
+            permission_node: "worldedit.clipboard.cut",
             ..Default::default()
         },
         "/paste" => WorldeditCommand {
@@ -413,11 +430,13 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             flags: &[
                 flag!('a', None, "Skip air blocks")
             ],
+            permission_node: "worldedit.clipboard.paste",
             ..Default::default()
         },
         "/undo" => WorldeditCommand {
             execute_fn: execute_undo,
             description: "Undo's the last action (from history)",
+            permission_node: "worldedit.history.undo",
             ..Default::default()
         },
         "/stack" => WorldeditCommand {
@@ -431,6 +450,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             flags: &[
                 flag!('a', None, "Ignore air blocks")
             ],
+            permission_node: "worldedit.region.stack",
             ..Default::default()
         },
         "/move" => WorldeditCommand {
@@ -445,6 +465,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
                 flag!('a', None, "Ignore air blocks"),
                 flag!('s', None, "Shift the selection to the target location")
             ],
+            permission_node: "worldedit.region.move",
             ..Default::default()
         },
         "/count" => WorldeditCommand {
@@ -454,6 +475,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             requires_positions: true,
             execute_fn: execute_count,
             description: "Counts the number of blocks matching a mask",
+            permission_node: "worldedit.analysis.count",
             ..Default::default()
         },
         "/load" => WorldeditCommand {
@@ -462,6 +484,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             ],
             execute_fn: execute_load,
             description: "Loads a schematic file into the clipboard",
+            permission_node: "worldedit.clipboard.load",
             ..Default::default()
         },
         "/save" => WorldeditCommand {
@@ -471,6 +494,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             requires_clipboard: true,
             execute_fn: execute_save,
             description: "Save a schematic file from the clipboard",
+            permission_node: "worldedit.clipboard.save",
             ..Default::default()
         },
         "/expand" => WorldeditCommand {
@@ -481,6 +505,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             requires_positions: true,
             execute_fn: execute_expand,
             description: "Expand the selection area",
+            permission_node: "worldedit.selection.expand",
             ..Default::default()
         },
         "/contract" => WorldeditCommand {
@@ -491,6 +516,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             requires_positions: true,
             execute_fn: execute_contract,
             description: "Contract the selection area",
+            permission_node: "worldedit.selection.contract",
             ..Default::default()
         },
         "/shift" => WorldeditCommand {
@@ -501,6 +527,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             requires_positions: true,
             execute_fn: execute_shift,
             description: "Shift the selection area",
+            permission_node: "worldedit.selection.shift",
             ..Default::default()
         },
         "/flip" => WorldeditCommand {
@@ -518,6 +545,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             ],
             execute_fn: execute_help,
             description: "Displays help for WorldEdit commands",
+            permission_node: "worldedit.help",
             ..Default::default()
         }
     }

@@ -19,6 +19,24 @@ impl Plot {
     fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
+
+        let permission_node = match command {
+            "info" | "i" => "plots.info",
+            "claim" | "c" => "plots.claim",
+            "auto" | "a" => "plots.auto",
+            "middle" => "plots.middle",
+            "visit" | "v" => "plots.visit",
+            "teleport" | "tp" => "plots.visit",
+            _ => {
+                self.players[player].send_error_message("Invalid argument for /plot");
+                return;
+            }
+        };
+        if !self.players[player].has_permission(permission_node) {
+            self.players[player].send_no_permission_message();
+            return;
+        }
+
         match command {
             "info" | "i" => {
                 if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
@@ -53,14 +71,32 @@ impl Plot {
                 self.players[player].teleport(center.0, 64.0, center.1);
             }
             "visit" | "v" => {
-                if args.is_empty() {
+                if (1..=2).contains(&args.len()) {
                     self.players[player].send_error_message("Invalid number of arguments!");
                     return;
                 }
-                let plot = database::get_owned_plot(args[0]);
-                if let Some((plot_x, plot_z)) = plot {
-                    let center = Plot::get_center(plot_x, plot_z);
-                    self.players[player].teleport(center.0, 64.0, center.1);
+
+                let idx = if args.len() == 2 {
+                    match args[1].parse::<usize>() {
+                        Ok(idx) => idx - 1,
+                        Err(_) => {
+                            self.players[player].send_error_message("Unable to parse index");
+                            return;
+                        }
+                    }
+                } else {
+                    0
+                };
+
+                let plots = database::get_owned_plots(args[0]);
+                if !plots.is_empty() {
+                    if let Some(&(plot_x, plot_z)) = plots.get(idx) {
+                        let center = Plot::get_center(plot_x, plot_z);
+                        self.players[player].teleport(center.0, 64.0, center.1);
+                    } else {
+                        self.players[player]
+                            .send_system_message(&format!("Plot range (1, {}).", plots.len()));
+                    }
                 } else {
                     self.players[player]
                         .send_system_message(&format!("{} does not own any plots.", args[0]));
