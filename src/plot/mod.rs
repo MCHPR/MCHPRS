@@ -256,7 +256,6 @@ impl Plot {
         let spawn_player = CSpawnPlayer {
             entity_id: player.entity_id as i32,
             uuid: player.uuid,
-            on_ground: player.on_ground,
             pitch: player.pitch,
             yaw: player.yaw,
             x: player.x,
@@ -281,7 +280,6 @@ impl Plot {
             let spawn_other_player = CSpawnPlayer {
                 entity_id: other_player.entity_id as i32,
                 uuid: other_player.uuid,
-                on_ground: other_player.on_ground,
                 pitch: other_player.pitch,
                 yaw: other_player.yaw,
                 x: other_player.x,
