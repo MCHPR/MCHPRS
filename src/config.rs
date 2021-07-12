@@ -2,8 +2,8 @@ use crate::permissions::PermissionsConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
-use toml_edit::{value, Document};
 use std::lazy::SyncLazy;
+use toml_edit::{value, Document};
 
 pub static CONFIG: SyncLazy<ServerConfig> = SyncLazy::new(|| ServerConfig::load("Config.toml"));
 
@@ -55,7 +55,7 @@ macro_rules! gen_config {
 
                 let patched = doc.to_string();
                 if str != patched {
-                    let mut file = fs::OpenOptions::new().write(true).open(&config_file).unwrap();
+                    let mut file = fs::OpenOptions::new().create(true).write(true).open(&config_file).unwrap();
                     write!(file, "{}", patched).unwrap();
                 }
 

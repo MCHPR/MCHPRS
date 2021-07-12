@@ -12,6 +12,7 @@ use crate::network::packets::serverbound::{
 };
 use crate::network::packets::{PacketEncoderExt, SlotData};
 use crate::network::{NetworkServer, NetworkState};
+use crate::permissions;
 use crate::player::{Gamemode, Player};
 use crate::plot::commands::DECLARE_COMMANDS;
 use crate::plot::{self, database, Plot};
@@ -184,6 +185,10 @@ impl MinecraftServer {
             let whitelist_file = File::open("whitelist.json").unwrap();
             serde_json::from_reader(whitelist_file).unwrap()
         });
+
+        if let Some(permissions_config) = &CONFIG.luckperms {
+            permissions::init(permissions_config.clone()).unwrap();
+        }
 
         // Create server struct
         let mut server = MinecraftServer {
