@@ -618,6 +618,7 @@ impl Block {
         context: &UseOnBlockContext,
     ) -> Block {
         let block = match item {
+            Item::Stone {} => Block::Stone {},
             Item::Glass {} => Block::Glass {},
             Item::Sandstone {} => Block::Sandstone {},
             Item::SeaPickle {} => Block::SeaPickle { pickles: 1 },
@@ -1263,6 +1264,17 @@ blocks! {
             "air" => {}
         },
         get_name: "air",
+    },
+    Stone {
+        props: {},
+        get_id: 1,
+        from_id(_id): 1 => {},
+        from_names(_name): {
+            "stone" => {}
+        },
+        get_name: "stone",
+        solid: true,
+        cube: true,
     },
     Glass {
         props: {},
