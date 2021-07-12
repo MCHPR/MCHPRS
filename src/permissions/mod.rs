@@ -1,8 +1,8 @@
+use anyhow::{anyhow, Result};
 use mysql::prelude::*;
 use mysql::{OptsBuilder, Pool};
-use anyhow::{Result, anyhow};
+use serde::{Deserialize, Serialize};
 use std::lazy::SyncOnceCell;
-use serde::{Serialize, Deserialize};
 
 static POOL: SyncOnceCell<Pool> = SyncOnceCell::new();
 
@@ -22,8 +22,8 @@ fn init(config: PermissionsConfig) -> Result<()> {
         .user(Some(config.username))
         .pass(Some(config.password));
     let pool = Pool::new(opts)?;
-    POOL.set(pool).map_err(|_| anyhow!("Tried to init permissions more than once"))?;
+    POOL.set(pool)
+        .map_err(|_| anyhow!("Tried to init permissions more than once"))?;
 
     Ok(())
 }
-
