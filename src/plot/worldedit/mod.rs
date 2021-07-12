@@ -1,20 +1,26 @@
+mod schematic;
+
 use super::Plot;
-use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos};
+use crate::blocks::{Block, BlockEntity, BlockFace, BlockFacing, BlockPos};
+use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::player::Player;
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
+use log::error;
 use rand::Rng;
 use regex::Regex;
+use schematic::{load_schematic, save_schematic};
 use std::collections::HashMap;
 use std::fmt;
-use std::fs::File;
+use std::lazy::SyncLazy;
 use std::ops::RangeInclusive;
 use std::time::Instant;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
+// The command is not handled if it is not found in the worldedit commands and alias lists.
 pub fn execute_command(
     plot: &mut Plot,
-    player_idx: usize,
+    player_uuid: u128,
     command: &str,
     args: &mut Vec<&str>,
 ) -> bool {
@@ -33,7 +39,7 @@ pub fn execute_command(
 
     let mut ctx = CommandExecuteContext {
         plot,
-        player_idx,
+        player_uuid,
         arguments: Vec::new(),
         flags: Vec::new(),
     };
@@ -109,7 +115,7 @@ pub fn execute_command(
     }
 
     for (i, arg_desc) in arg_descs.iter().enumerate() {
-        let arg = args.get(i).map(|s| *s);
+        let arg = args.get(i).copied();
         match Argument::parse(&ctx, arg_desc.argument_type, arg) {
             Ok(default_arg) => ctx.arguments.push(default_arg),
             Err(err) => {
@@ -118,7 +124,7 @@ pub fn execute_command(
             }
         }
     }
-
+    ctx.plot.reset_redpiler();
     (command.execute_fn)(ctx);
     true
 }
@@ -158,6 +164,7 @@ enum ArgumentType {
     Direction,
     Mask,
     Pattern,
+    String,
 }
 
 enum Argument {
@@ -165,6 +172,7 @@ enum Argument {
     Direction(BlockFacing),
     Pattern(WorldEditPattern),
     Mask(WorldEditPattern),
+    String(String),
 }
 
 impl Argument {
@@ -175,9 +183,9 @@ impl Argument {
         }
     }
 
-    fn unwrap_direction(&self) -> &BlockFacing {
+    fn unwrap_direction(&self) -> BlockFacing {
         match self {
-            Argument::Direction(val) => val,
+            Argument::Direction(val) => *val,
             _ => panic!("Argument was not an Direction"),
         }
     }
@@ -196,7 +204,14 @@ impl Argument {
         }
     }
 
-    fn get_default(ctx: &CommandExecuteContext, arg_type: ArgumentType) -> ArgumentParseResult {
+    fn unwrap_string(&self) -> &String {
+        match self {
+            Argument::String(val) => val,
+            _ => panic!("Argument was not a String"),
+        }
+    }
+
+    fn get_default(ctx: &CommandExecuteContext<'_>, arg_type: ArgumentType) -> ArgumentParseResult {
         match arg_type {
             ArgumentType::Direction => Argument::parse(ctx, arg_type, Some("me")),
             ArgumentType::UnsignedInteger => Ok(Argument::UnsignedInteger(1)),
@@ -208,21 +223,25 @@ impl Argument {
     }
 
     fn parse(
-        ctx: &CommandExecuteContext,
+        ctx: &CommandExecuteContext<'_>,
         arg_type: ArgumentType,
         arg: Option<&str>,
     ) -> ArgumentParseResult {
         if arg.is_none() {
-            return Ok(Argument::get_default(ctx, arg_type)?);
+            return Argument::get_default(ctx, arg_type);
         }
         let arg = arg.unwrap();
         match arg_type {
             ArgumentType::Direction => {
                 let player_facing = ctx.get_player().get_facing();
-                match arg {
-                    "me" => Ok(Argument::Direction(player_facing)),
-                    _ => Err(ArgumentParseError::new(arg_type, "unknown direction")),
-                }
+                Ok(Argument::Direction(match arg {
+                    "me" => player_facing,
+                    "u" | "up" => BlockFacing::Up,
+                    "d" | "down" => BlockFacing::Down,
+                    "l" | "left" => player_facing.rotate_ccw(),
+                    "r" | "right" => player_facing.rotate(),
+                    _ => return Err(ArgumentParseError::new(arg_type, "unknown direction")),
+                }))
             }
             ArgumentType::UnsignedInteger => match arg.parse::<u32>() {
                 Ok(num) => Ok(Argument::UnsignedInteger(num)),
@@ -237,13 +256,16 @@ impl Argument {
                 Ok(pattern) => Ok(Argument::Mask(pattern)),
                 Err(err) => Err(ArgumentParseError::new(arg_type, &err.to_string())),
             },
+            ArgumentType::String => Ok(Argument::String(arg.to_owned())),
         }
     }
 }
 
 struct ArgumentDescription {
+    // TODO: Use name in help command
     name: &'static str,
     argument_type: ArgumentType,
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -260,6 +282,7 @@ macro_rules! argument {
 struct FlagDescription {
     letter: char,
     argument_type: Option<ArgumentType>,
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -275,7 +298,7 @@ macro_rules! flag {
 
 struct CommandExecuteContext<'a> {
     plot: &'a mut Plot,
-    player_idx: usize,
+    player_uuid: u128,
     arguments: Vec<Argument>,
     flags: Vec<char>,
 }
@@ -286,11 +309,11 @@ impl<'a> CommandExecuteContext<'a> {
     }
 
     fn get_player(&self) -> &Player {
-        &self.plot.players[self.player_idx]
+        self.plot.get_player(self.player_uuid).unwrap()
     }
 
     fn get_player_mut(&mut self) -> &mut Player {
-        &mut self.plot.players[self.player_idx]
+        self.plot.get_player_mut(self.player_uuid).unwrap()
     }
 }
 
@@ -299,7 +322,8 @@ struct WorldeditCommand {
     flags: &'static [FlagDescription],
     requires_positions: bool,
     requires_clipboard: bool,
-    execute_fn: fn(CommandExecuteContext),
+    execute_fn: fn(CommandExecuteContext<'_>),
+    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -316,33 +340,73 @@ impl Default for WorldeditCommand {
     }
 }
 
-macro_rules! map(
-    { $($key:expr => $value:expr),+ } => {
-        {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
-        }
-     };
-);
-
-lazy_static! {
-    static ref COMMANDS: HashMap<&'static str, WorldeditCommand> = map! {
-        "copy" => WorldeditCommand {
+static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::new(|| {
+    map! {
+        "up" => WorldeditCommand {
+            execute_fn: execute_up,
+            description: "Go upwards some distance",
+            arguments: &[
+                argument!("distance", UnsignedInteger, "Distance to go upwards")
+            ],
+            ..Default::default()
+        },
+        "/pos1" => WorldeditCommand {
+            execute_fn: execute_pos1,
+            description: "Set position 1",
+            ..Default::default()
+        },
+        "/pos2" => WorldeditCommand {
+            execute_fn: execute_pos2,
+            description: "Set position 2",
+            ..Default::default()
+        },
+        "/hpos1" => WorldeditCommand {
+            execute_fn: execute_hpos1,
+            description: "Set position 1 to targeted block",
+            ..Default::default()
+        },
+        "/hpos2" => WorldeditCommand {
+            execute_fn: execute_hpos2,
+            description: "Set position 2 to targeted block",
+            ..Default::default()
+        },
+        "/sel" => WorldeditCommand {
+            execute_fn: execute_sel,
+            description: "Choose a region selector",
+            ..Default::default()
+        },
+        "/set" => WorldeditCommand {
+            arguments: &[
+                argument!("pattern", Pattern, "The pattern of blocks to set")
+            ],
+            requires_positions: true,
+            execute_fn: execute_set,
+            description: "Sets all the blocks in the region",
+            ..Default::default()
+        },
+        "/replace" => WorldeditCommand {
+            arguments: &[
+                argument!("from", Mask, "The mask representng blocks to replace"),
+                argument!("to", Pattern, "The pattern of blocks to replace with")
+            ],
+            requires_positions: true,
+            execute_fn: execute_replace,
+            description: "Replace all blocks in a selection with another",
+            ..Default::default()
+        },
+        "/copy" => WorldeditCommand {
             requires_positions: true,
             execute_fn: execute_copy,
             description: "Copy the selection to the clipboard",
             ..Default::default()
         },
-        "cut" => WorldeditCommand {
+        "/cut" => WorldeditCommand {
             requires_positions: true,
             execute_fn: execute_cut,
             description: "Cut the selection to the clipboard",
             ..Default::default()
         },
-        "paste" => WorldeditCommand {
+        "/paste" => WorldeditCommand {
             requires_clipboard: true,
             execute_fn: execute_paste,
             description: "Paste the clipboard's contents",
@@ -351,12 +415,12 @@ lazy_static! {
             ],
             ..Default::default()
         },
-        "undo" => WorldeditCommand {
+        "/undo" => WorldeditCommand {
             execute_fn: execute_undo,
             description: "Undo's the last action (from history)",
             ..Default::default()
         },
-        "stack" => WorldeditCommand {
+        "/stack" => WorldeditCommand {
             arguments: &[
                 argument!("count", UnsignedInteger, "# of copies to stack"),
                 argument!("direction", Direction, "The direction to stack")
@@ -369,7 +433,7 @@ lazy_static! {
             ],
             ..Default::default()
         },
-        "move" => WorldeditCommand {
+        "/move" => WorldeditCommand {
             arguments: &[
                 argument!("count", UnsignedInteger, "The distance to move"),
                 argument!("direction", Direction, "The direction to move")
@@ -383,7 +447,7 @@ lazy_static! {
             ],
             ..Default::default()
         },
-        "count" => WorldeditCommand {
+        "/count" => WorldeditCommand {
             arguments: &[
                 argument!("mask", Mask, "The mask of blocks to match")
             ],
@@ -392,55 +456,80 @@ lazy_static! {
             description: "Counts the number of blocks matching a mask",
             ..Default::default()
         },
-        "sel" => WorldeditCommand {
-            execute_fn: execute_sel,
-            description: "Choose a region selector",
+        "/load" => WorldeditCommand {
+            arguments: &[
+                argument!("name", String, "The file name of the schematic to load")
+            ],
+            execute_fn: execute_load,
+            description: "Loads a schematic file into the clipboard",
             ..Default::default()
         },
-        "set" => WorldeditCommand {
+        "/save" => WorldeditCommand {
             arguments: &[
-                argument!("pattern", Pattern, "The pattern of blocks to set")
+                argument!("name", String, "The file name of the schematic to save")
+            ],
+            requires_clipboard: true,
+            execute_fn: execute_save,
+            description: "Save a schematic file from the clipboard",
+            ..Default::default()
+        },
+        "/expand" => WorldeditCommand {
+            arguments: &[
+                argument!("amount", UnsignedInteger, "Amount to expand the selection by"),
+                argument!("direction", Direction, "Direction to expand")
             ],
             requires_positions: true,
-            execute_fn: execute_set,
-            description: "Sets all the blocks in the region",
+            execute_fn: execute_expand,
+            description: "Expand the selection area",
             ..Default::default()
         },
-        "pos1" => WorldeditCommand {
-            execute_fn: execute_pos1,
-            description: "Set position 1",
-            ..Default::default()
-        },
-        "pos2" => WorldeditCommand {
-            execute_fn: execute_pos2,
-            description: "Set position 2",
-            ..Default::default()
-        },
-        "replace" => WorldeditCommand {
+        "/contract" => WorldeditCommand {
             arguments: &[
-                argument!("from", Mask, "The mask representng blocks to replace"),
-                argument!("to", Pattern, "The pattern of blocks to replace with")
+                argument!("amount", UnsignedInteger, "Amount to contract the selection by"),
+                argument!("direction", Direction, "Direction to contract")
             ],
             requires_positions: true,
-            execute_fn: execute_replace,
-            description: "Replace all blocks in a selection with another",
+            execute_fn: execute_contract,
+            description: "Contract the selection area",
+            ..Default::default()
+        },
+        "/shift" => WorldeditCommand {
+            arguments: &[
+                argument!("amount", UnsignedInteger, "Amount to shift the selection by"),
+                argument!("direction", Direction, "Direction to shift")
+            ],
+            requires_positions: true,
+            execute_fn: execute_shift,
+            description: "Shift the selection area",
+            ..Default::default()
+        },
+        "/help" => WorldeditCommand {
+            arguments: &[
+                argument!("command", String, "Command to retrieve help for"),
+            ],
+            execute_fn: execute_help,
+            description: "Displays help for WorldEdit commands",
             ..Default::default()
         }
-    };
-}
+    }
+});
 
-lazy_static! {
-    static ref ALIASES: HashMap<&'static str, &'static str> = map! {
-        "1" => "pos1",
-        "2" => "pos2",
-        "c" => "copy",
-        "x" => "cut",
-        "v" => "paste",
-        "va" => "paste -a",
-        "s" => "stack",
-        "sa" => "stack -a"
-    };
-}
+static ALIASES: SyncLazy<HashMap<&'static str, &'static str>> = SyncLazy::new(|| {
+    map! {
+        "u" => "up",
+        "/1" => "/pos1",
+        "/2" => "/pos2",
+        "/c" => "/copy",
+        "/x" => "/cut",
+        "/v" => "/paste",
+        "/va" => "/paste -a",
+        "/s" => "/stack",
+        "/sa" => "/stack -a",
+        "/e" => "/expand",
+        "/h1" => "/hpos1",
+        "/h2" => "/hpos2"
+    }
+});
 
 pub struct WorldEditPatternPart {
     pub weight: f32,
@@ -461,99 +550,10 @@ pub struct WorldEditClipboard {
 
 #[derive(Clone, Debug)]
 pub struct WorldEditUndo {
-    clipboard: WorldEditClipboard,
+    clipboards: Vec<WorldEditClipboard>,
     pos: BlockPos,
     plot_x: i32,
     plot_z: i32,
-}
-
-impl WorldEditClipboard {
-    fn load_from_schematic(file_name: &str) -> Option<WorldEditClipboard> {
-        // I greaty dislike this
-        let mut file = match File::open("./schems/".to_owned() + file_name + ".schem") {
-            Ok(file) => file,
-            Err(_) => return None,
-        };
-        let nbt = match nbt::Blob::from_gzip_reader(&mut file) {
-            Ok(blob) => blob,
-            Err(_) => return None,
-        };
-        use nbt::Value;
-        let size_x = nbt_unwrap_val!(nbt["Width"], Value::Short) as u32;
-        let size_z = nbt_unwrap_val!(nbt["Length"], Value::Short) as u32;
-        let size_y = nbt_unwrap_val!(nbt["Height"], Value::Short) as u32;
-        let nbt_palette = nbt_unwrap_val!(&nbt["Palette"], Value::Compound);
-        let metadata = nbt_unwrap_val!(&nbt["Metadata"], Value::Compound);
-        let offset_x = -nbt_unwrap_val!(metadata["WEOffsetX"], Value::Int);
-        let offset_y = -nbt_unwrap_val!(metadata["WEOffsetY"], Value::Int);
-        let offset_z = -nbt_unwrap_val!(metadata["WEOffsetZ"], Value::Int);
-        lazy_static! {
-            static ref RE: Regex =
-                Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap();
-        }
-        let mut palette: HashMap<u32, u32> = HashMap::new();
-        for (k, v) in nbt_palette {
-            let id = *nbt_unwrap_val!(v, Value::Int) as u32;
-            let captures = RE.captures(&k)?;
-            let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
-            if let Some(properties_match) = captures.get(2) {
-                let properties: Vec<&str> =
-                    properties_match.as_str().split(&[',', '='][..]).collect();
-                for prop_idx in (0..properties.len()).step_by(2) {
-                    block.set_property(properties[prop_idx], properties[prop_idx + 1]);
-                }
-            }
-            palette.insert(id, block.get_id());
-        }
-        let blocks: Vec<u8> = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray)
-            .iter()
-            .map(|b| *b as u8)
-            .collect();
-        let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
-        let mut i = 0;
-        for y_offset in (0..size_y).map(|y| y * size_z * size_x) {
-            for z_offset in (0..size_z).map(|z| z * size_x) {
-                for x in 0..size_x {
-                    let mut blockstate_id = 0;
-                    // Max varint length is 5
-                    for varint_len in 0..=5 {
-                        blockstate_id |= ((blocks[i] & 127) as u32) << (varint_len * 7);
-                        if (blocks[i] & 128) != 128 {
-                            i += 1;
-                            break;
-                        }
-                        i += 1;
-                    }
-                    let entry = *palette.get(&blockstate_id).unwrap();
-                    data.set_entry((y_offset + z_offset + x) as usize, entry);
-                }
-            }
-        }
-        let block_entities = nbt_unwrap_val!(&nbt["BlockEntities"], Value::List);
-        let mut parsed_block_entities = HashMap::new();
-        for block_entity in block_entities {
-            let val = nbt_unwrap_val!(block_entity, Value::Compound);
-            let pos_array = nbt_unwrap_val!(&val["Pos"], Value::IntArray);
-            let pos = BlockPos {
-                x: pos_array[0],
-                y: pos_array[1],
-                z: pos_array[2],
-            };
-            if let Some(parsed) = BlockEntity::from_nbt(val) {
-                parsed_block_entities.insert(pos, parsed);
-            }
-        }
-        Some(WorldEditClipboard {
-            size_x,
-            size_y,
-            size_z,
-            offset_x,
-            offset_y,
-            offset_z,
-            data,
-            block_entities: parsed_block_entities,
-        })
-    }
 }
 
 pub enum PatternParseError {
@@ -580,12 +580,13 @@ impl WorldEditPattern {
     pub fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(',') {
-            lazy_static! {
-                static ref RE: Regex = Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap();
-            }
+            static RE: SyncLazy<Regex> = SyncLazy::new(|| {
+                Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap()
+            });
+
             let pattern_match = RE
                 .captures(part)
-                .ok_or(PatternParseError::InvalidPattern(part.to_owned()))?;
+                .ok_or_else(|| PatternParseError::InvalidPattern(part.to_owned()))?;
 
             let block = if pattern_match.get(4).is_some() {
                 Block::from_id(
@@ -727,6 +728,46 @@ impl WorldEditOperation {
     }
 }
 
+fn ray_trace_block(
+    world: &impl World,
+    mut x: f64,
+    mut y: f64,
+    mut z: f64,
+    start_pitch: f64,
+    start_yaw: f64,
+    max_distance: f64,
+) -> Option<BlockPos> {
+    let check_distance = 0.2;
+
+    // Player view height
+    y += 1.65;
+    let rot_x = (start_yaw + 90.0) % 360.0;
+    let rot_y = start_pitch * -1.0;
+    let h = check_distance * rot_y.to_radians().cos();
+
+    let offset_x = h * rot_x.to_radians().cos();
+    let offset_y = check_distance * rot_y.to_radians().sin();
+    let offset_z = h * rot_x.to_radians().sin();
+
+    let mut current_distance = 0.0;
+
+    while current_distance < max_distance {
+        let block_pos = BlockPos::from_pos(x, y, z);
+        let block = world.get_block(block_pos);
+
+        if !matches!(block, Block::Air {}) {
+            return Some(block_pos);
+        }
+
+        x += offset_x;
+        y += offset_y;
+        z += offset_z;
+        current_distance += check_distance;
+    }
+
+    None
+}
+
 fn worldedit_send_operation(plot: &mut Plot, operation: WorldEditOperation) {
     for packet in operation.records {
         let chunk = match plot.get_chunk(packet.chunk_x, packet.chunk_z) {
@@ -740,21 +781,21 @@ fn worldedit_send_operation(plot: &mut Plot, operation: WorldEditOperation) {
     }
 }
 
-fn worldedit_start_operation(plot: &mut Plot, player: usize) -> WorldEditOperation {
-    let player = &mut plot.players[player];
+fn worldedit_start_operation(plot: &mut Plot, player_uuid: u128) -> WorldEditOperation {
+    let player = plot.get_player(player_uuid).unwrap();
     let first_pos = player.first_position.unwrap();
     let second_pos = player.second_position.unwrap();
     WorldEditOperation::new(first_pos, second_pos)
 }
 
-fn execute_set(mut ctx: CommandExecuteContext) {
+fn execute_set(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
     let pattern = ctx.arguments[0].unwrap_pattern();
 
-    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_uuid);
     capture_undo(
         ctx.plot,
-        ctx.player_idx,
+        ctx.player_uuid,
         ctx.get_player().first_position.unwrap(),
         ctx.get_player().second_position.unwrap(),
     );
@@ -781,16 +822,16 @@ fn execute_set(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_replace(mut ctx: CommandExecuteContext) {
+fn execute_replace(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let filter = ctx.arguments[0].unwrap_mask();
     let pattern = ctx.arguments[1].unwrap_pattern();
 
-    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    let mut operation = worldedit_start_operation(ctx.plot, ctx.player_uuid);
     capture_undo(
         ctx.plot,
-        ctx.player_idx,
+        ctx.player_uuid,
         ctx.get_player().first_position.unwrap(),
         ctx.get_player().second_position.unwrap(),
     );
@@ -820,13 +861,13 @@ fn execute_replace(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_count(mut ctx: CommandExecuteContext) {
+fn execute_count(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let filter = ctx.arguments[0].unwrap_pattern();
 
     let mut blocks_counted = 0;
-    let operation = worldedit_start_operation(ctx.plot, ctx.player_idx);
+    let operation = worldedit_start_operation(ctx.plot, ctx.player_uuid);
     for x in operation.x_range() {
         for y in operation.y_range() {
             for z in operation.z_range() {
@@ -961,19 +1002,23 @@ fn paste_clipboard(plot: &mut Plot, cb: &WorldEditClipboard, pos: BlockPos, igno
     }
 }
 
-fn capture_undo(plot: &mut Plot, player: usize, first_pos: BlockPos, second_pos: BlockPos) {
+fn capture_undo(plot: &mut Plot, player_uuid: u128, first_pos: BlockPos, second_pos: BlockPos) {
     let origin = first_pos.min(second_pos);
     let cb = create_clipboard(plot, origin, first_pos, second_pos);
     let undo = WorldEditUndo {
-        clipboard: cb,
+        clipboards: vec![cb],
         pos: origin,
         plot_x: plot.x,
         plot_z: plot.z,
     };
-    plot.players[player].worldedit_undo.push(undo);
+
+    plot.get_player_mut(player_uuid)
+        .unwrap()
+        .worldedit_undo
+        .push(undo);
 }
 
-fn execute_copy(mut ctx: CommandExecuteContext) {
+fn execute_copy(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let origin = BlockPos::new(
@@ -995,11 +1040,13 @@ fn execute_copy(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_cut(mut ctx: CommandExecuteContext) {
+fn execute_cut(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let first_pos = ctx.get_player().first_position.unwrap();
     let second_pos = ctx.get_player().second_position.unwrap();
+
+    capture_undo(ctx.plot, ctx.player_uuid, first_pos, second_pos);
 
     let origin = BlockPos::new(
         ctx.get_player().x.floor() as i32,
@@ -1016,7 +1063,7 @@ fn execute_cut(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_move(mut ctx: CommandExecuteContext) {
+fn execute_move(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let move_amt = ctx.arguments[0].unwrap_uint();
@@ -1026,6 +1073,22 @@ fn execute_move(mut ctx: CommandExecuteContext) {
     let second_pos = ctx.get_player().second_position.unwrap();
 
     let zero_pos = BlockPos::new(0, 0, 0);
+
+    let undo = WorldEditUndo {
+        clipboards: vec![
+            create_clipboard(ctx.plot, first_pos.min(second_pos), first_pos, second_pos),
+            create_clipboard(
+                ctx.plot,
+                first_pos.min(second_pos),
+                direction.offset_pos(first_pos, move_amt as i32),
+                direction.offset_pos(second_pos, move_amt as i32),
+            ),
+        ],
+        pos: first_pos.min(second_pos),
+        plot_x: ctx.plot.x,
+        plot_z: ctx.plot.z,
+    };
+    ctx.get_player_mut().worldedit_undo.push(undo);
 
     let clipboard = create_clipboard(ctx.plot, zero_pos, first_pos, second_pos);
     clear_area(ctx.plot, first_pos, second_pos);
@@ -1040,8 +1103,8 @@ fn execute_move(mut ctx: CommandExecuteContext) {
         let first_pos = direction.offset_pos(first_pos, move_amt as i32);
         let second_pos = direction.offset_pos(second_pos, move_amt as i32);
         let player = ctx.get_player_mut();
-        player.worldedit_set_first_position(first_pos.x, first_pos.y, first_pos.z);
-        player.worldedit_set_second_position(second_pos.x, second_pos.y, second_pos.z);
+        player.worldedit_set_first_position(first_pos);
+        player.worldedit_set_second_position(second_pos);
     }
 
     ctx.get_player_mut().send_worldedit_message(&format!(
@@ -1050,7 +1113,7 @@ fn execute_move(mut ctx: CommandExecuteContext) {
     ));
 }
 
-fn execute_paste(mut ctx: CommandExecuteContext) {
+fn execute_paste(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     if ctx.get_player().worldedit_clipboard.is_some() {
@@ -1066,7 +1129,7 @@ fn execute_paste(mut ctx: CommandExecuteContext) {
         let offset_z = pos.z - cb.offset_z;
         capture_undo(
             ctx.plot,
-            ctx.player_idx,
+            ctx.player_uuid,
             BlockPos::new(offset_x, offset_y, offset_z),
             BlockPos::new(
                 offset_x + cb.size_x as i32,
@@ -1085,56 +1148,90 @@ fn execute_paste(mut ctx: CommandExecuteContext) {
     }
 }
 
-// TODO: This should use the new worldedit command stuff
-pub(super) fn execute_load(plot: &mut Plot, player: usize, file_name: &str) {
+fn execute_load(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let clipboard = WorldEditClipboard::load_from_schematic(file_name);
+    let file_name = ctx.arguments[0].unwrap_string();
+
+    let clipboard = load_schematic(file_name);
     match clipboard {
         Some(cb) => {
-            plot.players[player].worldedit_clipboard = Some(cb);
-            plot.players[player].send_worldedit_message(&format!(
+            ctx.get_player_mut().worldedit_clipboard = Some(cb);
+            ctx.get_player_mut().send_worldedit_message(&format!(
                 "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
                 start_time.elapsed()
             ));
         }
         None => {
-            plot.players[player].send_error_message("There was an error loading the schematic.");
+            error!("There was an error loading a schematic.");
+            ctx.get_player_mut()
+                .send_error_message("There was an error loading the schematic.");
         }
     }
 }
 
-fn execute_stack(mut ctx: CommandExecuteContext) {
+fn execute_save(mut ctx: CommandExecuteContext<'_>) {
+    let start_time = Instant::now();
+
+    let file_name = ctx.arguments[0].unwrap_string();
+    let clipboard = ctx.get_player().worldedit_clipboard.as_ref().unwrap();
+
+    match save_schematic(file_name, clipboard) {
+        Ok(_) => {
+            ctx.get_player_mut().send_worldedit_message(&format!(
+                "The schematic was saved sucessfuly. ({:?})",
+                start_time.elapsed()
+            ));
+        }
+        Err(err) => {
+            error!("There was an error saving a schematic: ");
+            error!("{:?}", err);
+            ctx.get_player_mut()
+                .send_error_message("There was an error saving the schematic.");
+        }
+    }
+}
+
+fn execute_stack(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let stack_amt = ctx.arguments[0].unwrap_uint();
     let direction = ctx.arguments[1].unwrap_direction();
     let pos1 = ctx.get_player().first_position.unwrap();
-    let clipboard = create_clipboard(
-        ctx.plot,
-        pos1,
-        pos1,
-        ctx.get_player().second_position.unwrap(),
-    );
-    let mut all_pos: Vec<BlockPos> = Vec::new();
+    let pos2 = ctx.get_player().second_position.unwrap();
+    let clipboard = create_clipboard(ctx.plot, pos1, pos1, pos2);
     let stack_offset = match direction {
         BlockFacing::North | BlockFacing::South => clipboard.size_z,
         BlockFacing::East | BlockFacing::West => clipboard.size_x,
         BlockFacing::Up | BlockFacing::Down => clipboard.size_y,
     };
+    let mut undo_cbs = Vec::new();
     for i in 1..stack_amt + 1 {
-        all_pos.push(direction.offset_pos(pos1, (i * stack_offset) as i32));
-    }
-    for block_pos in all_pos {
+        let offset = (i * stack_offset) as i32;
+        let block_pos = direction.offset_pos(pos1, offset);
+        undo_cbs.push(create_clipboard(
+            ctx.plot,
+            pos1,
+            block_pos,
+            direction.offset_pos(pos2, offset),
+        ));
         paste_clipboard(ctx.plot, &clipboard, block_pos, ctx.has_flag('a'));
     }
+    let undo = WorldEditUndo {
+        clipboards: undo_cbs,
+        pos: pos1,
+        plot_x: ctx.plot.x,
+        plot_z: ctx.plot.z,
+    };
+    ctx.get_player_mut().worldedit_undo.push(undo);
+
     ctx.get_player_mut().send_worldedit_message(&format!(
         "Your clipboard was stacked. ({:?})",
         start_time.elapsed()
     ));
 }
 
-fn execute_undo(mut ctx: CommandExecuteContext) {
+fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
     if ctx.get_player().worldedit_undo.is_empty() {
         ctx.get_player_mut()
             .send_error_message("There is nothing left to undo.");
@@ -1146,10 +1243,12 @@ fn execute_undo(mut ctx: CommandExecuteContext) {
             .send_error_message("Cannot undo outside of your current plot.");
         return;
     }
-    paste_clipboard(ctx.plot, &undo.clipboard, undo.pos, false);
+    for clipboard in &undo.clipboards {
+        paste_clipboard(ctx.plot, clipboard, undo.pos, false);
+    }
 }
 
-fn execute_sel(mut ctx: CommandExecuteContext) {
+fn execute_sel(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
     player.first_position = None;
     player.second_position = None;
@@ -1157,26 +1256,411 @@ fn execute_sel(mut ctx: CommandExecuteContext) {
     player.worldedit_send_cui("s|cuboid");
 }
 
-fn execute_pos1(mut ctx: CommandExecuteContext) {
+fn execute_pos1(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
-    let x = player.x as i32;
-    let y = player.y as i32;
-    let z = player.z as i32;
+    let pos = BlockPos::from_pos(player.x, player.y, player.z);
 
-    player.worldedit_set_first_position(x, y, z);
+    player.worldedit_set_first_position(pos);
 }
 
-fn execute_pos2(mut ctx: CommandExecuteContext) {
+fn execute_pos2(mut ctx: CommandExecuteContext<'_>) {
     let player = ctx.get_player_mut();
 
-    let x = player.x as i32;
-    let y = player.y as i32;
-    let z = player.z as i32;
+    let pos = BlockPos::from_pos(player.x, player.y, player.z);
 
-    player.worldedit_set_second_position(x, y, z);
+    player.worldedit_set_second_position(pos);
 }
 
-fn execute_unimplemented(_ctx: CommandExecuteContext) {
+fn execute_hpos1(mut ctx: CommandExecuteContext<'_>) {
+    let player = ctx.get_player_mut();
+    let x = player.x;
+    let y = player.y;
+    let z = player.z;
+    let pitch = player.pitch as f64;
+    let yaw = player.yaw as f64;
+
+    let result = ray_trace_block(ctx.plot, x, y, z, pitch, yaw, 300.0);
+
+    let player = ctx.get_player_mut();
+    match result {
+        Some(pos) => player.worldedit_set_first_position(pos),
+        None => player.send_error_message("No block in sight!"),
+    }
+}
+
+fn execute_hpos2(mut ctx: CommandExecuteContext<'_>) {
+    let player = ctx.get_player_mut();
+    let x = player.x;
+    let y = player.y;
+    let z = player.z;
+    let pitch = player.pitch as f64;
+    let yaw = player.yaw as f64;
+
+    let result = ray_trace_block(ctx.plot, x, y, z, pitch, yaw, 300.0);
+
+    let player = ctx.get_player_mut();
+    match result {
+        Some(pos) => player.worldedit_set_second_position(pos),
+        None => player.send_error_message("No block in sight!"),
+    }
+}
+
+fn execute_expand(mut ctx: CommandExecuteContext<'_>) {
+    let amount = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
+    let player = ctx.get_player_mut();
+    let first_pos = player.first_position.unwrap();
+    let second_pos = player.second_position.unwrap();
+
+    match direction {
+        BlockFacing::Up => {
+            let (pos, set_fn) = if first_pos.y > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y + amount as i32, pos.z));
+        }
+        BlockFacing::Down => {
+            let (pos, set_fn) = if first_pos.y < second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y - amount as i32, pos.z));
+        }
+        BlockFacing::East => {
+            let (pos, set_fn) = if first_pos.x > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x + amount as i32, pos.y, pos.z));
+        }
+        BlockFacing::West => {
+            let (pos, set_fn) = if first_pos.x < second_pos.x {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x - amount as i32, pos.y, pos.z));
+        }
+        BlockFacing::North => {
+            let (pos, set_fn) = if first_pos.z < second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
+        }
+        BlockFacing::South => {
+            let (pos, set_fn) = if first_pos.z > second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
+        }
+    }
+
+    player.send_worldedit_message(&format!("Region expanded {} block(s).", amount));
+}
+
+fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
+    let amount = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
+    let player = ctx.get_player_mut();
+    let first_pos = player.first_position.unwrap();
+    let second_pos = player.second_position.unwrap();
+
+    match direction {
+        BlockFacing::Up => {
+            let (pos, set_fn) = if first_pos.y > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y - amount as i32, pos.z));
+        }
+        BlockFacing::Down => {
+            let (pos, set_fn) = if first_pos.y < second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y + amount as i32, pos.z));
+        }
+        BlockFacing::East => {
+            let (pos, set_fn) = if first_pos.x > second_pos.y {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x - amount as i32, pos.y, pos.z));
+        }
+        BlockFacing::West => {
+            let (pos, set_fn) = if first_pos.x < second_pos.x {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x + amount as i32, pos.y, pos.z));
+        }
+        BlockFacing::North => {
+            let (pos, set_fn) = if first_pos.z < second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z + amount as i32));
+        }
+        BlockFacing::South => {
+            let (pos, set_fn) = if first_pos.z > second_pos.z {
+                (
+                    first_pos,
+                    Player::worldedit_set_first_position as fn(&mut Player, BlockPos),
+                )
+            } else {
+                (
+                    second_pos,
+                    Player::worldedit_set_second_position as fn(&mut Player, BlockPos),
+                )
+            };
+            set_fn(player, BlockPos::new(pos.x, pos.y, pos.z - amount as i32));
+        }
+    }
+
+    player.send_worldedit_message(&format!("Region contracted {} block(s).", amount));
+}
+
+fn execute_shift(mut ctx: CommandExecuteContext<'_>) {
+    let amount = ctx.arguments[0].unwrap_uint();
+    let direction = ctx.arguments[1].unwrap_direction();
+    let player = ctx.get_player_mut();
+    let first_pos = player.first_position.unwrap();
+    let second_pos = player.second_position.unwrap();
+
+    let mut move_both_points = |x, y, z| {
+        player.worldedit_set_first_position(BlockPos::new(
+            first_pos.x + x,
+            first_pos.y + y,
+            first_pos.z + z,
+        ));
+        player.worldedit_set_second_position(BlockPos::new(
+            second_pos.x + x,
+            second_pos.y + y,
+            second_pos.z + z,
+        ));
+    };
+
+    match direction {
+        BlockFacing::Up => move_both_points(0, amount as i32, 0),
+        BlockFacing::Down => move_both_points(0, -(amount as i32), 0),
+        BlockFacing::East => move_both_points(amount as i32, 0, 0),
+        BlockFacing::West => move_both_points(-(amount as i32), 0, 0),
+        BlockFacing::South => move_both_points(0, 0, amount as i32),
+        BlockFacing::North => move_both_points(0, 0, -(amount as i32)),
+    }
+
+    player.send_worldedit_message(&format!("Region shifted {} block(s).", amount));
+}
+
+fn execute_help(mut ctx: CommandExecuteContext<'_>) {
+    let command_name = ctx.arguments[0].unwrap_string().clone();
+    let slash_command_name = "/".to_owned() + &command_name;
+    let player_uuid = ctx.player_uuid;
+    let player = ctx.get_player_mut();
+
+    let maybe_command = COMMANDS
+        .get(command_name.as_str())
+        .or_else(|| COMMANDS.get(slash_command_name.as_str()));
+    let command = match maybe_command {
+        Some(command) => command,
+        None => {
+            player.send_error_message(&format!("Unknown command: {}", command_name));
+            return;
+        }
+    };
+
+    let mut message = vec![
+        ChatComponentBuilder::new("--------------".to_owned())
+            .color_code(ColorCode::Yellow)
+            .strikethrough(true)
+            .finish(),
+        ChatComponentBuilder::new(format!(" Help for /{} ", command_name)).finish(),
+        ChatComponentBuilder::new("--------------\n".to_owned())
+            .color_code(ColorCode::Yellow)
+            .strikethrough(true)
+            .finish(),
+        ChatComponentBuilder::new(command.description.to_owned())
+            .color_code(ColorCode::Gray)
+            .finish(),
+        ChatComponentBuilder::new("\nUsage: ".to_owned())
+            .color_code(ColorCode::Gray)
+            .finish(),
+        ChatComponentBuilder::new(format!("/{}", command_name))
+            .color_code(ColorCode::Gold)
+            .finish(),
+    ];
+
+    for arg in command.arguments {
+        message.append(&mut vec![
+            ChatComponentBuilder::new(" [".to_owned())
+                .color_code(ColorCode::Yellow)
+                .finish(),
+            ChatComponentBuilder::new(arg.name.to_owned())
+                .color_code(ColorCode::Gold)
+                .finish(),
+            ChatComponentBuilder::new("]".to_owned())
+                .color_code(ColorCode::Yellow)
+                .finish(),
+        ]);
+    }
+
+    message.push(
+        ChatComponentBuilder::new("\nArguments:".to_owned())
+            .color_code(ColorCode::Gray)
+            .finish(),
+    );
+
+    for arg in command.arguments {
+        message.append(&mut vec![
+            ChatComponentBuilder::new("\n  [".to_owned())
+                .color_code(ColorCode::Yellow)
+                .finish(),
+            ChatComponentBuilder::new(arg.name.to_owned())
+                .color_code(ColorCode::Gold)
+                .finish(),
+            ChatComponentBuilder::new("]".to_owned())
+                .color_code(ColorCode::Yellow)
+                .finish(),
+        ]);
+
+        let default = match arg.argument_type {
+            ArgumentType::Direction => Some("forward"),
+            ArgumentType::UnsignedInteger => Some("1"),
+            _ => None,
+        };
+        if let Some(default) = default {
+            message.push(
+                ChatComponentBuilder::new(format!(" (defaults to {})", default))
+                    .color_code(ColorCode::Gray)
+                    .finish(),
+            );
+        }
+
+        message.push(
+            ChatComponentBuilder::new(format!(": {}", arg.description))
+                .color_code(ColorCode::Gray)
+                .finish(),
+        );
+    }
+
+    if !command.flags.is_empty() {
+        message.push(
+            ChatComponentBuilder::new("\nFlags:".to_owned())
+                .color_code(ColorCode::Gray)
+                .finish(),
+        );
+
+        for flag in command.flags {
+            message.append(&mut vec![
+                ChatComponentBuilder::new(format!("\n  -{}", flag.letter))
+                    .color_code(ColorCode::Gold)
+                    .finish(),
+                ChatComponentBuilder::new(format!(": {}", flag.description))
+                    .color_code(ColorCode::Gray)
+                    .finish(),
+            ]);
+        }
+    }
+
+    player.send_chat_message(player_uuid, message);
+}
+
+fn execute_up(mut ctx: CommandExecuteContext<'_>) {
+    let distance = ctx.arguments[0].unwrap_uint();
+    let player = ctx.get_player();
+
+    let y = player.y + distance as f64;
+    let block_pos = BlockPos::from_pos(player.x, y, player.z);
+    let platform_pos = block_pos.offset(BlockFace::Bottom);
+
+    if matches!(ctx.plot.get_block(platform_pos), Block::Air {}) {
+        ctx.plot.set_block(platform_pos, Block::Glass {});
+    }
+
+    let player = ctx.get_player_mut();
+    player.teleport(player.x, block_pos.y as f64, player.z)
+}
+
+fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {
     unimplemented!("Unimplimented worldedit command");
 }

@@ -1,101 +1,97 @@
 use regex::Regex;
 use serde::Serialize;
+use std::lazy::SyncLazy;
 
-lazy_static! {
-    static ref URL_REGEX: Regex =
-        Regex::new("^(?:(https?)://)?([-\\w_\\.]{2,}\\.[a-z]{2,4})(/\\S*)?$").unwrap();
+static URL_REGEX: SyncLazy<Regex> = SyncLazy::new(|| {
+    Regex::new("^(?:(https?)://)?([-\\w_\\.]{2,}\\.[a-z]{2,4})(/\\S*)?$").unwrap()
+});
+
+fn is_valid_hex(ch: char) -> bool {
+    ch.is_numeric() || ('a'..='f').contains(&ch) || ('A'..='F').contains(&ch)
 }
 
-#[derive(Serialize, Debug, Clone)]
-enum ChatColor {
-    #[serde(rename = "black")]
+#[derive(Serialize, Debug, Clone, Copy)]
+#[serde(rename_all = "snake_case")]
+pub enum ColorCode {
     Black,
-    #[serde(rename = "dark_blue")]
     DarkBlue,
-    #[serde(rename = "dark_green")]
     DarkGreen,
-    #[serde(rename = "dark_aqua")]
     DarkAqua,
-    #[serde(rename = "dark_red")]
     DarkRed,
-    #[serde(rename = "dark_purple")]
     DarkPurple,
-    #[serde(rename = "gold")]
     Gold,
-    #[serde(rename = "gray")]
     Gray,
-    #[serde(rename = "dark_gray")]
     DarkGray,
-    #[serde(rename = "blue")]
     Blue,
-    #[serde(rename = "green")]
     Green,
-    #[serde(rename = "aqua")]
     Aqua,
-    #[serde(rename = "red")]
     Red,
-    #[serde(rename = "light_purple")]
     LightPurple,
-    #[serde(rename = "yellow")]
     Yellow,
-    #[serde(rename = "white")]
     White,
-    #[serde(rename = "obfuscated")]
     Obfuscated,
-    #[serde(rename = "bold")]
     Bold,
-    #[serde(rename = "strikethrough")]
     Strikethrough,
-    #[serde(rename = "underline")]
     Underline,
-    #[serde(rename = "italic")]
     Italic,
-    #[serde(rename = "reset")]
     Reset,
 }
 
-impl ChatColor {
-    fn from_color_code(code: char) -> Option<ChatColor> {
-        match code {
-            '0' => Some(ChatColor::Black),
-            '1' => Some(ChatColor::DarkBlue),
-            '2' => Some(ChatColor::DarkGreen),
-            '3' => Some(ChatColor::DarkAqua),
-            '4' => Some(ChatColor::DarkRed),
-            '5' => Some(ChatColor::DarkPurple),
-            '6' => Some(ChatColor::Gold),
-            '7' => Some(ChatColor::Gray),
-            '8' => Some(ChatColor::DarkGray),
-            '9' => Some(ChatColor::Blue),
-            'a' => Some(ChatColor::Green),
-            'b' => Some(ChatColor::Aqua),
-            'c' => Some(ChatColor::Red),
-            'd' => Some(ChatColor::LightPurple),
-            'e' => Some(ChatColor::Yellow),
-            'f' => Some(ChatColor::White),
-            'k' => Some(ChatColor::Obfuscated),
-            'l' => Some(ChatColor::Bold),
-            'm' => Some(ChatColor::Strikethrough),
-            'n' => Some(ChatColor::Underline),
-            'o' => Some(ChatColor::Italic),
-            'r' => Some(ChatColor::Reset),
-            _ => None,
-        }
+impl ColorCode {
+    fn parse(code: char) -> Option<ColorCode> {
+        Some(match code {
+            '0' => ColorCode::Black,
+            '1' => ColorCode::DarkBlue,
+            '2' => ColorCode::DarkGreen,
+            '3' => ColorCode::DarkAqua,
+            '4' => ColorCode::DarkRed,
+            '5' => ColorCode::DarkPurple,
+            '6' => ColorCode::Gold,
+            '7' => ColorCode::Gray,
+            '8' => ColorCode::DarkGray,
+            '9' => ColorCode::Blue,
+            'a' => ColorCode::Green,
+            'b' => ColorCode::Aqua,
+            'c' => ColorCode::Red,
+            'd' => ColorCode::LightPurple,
+            'e' => ColorCode::Yellow,
+            'f' => ColorCode::White,
+            'k' => ColorCode::Obfuscated,
+            'l' => ColorCode::Bold,
+            'm' => ColorCode::Strikethrough,
+            'n' => ColorCode::Underline,
+            'o' => ColorCode::Italic,
+            'r' => ColorCode::Reset,
+            _ => return None,
+        })
+    }
+
+    fn is_formatting(self) -> bool {
+        use ColorCode::*;
+        matches!(
+            self,
+            Obfuscated | Bold | Strikethrough | Underline | Italic | Reset
+        )
     }
 }
 
 #[derive(Serialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum ChatColor {
+    Hex(String),
+    ColorCode(ColorCode),
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 enum ClickEventType {
-    #[serde(rename = "open_url")]
     OpenUrl,
-    #[serde(rename = "run_command")]
     RunCommand,
-    #[serde(rename = "suggest_command")]
     SuggestCommand,
 }
 
 #[derive(Serialize, Debug, Clone)]
-struct ClickEvent {
+pub struct ClickEvent {
     action: ClickEventType,
     value: String,
 }
@@ -106,69 +102,115 @@ fn is_false(field: &bool) -> bool {
     !*field
 }
 
+pub struct ChatComponentBuilder {
+    component: ChatComponent,
+}
+
+impl ChatComponentBuilder {
+    pub fn new(text: String) -> Self {
+        let component = ChatComponent {
+            text,
+            ..Default::default()
+        };
+        Self { component }
+    }
+
+    pub fn color(mut self, color: ChatColor) -> Self {
+        self.component.color = Some(color);
+        self
+    }
+
+    pub fn color_code(mut self, color: ColorCode) -> Self {
+        self.component.color = Some(ChatColor::ColorCode(color));
+        self
+    }
+
+    pub fn strikethrough(mut self, val: bool) -> Self {
+        self.component.strikethrough = val;
+        self
+    }
+
+    pub fn finish(self) -> ChatComponent {
+        self.component
+    }
+}
+
 #[derive(Serialize, Default, Debug, Clone)]
 pub struct ChatComponent {
-    text: String,
+    pub text: String,
     #[serde(skip_serializing_if = "is_false")]
-    bold: bool,
+    pub bold: bool,
     #[serde(skip_serializing_if = "is_false")]
-    italic: bool,
+    pub italic: bool,
     #[serde(skip_serializing_if = "is_false")]
-    underlined: bool,
+    pub underlined: bool,
     #[serde(skip_serializing_if = "is_false")]
-    strikethrough: bool,
+    pub strikethrough: bool,
     #[serde(skip_serializing_if = "is_false")]
-    obfuscated: bool,
+    pub obfuscated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    color: Option<ChatColor>,
+    pub color: Option<ChatColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    click_event: Option<ClickEvent>,
+    pub click_event: Option<ClickEvent>,
 }
 
 impl ChatComponent {
     pub fn from_legacy_text(message: String) -> Vec<ChatComponent> {
         let mut components = Vec::new();
 
-        let mut next_component: ChatComponent = Default::default();
-        let mut s = String::new();
+        let mut cur_component: ChatComponent = Default::default();
 
         let mut chars = message.chars();
-        while let Some(c) = chars.next() {
+        'main_loop: while let Some(c) = chars.next() {
             if c == '&' {
                 if let Some(code) = chars.next() {
-                    if let Some(color) = ChatColor::from_color_code(code) {
-                        if !s.is_empty() {
-                            let formatting = next_component.clone();
-                            next_component.text = s;
-                            s = String::new();
-                            components.push(next_component);
-                            next_component = formatting;
+                    if let Some(color) = ColorCode::parse(code) {
+                        let make_new = !cur_component.text.is_empty();
+                        if color.is_formatting() && make_new {
+                            components.push(cur_component.clone());
+                            cur_component.text.clear();
                         }
                         match color {
-                            ChatColor::Bold => next_component.bold = true,
-                            ChatColor::Italic => next_component.italic = true,
-                            ChatColor::Underline => next_component.underlined = true,
-                            ChatColor::Strikethrough => next_component.strikethrough = true,
-                            ChatColor::Obfuscated => next_component.obfuscated = true,
+                            ColorCode::Bold => cur_component.bold = true,
+                            ColorCode::Italic => cur_component.italic = true,
+                            ColorCode::Underline => cur_component.underlined = true,
+                            ColorCode::Strikethrough => cur_component.strikethrough = true,
+                            ColorCode::Obfuscated => cur_component.obfuscated = true,
                             _ => {
-                                next_component.text = s;
-                                s = String::new();
-                                components.push(next_component);
-                                next_component = Default::default();
-                                next_component.color = Some(color);
+                                components.push(cur_component);
+                                cur_component = Default::default();
+                                cur_component.color = Some(ChatColor::ColorCode(color));
                             }
                         }
                         continue;
                     }
-                    s.push(c);
-                    s.push(code);
+                    cur_component.text.push(c);
+                    cur_component.text.push(code);
                     continue;
                 }
             }
-            s.push(c);
+            if c == '#' {
+                let mut hex = String::from(c);
+                for _ in 0..6 {
+                    if let Some(c) = chars.next() {
+                        hex.push(c);
+                        if !is_valid_hex(c) {
+                            cur_component.text += &hex;
+                            continue 'main_loop;
+                        }
+                    } else {
+                        cur_component.text += &hex;
+                        continue 'main_loop;
+                    }
+                }
+                components.push(cur_component);
+                cur_component = Default::default();
+                cur_component.color = Some(ChatColor::Hex(hex));
+                continue;
+            }
+            cur_component.text.push(c);
         }
-        next_component.text = s;
-        components.push(next_component);
+        components.push(cur_component);
         components
     }
 

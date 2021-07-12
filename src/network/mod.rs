@@ -1,12 +1,10 @@
 pub mod packets;
 
-use packets::{read_packet, serverbound::ServerBoundPacket, PacketEncoder};
-use std::io::Write;
+use packets::serverbound::ServerBoundPacket;
+use packets::{read_packet, PacketEncoder};
 use std::net::{Shutdown, TcpListener, TcpStream};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    mpsc, Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{mpsc, Arc};
 use std::thread;
 
 /// The minecraft protocol has these 4 different states.
@@ -73,9 +71,9 @@ impl NetworkClient {
 
     pub fn send_packet(&mut self, data: &PacketEncoder) {
         if self.compressed.load(Ordering::Relaxed) {
-            let _ = self.stream.write_all(&data.compressed());
+            let _ = data.write_compressed(&self.stream);
         } else {
-            let _ = self.stream.write_all(&data.uncompressed());
+            let _ = data.write_uncompressed(&self.stream);
         }
     }
 

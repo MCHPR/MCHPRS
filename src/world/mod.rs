@@ -1,6 +1,7 @@
 pub mod storage;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};
+use crate::player::Player;
 use serde::{Deserialize, Serialize};
 use storage::Chunk;
 
@@ -45,9 +46,15 @@ pub trait World {
 
     /// Returns true if there is a tick entry with `pos`
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool;
+
+    fn get_player(&self, uuid: u128) -> Option<&Player>;
+
+    fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player>;
+
+    fn is_cursed(&self) -> bool;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TickPriority {
     Highest,
     Higher,

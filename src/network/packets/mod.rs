@@ -10,10 +10,8 @@ use serde::Serialize;
 use serverbound::*;
 use std::io::{self, Cursor, Read, Write};
 use std::net::TcpStream;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Debug)]
 pub struct SlotData {
@@ -26,26 +24,26 @@ pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
 
 #[derive(Debug)]
 pub enum PacketDecodeError {
-    IoError(io::Error),
-    FromUtf8Error(std::string::FromUtf8Error),
-    NbtError(nbt::Error),
+    Io(io::Error),
+    FromUtf8(std::string::FromUtf8Error),
+    Nbt(nbt::Error),
 }
 
 impl From<nbt::Error> for PacketDecodeError {
     fn from(err: nbt::Error) -> PacketDecodeError {
-        PacketDecodeError::NbtError(err)
+        PacketDecodeError::Nbt(err)
     }
 }
 
 impl From<io::Error> for PacketDecodeError {
     fn from(err: io::Error) -> PacketDecodeError {
-        PacketDecodeError::IoError(err)
+        PacketDecodeError::Io(err)
     }
 }
 
 impl From<std::string::FromUtf8Error> for PacketDecodeError {
     fn from(err: std::string::FromUtf8Error) -> PacketDecodeError {
-        PacketDecodeError::FromUtf8Error(err)
+        PacketDecodeError::FromUtf8(err)
     }
 }
 
@@ -76,7 +74,7 @@ fn read_decompressed<T: PacketDecoderExt>(
     let packet_id = reader.read_varint()?;
     Ok(match *state {
         NetworkState::Handshake if packet_id == 0x00 => {
-            let handshake = S00Handshake::decode(reader)?;
+            let handshake = SHandshake::decode(reader)?;
             match handshake.next_state {
                 1 => *state = NetworkState::Status,
                 2 => *state = NetworkState::Login,
@@ -84,29 +82,29 @@ fn read_decompressed<T: PacketDecoderExt>(
             }
             Box::new(handshake)
         }
-        NetworkState::Status if packet_id == 0x00 => Box::new(S00Request::decode(reader)?),
-        NetworkState::Status if packet_id == 0x01 => Box::new(S01Ping::decode(reader)?),
+        NetworkState::Status if packet_id == 0x00 => Box::new(SRequest::decode(reader)?),
+        NetworkState::Status if packet_id == 0x01 => Box::new(SPing::decode(reader)?),
         NetworkState::Login if packet_id == 0x00 => {
             *state = NetworkState::Play;
-            Box::new(S00LoginStart::decode(reader)?)
+            Box::new(SLoginStart::decode(reader)?)
         }
         _ => match packet_id {
-            0x03 => Box::new(S03ChatMessage::decode(reader)?),
-            0x05 => Box::new(S05ClientSettings::decode(reader)?),
-            0x0B => Box::new(S0BPluginMessage::decode(reader)?),
-            0x10 => Box::new(S10KeepAlive::decode(reader)?),
-            0x12 => Box::new(S12PlayerPosition::decode(reader)?),
-            0x13 => Box::new(S13PlayerPositionAndRotation::decode(reader)?),
-            0x14 => Box::new(S14PlayerRotation::decode(reader)?),
-            0x15 => Box::new(S15PlayerMovement::decode(reader)?),
-            0x1A => Box::new(S1APlayerAbilities::decode(reader)?),
-            0x1B => Box::new(S1BPlayerDigging::decode(reader)?),
-            0x1C => Box::new(S1CEntityAction::decode(reader)?),
-            0x25 => Box::new(S25HeldItemChange::decode(reader)?),
-            0x28 => Box::new(S28CreativeInventoryAction::decode(reader)?),
-            0x2B => Box::new(S2BUpdateSign::decode(reader)?),
-            0x2C => Box::new(S2CAnimation::decode(reader)?),
-            0x2E => Box::new(S2EPlayerBlockPlacemnt::decode(reader)?),
+            0x03 => Box::new(SChatMessage::decode(reader)?),
+            0x05 => Box::new(SClientSettings::decode(reader)?),
+            0x0B => Box::new(SPluginMessage::decode(reader)?),
+            0x10 => Box::new(SKeepAlive::decode(reader)?),
+            0x12 => Box::new(SPlayerPosition::decode(reader)?),
+            0x13 => Box::new(SPlayerPositionAndRotation::decode(reader)?),
+            0x14 => Box::new(SPlayerRotation::decode(reader)?),
+            0x15 => Box::new(SPlayerMovement::decode(reader)?),
+            0x1A => Box::new(SPlayerAbilities::decode(reader)?),
+            0x1B => Box::new(SPlayerDigging::decode(reader)?),
+            0x1C => Box::new(SEntityAction::decode(reader)?),
+            0x25 => Box::new(SHeldItemChange::decode(reader)?),
+            0x28 => Box::new(SCreativeInventoryAction::decode(reader)?),
+            0x2B => Box::new(SUpdateSign::decode(reader)?),
+            0x2C => Box::new(SAnimation::decode(reader)?),
+            0x2E => Box::new(SPlayerBlockPlacemnt::decode(reader)?),
             _ => Box::new(SUnknown),
         },
     })
@@ -248,8 +246,8 @@ pub trait PacketEncoderExt: Write {
     fn write_boolean(&mut self, val: bool) {
         self.write_all(&[val as u8]).unwrap();
     }
-    fn write_bytes(&mut self, val: Vec<u8>) {
-        self.write_all(&val).unwrap();
+    fn write_bytes(&mut self, val: &[u8]) {
+        self.write_all(val).unwrap();
     }
     fn write_varint(&mut self, val: i32) {
         let _ = self.write_all(&PacketEncoder::varint(val));
@@ -323,22 +321,25 @@ pub trait PacketEncoderExt: Write {
         self.write_u8(val as u8).unwrap();
     }
 
-    fn write_nbt_blob(&mut self, blob: nbt::Blob);
-
-    fn write_nbt<T: Serialize>(&mut self, nbt: T) {
-        let _ = nbt::to_writer(self, &nbt, None);
+    fn write_nbt<T: Serialize>(&mut self, nbt: &T) {
+        let _ = nbt::to_writer(self, nbt, None);
     }
-}
 
-impl PacketEncoderExt for Vec<u8> {
-    fn write_nbt_blob(&mut self, blob: nbt::Blob) {
+    fn write_nbt_blob(&mut self, blob: &nbt::Blob)
+    where
+        Self: Sized,
+    {
         blob.to_writer(self).unwrap();
     }
 }
 
+impl PacketEncoderExt for Vec<u8> {}
+
 pub struct PacketEncoder {
     buffer: Vec<u8>,
     packet_id: u32,
+    // c_cache: Option<Vec<u8>>,
+    // unc_cache: Option<Vec<u8>>,
 }
 
 impl PacketEncoder {
@@ -352,7 +353,7 @@ impl PacketEncoder {
         let mut buf = Vec::new();
         loop {
             let mut temp = (val & 0b1111_1111) as u8;
-            val = val >> 7;
+            val >>= 7;
             if val != 0 {
                 temp |= 0b1000_0000;
             }
@@ -363,29 +364,53 @@ impl PacketEncoder {
         }
     }
 
-    pub fn compressed(&self) -> Vec<u8> {
+    pub fn write_compressed(&self, mut w: impl Write) -> io::Result<()> {
+        // TODO: zero allocation
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
-        let data = [&packet_id[..], &self.buffer[..]].concat();
+        let data = [packet_id.as_slice(), self.buffer.as_slice()].concat();
         if self.buffer.len() < 256 {
-            let data_length = PacketEncoder::varint(0);
-            let packet_length = PacketEncoder::varint((data_length.len() + data.len()) as i32);
-            [&packet_length[..], &data_length[..], &data[..]].concat()
+            // Data Length adds another byte
+            let packet_length = PacketEncoder::varint((1 + data.len()) as i32);
+
+            w.write_all(&packet_length)?;
+            // Data Length: 0 because uncompressed
+            w.write_all(&[0])?;
+            w.write_all(&data)?;
         } else {
             let data_length = PacketEncoder::varint(data.len() as i32);
             let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-            encoder.write_all(&data).unwrap();
+            encoder.write_all(&data)?;
             let compressed = encoder.finish().unwrap();
             let packet_length =
                 PacketEncoder::varint((data_length.len() + compressed.len()) as i32);
 
-            [&packet_length[..], &data_length[..], &compressed[..]].concat()
+            w.write_all(&packet_length)?;
+            w.write_all(&data_length)?;
+            w.write_all(&compressed)?;
         }
+
+        // self.c_cache = Some(finished);
+        // return self.c_cache.as_ref().unwrap();
+
+        Ok(())
     }
 
-    pub fn uncompressed(&self) -> Vec<u8> {
+    pub fn write_uncompressed(&self, mut w: impl Write) -> io::Result<()> {
+        // if let Some(data) = &self.unc_cache {
+        //     return &data;
+        // }
+
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
         let length = PacketEncoder::varint((self.buffer.len() + packet_id.len()) as i32);
 
-        [&length[..], &packet_id[..], &self.buffer[..]].concat()
+        // https://github.com/rust-lang/rust/issues/70436
+        w.write_all(&length)?;
+        w.write_all(&packet_id)?;
+        w.write_all(&self.buffer)?;
+
+        // self.unc_cache = Some([&length[..], &packet_id[..], &self.buffer[..]].concat());
+        // return self.c_cache.as_ref().unwrap();
+
+        Ok(())
     }
 }

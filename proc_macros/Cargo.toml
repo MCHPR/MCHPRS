@@ -1,0 +1,12 @@
+[package]
+name = "mchprs_proc_macros"
+version = "0.1.0"
+authors = ["StackDoubleFlow <ojaslandge@gmail.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1", features = ["full", "extra-traits"] }
+quote = "1"

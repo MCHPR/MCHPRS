@@ -1,60 +1,66 @@
-use lazy_static::lazy_static;
+use crate::permissions::PermissionsConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
+use toml_edit::{value, Document};
+use std::lazy::SyncLazy;
 
-lazy_static! {
-    pub static ref CONFIG: ServerConfig = load_config();
+pub static CONFIG: SyncLazy<ServerConfig> = SyncLazy::new(|| ServerConfig::load("Config.toml"));
+
+trait ConfigSerializeDefault {
+    fn fix_config(self, name: &str, doc: &mut Document);
+}
+
+macro_rules! impl_simple_default {
+    ( $( $type:ty ),* ) => {
+        $(
+            impl ConfigSerializeDefault for $type {
+                fn fix_config(self, name: &str, doc: &mut Document) {
+                    if doc[name].is_none() {
+                        doc[name] = value(self);
+                    }
+                }
+            }
+        )*
+    }
+}
+
+impl_simple_default!(String, i64, bool);
+
+impl<T> ConfigSerializeDefault for Option<T> {
+    fn fix_config(self, _: &str, _: &mut Document) {
+        assert!(matches!(self, None), "`Some` as default is unimplemented");
+    }
 }
 
 macro_rules! gen_config {
     (
         $( $name:ident: $type:ty = $default:expr),*
     ) => {
-        #[derive(Serialize)]
+        #[derive(Serialize, Deserialize)]
         pub struct ServerConfig {
             $(
                 pub $name: $type,
             )*
         }
 
-        #[derive(Deserialize)]
-        pub struct UnmergedConfig {
-            $(
-                $name: Option<$type>,
-            )*
-        }
+        impl ServerConfig {
+            fn load(config_file: &str) -> ServerConfig {
+                let str = fs::read_to_string("Config.toml").unwrap_or_default();
+                let mut doc = str.parse::<Document>().unwrap();
 
-        fn default_config() -> ServerConfig {
-            ServerConfig {
                 $(
-                    $name: $default,
+                    <$type as ConfigSerializeDefault>::fix_config($default, stringify!($name), &mut doc);
                 )*
-            }
-        }
 
-        fn merge_config(config_file: &str) -> Box<dyn Fn(UnmergedConfig) -> ServerConfig> {
-            let config_file = String::from(config_file);
-            Box::new(move |config: UnmergedConfig| -> ServerConfig {
-                    let default_config = default_config();
-                    let mut toml_patch = String::new();
-                    let out = ServerConfig {
-                        $(
-                            $name: match config.$name {
-                                Some(entry) => entry,
-                                None => {
-                                    toml_patch += &format!("{} = {}\n", stringify!($name), default_config.$name);
-                                    default_config.$name
-                                }
-                            },
-                        )*
-                    };
-                    if toml_patch.len() > 0 {
-                        let mut file = fs::OpenOptions::new().append(true).open(&config_file).unwrap();
-                        write!(file, "\n{}", toml_patch).unwrap();
-                    }
-                    out
-            })
+                let patched = doc.to_string();
+                if str != patched {
+                    let mut file = fs::OpenOptions::new().write(true).open(&config_file).unwrap();
+                    write!(file, "{}", patched).unwrap();
+                }
+
+                toml::from_str(&patched).unwrap()
+            }
         }
     };
 }
@@ -64,22 +70,7 @@ gen_config! {
     motd: String = "Minecraft High Performance Redstone Server".to_string(),
     chat_format: String = "<{username}> {message}".to_string(),
     max_players: i64 = 99999,
-    bungeecord: bool = false
-}
-
-fn write_config(config: &ServerConfig) {
-    let config_string = toml::to_string(config).unwrap();
-    let _ = fs::write("Config.toml", &config_string);
-}
-
-fn load_config() -> ServerConfig {
-    let config = if let Ok(str) = fs::read_to_string("Config.toml") {
-        toml::from_str(&str)
-            .map(merge_config("Config.toml"))
-            .unwrap_or_else(|_| default_config())
-    } else {
-        write_config(&default_config());
-        default_config()
-    };
-    config
+    bungeecord: bool = false,
+    whitelist: bool = false,
+    luckperms: Option<PermissionsConfig> = None
 }

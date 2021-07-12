@@ -1,0 +1,6 @@
+digraph {
+    r1 -> r2 [label="0ss"]
+    r2 -> r1 [label="5ss"]
+
+	{ rank=same; r1 r2 }
+}

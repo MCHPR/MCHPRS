@@ -1,5 +1,5 @@
 use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPos};
-use crate::network::packets::clientbound::{C2EOpenSignEditor, ClientBoundPacket};
+use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
 
@@ -35,39 +35,38 @@ pub struct ItemStack {
 
 impl ItemStack {
     pub fn use_on_block(&self, plot: &mut Plot, context: UseOnBlockContext) {
-        let pos = context.block_pos;
-        let block = plot.get_block(pos);
+        let use_pos = context.block_pos;
+        let use_block = plot.get_block(use_pos);
+        let block_pos = context.block_pos.offset(context.block_face);
 
-        match self.item_type {
-            Item::WEWand {} => {
-                if let Some(first_pos) = plot.players[context.player_idx].second_position {
-                    if pos != first_pos {
-                        plot.players[context.player_idx]
-                            .worldedit_set_second_position(pos.x, pos.y, pos.z);
-                    }
-                } else {
-                    plot.players[context.player_idx]
-                        .worldedit_set_second_position(pos.x, pos.y, pos.z);
-                }
+        let can_place = self.item_type.is_block() && plot.get_block(block_pos).can_place_block_in();
+        let mut cancelled = false;
+
+        if let Item::WEWand {} = self.item_type {
+            let same = plot.players[context.player_idx]
+                .second_position
+                .map_or(false, |p| p == use_pos);
+            if !same {
+                plot.players[context.player_idx].worldedit_set_second_position(use_pos);
             }
-            _ => {}
+            cancelled = true;
         }
 
         if !context.player_crouching
-            && block
+            && !cancelled
+            && use_block
                 .on_use(plot, context.block_pos, Some(self.item_type))
                 .is_success()
         {
             return;
         }
 
-        let block_pos = context.block_pos.offset(context.block_face);
-        if self.item_type.is_block() && plot.get_block(block_pos).can_place_block_in() {
+        if can_place && !cancelled {
             let block = Block::get_state_for_placement(plot, block_pos, self.item_type, &context);
 
             match block {
                 Block::Sign { .. } | Block::WallSign { .. } => {
-                    let open_sign_editor = C2EOpenSignEditor {
+                    let open_sign_editor = COpenSignEditor {
                         pos_x: block_pos.x,
                         pos_y: block_pos.y,
                         pos_z: block_pos.z,
@@ -126,6 +125,7 @@ macro_rules! items {
             ),*
         }
 
+        #[allow(clippy::redundant_field_names)]
         impl Item {
             pub fn get_id(self) -> u32 {
                 match self {

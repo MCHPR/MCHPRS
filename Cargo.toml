@@ -1,3 +1,6 @@
+[workspace]
+members = ["proc_macros"]
+
 [package]
 name = "mchprs"
 version = "0.3.0"
@@ -10,6 +13,9 @@ keywords = ["minecraft", "server", "redstone"]
 repository = "https://github.com/MCHPR/MCHPRS"
 homepage = "https://github.com/MCHPR/MCHPRS"
 
+[profile.release]
+debug = true
+
 include = [
     "**/*.rs",
     "Cargo.toml",
@@ -19,29 +25,39 @@ include = [
 travis-ci = { repository = "StackDoubleFlow/MCHPRS" }
 
 [dev-dependencies]
-criterion = "0.3.3"
+criterion = "0.3.4"
 
 [[bench]]
 name = "bitbuffer"
 harness = false
 
 [dependencies]
+mchprs_proc_macros = { path = "./proc_macros" }
 toml = "0.5.8"
-flate2 = "1.0.19"
-byteorder = "1.3.4"
-hematite-nbt = "0.5.0"
+flate2 = "1.0.20"
+byteorder = "1.4.2"
+hematite-nbt = "0.5.1"
 bitflags = "1.2.1"
-serde = "1.0.118"
+serde = "1.0.123"
 md5 = "0.7.0"
 bus = "2.2.3"
-serde_json = "1.0.60"
+serde_json = "1.0.62"
 bincode = "1.3.1"
 ctrlc = { version = "3.1.7", features = ["termination"] }
-log = "0.4.11"
+log = "0.4.14"
 fern = { version = "0.6.0", features = ["colored"] }
 chrono = "0.4"
-rand = "0.8.0"
-regex = "1.4.2"
-lazy_static = "1.4.0"
-backtrace = "0.3.55"
-rusqlite = { version="0.24.2", features=["bundled"] }
+rand = "0.8.3"
+regex = "1.4.3"
+backtrace = "0.3.56"
+rusqlite = { version="0.25.3", features=["bundled"] }
+anyhow = "1.0"
+rayon = "1.5"
+cranelift = { version = "0.75", optional = true }
+cranelift-jit  = { version = "0.75", optional = true }
+cranelift-module  = { version = "0.75", optional = true }
+toml_edit = "0.2.0"
+mysql = "21.0.0"
+
+[features]
+jit_cranelift = ["cranelift", "cranelift-jit", "cranelift-module"]

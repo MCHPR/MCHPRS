@@ -1,35 +1,40 @@
 use super::{database, worldedit, Plot};
+use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::{
-    C10DeclareCommands, C10DeclareCommandsNode as Node, C10DeclareCommandsNodeParser as Parser,
+    CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
     ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
 use crate::player::Gamemode;
+use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use crate::world::World;
-use log::info;
-
 use bitflags::_core::i32::MAX;
-use std::time::{Duration, Instant};
+use log::info;
+use std::lazy::SyncLazy;
+use std::time::{Duration, Instant, SystemTime};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
-    fn handle_plot_command(&mut self, player: usize, command: &str, _args: Vec<&str>) {
+    fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
         match command {
+            "info" | "i" => {
+                if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
+                    self.players[player].send_system_message(&format!(
+                        "Plot owner is: {}",
+                        database::get_cached_username(owner.clone()).unwrap_or(owner)
+                    ));
+                } else {
+                    self.players[player].send_system_message("Plot is not owned by anyone.");
+                }
+            }
             "claim" | "c" => {
                 if database::is_claimed(plot_x, plot_z).unwrap() {
                     self.players[player].send_system_message("Plot is already claimed!");
                 } else {
                     self.claim_plot(plot_x, plot_z, player);
-                }
-            }
-            "info" | "i" => {
-                if let Some(owner) = database::get_plot_owner(plot_x, plot_z) {
-                    self.players[player].send_system_message(&format!("Plot owner is: {}", owner));
-                } else {
-                    self.players[player].send_system_message("Plot is not owned by anyone.");
                 }
             }
             "auto" | "a" => {
@@ -47,7 +52,77 @@ impl Plot {
                 let center = Plot::get_center(plot_x, plot_z);
                 self.players[player].teleport(center.0, 64.0, center.1);
             }
+            "visit" | "v" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return;
+                }
+                let plot = database::get_owned_plot(args[0]);
+                if let Some((plot_x, plot_z)) = plot {
+                    let center = Plot::get_center(plot_x, plot_z);
+                    self.players[player].teleport(center.0, 64.0, center.1);
+                } else {
+                    self.players[player]
+                        .send_system_message(&format!("{} does not own any plots.", args[0]));
+                }
+            }
+            "teleport" | "tp" => {
+                if args.len() != 2 {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return;
+                }
+
+                let plot_x;
+                let plot_z;
+                if let Ok(x_arg) = args[0].parse() {
+                    plot_x = x_arg;
+                } else {
+                    self.players[player].send_error_message("Unable to parse x coordinate!");
+                    return;
+                }
+                if let Ok(z_arg) = args[1].parse() {
+                    plot_z = z_arg;
+                } else {
+                    self.players[player].send_error_message("Unable to parse z coordinate!");
+                    return;
+                }
+
+                let center = Plot::get_center(plot_x, plot_z);
+                self.players[player].teleport(center.0, 64.0, center.1);
+            }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
+        }
+    }
+
+    /// Handles a command that starts with `/redpiler` or `/rp`
+    fn handle_redpiler_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+        match command {
+            "compile" | "c" => {
+                let start_time = SystemTime::now();
+                let args = args.join(" ");
+                let options = CompilerOptions::parse(&args);
+
+                if options.use_worldedit {
+                    if self.players[player].first_position.is_none() {
+                        return;
+                    }
+                    if self.players[player].second_position.is_none() {
+                        return;
+                    }
+                }
+
+                let pos1 = self.players[player].first_position;
+                let pos2 = self.players[player].second_position;
+
+                self.reset_redpiler();
+                self.start_redpiler(options, pos1, pos2);
+
+                println!("Compile took {:?}", start_time.elapsed())
+            }
+            "reset" | "r" => {
+                self.reset_redpiler();
+            }
+            _ => self.players[player].send_error_message("Invalid argument for /redpiler"),
         }
     }
 
@@ -65,25 +140,33 @@ impl Plot {
             args.join(" ")
         );
         // Handle worldedit commands
-        if command.starts_with("//")
-            && worldedit::execute_command(self, player, command.trim_start_matches("//"), &mut args)
-        {
+        if worldedit::execute_command(self, self.players[player].uuid, &command[1..], &mut args) {
             // If the command was handled, there is no need to continue;
             return false;
         }
 
         match command {
-            "//load" => {
-                if args.is_empty() {
-                    self.players[player].send_error_message("Invalid number of arguments!");
-                    return false;
-                }
-                worldedit::execute_load(self, player, &args[0])
-            }
             "/rtps" => {
                 if args.is_empty() {
-                    self.players[player]
-                        .send_system_message(&format!("The rtps is currently set to {}", self.tps));
+                    let report = self.timings.generate_report();
+                    if let Some(report) = report {
+                        self.players[player].send_chat_message(
+                            0,
+                            ChatComponent::from_legacy_text(format!(
+                                "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
+                                report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
+                            )),
+                        );
+                    } else {
+                        self.players[player].send_chat_message(
+                            0,
+                            ChatComponent::from_legacy_text(format!(
+                                "&6No timings data. &a({})",
+                                self.tps
+                            )),
+                        );
+                    }
+
                     return false;
                 }
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
@@ -100,8 +183,9 @@ impl Plot {
                 if tps > 10 {
                     self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
                 } else {
-                    self.sleep_time = Duration::from_millis(2);
+                    self.sleep_time = Duration::from_millis(50);
                 }
+                self.timings.set_tps(tps);
                 self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 self.players[player].send_system_message("The rtps was successfully set.");
@@ -153,7 +237,8 @@ impl Plot {
                     }
                     self.players[player].teleport(x, y, z);
                 } else if args.len() == 1 {
-                    let player = self.leave_plot(player);
+                    let uuid = self.players[player].uuid;
+                    let player = self.leave_plot(uuid);
                     let _ = self
                         .message_sender
                         .send(Message::PlayerTeleportOther(player, args[0].to_string()));
@@ -174,6 +259,14 @@ impl Plot {
                 let command = args.remove(0);
                 self.handle_plot_command(player, command, args);
             }
+            "/redpiler" | "/rp" => {
+                if args.is_empty() {
+                    self.players[player].send_error_message("Invalid number of arguments!");
+                    return false;
+                }
+                let command = args.remove(0);
+                self.handle_redpiler_command(player, command, args);
+            }
             "/speed" => {
                 if args.len() != 1 {
                     self.players[player].send_error_message("/speed <0-10>");
@@ -183,10 +276,6 @@ impl Plot {
                     if speed_arg < 0.0 {
                         self.players[player]
                             .send_error_message("Silly child, you can't have a negative flyspeed");
-                        return false;
-                    } else if speed_arg > 10.0 {
-                        self.players[player]
-                            .send_error_message("You cannot have a flyspeed greater than 10");
                         return false;
                     }
                     self.players[player].fly_speed = speed_arg;
@@ -229,17 +318,20 @@ bitflags! {
     }
 }
 
-lazy_static! {
-    // In the future a DSL or some type of generation would be much better.
-    // For more information, see https://wiki.vg/Command_Data
-    /// The DeclareCommands packet that is sent when the player joins.
-    /// This is used for command autocomplete.
-    pub static ref DECLARE_COMMANDS: PacketEncoder = C10DeclareCommands {
+// In the future a DSL or some type of generation would be much better.
+// For more information, see https://wiki.vg/Command_Data
+/// The DeclareCommands packet that is sent when the player joins.
+/// This is used for command autocomplete.
+pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
+    CDeclareCommands {
         nodes: vec![
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36],
+                children: vec![
+                    1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
+                    47,
+                ],
                 redirect_node: None,
                 name: None,
                 parser: None,
@@ -287,7 +379,7 @@ lazy_static! {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![7, 8, 9, 10, 38, 39, 40],
+                children: vec![7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -556,7 +648,7 @@ lazy_static! {
                 name: Some("a"),
                 parser: None,
             },
-            // 40: /p auto
+            // 40: /p middle
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![],
@@ -564,7 +656,72 @@ lazy_static! {
                 name: Some("middle"),
                 parser: None,
             },
+            // 41: /p visit
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![42],
+                redirect_node: None,
+                name: Some("visit"),
+                parser: None,
+            },
+            // 42: /p visit [player]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("player"),
+                parser: Some(Parser::Entity(3)),
+            },
+            // 43: /p v
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(41),
+                name: Some("v"),
+                parser: None,
+            },
+            // 44: /p teleport
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![45],
+                redirect_node: None,
+                name: Some("teleport"),
+                parser: None,
+            },
+            // 45: /p teleport [x, z]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("x, z"),
+                parser: Some(Parser::Vec2),
+            },
+            // 46: /p tp
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(44),
+                name: Some("tp"),
+                parser: None,
+            },
+            // 47: //shift
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![35],
+                redirect_node: None,
+                name: Some("/shift"),
+                parser: None,
+            },
+            // 48: //shift [amount]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("amount"),
+                parser: Some(Parser::Integer(0, 256)),
+            },
         ],
-        root_index: 0
-    }.encode();
-}
+        root_index: 0,
+    }
+    .encode()
+});

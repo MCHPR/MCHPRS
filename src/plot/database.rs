@@ -1,10 +1,10 @@
-use rusqlite::{params, Connection, NO_PARAMS};
+use rusqlite::{params, Connection};
+use std::lazy::SyncLazy;
 use std::sync::{Mutex, MutexGuard};
 
-lazy_static! {
-    static ref CONN: Mutex<Connection> =
-        Mutex::new(Connection::open("./world/plots.db").expect("Error opening plot database!"));
-}
+static CONN: SyncLazy<Mutex<Connection>> = SyncLazy::new(|| {
+    Mutex::new(Connection::open("./world/plots.db").expect("Error opening plot database!"))
+});
 
 fn lock<'a>() -> MutexGuard<'a, Connection> {
     CONN.lock().unwrap()
@@ -27,6 +27,41 @@ pub fn get_plot_owner(plot_x: i32, plot_z: i32) -> Option<String> {
                 AND is_owner=TRUE",
             params![plot_x, plot_z],
             |row| row.get::<_, String>(0),
+        )
+        .ok()
+}
+
+pub fn get_cached_username(uuid: String) -> Option<String> {
+    lock()
+        .query_row(
+            "SELECT
+                name
+            FROM
+                user
+            WHERE
+                uuid=?1",
+            params![uuid],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+}
+
+pub fn get_owned_plot(player: &str) -> Option<(i32, i32)> {
+    lock()
+        .query_row(
+            "SELECT
+                plot_x, plot_z
+            FROM
+                plot
+            JOIN
+                userplot ON userplot.plot_id = plot.id
+            JOIN
+                user ON user.id = userplot.user_id
+            WHERE
+                name=?1
+                AND is_owner=TRUE",
+            params![player],
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .ok()
 }
@@ -81,7 +116,7 @@ pub fn init() {
             uuid BLOB(16) UNIQUE NOT NULL,
             name VARCHAR(16) NOT NULL
         )",
-        NO_PARAMS,
+        [],
     )
     .unwrap();
 
@@ -91,7 +126,7 @@ pub fn init() {
             plot_x INTEGER NOT NULL,
             plot_z INTEGER NOT NULL
         )",
-        NO_PARAMS,
+        [],
     )
     .unwrap();
 
@@ -103,7 +138,7 @@ pub fn init() {
             FOREIGN KEY(user_id) REFERENCES user(id),
             FOREIGN KEY(plot_id) REFERENCES plot(id)
         )",
-        NO_PARAMS,
+        [],
     )
     .unwrap();
 }
