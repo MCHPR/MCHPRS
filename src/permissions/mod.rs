@@ -39,7 +39,6 @@ impl PermissionNode {
         }
 
         for (i, segment) in str.split('.').enumerate() {
-            println!("{} {:?}", segment, &self.path[i]);
             match &self.path[i] {
                 PathSegment::WildCard => return true,
                 PathSegment::Named(name) => {

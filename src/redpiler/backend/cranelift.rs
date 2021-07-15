@@ -2,7 +2,7 @@ use super::{JITBackend, JITResetData};
 use crate::blocks::{
     self, Block, BlockPos, ComparatorMode, Lever, RedstoneComparator, RedstoneRepeater,
 };
-use crate::redpiler::{Link, LinkType, Node};
+use crate::redpiler::{Link, LinkType, CompileNode};
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
@@ -23,8 +23,8 @@ struct FunctionTranslator<'a> {
     comparator_output_data: &'a [DataId],
     repeater_lock_data: &'a [DataId],
     node_idx: usize,
-    node: &'a Node,
-    nodes: &'a [Node],
+    node: &'a CompileNode,
+    nodes: &'a [CompileNode],
 }
 
 impl<'a> FunctionTranslator<'a> {
@@ -623,7 +623,6 @@ impl<'a> FunctionTranslator<'a> {
                 repeater.delay as u32,
                 CLTickPriority::Highest,
             );
-            self.builder.ins().jump(return_block, &[]);
         } else {
             let schedule_higher_block = self.builder.create_block();
             let schedule_high_block = self.builder.create_block();
@@ -650,8 +649,8 @@ impl<'a> FunctionTranslator<'a> {
                 repeater.delay as u32,
                 CLTickPriority::Higher,
             );
-            self.builder.ins().jump(return_block, &[]);
         }
+        self.builder.ins().jump(return_block, &[]);
 
         self.builder.switch_to_block(return_block);
         self.builder.seal_block(return_block);
@@ -924,7 +923,7 @@ pub struct CraneliftBackend {
     ctx: codegen::Context,
     module: JITModule,
     // Execution
-    nodes: Vec<Node>,
+    nodes: Vec<CompileNode>,
     output_power_data: Vec<DataId>,
     comparator_output_data: Vec<DataId>,
     tick_fns: Vec<FuncId>,
@@ -990,7 +989,7 @@ impl CraneliftBackend {
 }
 
 impl JITBackend for CraneliftBackend {
-    fn compile(&mut self, nodes: Vec<Node>, ticks: Vec<TickEntry>) {
+    fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
         let mut data_ctx = DataContext::new();
 
         let mut repeater_lock_data = Vec::new();
@@ -1076,10 +1075,10 @@ impl JITBackend for CraneliftBackend {
                 nodes: &nodes,
             };
             update_translator.translate_update(update_entry_block);
-            // debug!(
-            //     "n{}_update generated {}",
-            //     idx, &update_translator.builder.func
-            // );
+            debug!(
+                "n{}_update generated {}",
+                idx, &update_translator.builder.func
+            );
 
             update_translator.builder.finalize();
             let update_id = self
@@ -1369,7 +1368,7 @@ extern "C" fn cranelift_jit_debug_val(val: i32) {
 #[test]
 fn test_cranelift_jit_comparator() {
     let mut jit: CraneliftBackend = Default::default();
-    let nodes = vec![Node::new(
+    let nodes = vec![CompileNode::new(
         BlockPos::new(0, 0, 0),
         Block::RedstoneComparator {
             comparator: Default::default(),

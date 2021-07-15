@@ -164,7 +164,6 @@ impl Player {
                 .luckperms
                 .is_some()
                 .then(|| permissions::load_player_cache(uuid).unwrap());
-            dbg!(&permissions_cache);
             Player {
                 uuid,
                 username,
