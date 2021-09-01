@@ -227,7 +227,7 @@ pub trait PacketDecoderExt: Read + Sized {
         let x = val >> 38;
         let mut y = val & 0xFFF;
         if y >= 0x800 {
-            y -= 0x1000
+            y -= 0x1000;
         }
         let z = val << 26 >> 38;
         Ok((x as i32, y as i32, z as i32))
@@ -276,23 +276,23 @@ pub trait PacketEncoderExt: Write {
     }
 
     fn write_short(&mut self, val: i16) {
-        self.write_i16::<BigEndian>(val).unwrap()
+        self.write_i16::<BigEndian>(val).unwrap();
     }
 
     fn write_unsigned_short(&mut self, val: u16) {
-        self.write_u16::<BigEndian>(val).unwrap()
+        self.write_u16::<BigEndian>(val).unwrap();
     }
 
     fn write_int(&mut self, val: i32) {
-        self.write_i32::<BigEndian>(val).unwrap()
+        self.write_i32::<BigEndian>(val).unwrap();
     }
 
     fn write_double(&mut self, val: f64) {
-        self.write_f64::<BigEndian>(val).unwrap()
+        self.write_f64::<BigEndian>(val).unwrap();
     }
 
     fn write_float(&mut self, val: f32) {
-        self.write_f32::<BigEndian>(val).unwrap()
+        self.write_f32::<BigEndian>(val).unwrap();
     }
 
     fn write_string(&mut self, n: usize, val: &str) {
@@ -308,7 +308,7 @@ pub trait PacketEncoderExt: Write {
     }
 
     fn write_long(&mut self, val: i64) {
-        self.write_i64::<BigEndian>(val).unwrap()
+        self.write_i64::<BigEndian>(val).unwrap();
     }
 
     fn write_position(&mut self, x: i32, y: i32, z: i32) {

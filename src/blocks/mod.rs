@@ -46,7 +46,7 @@ impl BlockEntity {
                 Value::String
             );
             let item_type = Item::from_name(namespaced_name.split(':').last()?);
-            fullness_sum += count as f32 / item_type.map(Item::max_stack_size).unwrap_or(64) as f32;
+            fullness_sum += count as f32 / item_type.map_or(64, Item::max_stack_size) as f32;
         }
         Some(BlockEntity::Container {
             comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
@@ -560,10 +560,10 @@ impl Block {
                 Block::update_surrounding_blocks(world, pos);
                 match lever.face {
                     LeverFace::Ceiling => {
-                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top))
+                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
                     }
                     LeverFace::Floor => {
-                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom))
+                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
                     }
                     LeverFace::Wall => Block::update_surrounding_blocks(
                         world,
@@ -580,10 +580,10 @@ impl Block {
                     Block::update_surrounding_blocks(world, pos);
                     match button.face {
                         ButtonFace::Ceiling => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
                         }
                         ButtonFace::Floor => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
                         }
                         ButtonFace::Wall => Block::update_surrounding_blocks(
                             world,
@@ -640,8 +640,7 @@ impl Block {
                 }
             }
             Item::RedstoneTorch {} => match context.block_face {
-                BlockFace::Top => Block::RedstoneTorch { lit: true },
-                BlockFace::Bottom => Block::RedstoneTorch { lit: true },
+                BlockFace::Top | BlockFace::Bottom => Block::RedstoneTorch { lit: true },
                 face => Block::RedstoneWallTorch {
                     lit: true,
                     facing: face.to_direction(),
@@ -863,10 +862,10 @@ impl Block {
                     Block::update_surrounding_blocks(world, pos);
                     match button.face {
                         ButtonFace::Ceiling => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
                         }
                         ButtonFace::Floor => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom))
+                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
                         }
                         ButtonFace::Wall => Block::update_surrounding_blocks(
                             world,
@@ -893,7 +892,7 @@ impl Block {
                 let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
                 bottom_block.is_cube()
             }
-            Block::RedstoneWallTorch { facing, .. } => {
+            Block::RedstoneWallTorch { facing, .. } | Block::WallSign { facing, .. } => {
                 let parent_block = world.get_block(pos.offset(facing.opposite().block_face()));
                 parent_block.is_cube()
             }
@@ -927,10 +926,6 @@ impl Block {
                     parent_block.is_cube()
                 }
             },
-            Block::WallSign { facing, .. } => {
-                let parent_block = world.get_block(pos.offset(facing.opposite().block_face()));
-                parent_block.is_cube()
-            }
             _ => true,
         }
     }

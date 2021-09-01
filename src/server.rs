@@ -143,7 +143,7 @@ impl MinecraftServer {
                     target = record.target(),
                     level = colors_level.color(record.level()),
                     message = message,
-                ))
+                ));
             })
             .level(log::LevelFilter::Debug)
             .level_for("regalloc", log::LevelFilter::Warn)
@@ -555,7 +555,7 @@ impl MinecraftServer {
                     uuid: player.uuid,
                     skin: None,
                 };
-                database::ensure_user(format!("{:032x}", player.uuid), &player.username);
+                database::ensure_user(&format!("{:032x}", player.uuid), &player.username);
                 self.broadcaster
                     .broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
                 self.send_player_to_plot(player, true);
@@ -573,7 +573,7 @@ impl MinecraftServer {
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
                     ChatComponent::from_legacy_text(
-                        CONFIG
+                        &CONFIG
                             .chat_format
                             .replace("{username}", &username)
                             .replace("{message}", &message),

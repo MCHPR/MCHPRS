@@ -1,4 +1,4 @@
-//! The direct backend does not do code generation and operates on the CompileNode graph directly
+//! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
@@ -182,7 +182,7 @@ impl JITBackend for DirectBackend {
                 ticks_left: entry.ticks_left,
                 tick_priority: entry.tick_priority,
                 pos: self.nodes[entry.node].pos,
-            })
+            });
         }
 
         let mut block_entities = Vec::new();
@@ -227,7 +227,7 @@ impl JITBackend for DirectBackend {
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
-        while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
+        while self.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
             let entry = self.to_be_ticked.remove(0);
             let node_id = entry.node;
             let node = &self.nodes[node_id];

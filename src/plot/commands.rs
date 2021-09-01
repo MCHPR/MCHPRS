@@ -16,7 +16,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
-    fn handle_plot_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+    fn handle_plot_command(&mut self, player: usize, command: &str, args: &[&str]) {
         let plot_x = self.players[player].x as i32 >> 8;
         let plot_z = self.players[player].z as i32 >> 8;
 
@@ -131,7 +131,7 @@ impl Plot {
     }
 
     /// Handles a command that starts with `/redpiler` or `/rp`
-    fn handle_redpiler_command(&mut self, player: usize, command: &str, args: Vec<&str>) {
+    fn handle_redpiler_command(&mut self, player: usize, command: &str, args: &[&str]) {
         match command {
             "compile" | "c" => {
                 let start_time = SystemTime::now();
@@ -153,7 +153,7 @@ impl Plot {
                 self.reset_redpiler();
                 self.start_redpiler(options, pos1, pos2);
 
-                println!("Compile took {:?}", start_time.elapsed())
+                println!("Compile took {:?}", start_time.elapsed());
             }
             "reset" | "r" => {
                 self.reset_redpiler();
@@ -188,7 +188,7 @@ impl Plot {
                     if let Some(report) = report {
                         self.players[player].send_chat_message(
                             0,
-                            ChatComponent::from_legacy_text(format!(
+                            &ChatComponent::from_legacy_text(&format!(
                                 "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
                                 report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
                             )),
@@ -196,7 +196,7 @@ impl Plot {
                     } else {
                         self.players[player].send_chat_message(
                             0,
-                            ChatComponent::from_legacy_text(format!(
+                            &ChatComponent::from_legacy_text(&format!(
                                 "&6No timings data. &a({})",
                                 self.tps
                             )),
@@ -293,7 +293,7 @@ impl Plot {
                     return false;
                 }
                 let command = args.remove(0);
-                self.handle_plot_command(player, command, args);
+                self.handle_plot_command(player, command, &args);
             }
             "/redpiler" | "/rp" => {
                 if args.is_empty() {
@@ -301,7 +301,7 @@ impl Plot {
                     return false;
                 }
                 let command = args.remove(0);
-                self.handle_redpiler_command(player, command, args);
+                self.handle_redpiler_command(player, command, &args);
             }
             "/speed" => {
                 if args.len() != 1 {
@@ -356,7 +356,7 @@ bitflags! {
 
 // In the future a DSL or some type of generation would be much better.
 // For more information, see https://wiki.vg/Command_Data
-/// The DeclareCommands packet that is sent when the player joins.
+/// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
 pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
     CDeclareCommands {

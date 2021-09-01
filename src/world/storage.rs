@@ -335,7 +335,7 @@ impl ChunkSection {
                     x: (i & 0xF) as u8,
                     y: (i >> 8) as u8,
                     z: ((i & 0xF0) >> 4) as u8,
-                })
+                });
             }
         }
         self.changed = false;

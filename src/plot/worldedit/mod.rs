@@ -755,13 +755,13 @@ impl WorldEditOperation {
     }
 
     fn x_range(&self) -> RangeInclusive<i32> {
-        self.x_range.to_owned()
+        self.x_range.clone()
     }
     fn y_range(&self) -> RangeInclusive<i32> {
-        self.y_range.to_owned()
+        self.y_range.clone()
     }
     fn z_range(&self) -> RangeInclusive<i32> {
-        self.z_range.to_owned()
+        self.z_range.clone()
     }
 }
 
@@ -1755,7 +1755,7 @@ fn execute_help(mut ctx: CommandExecuteContext<'_>) {
         }
     }
 
-    player.send_chat_message(player_uuid, message);
+    player.send_chat_message(player_uuid, &message);
 }
 
 fn execute_up(mut ctx: CommandExecuteContext<'_>) {
@@ -1771,7 +1771,7 @@ fn execute_up(mut ctx: CommandExecuteContext<'_>) {
     }
 
     let player = ctx.get_player_mut();
-    player.teleport(player.x, block_pos.y as f64, player.z)
+    player.teleport(player.x, block_pos.y as f64, player.z);
 }
 
 fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {

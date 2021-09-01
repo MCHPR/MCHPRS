@@ -159,7 +159,7 @@ impl ServerBoundPacketHandler for Plot {
         } else {
             let player = &self.players[player];
             let broadcast_message =
-                Message::ChatInfo(player.uuid, player.username.to_owned(), message);
+                Message::ChatInfo(player.uuid, player.username.clone(), message);
             self.message_sender.send(broadcast_message).unwrap();
         }
     }
@@ -415,10 +415,10 @@ impl ServerBoundPacketHandler for Plot {
         }
         let mut bitfield = 0;
         if self.players[player].crouching {
-            bitfield |= 0x02
+            bitfield |= 0x02;
         };
         if self.players[player].sprinting {
-            bitfield |= 0x08
+            bitfield |= 0x08;
         };
         let metadata_entries = vec![
             CEntityMetadataEntry {

@@ -1,4 +1,4 @@
-//! The par_direct backend operates on CompileNodes directly in parallel
+//! The `par_direct` backend operates on `CompileNodes` directly in parallel
 
 use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
@@ -165,7 +165,7 @@ impl JITBackend for ParDirectBackend {
                     _ => unreachable!(),
                 },
                 pos: self.blocks[entry.node].0,
-            })
+            });
         }
 
         let mut block_entities = Vec::new();
@@ -235,7 +235,7 @@ impl JITBackend for ParDirectBackend {
                 ),
                 |(updates_tx, changes_tx, nodes), tick: &mut RPTickEntry| {
                     if tick.ticks_left == 0 {
-                        tick_single(tick.node, nodes, updates_tx, changes_tx)
+                        tick_single(tick.node, nodes, updates_tx, changes_tx);
                     }
                     tick.ticks_left -= 1;
                 },
@@ -280,7 +280,7 @@ impl ParDirectBackend {
                 self.nodes.clone(),
             ),
             |(ticks_tx, changes_tx, nodes), node_id| {
-                update_single(*node_id, nodes, ticks_tx, changes_tx)
+                update_single(*node_id, nodes, ticks_tx, changes_tx);
             },
         );
     }

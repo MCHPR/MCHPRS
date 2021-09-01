@@ -262,7 +262,7 @@ impl Player {
                     damage: item.damage as i16,
                     slot: slot as i8,
                     nbt,
-                })
+                });
             }
         }
         let data = bincode::serialize(&PlayerData {
@@ -350,7 +350,7 @@ impl Player {
         self.client.send_packet(&player_position_and_look);
     }
 
-    /// Sends the ChatMessage packet containing the raw json data.
+    /// Sends the `ChatMessage` packet containing the raw json data.
     /// Position 0: chat (chat box)
     pub fn send_raw_chat(&mut self, sender: u128, message: String) {
         let chat_message = CChatMessage {
@@ -362,7 +362,7 @@ impl Player {
         self.client.send_packet(&chat_message);
     }
 
-    /// Sends the ChatMessage packet containing the raw json data.
+    /// Sends the `ChatMessage` packet containing the raw json data.
     /// Position 1: system message (chat box)
     pub fn send_raw_system_message(&mut self, message: String) {
         let chat_message = CChatMessage {
@@ -375,7 +375,7 @@ impl Player {
     }
 
     /// Sends a raw chat message to the player
-    pub fn send_chat_message(&mut self, sender: u128, message: Vec<ChatComponent>) {
+    pub fn send_chat_message(&mut self, sender: u128, message: &[ChatComponent]) {
         let json = json!({ "text": "", "extra": message }).to_string();
         self.send_raw_chat(sender, json);
     }

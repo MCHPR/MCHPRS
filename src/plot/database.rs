@@ -79,7 +79,7 @@ pub fn is_claimed(plot_x: i32, plot_z: i32) -> Option<bool> {
         .ok()
 }
 
-pub fn claim_plot(plot_x: i32, plot_z: i32, uuid: String) {
+pub fn claim_plot(plot_x: i32, plot_z: i32, uuid: &str) {
     let conn = lock();
     conn.execute(
         "INSERT INTO plot(plot_x, plot_z) VALUES(?1, ?2)",
@@ -99,7 +99,7 @@ pub fn claim_plot(plot_x: i32, plot_z: i32, uuid: String) {
     .unwrap();
 }
 
-pub fn ensure_user(uuid: String, name: &str) {
+pub fn ensure_user(uuid: &str, name: &str) {
     lock()
         .execute(
             "INSERT INTO user(uuid, name)

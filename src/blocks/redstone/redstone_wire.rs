@@ -146,7 +146,7 @@ impl RedstoneWire {
 
             BlockFace::East => {
                 self.west = RedstoneWire::get_side(world, pos, BlockDirection::West);
-                new_side = self.west
+                new_side = self.west;
             }
             BlockFace::West => {
                 self.east = RedstoneWire::get_side(world, pos, BlockDirection::East);
@@ -506,16 +506,16 @@ impl RedstoneWireTurbo {
         let mut cx = 0;
         let mut cz = 0;
         if from_west {
-            cx += 1
+            cx += 1;
         };
         if from_east {
-            cx -= 1
+            cx -= 1;
         };
         if from_north {
-            cz += 1
+            cz += 1;
         };
         if from_south {
-            cz -= 1
+            cz -= 1;
         };
 
         let UpdateNode { xbias, zbias, .. } = &self.nodes[upd1.index];
@@ -536,10 +536,10 @@ impl RedstoneWireTurbo {
         } else {
             if cx != 0 && cz != 0 {
                 if xbias != 0 {
-                    cz = 0
+                    cz = 0;
                 }
                 if zbias != 0 {
-                    cx = 0
+                    cx = 0;
                 }
             }
             heading = Self::compute_heading(cx, cz);
@@ -626,7 +626,7 @@ impl RedstoneWireTurbo {
         self.current_walk_layer = 1;
 
         while !self.update_queue[0].is_empty() || !self.update_queue[1].is_empty() {
-            for node_id in self.update_queue[0].clone().into_iter() {
+            for node_id in self.update_queue[0].clone() {
                 match self.nodes[node_id.index].state {
                     Block::RedstoneWire { .. } => {
                         self.update_node(world, node_id, self.current_walk_layer);

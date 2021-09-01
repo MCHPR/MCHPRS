@@ -101,7 +101,7 @@ impl NetworkServer {
             let client_stream = stream.try_clone().unwrap();
             let client_compressed = compressed.clone();
             thread::spawn(move || {
-                NetworkClient::listen(client_stream, packet_sender, client_compressed)
+                NetworkClient::listen(client_stream, packet_sender, client_compressed);
             });
             sender
                 .send(NetworkClient {
@@ -119,7 +119,7 @@ impl NetworkServer {
         }
     }
 
-    /// Creates a new NetworkServer. The server will then start accepting TCP clients.
+    /// Creates a new `NetworkServer`. The server will then start accepting TCP clients.
     pub fn new(bind_address: String) -> NetworkServer {
         let (sender, receiver) = mpsc::channel();
         thread::spawn(move || NetworkServer::listen(&bind_address, sender));
@@ -135,7 +135,7 @@ impl NetworkServer {
                 Ok(client) => self.handshaking_clients.push(client),
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    panic!("Client receiver channel disconnected!")
+                    panic!("Client receiver channel disconnected!");
                 }
             }
         }

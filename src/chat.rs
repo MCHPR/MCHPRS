@@ -96,7 +96,7 @@ pub struct ClickEvent {
     value: String,
 }
 
-/// This is only used for ChatComponent serialize
+/// This is only used for `ChatComponent` serialize
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_false(field: &bool) -> bool {
     !*field
@@ -155,7 +155,7 @@ pub struct ChatComponent {
 }
 
 impl ChatComponent {
-    pub fn from_legacy_text(message: String) -> Vec<ChatComponent> {
+    pub fn from_legacy_text(message: &str) -> Vec<ChatComponent> {
         let mut components = Vec::new();
 
         let mut cur_component: ChatComponent = Default::default();

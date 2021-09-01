@@ -117,7 +117,7 @@ impl World for Plot {
             return;
         }
         let chunk = &mut self.chunks[chunk_index];
-        chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
+        chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF));
     }
 
     fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
@@ -173,7 +173,7 @@ impl World for Plot {
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
-        while self.to_be_ticked.first().map(|e| e.ticks_left).unwrap_or(1) == 0 {
+        while self.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
             let entry = self.to_be_ticked.remove(0);
             self.get_block(entry.pos).tick(self, entry.pos);
         }
@@ -237,9 +237,9 @@ impl Plot {
         self.message_sender.send(broadcast_message).unwrap();
     }
 
-    pub fn broadcast_plot_chat_message(&mut self, message: String) {
+    pub fn broadcast_plot_chat_message(&mut self, message: &str) {
         for player in &mut self.players {
-            player.send_chat_message(0, ChatComponent::from_legacy_text(message.clone()));
+            player.send_chat_message(0, &ChatComponent::from_legacy_text(message));
         }
     }
 
@@ -362,7 +362,7 @@ impl Plot {
             if !Plot::chunk_in_plot_bounds(self.x, self.z, chunk_x, chunk_z) {
                 self.players[player_idx]
                     .client
-                    .send_packet(&Chunk::empty(chunk_x, chunk_z).encode_packet(true))
+                    .send_packet(&Chunk::empty(chunk_x, chunk_z).encode_packet(true));
             } else {
                 let chunk_data = self.chunks[self.get_chunk_index_for_chunk(chunk_x, chunk_z)]
                     .encode_packet(true);
@@ -425,6 +425,7 @@ impl Plot {
         Compiler::compile(self, options, first_pos, second_pos, ticks);
     }
 
+    /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be 
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active {
             debug!("Stopping redpiler!");
@@ -485,7 +486,7 @@ impl Plot {
         database::claim_plot(
             plot_x,
             plot_z,
-            format!("{:032x}", self.players[player].uuid),
+            &format!("{:032x}", self.players[player].uuid),
         );
         let center = Plot::get_center(plot_x, plot_z);
         self.players[player].teleport(center.0, 64.0, center.1);
@@ -547,7 +548,7 @@ impl Plot {
             match message {
                 BroadcastMessage::Chat(sender, message) => {
                     for player in &mut self.players {
-                        player.send_chat_message(sender, message.clone());
+                        player.send_chat_message(sender, &message);
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
@@ -725,7 +726,7 @@ impl Plot {
     }
 
     fn load_from_file(
-        data: Vec<u8>,
+        data: &[u8],
         x: i32,
         z: i32,
         rx: BusReader<BroadcastMessage>,
@@ -735,7 +736,7 @@ impl Plot {
     ) -> Plot {
         let chunk_x_offset = x << 4;
         let chunk_z_offset = z << 4;
-        let plot_data: PlotData = bincode::deserialize(&data).unwrap();
+        let plot_data: PlotData = bincode::deserialize(data).unwrap();
         let chunks: Vec<Chunk> = plot_data
             .chunk_data
             .into_iter()
@@ -784,10 +785,10 @@ impl Plot {
         always_running: bool,
     ) -> Plot {
         if let Ok(data) = fs::read(format!("./world/plots/p{},{}", x, z)) {
-            Plot::load_from_file(data, x, z, rx, tx, priv_rx, always_running)
+            Plot::load_from_file(&data, x, z, rx, tx, priv_rx, always_running)
         } else if Path::new("./world/plots/pTEMPLATE").exists() {
             let data = fs::read("./world/plots/pTEMPLATE").unwrap();
-            Plot::load_from_file(data, x, z, rx, tx, priv_rx, always_running)
+            Plot::load_from_file(&data, x, z, rx, tx, priv_rx, always_running)
         } else {
             let chunk_x_offset = x << 4;
             let chunk_z_offset = z << 4;

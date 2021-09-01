@@ -11,7 +11,7 @@ struct NBTMapEntry<T: Serialize> {
 }
 
 /// This is a format used in the current network protocol,
-/// most notably used in the JoinGame packet.
+/// most notably used in the `JoinGame` packet.
 #[derive(Serialize, Clone)]
 pub struct NBTMap<T: Serialize> {
     #[serde(rename = "type")]
