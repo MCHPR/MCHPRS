@@ -621,6 +621,62 @@ impl Plot {
         }
     }
 
+
+    /// Remove players outside of the plot
+    fn remove_oob_players(&mut self) {
+        let mut outside_players = Vec::new();
+        for player in 0..self.players.len() {
+            if !Plot::in_plot_bounds(
+                self.x,
+                self.z,
+                self.players[player].x as i32,
+                self.players[player].z as i32,
+            ) {
+                outside_players.push(self.players[player].uuid);
+            }
+        }
+
+        for uuid in outside_players {
+            let player = self.leave_plot(uuid);
+            let player_leave_plot = Message::PlayerLeavePlot(player);
+            self.message_sender.send(player_leave_plot).unwrap();
+        }
+    }
+
+    /// Remove disconnected players
+    fn remove_dc_players(&mut self) {
+        let message_sender = &mut self.message_sender;
+
+        let mut disconnected_players = Vec::new();
+        self.players.retain(|player| {
+            let alive = player.client.alive;
+            if !alive {
+                player.save();
+                message_sender
+                    .send(Message::PlayerLeft(player.uuid))
+                    .unwrap();
+                disconnected_players.push(player.entity_id);
+            }
+            alive
+        });
+        for entity_id in disconnected_players {
+            self.destroy_entity(entity_id);
+        }
+    }
+
+    /// Update player view positions and handle packets
+    fn update_players(&mut self) {
+        for player_idx in 0..self.players.len() {
+            if self.players[player_idx].update() {
+                self.update_view_pos_for_player(player_idx, false);
+            }
+        }
+        // Handle received packets
+        for player_idx in 0..self.players.len() {
+            self.handle_packets_for_player(player_idx);
+        }
+    }
+
     fn update(&mut self) {
         self.handle_messages();
 
@@ -659,56 +715,13 @@ impl Plot {
             }
         }
 
-        // Update players
-        for player_idx in 0..self.players.len() {
-            if self.players[player_idx].update() {
-                self.update_view_pos_for_player(player_idx, false);
-            }
-        }
-        // Handle received packets
-        for player_idx in 0..self.players.len() {
-            self.handle_packets_for_player(player_idx);
-        }
+        self.update_players();
 
+        // Handle commands before removing players just in case they ran a command before leaving
         self.handle_commands();
-
-        let message_sender = &mut self.message_sender;
-
-        // Remove disconnected players
-        let mut disconnected_players = Vec::new();
-        self.players.retain(|player| {
-            let alive = player.client.alive;
-            if !alive {
-                player.save();
-                message_sender
-                    .send(Message::PlayerLeft(player.uuid))
-                    .unwrap();
-                disconnected_players.push(player.entity_id);
-            }
-            alive
-        });
-        for entity_id in disconnected_players {
-            self.destroy_entity(entity_id);
-        }
-
-        // Remove players outside of the plot
-        let mut outside_players = Vec::new();
-        for player in 0..self.players.len() {
-            if !Plot::in_plot_bounds(
-                self.x,
-                self.z,
-                self.players[player].x as i32,
-                self.players[player].z as i32,
-            ) {
-                outside_players.push(self.players[player].uuid);
-            }
-        }
-
-        for uuid in outside_players {
-            let player = self.leave_plot(uuid);
-            let player_leave_plot = Message::PlayerLeavePlot(player);
-            self.message_sender.send(player_leave_plot).unwrap();
-        }
+        
+        self.remove_dc_players();
+        self.remove_oob_players();
     }
 
     fn load_from_file(
