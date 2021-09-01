@@ -71,7 +71,7 @@ impl Plot {
                 self.players[player].teleport(center.0, 64.0, center.1);
             }
             "visit" | "v" => {
-                if (1..=2).contains(&args.len()) {
+                if !(1..=2).contains(&args.len()) {
                     self.players[player].send_error_message("Invalid number of arguments!");
                     return;
                 }
