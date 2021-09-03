@@ -425,7 +425,7 @@ impl Plot {
         Compiler::compile(self, options, first_pos, second_pos, ticks);
     }
 
-    /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be 
+    /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active {
             debug!("Stopping redpiler!");
@@ -622,7 +622,6 @@ impl Plot {
         }
     }
 
-
     /// Remove players outside of the plot
     fn remove_oob_players(&mut self) {
         let mut outside_players = Vec::new();
@@ -720,7 +719,7 @@ impl Plot {
 
         // Handle commands before removing players just in case they ran a command before leaving
         self.handle_commands();
-        
+
         self.remove_dc_players();
         self.remove_oob_players();
     }

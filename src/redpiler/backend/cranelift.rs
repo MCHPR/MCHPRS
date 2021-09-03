@@ -2,7 +2,7 @@ use super::{JITBackend, JITResetData};
 use crate::blocks::{
     self, Block, BlockPos, ComparatorMode, Lever, RedstoneComparator, RedstoneRepeater,
 };
-use crate::redpiler::{Link, LinkType, CompileNode};
+use crate::redpiler::{CompileNode, Link, LinkType};
 use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};

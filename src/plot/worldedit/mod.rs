@@ -125,7 +125,7 @@ pub fn execute_command(
 
     for (i, arg_desc) in arg_descs.iter().enumerate() {
         let arg = args.get(i).copied();
-        match Argument::parse(&ctx, arg_desc.argument_type, arg) {
+        match Argument::parse(&ctx, arg_desc, arg) {
             Ok(default_arg) => ctx.arguments.push(default_arg),
             Err(err) => {
                 ctx.get_player_mut().send_error_message(&err.to_string());
@@ -178,7 +178,7 @@ enum ArgumentType {
     String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Argument {
     UnsignedInteger(u32),
     Direction(BlockFacing),
@@ -231,9 +231,19 @@ impl Argument {
         }
     }
 
-    fn get_default(ctx: &CommandExecuteContext<'_>, arg_type: ArgumentType) -> ArgumentParseResult {
+    fn get_default(
+        ctx: &CommandExecuteContext<'_>,
+        desc: &ArgumentDescription,
+    ) -> ArgumentParseResult {
+        if let Some(default) = &desc.default {
+            return Ok(default.clone());
+        }
+
+        let arg_type = desc.argument_type;
         match arg_type {
-            ArgumentType::Direction | ArgumentType::DirectionVector => Argument::parse(ctx, arg_type, Some("me")),
+            ArgumentType::Direction | ArgumentType::DirectionVector => {
+                Argument::parse(ctx, desc, Some("me"))
+            }
             ArgumentType::UnsignedInteger => Ok(Argument::UnsignedInteger(1)),
             _ => Err(ArgumentParseError::new(
                 arg_type,
@@ -244,13 +254,14 @@ impl Argument {
 
     fn parse(
         ctx: &CommandExecuteContext<'_>,
-        arg_type: ArgumentType,
+        desc: &ArgumentDescription,
         arg: Option<&str>,
     ) -> ArgumentParseResult {
         if arg.is_none() {
-            return Argument::get_default(ctx, arg_type);
+            return Argument::get_default(ctx, desc);
         }
         let arg = arg.unwrap();
+        let arg_type = desc.argument_type;
         match arg_type {
             ArgumentType::Direction => {
                 let player_facing = ctx.get_player().get_facing();
@@ -298,7 +309,7 @@ impl Argument {
                     match arg.chars().last().unwrap() {
                         'u' => vec.y += 1,
                         'd' => vec.y -= 1,
-                        _ => unreachable!()
+                        _ => unreachable!(),
                     }
                     base_dir = &arg[..1];
                 }
@@ -319,11 +330,10 @@ impl Argument {
 }
 
 struct ArgumentDescription {
-    // TODO: Use name in help command
     name: &'static str,
     argument_type: ArgumentType,
-    // TODO: Use description in help command
     description: &'static str,
+    default: Option<Argument>,
 }
 
 macro_rules! argument {
@@ -332,6 +342,15 @@ macro_rules! argument {
             name: $name,
             argument_type: ArgumentType::$type,
             description: $desc,
+            default: None,
+        }
+    };
+    ($name:literal, $type:ident, $desc:literal, $default:literal) => {
+        ArgumentDescription {
+            name: $name,
+            argument_type: ArgumentType::$type,
+            description: $desc,
+            default: Some(Argument::$type($default)),
         }
     };
 }
@@ -339,7 +358,6 @@ macro_rules! argument {
 struct FlagDescription {
     letter: char,
     argument_type: Option<ArgumentType>,
-    // TODO: Use description in help command
     description: &'static str,
 }
 
@@ -592,7 +610,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
         "/rstack" => WorldeditCommand {
             arguments: &[
                 argument!("count", UnsignedInteger, "# of copies to stack"),
-                argument!("spacing", UnsignedInteger, "The spacing between each selection"),
+                argument!("spacing", UnsignedInteger, "The spacing between each selection", 2),
                 argument!("direction", DirectionVector, "The direction to stack")
             ],
             flags: &[
@@ -634,7 +652,7 @@ static ALIASES: SyncLazy<HashMap<&'static str, &'static str>> = SyncLazy::new(||
     }
 });
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WorldEditPatternPart {
     pub weight: f32,
     pub block_id: u32,
@@ -676,7 +694,7 @@ impl fmt::Display for PatternParseError {
 
 pub type PatternParseResult<T> = std::result::Result<T, PatternParseError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WorldEditPattern {
     pub parts: Vec<WorldEditPatternPart>,
 }
@@ -1420,7 +1438,7 @@ fn expand_selection(player: &mut Player, amount: BlockPos, contract: bool) {
             0 => &mut pos.x,
             1 => &mut pos.y,
             2 => &mut pos.z,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 
@@ -1441,7 +1459,7 @@ fn expand_selection(player: &mut Player, amount: BlockPos, contract: bool) {
             } else {
                 *p2 += amount;
             }
-        }    
+        }
     };
 
     for axis in 0..=2 {
@@ -1461,7 +1479,11 @@ fn execute_expand(mut ctx: CommandExecuteContext<'_>) {
     let direction = ctx.arguments[1].unwrap_direction();
     let player = ctx.get_player_mut();
 
-    expand_selection(player, direction.offset_pos(BlockPos::zero(), amount as i32), false);
+    expand_selection(
+        player,
+        direction.offset_pos(BlockPos::zero(), amount as i32),
+        false,
+    );
 
     player.send_worldedit_message(&format!("Region expanded {} block(s).", amount));
 }
@@ -1471,7 +1493,11 @@ fn execute_contract(mut ctx: CommandExecuteContext<'_>) {
     let direction = ctx.arguments[1].unwrap_direction();
     let player = ctx.get_player_mut();
 
-    expand_selection(player, direction.offset_pos(BlockPos::zero(), amount as i32), true);
+    expand_selection(
+        player,
+        direction.offset_pos(BlockPos::zero(), amount as i32),
+        true,
+    );
 
     player.send_worldedit_message(&format!("Region contracted {} block(s).", amount));
 }
@@ -1655,10 +1681,17 @@ fn execute_help(mut ctx: CommandExecuteContext<'_>) {
                 .finish(),
         ]);
 
-        let default = match arg.argument_type {
-            ArgumentType::Direction | ArgumentType::DirectionVector => Some("me"),
-            ArgumentType::UnsignedInteger => Some("1"),
-            _ => None,
+        let default = if let Some(arg) = &arg.default {
+            match arg {
+                Argument::UnsignedInteger(int) => Some(int.to_string()),
+                _ => None,
+            }
+        } else {
+            match arg.argument_type {
+                ArgumentType::Direction | ArgumentType::DirectionVector => Some("me".to_string()),
+                ArgumentType::UnsignedInteger => Some("1".to_string()),
+                _ => None,
+            }
         };
         if let Some(default) = default {
             message.push(
@@ -1725,7 +1758,7 @@ fn execute_rstack(mut ctx: CommandExecuteContext<'_>) {
     let mut undo_cbs = Vec::new();
     for i in 1..stack_amt + 1 {
         let offset = (i * stack_spacing) as i32;
-        
+
         let block_pos = pos1 + direction * offset;
         undo_cbs.push(create_clipboard(
             ctx.plot,
@@ -1742,10 +1775,16 @@ fn execute_rstack(mut ctx: CommandExecuteContext<'_>) {
         plot_z: ctx.plot.z,
     };
 
+    if ctx.has_flag('e') {
+        expand_selection(
+            ctx.get_player_mut(),
+            direction * (stack_amt * stack_spacing) as i32,
+            false,
+        );
+    }
+
     let player = ctx.get_player_mut();
     player.worldedit_undo.push(undo);
-
-    expand_selection(player, direction * (stack_amt * stack_spacing) as i32, false);
 
     player.send_worldedit_message(&format!(
         "Your selection was stacked successfully. ({:?})",

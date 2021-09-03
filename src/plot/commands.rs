@@ -175,7 +175,7 @@ impl Plot {
             command,
             args.join(" ")
         );
-        
+
         // Handle worldedit commands
         if worldedit::execute_command(self, self.players[player].uuid, &command[1..], &mut args) {
             // If the command was handled, there is no need to continue;
