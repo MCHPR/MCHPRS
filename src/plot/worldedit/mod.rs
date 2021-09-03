@@ -596,7 +596,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
                 argument!("direction", DirectionVector, "The direction to stack")
             ],
             flags: &[
-                flag!('a', None, "Ignore air blocks"),
+                flag!('a', None, "Include air blocks"),
                 flag!('e', None, "Expand selection")
             ],
             execute_fn: execute_rstack,
@@ -1733,7 +1733,7 @@ fn execute_rstack(mut ctx: CommandExecuteContext<'_>) {
             block_pos,
             pos2 + direction * offset,
         ));
-        paste_clipboard(ctx.plot, &clipboard, block_pos, ctx.has_flag('a'));
+        paste_clipboard(ctx.plot, &clipboard, block_pos, !ctx.has_flag('a'));
     }
     let undo = WorldEditUndo {
         clipboards: undo_cbs,
