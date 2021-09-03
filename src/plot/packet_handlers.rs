@@ -121,17 +121,18 @@ impl ServerBoundPacketHandler for Plot {
             return;
         }
 
-        if self.redpiler.is_active && !self.players[player].crouching {
-            let block = self.get_block(block_pos);
-            let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
-            if lever_or_button {
-                self.redpiler.on_use_block(block_pos);
+        if let Some(owner) = self.owner {
+            let player = &mut self.players[player]; 
+            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
+                player.send_no_permission_message();
                 return;
-            } else {
-                self.reset_redpiler();
             }
+        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
+            self.players[player].send_no_permission_message();
+            return;
         }
 
+        // TODO: Allow WE wand without interact permissions
         if let Some(item) = item_in_hand {
             item.use_on_block(
                 self,
@@ -144,11 +145,23 @@ impl ServerBoundPacketHandler for Plot {
                     player_idx: player,
                 },
             );
-        } else {
+            return;
+        }
+
+        if self.redpiler.is_active && !self.players[player].crouching {
             let block = self.get_block(block_pos);
-            if !self.players[player].crouching {
-                block.on_use(self, block_pos, None);
+            let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
+            if lever_or_button {
+                self.redpiler.on_use_block(block_pos);
+                return;
+            } else {
+                self.reset_redpiler();
             }
+        }
+
+        let block = self.get_block(block_pos);
+        if !self.players[player].crouching {
+            block.on_use(self, block_pos, None);
         }
     }
 
@@ -366,6 +379,17 @@ impl ServerBoundPacketHandler for Plot {
                     self.players[player].worldedit_set_first_position(block_pos);
                     return;
                 }
+            }
+
+            if let Some(owner) = self.owner {
+                let player = &mut self.players[player]; 
+                if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
+                    player.send_no_permission_message();
+                    return;
+                }
+            } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
+                self.players[player].send_no_permission_message();
+                return;
             }
 
             self.reset_redpiler();

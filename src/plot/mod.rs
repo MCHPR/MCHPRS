@@ -11,6 +11,7 @@ use crate::network::packets::SlotData;
 use crate::player::{Gamemode, Player};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
+use crate::utils::HyphenatedUUID;
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
@@ -55,6 +56,7 @@ pub struct Plot {
     pub redpiler: Compiler,
     timings: TimingsMonitor,
     cursed_mode: bool,
+    owner: Option<u128>,
 }
 
 impl World for Plot {
@@ -772,6 +774,7 @@ impl Plot {
             redpiler: Default::default(),
             timings: TimingsMonitor::new(plot_data.tps),
             cursed_mode: false,
+            owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0)
         }
     }
 
@@ -821,6 +824,7 @@ impl Plot {
                 redpiler: Default::default(),
                 timings: TimingsMonitor::new(10),
                 cursed_mode: false,
+                owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0)
             }
         }
     }

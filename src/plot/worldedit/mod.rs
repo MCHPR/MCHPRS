@@ -46,6 +46,21 @@ pub fn execute_command(
         flags: Vec::new(),
     };
 
+    let wea = ctx.get_player().has_permission("plots.worldedit.bypass");
+    if !wea {
+        if let Some(owner) = ctx.plot.owner {
+            if owner != player_uuid {
+                // tried to worldedit on plot that wasn't theirs
+                ctx.get_player_mut().send_no_permission_message();
+                return true;
+            }
+        } else {
+            // tried to worldedit on unclaimed plot
+            ctx.get_player_mut().send_no_permission_message();
+            return true;
+        }
+    }
+
     if !command.permission_node.is_empty()
         && !ctx.get_player_mut().has_permission(command.permission_node)
     {
