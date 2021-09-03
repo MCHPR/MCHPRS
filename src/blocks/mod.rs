@@ -120,6 +120,10 @@ impl BlockPos {
         BlockPos { x, y, z }
     }
 
+    pub fn zero() -> BlockPos {
+        BlockPos::new(0, 0, 0)
+    }
+
     pub fn from_pos(x: f64, y: f64, z: f64) -> BlockPos {
         BlockPos {
             x: x.floor() as i32,
@@ -164,6 +168,30 @@ impl std::ops::Sub for BlockPos {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
             z: self.z - rhs.z,
+        }
+    }
+}
+
+impl std::ops::Add for BlockPos {
+    type Output = BlockPos;
+
+    fn add(self, rhs: BlockPos) -> BlockPos {
+        BlockPos {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
+    }
+}
+
+impl std::ops::Mul<i32> for BlockPos {
+    type Output = BlockPos;
+
+    fn mul(self, rhs: i32) -> BlockPos {
+        BlockPos {
+            x: self.x * rhs,
+            y: self.y * rhs,
+            z: self.z * rhs,
         }
     }
 }
