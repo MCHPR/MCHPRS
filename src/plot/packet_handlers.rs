@@ -122,7 +122,7 @@ impl ServerBoundPacketHandler for Plot {
         }
 
         if let Some(owner) = self.owner {
-            let player = &mut self.players[player]; 
+            let player = &mut self.players[player];
             if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
                 player.send_no_permission_message();
                 return;
@@ -161,7 +161,7 @@ impl ServerBoundPacketHandler for Plot {
 
         let block = self.get_block(block_pos);
         if !self.players[player].crouching {
-            block.on_use(self, block_pos, None);
+            block.on_use(self, self.players[player].uuid, block_pos, None);
         }
     }
 
@@ -382,7 +382,7 @@ impl ServerBoundPacketHandler for Plot {
             }
 
             if let Some(owner) = self.owner {
-                let player = &mut self.players[player]; 
+                let player = &mut self.players[player];
                 if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
                     player.send_no_permission_message();
                     return;

@@ -699,6 +699,22 @@ impl ClientBoundPacket for CEntityMovement {
     }
 }
 
+pub struct COpenWindow {
+    pub window_id: i32,
+    pub window_type: i32,
+    pub window_title: String,
+}
+
+impl ClientBoundPacket for COpenWindow {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.window_id);
+        buf.write_varint(self.window_type);
+        buf.write_string(32767, &self.window_title);
+        PacketEncoder::new(buf, 0x2D)
+    }
+}
+
 pub struct CPlayerAbilities {
     pub flags: u8,
     pub fly_speed: f32,

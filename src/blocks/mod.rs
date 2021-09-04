@@ -6,6 +6,7 @@ use mchprs_proc_macros::BlockProperty;
 pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Cursor;
 
 trait BlockProperty: Sized {
     fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str);
@@ -25,17 +26,51 @@ pub struct SignBlockEntity {
     pub rows: [String; 4],
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub enum ContainerType {
+    Furnace,
+    Barrel,
+    Hopper,
+}
+
+impl ContainerType {
+    fn num_slots(self) -> u8 {
+        match self {
+            ContainerType::Furnace => 3,
+            ContainerType::Barrel => 27,
+            ContainerType::Hopper => 5,
+        }
+    }
+
+    pub fn window_type(self) -> u8 {
+        // https://wiki.vg/Inventory
+        match self {
+            ContainerType::Furnace => 13,
+            ContainerType::Barrel => 2,
+            ContainerType::Hopper => 15,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BlockEntity {
-    Comparator { output_strength: u8 },
-    Container { comparator_override: u8 },
+    Comparator {
+        output_strength: u8,
+    },
+    Container {
+        comparator_override: u8,
+        slots_nbt: Vec<Vec<u8>>,
+        ty: ContainerType,
+    },
     Sign(Box<SignBlockEntity>),
 }
 
 impl BlockEntity {
-    fn load_container(slots_nbt: &[nbt::Value], num_slots: u8) -> Option<BlockEntity> {
+    fn load_container(slots_nbt: &[nbt::Value], ty: ContainerType) -> Option<BlockEntity> {
         use nbt::Value;
+        let num_slots = ty.num_slots();
         let mut fullness_sum: f32 = 0.0;
+        let mut items = Vec::new();
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
             let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
@@ -46,10 +81,21 @@ impl BlockEntity {
                 Value::String
             );
             let item_type = Item::from_name(namespaced_name.split(':').last()?);
+
+            let mut blob = nbt::Blob::new();
+            for (k, v) in item_compound {
+                blob.insert(k, v.clone()).unwrap();
+            }
+            let mut data = Vec::new();
+            blob.to_writer(&mut data).unwrap();
+            items.push(data);
+
             fullness_sum += count as f32 / item_type.map_or(64, Item::max_stack_size) as f32;
         }
         Some(BlockEntity::Container {
             comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
+            slots_nbt: items,
+            ty,
         })
     }
 
@@ -60,15 +106,18 @@ impl BlockEntity {
             "minecraft:comparator" => Some(BlockEntity::Comparator {
                 output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8,
             }),
-            "minecraft:furnace" => {
-                BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 3)
-            }
-            "minecraft:barrel" => {
-                BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 27)
-            }
-            "minecraft:hopper" => {
-                BlockEntity::load_container(nbt_unwrap_val!(&nbt["Items"], Value::List), 5)
-            }
+            "minecraft:furnace" => BlockEntity::load_container(
+                nbt_unwrap_val!(&nbt["Items"], Value::List),
+                ContainerType::Furnace,
+            ),
+            "minecraft:barrel" => BlockEntity::load_container(
+                nbt_unwrap_val!(&nbt["Items"], Value::List),
+                ContainerType::Barrel,
+            ),
+            "minecraft:hopper" => BlockEntity::load_container(
+                nbt_unwrap_val!(&nbt["Items"], Value::List),
+                ContainerType::Hopper,
+            ),
             "minecraft:sign" => Some({
                 BlockEntity::Sign(Box::new(SignBlockEntity {
                     rows: [
@@ -525,6 +574,7 @@ impl Block {
             Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
                 if let Some(BlockEntity::Container {
                     comparator_override,
+                    ..
                 }) = world.get_block_entity(pos)
                 {
                     *comparator_override
@@ -562,6 +612,7 @@ impl Block {
     pub fn on_use(
         self,
         world: &mut impl World,
+        player_uuid: u128,
         pos: BlockPos,
         item_in_hand: Option<Item>,
     ) -> ActionResult {
@@ -632,6 +683,22 @@ impl Block {
                             },
                         );
                     }
+                }
+                ActionResult::Success
+            }
+            b if b.has_comparator_override() => {
+                // Open container
+                // TODO: Avoid clone
+                let block_entity = world.get_block_entity(pos).cloned();
+                if let Some(BlockEntity::Container { slots_nbt, ty, .. }) = block_entity {
+                    let slots: Vec<_> = slots_nbt
+                        .into_iter()
+                        .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap())
+                        .collect();
+                    world
+                        .get_player_mut(player_uuid)
+                        .unwrap()
+                        .open_container(&slots, ty.window_type());
                 }
                 ActionResult::Success
             }

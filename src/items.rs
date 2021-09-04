@@ -55,7 +55,12 @@ impl ItemStack {
         if !context.player_crouching
             && !cancelled
             && use_block
-                .on_use(plot, context.block_pos, Some(self.item_type))
+                .on_use(
+                    plot,
+                    plot.players[context.player_idx].uuid,
+                    context.block_pos,
+                    Some(self.item_type),
+                )
                 .is_success()
         {
             return;

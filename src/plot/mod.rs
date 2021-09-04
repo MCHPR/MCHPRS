@@ -774,7 +774,7 @@ impl Plot {
             redpiler: Default::default(),
             timings: TimingsMonitor::new(plot_data.tps),
             cursed_mode: false,
-            owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0)
+            owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
         }
     }
 
@@ -824,7 +824,8 @@ impl Plot {
                 redpiler: Default::default(),
                 timings: TimingsMonitor::new(10),
                 cursed_mode: false,
-                owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0)
+                owner: database::get_plot_owner(x, z)
+                    .map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
             }
         }
     }

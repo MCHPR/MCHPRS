@@ -3,6 +3,7 @@ use crate::chat::ChatComponent;
 use crate::config::CONFIG;
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
+use crate::network::packets::SlotData;
 use crate::network::NetworkClient;
 use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
@@ -47,9 +48,9 @@ impl Gamemode {
 pub struct PlayerData {
     on_ground: bool,
     flying: bool,
-    motion: Vec<f64>,   // [f64; 3]
-    position: Vec<f64>, // [f64; 3]
-    rotation: Vec<f32>, // [f32; 2]
+    motion: [f64; 3],
+    position: [f64; 3],
+    rotation: [f32; 2],
     inventory: Vec<InventoryEntry>,
     selected_item_slot: i32,
     fly_speed: f32,
@@ -270,10 +271,10 @@ impl Player {
             flying: self.flying,
             gamemode: self.gamemode,
             inventory,
-            motion: vec![0f64, 0f64, 0f64],
+            motion: [0f64, 0f64, 0f64],
             on_ground: self.on_ground,
-            position: vec![self.x, self.y, self.z],
-            rotation: vec![self.pitch, self.yaw],
+            position: [self.x, self.y, self.z],
+            rotation: [self.pitch, self.yaw],
             selected_item_slot: self.selected_slot as i32,
             walk_speed: self.walk_speed,
         })
@@ -482,5 +483,53 @@ impl Player {
             // Permissions is not enabled
             true
         }
+    }
+
+    pub fn open_container(&mut self, slots: &[nbt::Blob], window_type: u8) {
+        // TODO: put this somewhere sensible
+        fn slot_from_nbt(nbt: &nbt::Blob) -> Option<SlotData> {
+            let namespaced_name =
+                nbt_unwrap_val!(nbt.get("Id").or_else(|| nbt.get("id"))?, nbt::Value::String);
+            let count = nbt_unwrap_val!(nbt["Count"], nbt::Value::Byte);
+            let item = Item::from_name(namespaced_name.split(':').last()?)?;
+            let tag = match &nbt["tag"] {
+                nbt::Value::Compound(map) => {
+                    let mut blob = nbt::Blob::new();
+                    for (k, v) in map {
+                        blob.insert(k, v.clone()).unwrap();
+                    }
+                    Some(blob)
+                }
+                _ => None,
+            };
+
+            Some(SlotData {
+                item_id: item.get_id() as i32,
+                item_count: count,
+                nbt: tag,
+            })
+        }
+
+        let mut slot_data: Vec<_> = (0..27).map(|_| None).collect();
+        for slot_nbt in slots {
+            if let nbt::Value::Byte(slot) = slot_nbt["Slot"] {
+                slot_data[slot as usize] = slot_from_nbt(slot_nbt);
+            }
+        }
+
+        let window_items = CWindowItems {
+            window_id: 1,
+            slot_data,
+        }
+        .encode();
+        self.client.send_packet(&window_items);
+
+        let open_window = COpenWindow {
+            window_id: 1,
+            window_type: window_type as i32,
+            window_title: r#"{"text":"Container"}"#.to_owned(),
+        }
+        .encode();
+        self.client.send_packet(&open_window);
     }
 }
