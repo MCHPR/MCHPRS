@@ -468,7 +468,7 @@ impl<'a> InputSearch<'a> {
                     }
                 }
 
-                if !exists {
+                if !exists && link.weight < 15 {
                     links.push(link);
                 }
             }
