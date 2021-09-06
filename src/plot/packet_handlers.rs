@@ -132,7 +132,18 @@ impl ServerBoundPacketHandler for Plot {
             return;
         }
 
-        // TODO: Allow WE wand without interact permissions
+        if self.redpiler.is_active && !self.players[player].crouching {
+            let block = self.get_block(block_pos);
+            let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
+            if lever_or_button {
+                self.redpiler.on_use_block(block_pos);
+                return;
+            } else {
+                self.reset_redpiler();
+            }
+        }
+
+        // TODO: Allow WE wand without interact permissions, and while redpiler is running
         if let Some(item) = item_in_hand {
             item.use_on_block(
                 self,
@@ -146,17 +157,6 @@ impl ServerBoundPacketHandler for Plot {
                 },
             );
             return;
-        }
-
-        if self.redpiler.is_active && !self.players[player].crouching {
-            let block = self.get_block(block_pos);
-            let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
-            if lever_or_button {
-                self.redpiler.on_use_block(block_pos);
-                return;
-            } else {
-                self.reset_redpiler();
-            }
         }
 
         let block = self.get_block(block_pos);
