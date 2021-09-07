@@ -1,7 +1,7 @@
-use crate::blocks::{BlockDirection, BlockFacing, BlockPos};
+use crate::blocks::{BlockDirection, BlockFacing, BlockPos, ContainerType};
 use crate::chat::ChatComponent;
 use crate::config::CONFIG;
-use crate::items::{Item, ItemStack};
+use crate::items::{InventoryEntry, Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::network::NetworkClient;
@@ -16,16 +16,6 @@ use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Write};
 use std::time::{Instant, SystemTime};
-
-/// This is a single item in the player's inventory
-#[derive(Debug, Serialize, Deserialize)]
-pub struct InventoryEntry {
-    id: u32,
-    slot: i8,
-    count: i8,
-    damage: i16,
-    nbt: Option<Vec<u8>>,
-}
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Gamemode {
@@ -157,7 +147,6 @@ impl Player {
                 inventory[entry.slot as usize] = Some(ItemStack {
                     item_type: Item::from_id(entry.id),
                     count: entry.count as u8,
-                    damage: entry.damage as u16,
                     nbt,
                 });
             }
@@ -260,7 +249,6 @@ impl Player {
                 inventory.push(InventoryEntry {
                     count: item.count as i8,
                     id: item.item_type.get_id(),
-                    damage: item.damage as i16,
                     slot: slot as i8,
                     nbt,
                 });
@@ -485,51 +473,33 @@ impl Player {
         }
     }
 
-    pub fn open_container(&mut self, slots: &[nbt::Blob], window_type: u8) {
-        // TODO: put this somewhere sensible
-        fn slot_from_nbt(nbt: &nbt::Blob) -> Option<SlotData> {
-            let namespaced_name =
-                nbt_unwrap_val!(nbt.get("Id").or_else(|| nbt.get("id"))?, nbt::Value::String);
-            let count = nbt_unwrap_val!(nbt["Count"], nbt::Value::Byte);
-            let item = Item::from_name(namespaced_name.split(':').last()?)?;
-            let tag = match &nbt["tag"] {
-                nbt::Value::Compound(map) => {
-                    let mut blob = nbt::Blob::new();
-                    for (k, v) in map {
-                        blob.insert(k, v.clone()).unwrap();
-                    }
-                    Some(blob)
-                }
-                _ => None,
-            };
-
-            Some(SlotData {
-                item_id: item.get_id() as i32,
-                item_count: count,
-                nbt: tag,
-            })
+    pub fn open_container(&mut self, inventory: &[InventoryEntry], container_type: ContainerType) {
+        let mut slots: Vec<Option<SlotData>> = (0..container_type.num_slots()).map(|_| None).collect();
+        for entry in inventory {
+            let nbt = entry
+                .nbt
+                .clone()
+                .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
+            slots[entry.slot as usize] = Some(SlotData {
+                item_id: entry.id as i32,
+                item_count: entry.count,
+                nbt
+            });
         }
-
-        let mut slot_data: Vec<_> = (0..27).map(|_| None).collect();
-        for slot_nbt in slots {
-            if let nbt::Value::Byte(slot) = slot_nbt["Slot"] {
-                slot_data[slot as usize] = slot_from_nbt(slot_nbt);
-            }
-        }
-
-        let window_items = CWindowItems {
-            window_id: 1,
-            slot_data,
-        }
-        .encode();
-        self.client.send_packet(&window_items);
 
         let open_window = COpenWindow {
             window_id: 1,
-            window_type: window_type as i32,
+            window_type: container_type.window_type() as i32,
             window_title: r#"{"text":"Container"}"#.to_owned(),
         }
         .encode();
         self.client.send_packet(&open_window);
+
+        let window_items = CWindowItems {
+            window_id: 1,
+            slot_data: slots,
+        }
+        .encode();
+        self.client.send_packet(&window_items);
     }
 }

@@ -35,7 +35,6 @@ impl ServerBoundPacketHandler for Plot {
             }
             let item = ItemStack {
                 count: slot_data.item_count as u8,
-                damage: 0,
                 item_type: Item::from_id(slot_data.item_id as u32),
                 nbt: slot_data.nbt,
             };

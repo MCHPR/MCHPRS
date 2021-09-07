@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPos};
 use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
@@ -29,8 +31,15 @@ pub struct UseOnBlockContext {
 pub struct ItemStack {
     pub item_type: Item,
     pub count: u8,
-    pub damage: u16,
     pub nbt: Option<nbt::Blob>,
+}
+/// A single item in an inventory
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct InventoryEntry {
+    pub id: u32,
+    pub slot: i8,
+    pub count: i8,
+    pub nbt: Option<Vec<u8>>,
 }
 
 impl ItemStack {

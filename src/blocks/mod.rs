@@ -1,12 +1,11 @@
 mod redstone;
 
-use crate::items::{ActionResult, Item, UseOnBlockContext};
+use crate::items::{ActionResult, InventoryEntry, Item, UseOnBlockContext};
 use crate::world::{TickPriority, World};
 use mchprs_proc_macros::BlockProperty;
 pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::io::Cursor;
 
 trait BlockProperty: Sized {
     fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str);
@@ -34,7 +33,7 @@ pub enum ContainerType {
 }
 
 impl ContainerType {
-    fn num_slots(self) -> u8 {
+    pub fn num_slots(self) -> u8 {
         match self {
             ContainerType::Furnace => 3,
             ContainerType::Barrel => 27,
@@ -59,7 +58,7 @@ pub enum BlockEntity {
     },
     Container {
         comparator_override: u8,
-        slots_nbt: Vec<Vec<u8>>,
+        inventory: Vec<InventoryEntry>,
         ty: ContainerType,
     },
     Sign(Box<SignBlockEntity>),
@@ -70,10 +69,11 @@ impl BlockEntity {
         use nbt::Value;
         let num_slots = ty.num_slots();
         let mut fullness_sum: f32 = 0.0;
-        let mut items = Vec::new();
+        let mut inventory = Vec::new();
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
             let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
+            let slot = nbt_unwrap_val!(item_compound["Slot"], Value::Byte);
             let namespaced_name = nbt_unwrap_val!(
                 item_compound
                     .get("Id")
@@ -88,13 +88,32 @@ impl BlockEntity {
             }
             let mut data = Vec::new();
             blob.to_writer(&mut data).unwrap();
-            items.push(data);
+            
+            let tag = match item_compound.get("tag") {
+                Some(nbt::Value::Compound(map)) => {
+                    let mut blob = nbt::Blob::new();
+                    for (k, v) in map {
+                        blob.insert(k, v.clone()).unwrap();
+                    }
+
+                    let mut data = Vec::new();
+                    blob.to_writer(&mut data).unwrap();
+                    Some(data)
+                }
+                _ => None,
+            };
+            inventory.push(InventoryEntry {
+                slot,
+                count,
+                id: item_type.unwrap_or(Item::Redstone {}).get_id(),
+                nbt: tag,
+            });
 
             fullness_sum += count as f32 / item_type.map_or(64, Item::max_stack_size) as f32;
         }
         Some(BlockEntity::Container {
             comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
-            slots_nbt: items,
+            inventory,
             ty,
         })
     }
@@ -690,15 +709,11 @@ impl Block {
                 // Open container
                 // TODO: Avoid clone
                 let block_entity = world.get_block_entity(pos).cloned();
-                if let Some(BlockEntity::Container { slots_nbt, ty, .. }) = block_entity {
-                    let slots: Vec<_> = slots_nbt
-                        .into_iter()
-                        .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap())
-                        .collect();
+                if let Some(BlockEntity::Container { inventory, ty, .. }) = block_entity {
                     world
                         .get_player_mut(player_uuid)
                         .unwrap()
-                        .open_container(&slots, ty.window_type());
+                        .open_container(&inventory, ty);
                 }
                 ActionResult::Success
             }
