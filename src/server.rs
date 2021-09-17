@@ -354,6 +354,23 @@ impl MinecraftServer {
 
         let mut player = Player::load_player(uuid, username, client);
 
+        let dimension = CJoinGameDimensionElement {
+            natural: 1,
+            ambient_light: 1.0,
+            has_ceiling: 0,
+            has_skylight: 1,
+            fixed_time: 6000,
+            shrunk: 0,
+            ultrawarm: 0,
+            has_raids: 0,
+            respawn_anchor_works: 0,
+            bed_works: 0,
+            coordinate_scale: 1.0,
+            piglin_safe: 0,
+            logical_height: 256,
+            infiniburn: "".to_owned(),
+        };
+
         let join_game = CJoinGame {
             entity_id: player.client.id as i32,
             is_hardcore: false,
@@ -363,22 +380,7 @@ impl MinecraftServer {
             world_names: vec!["mchprs:world".to_owned()],
             dimension_codec: CJoinGameDimensionCodec {
                 dimensions: map! {
-                    "mchprs:world".to_owned() => CJoinGameDimensionElement {
-                        natural: 1,
-                        ambient_light: 1.0,
-                        has_ceiling: 0,
-                        has_skylight: 1,
-                        fixed_time: 6000,
-                        shrunk: 0,
-                        ultrawarm: 0,
-                        has_raids: 0,
-                        respawn_anchor_works: 0,
-                        bed_works: 0,
-                        coordinate_scale: 1.0,
-                        piglin_safe: 0,
-                        logical_height: 256,
-                        infiniburn: "".to_owned(),
-                    }
+                    "mchprs:world".to_owned() => dimension.clone()
                 },
                 biomes: map! {
                     "mchprs:plot".to_owned() => CJoinGameBiomeElement {
@@ -401,6 +403,8 @@ impl MinecraftServer {
                         downfall: 0.5,
                         category: "none".to_owned(),
                     },
+                    // TODO: This was needed previously because of a bug in the client renderer,
+                    // it may not be needed anymore
                     "minecraft:plains".to_owned() => CJoinGameBiomeElement {
                         precipitation: "none".to_owned(),
                         effects: CJoinGameBiomeEffects {
@@ -423,23 +427,7 @@ impl MinecraftServer {
                     }
                 },
             },
-            // this should be exactly the same has the dimension listed in dimension_codec
-            dimension: CJoinGameDimensionElement {
-                natural: 1,
-                ambient_light: 1.0,
-                has_ceiling: 0,
-                has_skylight: 1,
-                fixed_time: 6000,
-                shrunk: 0,
-                ultrawarm: 0,
-                has_raids: 0,
-                respawn_anchor_works: 0,
-                bed_works: 0,
-                coordinate_scale: 1.0,
-                piglin_safe: 0,
-                logical_height: 256,
-                infiniburn: "".to_owned(),
-            },
+            dimension,
             world_name: "mchprs:world".to_owned(),
             hashed_seed: 0,
             max_players: 0,
