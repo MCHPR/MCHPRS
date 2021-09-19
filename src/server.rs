@@ -637,7 +637,7 @@ impl MinecraftServer {
             }
             Message::WhitelistRemove(uuid) => {
                 if let Some(whitelist) = &mut self.whitelist {
-                    debug!("Removed from whitelist: {}", uuid.to_string());
+                    debug!("Removed from whitelist: {}", HyphenatedUUID(uuid).to_string());
 
                     whitelist.retain(|entry| entry.uuid.0 != uuid);
                 }
