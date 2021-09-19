@@ -88,7 +88,7 @@ impl BlockEntity {
             }
             let mut data = Vec::new();
             blob.to_writer(&mut data).unwrap();
-            
+
             let tag = match item_compound.get("tag") {
                 Some(nbt::Value::Compound(map)) => {
                     let mut blob = nbt::Blob::new();

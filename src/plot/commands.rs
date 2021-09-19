@@ -6,11 +6,12 @@ use crate::network::packets::clientbound::{
 };
 use crate::network::packets::PacketEncoder;
 use crate::player::Gamemode;
+use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use crate::world::World;
 use bitflags::_core::i32::MAX;
-use log::info;
+use log::{debug, info};
 use std::lazy::SyncLazy;
 use std::time::{Duration, Instant, SystemTime};
 
@@ -183,6 +184,41 @@ impl Plot {
         }
 
         match command {
+            "/whitelist" => match args.as_slice() {
+                ["add", username] => {
+                    let username = username.to_string();
+                    let sender = self.message_sender.clone();
+                    self.async_rt.spawn(async move {
+                        match PlayerProfile::lookup_by_username(&username).await {
+                            Ok(profile) => sender
+                                .send(Message::WhitelistAdd(profile.uuid.0, profile.username))
+                                .unwrap(),
+                            Err(_) => {
+                                debug!("Failed to look up profile for username {:?}", username)
+                            }
+                        }
+                    });
+                }
+                ["remove", username] => {
+                    let username = username.to_string();
+                    let sender = self.message_sender.clone();
+                    self.async_rt.spawn(async move {
+                        match PlayerProfile::lookup_by_username(&username).await {
+                            Ok(profile) => sender
+                                .send(Message::WhitelistRemove(profile.uuid.0))
+                                .unwrap(),
+                            Err(_) => {
+                                debug!("Failed to look up profile for username {:?}", username)
+                            }
+                        }
+                    });
+                }
+                _ => {
+                    self.players[player]
+                        .send_error_message("Usage: /whitelist [add | remove] (username)");
+                    return false;
+                }
+            },
             "/rtps" => {
                 if args.is_empty() {
                     let report = self.timings.generate_report();
@@ -367,7 +403,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: vec![
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47,
+                    47, 49,
                 ],
                 redirect_node: None,
                 name: None,
@@ -756,6 +792,38 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 redirect_node: None,
                 name: Some("amount"),
                 parser: Some(Parser::Integer(0, 256)),
+            },
+            // 49: /whitelist
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![50, 51],
+                redirect_node: None,
+                name: Some("whitelist"),
+                parser: None,
+            },
+            // 50: /whitelist add
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![52],
+                redirect_node: None,
+                name: Some("add"),
+                parser: None,
+            },
+            // 51: /whitelist remove
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![52],
+                redirect_node: None,
+                name: Some("remove"),
+                parser: None,
+            },
+            // 52: /whitelist add|remove [username]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("username"),
+                parser: Some(Parser::Entity(3)),
             },
         ],
         root_index: 0,

@@ -26,6 +26,7 @@ use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
+use tokio::runtime::Runtime;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlotData {
@@ -57,6 +58,7 @@ pub struct Plot {
     timings: TimingsMonitor,
     cursed_mode: bool,
     owner: Option<u128>,
+    async_rt: Runtime,
 }
 
 impl World for Plot {
@@ -422,7 +424,7 @@ impl Plot {
         first_pos: Option<BlockPos>,
         second_pos: Option<BlockPos>,
     ) {
-        debug!("Starting redpiler!");
+        debug!("Starting redpiler");
         let ticks = self.to_be_ticked.drain(..).collect();
         Compiler::compile(self, options, first_pos, second_pos, ticks);
     }
@@ -430,7 +432,7 @@ impl Plot {
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active {
-            debug!("Stopping redpiler!");
+            debug!("Discarding redpiler");
             let reset_data = self.redpiler.reset();
             self.to_be_ticked = reset_data.tick_entries;
             for (pos, block_entity) in reset_data.block_entities {
@@ -485,14 +487,11 @@ impl Plot {
     }
 
     pub fn claim_plot(&mut self, plot_x: i32, plot_z: i32, player: usize) {
-        database::claim_plot(
-            plot_x,
-            plot_z,
-            &format!("{:032x}", self.players[player].uuid),
-        );
+        let player = &mut self.players[player];
+        database::claim_plot(plot_x, plot_z, &format!("{:032x}", player.uuid));
         let center = Plot::get_center(plot_x, plot_z);
-        self.players[player].teleport(center.0, 64.0, center.1);
-        self.players[player].send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
+        player.teleport(center.0, 64.0, center.1);
+        player.send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
     }
 
     pub fn get_center(plot_x: i32, plot_z: i32) -> (f64, f64) {
@@ -628,13 +627,9 @@ impl Plot {
     fn remove_oob_players(&mut self) {
         let mut outside_players = Vec::new();
         for player in 0..self.players.len() {
-            if !Plot::in_plot_bounds(
-                self.x,
-                self.z,
-                self.players[player].x as i32,
-                self.players[player].z as i32,
-            ) {
-                outside_players.push(self.players[player].uuid);
+            let player = &mut self.players[player];
+            if !Plot::in_plot_bounds(self.x, self.z, player.x as i32, player.z as i32) {
+                outside_players.push(player.uuid);
             }
         }
 
@@ -726,6 +721,10 @@ impl Plot {
         self.remove_oob_players();
     }
 
+    fn create_async_rt() -> Runtime {
+        Runtime::new().unwrap()
+    }
+
     fn load_from_file(
         data: &[u8],
         x: i32,
@@ -775,6 +774,7 @@ impl Plot {
             timings: TimingsMonitor::new(plot_data.tps),
             cursed_mode: false,
             owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
+            async_rt: Plot::create_async_rt(),
         }
     }
 
@@ -826,6 +826,7 @@ impl Plot {
                 cursed_mode: false,
                 owner: database::get_plot_owner(x, z)
                     .map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
+                async_rt: Plot::create_async_rt(),
             }
         }
     }
@@ -849,6 +850,8 @@ impl Plot {
     }
 
     fn run(&mut self, initial_player: Option<Player>) {
+        let _guard = self.async_rt.enter();
+
         if let Some(player) = initial_player {
             self.enter_plot(player);
         }

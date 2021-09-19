@@ -197,6 +197,8 @@ impl JITBackend for DirectBackend {
 
         self.nodes.clear();
         self.pos_map.clear();
+        self.to_be_ticked.clear();
+        self.change_queue.clear();
 
         JITResetData {
             tick_entries: ticks,

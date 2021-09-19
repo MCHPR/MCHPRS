@@ -11,6 +11,7 @@ mod network;
 mod permissions;
 mod player;
 mod plot;
+mod profile;
 mod redpiler;
 pub mod server;
 pub mod world;

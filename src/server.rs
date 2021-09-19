@@ -20,7 +20,7 @@ use crate::utils::HyphenatedUUID;
 use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -50,6 +50,10 @@ pub enum Message {
     PlayerUpdateGamemode(u128, Gamemode),
     /// This message is sent to the server thread when a plot unloads itself.
     PlotUnload(i32, i32),
+    /// This message is sent to the server thread when a player runs /whitelist add.
+    WhitelistAdd(u128, String),
+    /// This message is sent to the server thread when a player runs /whitelist remove.
+    WhitelistRemove(u128),
     /// This message is sent to the server thread when a player runs /stop.
     Shutdown,
 }
@@ -259,6 +263,11 @@ impl MinecraftServer {
                 std::thread::sleep(Duration::from_millis(2));
             }
         }
+
+        if let Some(whitelist) = &self.whitelist {
+            fs::write("whitelist.json", serde_json::to_string(whitelist).unwrap()).unwrap();
+        }
+
         std::process::exit(0);
     }
 
@@ -614,6 +623,24 @@ impl MinecraftServer {
                 }
                 self.broadcaster
                     .broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
+            }
+            Message::WhitelistAdd(uuid, username) => {
+                if let Some(whitelist) = &mut self.whitelist {
+                    let uuid = HyphenatedUUID(uuid);
+                    debug!("Added to whitelist: {} ({})", &username, uuid.to_string());
+
+                    whitelist.push(WhitelistEntry {
+                        name: username,
+                        uuid,
+                    });
+                }
+            }
+            Message::WhitelistRemove(uuid) => {
+                if let Some(whitelist) = &mut self.whitelist {
+                    debug!("Removed from whitelist: {}", uuid.to_string());
+
+                    whitelist.retain(|entry| entry.uuid.0 != uuid);
+                }
             }
         }
     }

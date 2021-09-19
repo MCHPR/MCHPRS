@@ -57,6 +57,7 @@ macro_rules! nbt_unwrap_val {
     };
 }
 
+#[derive(Debug)]
 pub struct HyphenatedUUID(pub u128);
 
 impl ToString for HyphenatedUUID {

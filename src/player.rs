@@ -474,7 +474,8 @@ impl Player {
     }
 
     pub fn open_container(&mut self, inventory: &[InventoryEntry], container_type: ContainerType) {
-        let mut slots: Vec<Option<SlotData>> = (0..container_type.num_slots()).map(|_| None).collect();
+        let mut slots: Vec<Option<SlotData>> =
+            (0..container_type.num_slots()).map(|_| None).collect();
         for entry in inventory {
             let nbt = entry
                 .nbt
@@ -483,7 +484,7 @@ impl Player {
             slots[entry.slot as usize] = Some(SlotData {
                 item_id: entry.id as i32,
                 item_count: entry.count,
-                nbt
+                nbt,
             });
         }
 
