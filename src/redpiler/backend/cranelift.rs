@@ -306,13 +306,13 @@ impl<'a> FunctionTranslator<'a> {
             Block::RedstoneComparator { comparator } => {
                 self.translate_comparator_update(backend, comparator)
             }
-            Block::RedstoneTorch { .. } => self.translate_redstone_torch_update(backend),
-            Block::RedstoneWallTorch { .. } => self.translate_redstone_torch_update(backend),
+            Block::RedstoneTorch { .. } => self.translate_torch_update(backend),
+            Block::RedstoneWallTorch { .. } => self.translate_torch_update(backend),
             Block::RedstoneRepeater { repeater } => {
-                self.translate_redstone_repeater_update(backend, repeater)
+                self.translate_repeater_update(backend, repeater)
             }
-            Block::RedstoneWire { .. } => self.translate_redstone_wire_update(backend),
-            Block::RedstoneLamp { .. } => self.translate_redstone_lamp_update(backend),
+            Block::RedstoneWire { .. } => self.translate_wire_update(backend),
+            Block::RedstoneLamp { .. } => self.translate_lamp_update(backend),
             _ => {}
         }
         self.builder.ins().return_(&[]);
@@ -324,14 +324,14 @@ impl<'a> FunctionTranslator<'a> {
             Block::RedstoneComparator { comparator } => {
                 self.translate_comparator_tick(backend, comparator)
             }
-            Block::RedstoneTorch { .. } => self.translate_redstone_torch_tick(backend),
-            Block::RedstoneWallTorch { .. } => self.translate_redstone_torch_tick(backend),
-            Block::RedstoneRepeater { .. } => self.translate_redstone_repeater_tick(backend),
+            Block::RedstoneTorch { .. } => self.translate_torch_tick(backend),
+            Block::RedstoneWallTorch { .. } => self.translate_torch_tick(backend),
+            Block::RedstoneRepeater { .. } => self.translate_repeater_tick(backend),
             Block::RedstoneWire { .. } => {}
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
-            Block::RedstoneLamp { .. } => self.translate_redstone_lamp_tick(backend),
+            Block::RedstoneLamp { .. } => self.translate_lamp_tick(backend),
             _ => {} // state => warn!("Trying to compile node with state {:?}", state),
         }
         self.builder.ins().return_(&[]);
@@ -536,7 +536,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_repeater_update(&mut self, backend: Value, repeater: RedstoneRepeater) {
+    fn translate_repeater_update(&mut self, backend: Value, repeater: RedstoneRepeater) {
         let return_block = self.builder.create_block();
         let main_block = self.builder.create_block();
         self.builder.append_block_param(main_block, types::I32); // Locked
@@ -657,7 +657,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_repeater_tick(&mut self, backend: Value) {
+    fn translate_repeater_tick(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
 
@@ -714,7 +714,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_torch_update(&mut self, backend: Value) {
+    fn translate_torch_update(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let should_be_off = self
@@ -746,7 +746,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_torch_tick(&mut self, backend: Value) {
+    fn translate_torch_tick(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let should_be_off = self
@@ -797,7 +797,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_lamp_update(&mut self, backend: Value) {
+    fn translate_lamp_update(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let should_be_lit = self
@@ -845,7 +845,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_lamp_tick(&mut self, backend: Value) {
+    fn translate_lamp_tick(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let should_be_lit = self
@@ -877,7 +877,7 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_redstone_wire_update(&mut self, backend: Value) {
+    fn translate_wire_update(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let old_power = self.get_data(self.output_power_data[self.node_idx]);
