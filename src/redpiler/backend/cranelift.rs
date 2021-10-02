@@ -233,9 +233,13 @@ impl<'a> FunctionTranslator<'a> {
 
     fn translate_output_power(&mut self, idx: usize) -> Value {
         let node = &self.nodes[idx];
-        let gv = if matches!(node.state, Block::RedstoneComparator { .. })
-            || node.state.has_comparator_override()
-        {
+        if node.state.has_comparator_override() {
+            return self
+                .builder
+                .ins()
+                .iconst(types::I32, node.comparator_output as i64);
+        }
+        let gv = if matches!(node.state, Block::RedstoneComparator { .. }) {
             self.module
                 .declare_data_in_func(self.comparator_output_data[idx], &mut self.builder.func)
         } else {
@@ -308,11 +312,8 @@ impl<'a> FunctionTranslator<'a> {
                 self.translate_redstone_repeater_update(backend, repeater)
             }
             Block::RedstoneWire { .. } => self.translate_redstone_wire_update(backend),
-            Block::Lever { .. } => {}
-            Block::StoneButton { .. } => {}
-            Block::RedstoneBlock { .. } => {}
             Block::RedstoneLamp { .. } => self.translate_redstone_lamp_update(backend),
-            _ => {} // state => warn!("Trying to compile node with state {:?}", state),
+            _ => {}
         }
         self.builder.ins().return_(&[]);
     }
@@ -1023,7 +1024,6 @@ impl JITBackend for CraneliftBackend {
 
             let comparator_power = match nodes[idx].state {
                 Block::RedstoneComparator { .. } => nodes[idx].comparator_output,
-                s if s.has_comparator_override() => nodes[idx].comparator_output,
                 _ => 0,
             };
             data_ctx.define(Box::new([comparator_power]));
@@ -1056,48 +1056,51 @@ impl JITBackend for CraneliftBackend {
         for (idx, node) in nodes.iter().enumerate() {
             let ptr_type = self.module.target_config().pointer_type();
 
-            self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
-            let mut update_builder =
-                FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
-            let update_entry_block = update_builder.create_block();
-            update_builder.append_block_params_for_function_params(update_entry_block);
-            update_builder.switch_to_block(update_entry_block);
-            update_builder.seal_block(update_entry_block);
+            // Nodes with one input will have their update function inlined
+            if node.inputs.len() <= 1 {
+                self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
+                let mut update_builder =
+                    FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
+                let update_entry_block = update_builder.create_block();
+                update_builder.append_block_params_for_function_params(update_entry_block);
+                update_builder.switch_to_block(update_entry_block);
+                update_builder.seal_block(update_entry_block);
 
-            let mut update_translator = FunctionTranslator {
-                builder: update_builder,
-                module: &mut self.module,
-                comparator_output_data: &self.comparator_output_data,
-                output_power_data: &self.output_power_data,
-                repeater_lock_data: &repeater_lock_data,
-                node,
-                node_idx: idx,
-                nodes: &nodes,
-            };
-            update_translator.translate_update(update_entry_block);
-            debug!(
-                "n{}_update generated {}",
-                idx, &update_translator.builder.func
-            );
+                let mut update_translator = FunctionTranslator {
+                    builder: update_builder,
+                    module: &mut self.module,
+                    comparator_output_data: &self.comparator_output_data,
+                    output_power_data: &self.output_power_data,
+                    repeater_lock_data: &repeater_lock_data,
+                    node,
+                    node_idx: idx,
+                    nodes: &nodes,
+                };
+                update_translator.translate_update(update_entry_block);
+                debug!(
+                    "n{}_update generated {}",
+                    idx, &update_translator.builder.func
+                );
 
-            update_translator.builder.finalize();
-            let update_id = self
-                .module
-                .declare_function(
-                    &format!("n{}_update", idx),
-                    Linkage::Export,
-                    &self.ctx.func.signature,
-                )
-                .unwrap();
-            self.module
-                .define_function(
-                    update_id,
-                    &mut self.ctx,
-                    &mut codegen::binemit::NullTrapSink {},
-                    &mut codegen::binemit::NullStackMapSink {},
-                )
-                .unwrap();
-            self.module.clear_context(&mut self.ctx);
+                update_translator.builder.finalize();
+                let update_id = self
+                    .module
+                    .declare_function(
+                        &format!("n{}_update", idx),
+                        Linkage::Export,
+                        &self.ctx.func.signature,
+                    )
+                    .unwrap();
+                self.module
+                    .define_function(
+                        update_id,
+                        &mut self.ctx,
+                        &mut codegen::binemit::NullTrapSink {},
+                        &mut codegen::binemit::NullStackMapSink {},
+                    )
+                    .unwrap();
+                self.module.clear_context(&mut self.ctx);
+            }
 
             self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
             let mut tick_builder =
