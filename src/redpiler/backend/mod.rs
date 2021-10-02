@@ -1,5 +1,6 @@
 #[cfg(feature = "jit_cranelift")]
 pub mod cranelift;
+#[cfg(not(feature = "jit_cranelift"))]
 pub mod direct;
 pub mod par_direct;
 

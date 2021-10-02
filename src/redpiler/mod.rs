@@ -559,10 +559,11 @@ impl Compiler {
         let compiler = &mut plot.redpiler;
         compiler.is_active = true;
 
-        // TODO: Remove this once there is proper backend switching
         if compiler.jit.is_none() {
+            #[cfg(not(feature = "jit_cranelift"))]
             let jit: Box<backend::direct::DirectBackend> = Default::default();
-            // let jit: Box<codegen::cranelift::CraneliftBackend> = Default::default();
+            #[cfg(feature = "jit_cranelift")]
+            let jit: Box<backend::cranelift::CraneliftBackend> = Default::default();
             compiler.use_jit(jit);
         }
 
