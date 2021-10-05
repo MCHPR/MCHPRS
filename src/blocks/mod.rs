@@ -584,7 +584,7 @@ impl Block {
     pub fn has_comparator_override(self) -> bool {
         matches!(
             self,
-            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. }
+            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } | Block::Cauldron { .. }
         )
     }
 
@@ -601,6 +601,7 @@ impl Block {
                     0
                 }
             }
+            Block::Cauldron { level } => level,
             _ => 0,
         }
     }
@@ -1179,6 +1180,9 @@ impl Block {
             }
             Block::Sign { rotation, .. } if key == "rotation" => {
                 *rotation = val.parse::<u32>().unwrap_or_default();
+            }
+            Block::Cauldron { level } if key == "level" => {
+                *level = val.parse::<u8>().unwrap_or_default();
             }
             _ => {}
         }
@@ -1793,6 +1797,17 @@ blocks! {
         solid: true,
         cube: true,
     },
+    CoalBlock {
+        props: {},
+        get_id: 7887,
+        from_id(_id): 7887 => {},
+        from_names(_name): {
+            "coal_block" => {}
+        },
+        get_name: "coal_block",
+        solid: true,
+        cube: true,
+    },
     Furnace {
         props: {},
         get_id: 3374,
@@ -1812,6 +1827,17 @@ blocks! {
             "quartz_block" => {}
         },
         get_name: "quartz_block",
+        solid: true,
+        cube: true,
+    },
+    SmoothQuartz {
+        props: {},
+        get_id: 8420,
+        from_id(_id): 8420 => {},
+        from_names(_name): {
+            "smooth_quartz" => {}
+        },
+        get_name: "smooth_quartz",
         solid: true,
         cube: true,
     },
@@ -1836,6 +1862,24 @@ blocks! {
         get_name: "quartz_slab",
         transparent: true,
         cube: true,
+    },
+    Cauldron {
+        props: {
+            level: u8
+        },
+        get_id: level as u32 + 5145,
+        from_id_offset: 5145,
+        from_id(id): 5145..=5148 => {
+            level: id as u8
+        },
+        from_names(_name): {
+            "cauldron" => {
+                level: 0
+            }
+        },
+        get_name: "cauldron",
+        transparent: true,
+        cube: false,
     },
     Concrete {
         props: {

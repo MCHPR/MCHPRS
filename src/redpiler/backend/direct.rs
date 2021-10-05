@@ -355,6 +355,9 @@ impl fmt::Display for DirectBackend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("digraph{")?;
         for (id, node) in self.nodes.iter().enumerate() {
+            if matches!(node.state, Block::RedstoneWire { .. }) {
+                continue;
+            }
             write!(
                 f,
                 "n{}[label=\"{}\\n({}, {}, {})\"];",
