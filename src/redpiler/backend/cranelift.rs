@@ -16,6 +16,10 @@ struct CLTickEntry {
     node_id: usize,
 }
 
+fn is_node_inlineable(node: &CompileNode) -> bool {
+    node.inputs.len() <= 1 && matches!(node.state, Block::RedstoneWire { .. })
+}
+
 struct FunctionTranslator<'a> {
     builder: FunctionBuilder<'a>,
     module: &'a mut JITModule,
@@ -100,6 +104,7 @@ impl<'a> FunctionTranslator<'a> {
     }
 
     fn call_update_node(&mut self, backend: Value, node_id: usize) {
+        assert!(self.nodes[node_id].inputs.len() > 1);
         let mut sig = self.module.make_signature();
         let pointer_type = self.module.target_config().pointer_type();
         sig.params = vec![AbiParam::new(pointer_type)];
@@ -138,7 +143,11 @@ impl<'a> FunctionTranslator<'a> {
 
         if update {
             for update in self.node.updates.clone() {
-                self.call_update_node(backend, update.index);
+                if is_node_inlineable(&self.nodes[update.index]) {
+                    self.translate_update_inlined(update.index, backend, power);
+                } else {
+                    self.call_update_node(backend, update.index);
+                }
             }
             self.call_update_node(backend, node_id);
         }
@@ -300,14 +309,46 @@ impl<'a> FunctionTranslator<'a> {
         self.translate_node_input_power_recur(inputs, input_power, side_input_power)
     }
 
+    fn translate_update_inlined(&mut self, node_idx: usize, backend: Value, input_power: Value) {
+        let node = &self.nodes[node_idx];
+        assert!(node.inputs.len() < 2);
+        match node.state {
+            Block::RedstoneComparator { comparator } => {
+                let zero = self.builder.ins().iconst(types::I32, 0);
+                let (input, side) = if node.inputs[0].ty == LinkType::Default {
+                    (input_power, zero)
+                } else {
+                    (zero, input_power)
+                };
+                self.translate_comparator_update_inlined(backend, comparator, input, side)
+            }
+            Block::RedstoneTorch { .. } | Block::RedstoneWallTorch { .. } => {
+                self.translate_torch_update_inlined(backend, input_power)
+            }
+            Block::RedstoneRepeater { repeater } => {
+                let zero = self.builder.ins().iconst(types::I32, 0);
+                let (input, side) = if node.inputs[0].ty == LinkType::Default {
+                    (input_power, zero)
+                } else {
+                    (zero, input_power)
+                };
+                self.translate_repeater_update_inlined(backend, repeater, input, side)
+            }
+            Block::RedstoneWire { .. } => self.translate_wire_update_inlined(backend, input_power),
+            Block::RedstoneLamp { .. } => self.translate_lamp_update_inlined(backend, input_power),
+            _ => {}
+        }
+    }
+
     fn translate_update(&mut self, entry_block: cranelift::prelude::Block) {
         let backend = self.builder.block_params(entry_block)[0];
         match self.node.state {
             Block::RedstoneComparator { comparator } => {
                 self.translate_comparator_update(backend, comparator)
             }
-            Block::RedstoneTorch { .. } => self.translate_torch_update(backend),
-            Block::RedstoneWallTorch { .. } => self.translate_torch_update(backend),
+            Block::RedstoneTorch { .. } | Block::RedstoneWallTorch { .. } => {
+                self.translate_torch_update(backend)
+            }
             Block::RedstoneRepeater { repeater } => {
                 self.translate_repeater_update(backend, repeater)
             }
@@ -399,8 +440,13 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.block_params(merge_block)[0]
     }
 
-    fn translate_comparator_update(&mut self, backend: Value, comparator: RedstoneComparator) {
-        let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
+    fn translate_comparator_update_inlined(
+        &mut self,
+        backend: Value,
+        comparator: RedstoneComparator,
+        input_power: Value,
+        side_input_power: Value,
+    ) {
         let return_block = self.builder.create_block();
 
         let pending_tick = self.call_pending_tick_at(backend, self.node_idx);
@@ -449,6 +495,16 @@ impl<'a> FunctionTranslator<'a> {
 
         self.builder.switch_to_block(return_block);
         self.builder.seal_block(return_block);
+    }
+
+    fn translate_comparator_update(&mut self, backend: Value, comparator: RedstoneComparator) {
+        let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
+        self.translate_comparator_update_inlined(
+            backend,
+            comparator,
+            input_power,
+            side_input_power,
+        );
     }
 
     fn translate_comparator_tick(&mut self, backend: Value, comparator: RedstoneComparator) {
@@ -536,11 +592,16 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_repeater_update(&mut self, backend: Value, repeater: RedstoneRepeater) {
+    fn translate_repeater_update_inlined(
+        &mut self,
+        backend: Value,
+        repeater: RedstoneRepeater,
+        input_power: Value,
+        side_input_power: Value,
+    ) {
         let return_block = self.builder.create_block();
         let main_block = self.builder.create_block();
         self.builder.append_block_param(main_block, types::I32); // Locked
-        let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
 
         let should_be_locked =
             self.builder
@@ -657,6 +718,11 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
+    fn translate_repeater_update(&mut self, backend: Value, repeater: RedstoneRepeater) {
+        let (input_power, side_input_power) = self.translate_node_input_power(&self.node.inputs);
+        self.translate_repeater_update_inlined(backend, repeater, input_power, side_input_power);
+    }
+
     fn translate_repeater_tick(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
@@ -714,9 +780,8 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_torch_update(&mut self, backend: Value) {
+    fn translate_torch_update_inlined(&mut self, backend: Value, input_power: Value) {
         let return_block = self.builder.create_block();
-        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let should_be_off = self
             .builder
             .ins()
@@ -744,6 +809,11 @@ impl<'a> FunctionTranslator<'a> {
 
         self.builder.switch_to_block(return_block);
         self.builder.seal_block(return_block);
+    }
+
+    fn translate_torch_update(&mut self, backend: Value) {
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        self.translate_torch_update_inlined(backend, input_power);
     }
 
     fn translate_torch_tick(&mut self, backend: Value) {
@@ -797,9 +867,8 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_lamp_update(&mut self, backend: Value) {
+    fn translate_lamp_update_inlined(&mut self, backend: Value, input_power: Value) {
         let return_block = self.builder.create_block();
-        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let should_be_lit = self
             .builder
             .ins()
@@ -845,6 +914,11 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
+    fn translate_lamp_update(&mut self, backend: Value) {
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        self.translate_lamp_update_inlined(backend, input_power);
+    }
+
     fn translate_lamp_tick(&mut self, backend: Value) {
         let return_block = self.builder.create_block();
         let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
@@ -877,9 +951,8 @@ impl<'a> FunctionTranslator<'a> {
         self.builder.seal_block(return_block);
     }
 
-    fn translate_wire_update(&mut self, backend: Value) {
+    fn translate_wire_update_inlined(&mut self, backend: Value, input_power: Value) {
         let return_block = self.builder.create_block();
-        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
         let old_power = self.get_data(self.output_power_data[self.node_idx]);
 
         let set_power_block = self.builder.create_block();
@@ -900,6 +973,11 @@ impl<'a> FunctionTranslator<'a> {
 
         self.builder.switch_to_block(return_block);
         self.builder.seal_block(return_block);
+    }
+
+    fn translate_wire_update(&mut self, backend: Value) {
+        let (input_power, _) = self.translate_node_input_power(&self.node.inputs);
+        self.translate_wire_update_inlined(backend, input_power);
     }
 
     fn translate_lever_use(&mut self, entry_block: cranelift::prelude::Block, _lever: Lever) {
@@ -1056,8 +1134,8 @@ impl JITBackend for CraneliftBackend {
         for (idx, node) in nodes.iter().enumerate() {
             let ptr_type = self.module.target_config().pointer_type();
 
-            // Nodes with one input will have their update function inlined
-            if node.inputs.len() <= 1 {
+            // Nodes with one input will have their update function inlined so there's no need to generate a function for it here
+            if !is_node_inlineable(node) {
                 self.ctx.func.signature.params.push(AbiParam::new(ptr_type));
                 let mut update_builder =
                     FunctionBuilder::new(&mut self.ctx.func, &mut self.builder_context);
@@ -1077,10 +1155,10 @@ impl JITBackend for CraneliftBackend {
                     nodes: &nodes,
                 };
                 update_translator.translate_update(update_entry_block);
-                debug!(
-                    "n{}_update generated {}",
-                    idx, &update_translator.builder.func
-                );
+                // debug!(
+                //     "n{}_update generated {}",
+                //     idx, &update_translator.builder.func
+                // );
 
                 update_translator.builder.finalize();
                 let update_id = self
