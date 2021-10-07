@@ -584,7 +584,10 @@ impl Block {
     pub fn has_comparator_override(self) -> bool {
         matches!(
             self,
-            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } | Block::Cauldron { .. }
+            Block::Barrel { .. }
+                | Block::Furnace { .. }
+                | Block::Hopper { .. }
+                | Block::Cauldron { .. }
         )
     }
 
