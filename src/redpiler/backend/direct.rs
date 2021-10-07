@@ -41,7 +41,7 @@ impl DirectBackend {
         let pos = node.pos;
         if update {
             for i in 0..node.updates.len() {
-                let update = self.nodes[node_id].updates[i].index;
+                let update = self.nodes[node_id].updates[i];
                 self.update_node(update);
             }
             self.update_node(node_id);
@@ -90,7 +90,7 @@ impl DirectBackend {
                 LinkType::Side => &mut side_input_power,
             };
             *power = (*power).max(
-                self.nodes[link.end.index]
+                self.nodes[link.end]
                     .get_output_power()
                     .saturating_sub(link.weight),
             );
@@ -242,7 +242,7 @@ impl JITBackend for DirectBackend {
                     LinkType::Side => &mut side_input_power,
                 };
                 *power = (*power).max(
-                    self.nodes[link.end.index]
+                    self.nodes[link.end]
                         .get_output_power()
                         .saturating_sub(link.weight),
                 );
@@ -378,11 +378,11 @@ impl fmt::Display for DirectBackend {
                 write!(
                     f,
                     "n{}->n{}[label=\"{}\"{}];",
-                    link.end.index, link.start.index, link.weight, color
+                    link.end, link.start, link.weight, color
                 )?;
             }
             // for update in &node.updates {
-            //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
+            //     write!(f, "n{}->n{}[style=dotted];", id, update)?;
             // }
         }
         f.write_str("}\n")

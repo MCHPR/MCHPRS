@@ -71,7 +71,7 @@ impl From<CompileNode> for Node {
             },
             facing_diode: node.facing_diode,
             inputs: node.inputs,
-            outputs: node.updates.into_iter().map(|id| id.index).collect(),
+            outputs: node.updates.into_iter().map(|id| id).collect(),
             update_queued: AtomicBool::new(false),
             powered: AtomicBool::new(match node.state {
                 Block::RedstoneRepeater { repeater } => repeater.powered,
@@ -389,7 +389,7 @@ fn update_single(
             LinkType::Side => &mut side_input_power,
         };
         *power = (*power).max(
-            nodes[link.end.index]
+            nodes[link.end]
                 .get_output_power()
                 .saturating_sub(link.weight),
         );
@@ -492,7 +492,7 @@ fn tick_single(
             LinkType::Side => &mut side_input_power,
         };
         *power = (*power).max(
-            nodes[link.end.index]
+            nodes[link.end]
                 .get_output_power()
                 .saturating_sub(link.weight),
         );
@@ -591,11 +591,11 @@ impl fmt::Display for ParDirectBackend {
                 write!(
                     f,
                     "n{}->n{}[label=\"{}\"{}];",
-                    link.end.index, link.start.index, link.weight, color
+                    link.end, link.start, link.weight, color
                 )?;
             }
             // for update in &node.updates {
-            //     write!(f, "n{}->n{}[style=dotted];", id, update.index)?;
+            //     write!(f, "n{}->n{}[style=dotted];", id, update)?;
             // }
         }
         f.write_str("}\n")

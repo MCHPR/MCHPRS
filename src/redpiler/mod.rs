@@ -13,10 +13,7 @@ fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos), Block::RedstoneWire { .. })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct NodeId {
-    index: usize,
-}
+type NodeId = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LinkType {
@@ -116,7 +113,7 @@ impl<'a> InputSearch<'a> {
     fn new(plot: &'a mut Plot, nodes: &'a mut Vec<CompileNode>) -> InputSearch<'a> {
         let mut pos_map = HashMap::new();
         for (i, node) in nodes.iter().enumerate() {
-            pos_map.insert(node.pos, NodeId { index: i });
+            pos_map.insert(node.pos, i);
         }
 
         InputSearch {
@@ -356,7 +353,7 @@ impl<'a> InputSearch<'a> {
                     id,
                     true,
                 );
-                self.nodes[id.index].inputs = inputs;
+                self.nodes[id].inputs = inputs;
             }
             Block::RedstoneWallTorch { facing, .. } => {
                 let wall_pos = node.pos.offset(facing.opposite().block_face());
@@ -370,7 +367,7 @@ impl<'a> InputSearch<'a> {
                     id,
                     true,
                 );
-                self.nodes[id.index].inputs = inputs;
+                self.nodes[id].inputs = inputs;
             }
             Block::RedstoneComparator { comparator } => {
                 let facing = comparator.facing;
@@ -382,7 +379,7 @@ impl<'a> InputSearch<'a> {
                 let input_pos = node.pos.offset(facing.block_face());
                 let input_block = self.plot.get_block(input_pos);
                 if input_block.has_comparator_override() {
-                    self.nodes[id.index].container_overriding = true;
+                    self.nodes[id].container_overriding = true;
                     inputs.push(Link::new(
                         LinkType::Default,
                         id,
@@ -399,8 +396,8 @@ impl<'a> InputSearch<'a> {
                     0
                 };
 
-                self.nodes[id.index].comparator_output = output_strength;
-                self.nodes[id.index].inputs = inputs;
+                self.nodes[id].comparator_output = output_strength;
+                self.nodes[id].inputs = inputs;
             }
             Block::RedstoneRepeater { repeater } => {
                 let facing = repeater.facing;
@@ -412,11 +409,11 @@ impl<'a> InputSearch<'a> {
                 if let Some(l) = self.search_repeater_side(id, node.pos, facing.rotate_ccw()) {
                     inputs.push(l);
                 }
-                self.nodes[id.index].inputs = inputs;
+                self.nodes[id].inputs = inputs;
             }
             Block::RedstoneWire { .. } => {
                 let inputs = self.search_wire(id, node.pos, LinkType::Default, 0);
-                self.nodes[id.index].inputs = inputs;
+                self.nodes[id].inputs = inputs;
             }
             Block::RedstoneLamp { .. } => {
                 let mut inputs = Vec::new();
@@ -434,10 +431,10 @@ impl<'a> InputSearch<'a> {
                     );
                     inputs.append(&mut links);
                 }
-                self.nodes[id.index].inputs = inputs;
+                self.nodes[id].inputs = inputs;
             }
             block if block.has_comparator_override() => {
-                self.nodes[id.index].comparator_output =
+                self.nodes[id].comparator_output =
                     block.get_comparator_override(self.plot, node.pos);
             }
             _ => {}
@@ -447,8 +444,7 @@ impl<'a> InputSearch<'a> {
     fn search(&mut self) {
         let nodes = self.nodes.clone();
         for (i, node) in nodes.into_iter().enumerate() {
-            let id = NodeId { index: i };
-            self.search_node(id, node);
+            self.search_node(i, node);
         }
 
         // Optimizations against the search graph like wire stripping and dedup go here
@@ -480,7 +476,7 @@ impl<'a> InputSearch<'a> {
             if node.container_overriding {
                 node.inputs.retain(|link| {
                     link.ty != LinkType::Default
-                        || self.nodes[link.end.index].state.has_comparator_override()
+                        || self.nodes[link.end].state.has_comparator_override()
                 });
                 self.nodes[i] = node;
             }
@@ -489,9 +485,9 @@ impl<'a> InputSearch<'a> {
         // Create update links
         for (id, node) in self.nodes.clone().into_iter().enumerate() {
             for input_node in node.inputs {
-                self.nodes[input_node.end.index]
+                self.nodes[input_node.end]
                     .updates
-                    .push(NodeId { index: id });
+                    .push(id);
             }
         }
     }
