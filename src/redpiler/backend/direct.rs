@@ -38,7 +38,7 @@ impl DirectBackend {
     fn set_node(&mut self, node_id: usize, new_block: Block, update: bool) {
         let node = &mut self.nodes[node_id];
         node.state = new_block;
-        let pos = node.pos;
+        self.change_queue.push((node.pos, new_block));
         if update {
             for i in 0..node.updates.len() {
                 let update = self.nodes[node_id].updates[i];
@@ -46,7 +46,6 @@ impl DirectBackend {
             }
             self.update_node(node_id);
         }
-        self.change_queue.push((pos, new_block));
     }
 
     fn comparator_should_be_powered(
@@ -166,7 +165,7 @@ impl DirectBackend {
             Block::RedstoneWire { mut wire } => {
                 if wire.power != input_power {
                     wire.power = input_power;
-                    self.set_node(node_id, Block::RedstoneWire { wire }, true);
+                    self.set_node(node_id, Block::RedstoneWire { wire }, false);
                 }
             }
             _ => {} // panic!("Node {:?} should not be updated!", node.state),
