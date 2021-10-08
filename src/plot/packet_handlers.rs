@@ -131,10 +131,10 @@ impl ServerBoundPacketHandler for Plot {
             return;
         }
 
-        if self.redpiler.is_active && !self.players[player].crouching {
+        if self.redpiler.is_active {
             let block = self.get_block(block_pos);
             let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
-            if lever_or_button {
+            if lever_or_button && !self.players[player].crouching {
                 self.redpiler.on_use_block(block_pos);
                 return;
             } else {
