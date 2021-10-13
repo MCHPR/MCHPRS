@@ -18,6 +18,7 @@ use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Instant, SystemTime};
 
+pub type EntityId = u32;
 static ENTITY_ID_COUNTER: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
@@ -89,7 +90,7 @@ pub struct Player {
     pub fly_speed: f32,
     pub walk_speed: f32,
     pub gamemode: Gamemode,
-    pub entity_id: u32,
+    pub entity_id: EntityId,
     pub client: PlayerConn,
     /// The last time the keep alive packet was received.
     pub last_keep_alive_received: Instant,

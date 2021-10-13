@@ -1,6 +1,7 @@
 mod redstone;
 
 use crate::items::{ActionResult, InventoryEntry, Item, UseOnBlockContext};
+use crate::player::Player;
 use crate::world::{TickPriority, World};
 use mchprs_proc_macros::BlockProperty;
 pub use redstone::*;
@@ -635,7 +636,7 @@ impl Block {
     pub fn on_use(
         self,
         world: &mut impl World,
-        player_uuid: u128,
+        player: &mut Player,
         pos: BlockPos,
         item_in_hand: Option<Item>,
     ) -> ActionResult {
@@ -714,10 +715,7 @@ impl Block {
                 // TODO: Avoid clone
                 let block_entity = world.get_block_entity(pos).cloned();
                 if let Some(BlockEntity::Container { inventory, ty, .. }) = block_entity {
-                    world
-                        .get_player_mut(player_uuid)
-                        .unwrap()
-                        .open_container(&inventory, ty);
+                    player.open_container(&inventory, ty);
                 }
                 ActionResult::Success
             }

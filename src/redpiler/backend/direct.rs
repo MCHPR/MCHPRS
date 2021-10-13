@@ -1,9 +1,10 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
-use super::{JITBackend, JITResetData};
+use super::JITBackend;
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
+use crate::plot::PlotWorld;
 use crate::redpiler::{CompileNode, LinkType};
-use crate::world::{TickEntry, TickPriority};
+use crate::world::{TickEntry, TickPriority, World};
 use log::warn;
 use std::collections::HashMap;
 use std::fmt;
@@ -16,7 +17,6 @@ struct RPTickEntry {
 
 #[derive(Default)]
 pub struct DirectBackend {
-    change_queue: Vec<(BlockPos, Block)>,
     nodes: Vec<CompileNode>,
     to_be_ticked: Vec<RPTickEntry>,
     pos_map: HashMap<BlockPos, usize>,
@@ -35,16 +35,16 @@ impl DirectBackend {
         self.to_be_ticked.iter().any(|e| e.node == node)
     }
 
-    fn set_node(&mut self, node_id: usize, new_block: Block, update: bool) {
+    fn set_node(&mut self, plot: &mut PlotWorld, node_id: usize, new_block: Block, update: bool) {
         let node = &mut self.nodes[node_id];
         node.state = new_block;
-        self.change_queue.push((node.pos, new_block));
+        plot.set_block(node.pos, new_block);
         if update {
             for i in 0..node.updates.len() {
                 let update = self.nodes[node_id].updates[i];
-                self.update_node(update);
+                self.update_node(plot, update);
             }
-            self.update_node(node_id);
+            self.update_node(plot, node_id);
         }
     }
 
@@ -78,7 +78,7 @@ impl DirectBackend {
         }
     }
 
-    fn update_node(&mut self, node_id: usize) {
+    fn update_node(&mut self, plot: &mut PlotWorld, node_id: usize) {
         let node = &self.nodes[node_id];
 
         let mut input_power = 0;
@@ -103,10 +103,10 @@ impl DirectBackend {
                 let should_be_locked = side_input_power > 0;
                 if !repeater.locked && should_be_locked {
                     repeater.locked = true;
-                    self.set_node(node_id, Block::RedstoneRepeater { repeater }, false);
+                    self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, false);
                 } else if repeater.locked && !should_be_locked {
                     repeater.locked = false;
-                    self.set_node(node_id, Block::RedstoneRepeater { repeater }, false);
+                    self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, false);
                 }
 
                 if !repeater.locked && !self.pending_tick_at(node_id) {
@@ -159,13 +159,13 @@ impl DirectBackend {
                 if lit && !should_be_lit {
                     self.schedule_tick(node_id, 2, TickPriority::Normal);
                 } else if !lit && should_be_lit {
-                    self.set_node(node_id, Block::RedstoneLamp { lit: true }, false);
+                    self.set_node(plot, node_id, Block::RedstoneLamp { lit: true }, false);
                 }
             }
             Block::RedstoneWire { mut wire } => {
                 if wire.power != input_power {
                     wire.power = input_power;
-                    self.set_node(node_id, Block::RedstoneWire { wire }, false);
+                    self.set_node(plot, node_id, Block::RedstoneWire { wire }, false);
                 }
             }
             _ => {} // panic!("Node {:?} should not be updated!", node.state),
@@ -174,55 +174,47 @@ impl DirectBackend {
 }
 
 impl JITBackend for DirectBackend {
-    fn reset(&mut self) -> JITResetData {
-        let mut ticks = Vec::new();
+    fn reset(&mut self, plot: &mut PlotWorld) {
         for entry in self.to_be_ticked.drain(..) {
-            ticks.push(TickEntry {
-                ticks_left: entry.ticks_left,
-                tick_priority: entry.tick_priority,
-                pos: self.nodes[entry.node].pos,
-            });
+            plot.schedule_tick(
+                self.nodes[entry.node].pos,
+                entry.ticks_left,
+                entry.tick_priority,
+            );
         }
 
-        let mut block_entities = Vec::new();
         for node in &self.nodes {
             if let Block::RedstoneComparator { .. } = node.state {
                 let block_entity = BlockEntity::Comparator {
                     output_strength: node.comparator_output,
                 };
-                block_entities.push((node.pos, block_entity));
+                plot.set_block_entity(node.pos, block_entity);
             }
         }
 
         self.nodes.clear();
         self.pos_map.clear();
         self.to_be_ticked.clear();
-        self.change_queue.clear();
-
-        JITResetData {
-            tick_entries: ticks,
-            block_entities,
-        }
     }
 
-    fn on_use_block(&mut self, pos: BlockPos) {
+    fn on_use_block(&mut self, plot: &mut PlotWorld, pos: BlockPos) {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.state {
             Block::StoneButton { mut button } => {
                 button.powered = !button.powered;
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(node_id, Block::StoneButton { button }, true);
+                self.set_node(plot, node_id, Block::StoneButton { button }, true);
             }
             Block::Lever { mut lever } => {
                 lever.powered = !lever.powered;
-                self.set_node(node_id, Block::Lever { lever }, true);
+                self.set_node(plot, node_id, Block::Lever { lever }, true);
             }
             _ => warn!("Tried to use a {:?} redpiler node", node.state),
         }
     }
 
-    fn tick(&mut self) {
+    fn tick(&mut self, plot: &mut PlotWorld) {
         self.to_be_ticked
             .sort_by_key(|e| (e.ticks_left, e.tick_priority));
         for pending in &mut self.to_be_ticked {
@@ -256,30 +248,32 @@ impl JITBackend for DirectBackend {
                     let should_be_powered = input_power > 0;
                     if repeater.powered && !should_be_powered {
                         repeater.powered = false;
-                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, true);
                     } else if !repeater.powered {
                         repeater.powered = true;
-                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, true);
                     }
                 }
                 Block::RedstoneTorch { lit } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
-                        self.set_node(node_id, Block::RedstoneTorch { lit: false }, true);
+                        self.set_node(plot, node_id, Block::RedstoneTorch { lit: false }, true);
                     } else if !lit && !should_be_off {
-                        self.set_node(node_id, Block::RedstoneTorch { lit: true }, true);
+                        self.set_node(plot, node_id, Block::RedstoneTorch { lit: true }, true);
                     }
                 }
                 Block::RedstoneWallTorch { lit, facing } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
                         self.set_node(
+                            plot,
                             node_id,
                             Block::RedstoneWallTorch { lit: false, facing },
                             true,
                         );
                     } else if !lit && !should_be_off {
                         self.set_node(
+                            plot,
                             node_id,
                             Block::RedstoneWallTorch { lit: true, facing },
                             true,
@@ -307,19 +301,24 @@ impl JITBackend for DirectBackend {
                         } else if !powered && should_be_powered {
                             comparator.powered = true;
                         }
-                        self.set_node(node_id, Block::RedstoneComparator { comparator }, true);
+                        self.set_node(
+                            plot,
+                            node_id,
+                            Block::RedstoneComparator { comparator },
+                            true,
+                        );
                     }
                 }
                 Block::RedstoneLamp { lit } => {
                     let should_be_lit = input_power > 0;
                     if lit && !should_be_lit {
-                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
+                        self.set_node(plot, node_id, Block::RedstoneLamp { lit: false }, false);
                     }
                 }
                 Block::StoneButton { mut button } => {
                     if button.powered {
                         button.powered = false;
-                        self.set_node(node_id, Block::StoneButton { button }, true);
+                        self.set_node(plot, node_id, Block::StoneButton { button }, true);
                     }
                 }
                 _ => warn!("Node {:?} should not be ticked!", node.state),
@@ -343,10 +342,6 @@ impl JITBackend for DirectBackend {
         }
         // Dot file output
         // println!("{}", self);
-    }
-
-    fn block_changes(&mut self) -> &mut Vec<(BlockPos, Block)> {
-        &mut self.change_queue
     }
 }
 

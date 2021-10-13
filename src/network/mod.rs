@@ -1,11 +1,33 @@
 pub mod packets;
 
+use log::warn;
 use packets::serverbound::ServerBoundPacket;
 use packets::{read_packet, PacketEncoder};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
+
+pub struct PlayerPacketSender {
+    stream: Option<TcpStream>,
+}
+
+impl PlayerPacketSender {
+    pub fn new(conn: &PlayerConn) -> PlayerPacketSender {
+        let stream = conn.client.stream.try_clone().ok();
+        if stream.is_none() {
+            warn!("Creating PlayerPacketSender with dead stream")
+        }
+        PlayerPacketSender { stream }
+    }
+
+    pub fn send_packet(&self, data: &PacketEncoder) {
+        if let Some(stream) = &self.stream {
+            // Going to assume stream is compressed since it should be after login
+            let _ = data.write_compressed(stream);
+        }
+    }
+}
 
 /// The minecraft protocol has these 4 different states.
 #[derive(PartialEq, Clone)]

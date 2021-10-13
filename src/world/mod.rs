@@ -1,7 +1,6 @@
 pub mod storage;
 
 use crate::blocks::{Block, BlockEntity, BlockPos};
-use crate::player::Player;
 use serde::{Deserialize, Serialize};
 use storage::Chunk;
 
@@ -38,18 +37,11 @@ pub trait World {
     /// Returns None if the chunk does not exist in this world.
     fn get_chunk_mut(&mut self, x: i32, z: i32) -> Option<&mut Chunk>;
 
-    /// Ticks the world. This should run each tick entry in order of it's priority.
-    fn tick(&mut self);
-
     /// Schedules a tick in the world with `delay` and `pritority`
     fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority);
 
     /// Returns true if there is a tick entry with `pos`
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool;
-
-    fn get_player(&self, uuid: u128) -> Option<&Player>;
-
-    fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player>;
 
     fn is_cursed(&self) -> bool;
 }

@@ -8,6 +8,7 @@ use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
+use crate::network::PlayerPacketSender;
 use crate::player::{Gamemode, Player};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
@@ -43,25 +44,55 @@ pub struct Plot {
     // It's kinda dumb making this pub but it would be too much work to do it differently.
     pub players: Vec<Player>,
     tps: u32,
-    to_be_ticked: Vec<TickEntry>,
     last_update_time: SystemTime,
     lag_time: Duration,
     last_player_time: SystemTime,
     sleep_time: Duration,
     running: bool,
-    pub x: i32,
-    pub z: i32,
     show_redstone: bool,
     always_running: bool,
-    chunks: Vec<Chunk>,
     pub redpiler: Compiler,
     timings: TimingsMonitor,
-    cursed_mode: bool,
     owner: Option<u128>,
     async_rt: Runtime,
+    pub world: PlotWorld,
 }
 
-impl World for Plot {
+pub struct PlotWorld {
+    pub x: i32,
+    pub z: i32,
+    chunks: Vec<Chunk>,
+    to_be_ticked: Vec<TickEntry>,
+    packet_senders: Vec<PlayerPacketSender>,
+}
+
+impl PlotWorld {
+    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
+        let local_x = chunk_x - self.x * 16;
+        let local_z = chunk_z - self.z * 16;
+        (local_x * 16 + local_z).abs() as usize
+    }
+
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+        let chunk_x = (block_x - (self.x << 8)) >> 4;
+        let chunk_z = (block_z - (self.z << 8)) >> 4;
+        ((chunk_x << 4) + chunk_z).abs() as usize
+    }
+
+    fn flush_block_changes(&mut self) {
+        for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
+            let encoded = packet.encode();
+            for player in &self.packet_senders {
+                player.send_packet(&encoded);
+            }
+        }
+        for chunk in &mut self.chunks {
+            chunk.reset_multi_blocks();
+        }
+    }
+}
+
+impl World for PlotWorld {
     /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
@@ -148,8 +179,8 @@ impl World for Plot {
                 nbt,
             }
             .encode();
-            for player in &mut self.players {
-                player.client.send_packet(&block_entity_data);
+            for player in &self.packet_senders {
+                player.send_packet(&block_entity_data);
             }
         }
         let chunk = &mut self.chunks[chunk_index];
@@ -165,24 +196,6 @@ impl World for Plot {
         self.chunks.get_mut(chunk_idx)
     }
 
-    fn tick(&mut self) {
-        self.timings.tick();
-        if self.redpiler.is_active {
-            self.redpiler.tick();
-            return;
-        }
-
-        self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
-        for pending in &mut self.to_be_ticked {
-            pending.ticks_left = pending.ticks_left.saturating_sub(1);
-        }
-        while self.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
-            let entry = self.to_be_ticked.remove(0);
-            self.get_block(entry.pos).tick(self, entry.pos);
-        }
-    }
-
     fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
         self.to_be_ticked.push(TickEntry {
             pos,
@@ -195,30 +208,31 @@ impl World for Plot {
         self.to_be_ticked.iter().any(|e| e.pos == pos)
     }
 
-    fn get_player(&self, uuid: u128) -> Option<&Player> {
-        self.players.iter().find(|p| p.uuid == uuid)
-    }
-
-    fn get_player_mut(&mut self, uuid: u128) -> Option<&mut Player> {
-        self.players.iter_mut().find(|p| p.uuid == uuid)
-    }
-
     fn is_cursed(&self) -> bool {
-        self.cursed_mode
+        false
     }
 }
 
 impl Plot {
-    fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
-        let local_x = chunk_x - self.x * 16;
-        let local_z = chunk_z - self.z * 16;
-        (local_x * 16 + local_z).abs() as usize
-    }
+    fn tick(&mut self) {
+        self.timings.tick();
+        if self.redpiler.is_active {
+            self.redpiler.tick(&mut self.world);
+            return;
+        }
 
-    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - (self.x << 8)) >> 4;
-        let chunk_z = (block_z - (self.z << 8)) >> 4;
-        ((chunk_x << 4) + chunk_z).abs() as usize
+        self.world
+            .to_be_ticked
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
+        for pending in &mut self.world.to_be_ticked {
+            pending.ticks_left = pending.ticks_left.saturating_sub(1);
+        }
+        while self.world.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
+            let entry = self.world.to_be_ticked.remove(0);
+            self.world
+                .get_block(entry.pos)
+                .tick(&mut self.world, entry.pos);
+        }
     }
 
     /// Send a block change to all connected players
@@ -236,8 +250,11 @@ impl Plot {
     }
 
     pub fn broadcast_chat_message(&mut self, message: String) {
-        let broadcast_message =
-            Message::ChatInfo(0, format!("Plot {}-{}", self.x, self.z), message);
+        let broadcast_message = Message::ChatInfo(
+            0,
+            format!("Plot {}-{}", self.world.x, self.world.z),
+            message,
+        );
         self.message_sender.send(broadcast_message).unwrap();
     }
 
@@ -340,7 +357,13 @@ impl Plot {
             }
         }
 
-        player.send_system_message(&format!("Entering plot ({}, {})", self.x, self.z));
+        player.send_system_message(&format!(
+            "Entering plot ({}, {})",
+            self.world.x, self.world.z
+        ));
+        self.world
+            .packet_senders
+            .push(PlayerPacketSender::new(&player.client));
         self.players.push(player);
         self.update_view_pos_for_player(self.players.len() - 1, true);
     }
@@ -363,13 +386,14 @@ impl Plot {
             let unload_chunk = CUnloadChunk { chunk_x, chunk_z }.encode();
             self.players[player_idx].client.send_packet(&unload_chunk);
         } else if !was_loaded && should_be_loaded {
-            if !Plot::chunk_in_plot_bounds(self.x, self.z, chunk_x, chunk_z) {
+            if !Plot::chunk_in_plot_bounds(self.world.x, self.world.z, chunk_x, chunk_z) {
                 self.players[player_idx]
                     .client
                     .send_packet(&Chunk::empty(chunk_x, chunk_z).encode_packet(true));
             } else {
-                let chunk_data = self.chunks[self.get_chunk_index_for_chunk(chunk_x, chunk_z)]
-                    .encode_packet(true);
+                let chunk_data = self.world.chunks
+                    [self.world.get_chunk_index_for_chunk(chunk_x, chunk_z)]
+                .encode_packet(true);
                 self.players[player_idx].client.send_packet(&chunk_data);
             }
         }
@@ -425,19 +449,16 @@ impl Plot {
         second_pos: Option<BlockPos>,
     ) {
         debug!("Starting redpiler");
-        let ticks = self.to_be_ticked.drain(..).collect();
-        Compiler::compile(self, options, first_pos, second_pos, ticks);
+        let ticks = self.world.to_be_ticked.drain(..).collect();
+        self.redpiler
+            .compile(&mut self.world, options, first_pos, second_pos, ticks);
     }
 
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active {
             debug!("Discarding redpiler");
-            let reset_data = self.redpiler.reset();
-            self.to_be_ticked = reset_data.tick_entries;
-            for (pos, block_entity) in reset_data.block_entities {
-                self.set_block_entity(pos, block_entity);
-            }
+            self.redpiler.reset(&mut self.world);
         }
     }
 
@@ -453,6 +474,7 @@ impl Plot {
 
     fn leave_plot(&mut self, uuid: u128) -> Player {
         let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
+        self.world.packet_senders.remove(player_idx);
         let player = self.players.remove(player_idx);
         let mut entity_ids = Vec::new();
         for player in &self.players {
@@ -460,9 +482,9 @@ impl Plot {
         }
         let destroy_other_entities = CDestroyEntities { entity_ids }.encode();
         player.client.send_packet(&destroy_other_entities);
-        let chunk_offset_x = self.x << 4;
-        let chunk_offset_z = self.z << 4;
-        for chunk in &self.chunks {
+        let chunk_offset_x = self.world.x << 4;
+        let chunk_offset_z = self.world.z << 4;
+        for chunk in &self.world.chunks {
             player.client.send_packet(
                 &CUnloadChunk {
                     chunk_x: chunk_offset_x + chunk.x,
@@ -611,24 +633,12 @@ impl Plot {
         }
     }
 
-    fn flush_block_changes(&mut self) {
-        for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
-            let encoded = packet.encode();
-            for player in &mut self.players {
-                player.client.send_packet(&encoded);
-            }
-        }
-        for chunk in &mut self.chunks {
-            chunk.reset_multi_blocks();
-        }
-    }
-
     /// Remove players outside of the plot
     fn remove_oob_players(&mut self) {
         let mut outside_players = Vec::new();
         for player in 0..self.players.len() {
             let player = &mut self.players[player];
-            if !Plot::in_plot_bounds(self.x, self.z, player.x as i32, player.z as i32) {
+            if !Plot::in_plot_bounds(self.world.x, self.world.z, player.x as i32, player.z as i32) {
                 outside_players.push(player.uuid);
             }
         }
@@ -695,20 +705,13 @@ impl Plot {
                 }
             }
 
-            self.flush_block_changes();
+            self.world.flush_block_changes();
         } else {
             self.timings.set_ticking(false);
             // Unload plot after 600 seconds unless the plot should be always loaded
             if self.last_player_time.elapsed().unwrap().as_secs() > 600 && !self.always_running {
                 self.running = false;
                 self.timings.stop();
-            }
-        }
-
-        if self.redpiler.is_active {
-            let changes: Vec<(BlockPos, Block)> = self.redpiler.block_changes().drain(..).collect();
-            for (pos, block) in changes {
-                self.set_block(pos, block);
             }
         }
 
@@ -749,6 +752,13 @@ impl Plot {
                 )
             })
             .collect();
+        let world = PlotWorld {
+            x,
+            z,
+            chunks,
+            to_be_ticked: plot_data.pending_ticks,
+            packet_senders: Vec::new(),
+        };
         Plot {
             last_player_time: SystemTime::now(),
             last_update_time: SystemTime::now(),
@@ -765,16 +775,12 @@ impl Plot {
             running: true,
             show_redstone: plot_data.show_redstone,
             tps: plot_data.tps,
-            x,
-            z,
             always_running,
-            chunks,
-            to_be_ticked: plot_data.pending_ticks,
             redpiler: Default::default(),
             timings: TimingsMonitor::new(plot_data.tps),
-            cursed_mode: false,
             owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
             async_rt: Plot::create_async_rt(),
+            world,
         }
     }
 
@@ -804,6 +810,13 @@ impl Plot {
                     ));
                 }
             }
+            let world = PlotWorld {
+                x,
+                z,
+                chunks,
+                to_be_ticked: Vec::new(),
+                packet_senders: Vec::new(),
+            };
             Plot {
                 last_player_time: SystemTime::now(),
                 last_update_time: SystemTime::now(),
@@ -816,33 +829,30 @@ impl Plot {
                 running: true,
                 show_redstone: true,
                 tps: 10,
-                x,
-                z,
                 always_running,
-                chunks,
-                to_be_ticked: Vec::new(),
                 redpiler: Default::default(),
                 timings: TimingsMonitor::new(10),
-                cursed_mode: false,
                 owner: database::get_plot_owner(x, z)
                     .map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
                 async_rt: Plot::create_async_rt(),
+                world,
             }
         }
     }
 
     fn save(&self) {
+        let world = &self.world;
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
-            .open(format!("./world/plots/p{},{}", self.x, self.z))
+            .open(format!("./world/plots/p{},{}", world.x, world.z))
             .unwrap();
-        let chunk_data: Vec<ChunkData> = self.chunks.iter().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData> = world.chunks.iter().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
             tps: self.tps,
             show_redstone: self.show_redstone,
             chunk_data,
-            pending_ticks: self.to_be_ticked.clone(),
+            pending_ticks: world.to_be_ticked.clone(),
         })
         .unwrap();
         file.write_all(&encoded).unwrap();
@@ -902,7 +912,8 @@ impl Drop for Plot {
             for player in &mut self.players {
                 player.save(); // just in case
 
-                let (px, pz) = if self.x == 0 && self.z == 0 {
+                let world = &self.world;
+                let (px, pz) = if world.x == 0 && world.z == 0 {
                     // Can't send players to spawn if spawn crashed!
                     Plot::get_center(1, 0)
                 } else {
@@ -927,10 +938,12 @@ impl Drop for Plot {
                     .unwrap();
             }
         }
+
         self.reset_redpiler();
         self.save();
+        let world = &self.world;
         self.message_sender
-            .send(Message::PlotUnload(self.x, self.z))
+            .send(Message::PlotUnload(world.x, world.z))
             .unwrap();
     }
 }

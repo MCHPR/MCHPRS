@@ -3,9 +3,9 @@ mod backend;
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
 };
-use crate::plot::Plot;
+use crate::plot::PlotWorld;
 use crate::world::{TickEntry, World};
-use backend::{JITBackend, JITResetData};
+use backend::JITBackend;
 use log::{error, warn};
 use std::collections::{HashMap, VecDeque};
 
@@ -104,13 +104,13 @@ impl CompileNode {
 }
 
 struct InputSearch<'a> {
-    plot: &'a mut Plot,
+    plot: &'a mut PlotWorld,
     nodes: &'a mut Vec<CompileNode>,
     pos_map: HashMap<BlockPos, NodeId>,
 }
 
 impl<'a> InputSearch<'a> {
-    fn new(plot: &'a mut Plot, nodes: &'a mut Vec<CompileNode>) -> InputSearch<'a> {
+    fn new(plot: &'a mut PlotWorld, nodes: &'a mut Vec<CompileNode>) -> InputSearch<'a> {
         let mut pos_map = HashMap::new();
         for (i, node) in nodes.iter().enumerate() {
             pos_map.insert(node.pos, i);
@@ -527,17 +527,13 @@ impl Compiler {
     }
 
     pub fn compile(
-        plot: &mut Plot,
+        &mut self,
+        plot: &mut PlotWorld,
         options: CompilerOptions,
         first_pos: Option<BlockPos>,
         second_pos: Option<BlockPos>,
         ticks: Vec<TickEntry>,
     ) {
-        if plot.redpiler.is_active {
-            warn!("Redpiler was already active when compiling. This is a bug.");
-            plot.redpiler.reset();
-        }
-
         let (first_pos, second_pos) = if options.use_worldedit {
             (first_pos.unwrap(), second_pos.unwrap())
         } else {
@@ -550,59 +546,44 @@ impl Compiler {
 
         let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos);
         InputSearch::new(plot, &mut nodes).search();
-        let compiler = &mut plot.redpiler;
-        compiler.is_active = true;
+        self.is_active = true;
 
         // TODO: Remove this once there is proper backend switching
-        if compiler.jit.is_none() {
+        if self.jit.is_none() {
             let jit: Box<backend::direct::DirectBackend> = Default::default();
             // let jit: Box<codegen::cranelift::CraneliftBackend> = Default::default();
-            compiler.use_jit(jit);
+            self.use_jit(jit);
         }
 
-        if let Some(jit) = &mut compiler.jit {
+        if let Some(jit) = &mut self.jit {
             jit.compile(nodes, ticks);
         } else {
             error!("Cannot compile without JIT variant selected");
         }
     }
 
-    pub fn reset(&mut self) -> JITResetData {
-        self.is_active = false;
-        if let Some(jit) = &mut self.jit {
-            jit.reset()
-        } else {
-            Default::default()
+    pub fn reset(&mut self, plot: &mut PlotWorld) {
+        if !self.is_active {
+            self.is_active = false;
+            if let Some(jit) = &mut self.jit {
+                jit.reset(plot)
+            }
         }
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self, plot: &mut PlotWorld) {
         assert!(self.is_active, "Redpiler cannot tick while inactive");
         if let Some(jit) = &mut self.jit {
-            jit.tick();
+            jit.tick(plot);
         } else {
             error!("Tried to tick redpiler while missing its JIT variant. How is it even active?");
         }
     }
 
-    pub fn block_changes(&mut self) -> &mut Vec<(BlockPos, Block)> {
-        assert!(
-            self.is_active,
-            "Redpiler cannot drain block changes while inactive"
-        );
-        // self.jit.unwrap().block_changes()
-        if let Some(jit) = &mut self.jit {
-            jit.block_changes()
-        } else {
-            // Can't recover from this
-            panic!("Tried to drain redpiler block changes while missing its JIT variant. How is it even active?");
-        }
-    }
-
-    pub fn on_use_block(&mut self, pos: BlockPos) {
+    pub fn on_use_block(&mut self, plot: &mut PlotWorld, pos: BlockPos) {
         assert!(self.is_active, "Redpiler cannot use block while inactive");
         if let Some(jit) = &mut self.jit {
-            jit.on_use_block(pos);
+            jit.on_use_block(plot, pos);
         } else {
             error!(
                 "Tried to use redpiler block while missing its JIT variant. How is it even active?"
@@ -611,7 +592,7 @@ impl Compiler {
     }
 
     fn identify_nodes(
-        plot: &mut Plot,
+        plot: &mut PlotWorld,
         first_pos: BlockPos,
         second_pos: BlockPos,
     ) -> Vec<CompileNode> {

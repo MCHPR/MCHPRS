@@ -9,7 +9,6 @@ use crate::player::Gamemode;
 use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
-use crate::world::World;
 use bitflags::_core::i32::MAX;
 use log::{debug, info};
 use std::lazy::SyncLazy;
@@ -178,7 +177,7 @@ impl Plot {
         );
 
         // Handle worldedit commands
-        if worldedit::execute_command(self, self.players[player].uuid, &command[1..], &mut args) {
+        if worldedit::execute_command(self, player, &command[1..], &mut args) {
             // If the command was handled, there is no need to continue;
             return false;
         }

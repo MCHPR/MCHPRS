@@ -45,10 +45,11 @@ pub struct InventoryEntry {
 impl ItemStack {
     pub fn use_on_block(&self, plot: &mut Plot, context: UseOnBlockContext) {
         let use_pos = context.block_pos;
-        let use_block = plot.get_block(use_pos);
+        let use_block = plot.world.get_block(use_pos);
         let block_pos = context.block_pos.offset(context.block_face);
 
-        let can_place = self.item_type.is_block() && plot.get_block(block_pos).can_place_block_in();
+        let can_place =
+            self.item_type.is_block() && plot.world.get_block(block_pos).can_place_block_in();
         let mut cancelled = false;
 
         if let Item::WEWand {} = self.item_type {
@@ -65,8 +66,8 @@ impl ItemStack {
             && !cancelled
             && use_block
                 .on_use(
-                    plot,
-                    plot.players[context.player_idx].uuid,
+                    &mut plot.world,
+                    &mut plot.players[context.player_idx],
                     context.block_pos,
                     Some(self.item_type),
                 )
@@ -76,7 +77,8 @@ impl ItemStack {
         }
 
         if can_place && !cancelled {
-            let block = Block::get_state_for_placement(plot, block_pos, self.item_type, &context);
+            let block =
+                Block::get_state_for_placement(&plot.world, block_pos, self.item_type, &context);
 
             match block {
                 Block::Sign { .. } | Block::WallSign { .. } => {
@@ -93,15 +95,15 @@ impl ItemStack {
                 _ => {}
             }
 
-            block.place_in_world(plot, block_pos, &self.nbt);
+            block.place_in_world(&mut plot.world, block_pos, &self.nbt);
         } else {
             // This is to make sure the client doesn't place a block
             // that the server can't handle.
 
-            let block = plot.get_block(context.block_pos);
+            let block = plot.world.get_block(context.block_pos);
             plot.send_block_change(context.block_pos, block.get_id());
 
-            let offset_block = plot.get_block(block_pos);
+            let offset_block = plot.world.get_block(block_pos);
             plot.send_block_change(block_pos, offset_block.get_id());
         }
     }

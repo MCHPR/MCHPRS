@@ -114,7 +114,7 @@ impl ServerBoundPacketHandler for Plot {
             player_block_placement.z,
         );
 
-        if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
+        if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
             self.players[player].send_system_message("Can't interact with blocks outside of plot");
             self.send_block_change(block_pos.offset(block_face), 0);
             return;
@@ -132,10 +132,10 @@ impl ServerBoundPacketHandler for Plot {
         }
 
         if self.redpiler.is_active {
-            let block = self.get_block(block_pos);
+            let block = self.world.get_block(block_pos);
             let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
             if lever_or_button && !self.players[player].crouching {
-                self.redpiler.on_use_block(block_pos);
+                self.redpiler.on_use_block(&mut self.world, block_pos);
                 return;
             } else {
                 self.reset_redpiler();
@@ -158,9 +158,9 @@ impl ServerBoundPacketHandler for Plot {
             return;
         }
 
-        let block = self.get_block(block_pos);
+        let block = self.world.get_block(block_pos);
         if !self.players[player].crouching {
-            block.on_use(self, self.players[player].uuid, block_pos, None);
+            block.on_use(&mut self.world, &mut self.players[player], block_pos, None);
         }
     }
 
@@ -357,7 +357,7 @@ impl ServerBoundPacketHandler for Plot {
         if player_digging.status == 0 {
             let block_pos = BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
 
-            if !Plot::in_plot_bounds(self.x, self.z, block_pos.x, block_pos.z) {
+            if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
                 self.players[player].send_system_message("Can't break blocks outside of plot");
                 return;
             }
@@ -368,7 +368,7 @@ impl ServerBoundPacketHandler for Plot {
                 .clone();
             if let Some(item) = item_in_hand {
                 if item.item_type == (Item::WEWand {}) {
-                    let block = self.get_block(block_pos);
+                    let block = self.world.get_block(block_pos);
                     self.send_block_change(block_pos, block.get_id());
                     if let Some(pos) = self.players[player].first_position {
                         if pos == block_pos {
@@ -393,8 +393,8 @@ impl ServerBoundPacketHandler for Plot {
 
             self.reset_redpiler();
 
-            let other_block = self.get_block(block_pos);
-            other_block.destroy(self, block_pos);
+            let other_block = self.world.get_block(block_pos);
+            other_block.destroy(&mut self.world, block_pos);
 
             let effect = CEffect {
                 effect_id: 2001,
@@ -510,6 +510,6 @@ impl ServerBoundPacketHandler for Plot {
                 rows.next().unwrap(),
             ],
         }));
-        self.set_block_entity(pos, block_entity);
+        self.world.set_block_entity(pos, block_entity);
     }
 }
