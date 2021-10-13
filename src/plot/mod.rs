@@ -453,7 +453,7 @@ impl Plot {
 
     fn leave_plot(&mut self, uuid: u128) -> Player {
         let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
-        let mut player = self.players.remove(player_idx);
+        let player = self.players.remove(player_idx);
         let mut entity_ids = Vec::new();
         for player in &self.players {
             entity_ids.push(player.entity_id as i32);
@@ -646,7 +646,7 @@ impl Plot {
 
         let mut disconnected_players = Vec::new();
         self.players.retain(|player| {
-            let alive = player.client.alive;
+            let alive = player.client.alive();
             if !alive {
                 player.save();
                 message_sender

@@ -16,18 +16,71 @@ pub enum NetworkState {
     Play,
 }
 
+pub struct HandshakingConn {
+    client: NetworkClient,
+    pub username: Option<String>,
+    pub uuid: Option<u128>,
+}
+
+impl HandshakingConn {
+    pub fn send_packet(&self, data: &PacketEncoder) {
+        self.client.send_packet(data);
+    }
+
+    pub fn receive_packets(&self) -> Vec<Box<dyn ServerBoundPacket>> {
+        self.client.receive_packets(&mut true)
+    }
+
+    pub fn set_compressed(&self, compressed: bool) {
+        self.client.compressed.store(compressed, Ordering::Relaxed)
+    }
+
+    pub fn close_connection(&self) {
+        self.client.close_connection();
+    }
+}
+
+impl From<HandshakingConn> for PlayerConn {
+    fn from(conn: HandshakingConn) -> Self {
+        PlayerConn {
+            client: conn.client,
+            alive: true,
+        }
+    }
+}
+
+pub struct PlayerConn {
+    client: NetworkClient,
+    alive: bool,
+}
+
+impl PlayerConn {
+    pub fn send_packet(&self, data: &PacketEncoder) {
+        self.client.send_packet(data);
+    }
+
+    pub fn receive_packets(&mut self) -> Vec<Box<dyn ServerBoundPacket>> {
+        self.client.receive_packets(&mut self.alive)
+    }
+
+    pub fn alive(&self) -> bool {
+        self.alive
+    }
+
+    pub fn close_connection(&mut self) {
+        self.alive = false;
+        self.client.close_connection();
+    }
+}
+
 /// This handles the TCP stream.
 pub struct NetworkClient {
     /// All NetworkClients are identified by this id.
     /// If the client is a player, the player's entitiy id becomes the same.
     pub id: u32,
     stream: TcpStream,
-    pub state: NetworkState,
     packets: mpsc::Receiver<Box<dyn ServerBoundPacket>>,
-    pub alive: bool,
     compressed: Arc<AtomicBool>,
-    pub username: Option<String>,
-    pub uuid: Option<u128>,
 }
 
 impl NetworkClient {
@@ -49,7 +102,7 @@ impl NetworkClient {
         }
     }
 
-    pub fn receive_packets(&mut self) -> Vec<Box<dyn ServerBoundPacket>> {
+    pub fn receive_packets(&self, alive: &mut bool) -> Vec<Box<dyn ServerBoundPacket>> {
         let mut packets = Vec::new();
         loop {
             let packet = self.packets.try_recv();
@@ -57,7 +110,7 @@ impl NetworkClient {
                 Ok(packet) => packets.push(packet),
                 Err(mpsc::TryRecvError::Empty) => break,
                 _ => {
-                    self.alive = false;
+                    *alive = false;
                     break;
                 }
             }
@@ -65,11 +118,7 @@ impl NetworkClient {
         packets
     }
 
-    pub fn set_compressed(&mut self, compressed: bool) {
-        self.compressed.store(compressed, Ordering::Relaxed);
-    }
-
-    pub fn send_packet(&mut self, data: &PacketEncoder) {
+    pub fn send_packet(&self, data: &PacketEncoder) {
         if self.compressed.load(Ordering::Relaxed) {
             let _ = data.write_compressed(&self.stream);
         } else {
@@ -77,8 +126,7 @@ impl NetworkClient {
         }
     }
 
-    pub fn close_connection(&mut self) {
-        self.alive = false;
+    pub fn close_connection(&self) {
         let _ = self.stream.shutdown(Shutdown::Both);
     }
 }
@@ -87,7 +135,7 @@ impl NetworkClient {
 pub struct NetworkServer {
     client_receiver: mpsc::Receiver<NetworkClient>,
     /// These clients are either in the handshake, login, or ping state, once they shift to play, they will be moved to a plot
-    pub handshaking_clients: Vec<NetworkClient>,
+    pub handshaking_clients: Vec<HandshakingConn>,
 }
 
 impl NetworkServer {
@@ -108,12 +156,8 @@ impl NetworkServer {
                     // The index will increment after each client making it unique. We'll just use this as the enitity id.
                     id: index as u32,
                     stream,
-                    state: NetworkState::Handshake,
                     packets: packet_receiver,
-                    alive: true,
                     compressed,
-                    username: None,
-                    uuid: None,
                 })
                 .unwrap();
         }
@@ -132,7 +176,11 @@ impl NetworkServer {
     pub fn update(&mut self) {
         loop {
             match self.client_receiver.try_recv() {
-                Ok(client) => self.handshaking_clients.push(client),
+                Ok(client) => self.handshaking_clients.push(HandshakingConn {
+                    client,
+                    username: None,
+                    uuid: None,
+                }),
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {
                     panic!("Client receiver channel disconnected!");

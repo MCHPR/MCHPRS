@@ -485,9 +485,7 @@ impl<'a> InputSearch<'a> {
         // Create update links
         for (id, node) in self.nodes.clone().into_iter().enumerate() {
             for input_node in node.inputs {
-                self.nodes[input_node.end]
-                    .updates
-                    .push(id);
+                self.nodes[input_node.end].updates.push(id);
             }
         }
     }

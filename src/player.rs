@@ -4,7 +4,7 @@ use crate::config::CONFIG;
 use crate::items::{InventoryEntry, Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
-use crate::network::NetworkClient;
+use crate::network::PlayerConn;
 use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::utils::HyphenatedUUID;
@@ -15,7 +15,10 @@ use serde_json::json;
 use std::fmt;
 use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Write};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Instant, SystemTime};
+
+static ENTITY_ID_COUNTER: AtomicU32 = AtomicU32::new(0);
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub enum Gamemode {
@@ -87,8 +90,7 @@ pub struct Player {
     pub walk_speed: f32,
     pub gamemode: Gamemode,
     pub entity_id: u32,
-    /// Packets are sent through the client.
-    pub client: NetworkClient,
+    pub client: PlayerConn,
     /// The last time the keep alive packet was received.
     pub last_keep_alive_received: Instant,
     /// The last time the keep alive packet was sent.
@@ -128,7 +130,7 @@ impl Player {
 
     /// This will load the player from the file. If the file does not exist,
     /// It will be created.
-    pub fn load_player(uuid: u128, username: String, client: NetworkClient) -> Player {
+    pub fn load_player(uuid: u128, username: String, client: PlayerConn) -> Player {
         if let Ok(data) = fs::read(format!("./world/players/{:032x}", uuid)) {
             let player_data: PlayerData = match bincode::deserialize(&data) {
                 Ok(data) => data,
@@ -167,7 +169,7 @@ impl Player {
                 yaw: player_data.rotation[1],
                 last_chunk_x: 0,
                 last_chunk_z: 0,
-                entity_id: client.id,
+                entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
                 client,
                 flying: player_data.flying,
                 sprinting: false,
@@ -191,7 +193,7 @@ impl Player {
     }
 
     /// Returns the default player struct
-    fn create_player(uuid: u128, username: String, client: NetworkClient) -> Player {
+    fn create_player(uuid: u128, username: String, client: PlayerConn) -> Player {
         let inventory: Vec<Option<ItemStack>> = vec![None; 46];
         let permissions_cache = CONFIG
             .luckperms
@@ -209,7 +211,7 @@ impl Player {
             last_chunk_z: 8,
             yaw: 0f32,
             pitch: 0f32,
-            entity_id: client.id,
+            entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
             client,
             inventory,
             flying: false,

@@ -358,10 +358,9 @@ impl MinecraftServer {
         .encode();
         clients[client_idx].send_packet(&login_success);
 
-        clients[client_idx].state = NetworkState::Play;
         let client = clients.remove(client_idx);
 
-        let mut player = Player::load_player(uuid, username, client);
+        let mut player = Player::load_player(uuid, username, client.into());
 
         let dimension = CJoinGameDimensionElement {
             natural: 1,
@@ -381,7 +380,7 @@ impl MinecraftServer {
         };
 
         let join_game = CJoinGame {
-            entity_id: player.client.id as i32,
+            entity_id: player.entity_id as i32,
             is_hardcore: false,
             gamemode: player.gamemode.get_id() as u8,
             previous_gamemode: 1,
@@ -680,12 +679,13 @@ impl ServerBoundPacketHandler for MinecraftServer {
     fn handle_handshake(&mut self, handshake: SHandshake, client_idx: usize) {
         let clients = &mut self.network.handshaking_clients;
         let client = &mut clients[client_idx];
-        match handshake.next_state {
-            1 => client.state = NetworkState::Status,
-            2 => client.state = NetworkState::Login,
-            _ => {}
-        }
-        if client.state == NetworkState::Login && handshake.protocol_version != PROTOCOL_VERSION {
+        let next_state = match handshake.next_state {
+            1 => NetworkState::Status,
+            2 => NetworkState::Login,
+            // TODO: Handle invalid next state
+            _ => return,
+        };
+        if next_state == NetworkState::Login && handshake.protocol_version != PROTOCOL_VERSION {
             warn!("A player tried to connect using the wrong version");
             let disconnect = CDisconnectLogin {
                 reason: json!({ "text": format!("Version mismatch, I'm on {}!", MC_VERSION) })
@@ -694,7 +694,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
             .encode();
             client.send_packet(&disconnect);
             client.close_connection();
-        } else if client.state == NetworkState::Login && CONFIG.bungeecord {
+        } else if next_state == NetworkState::Login && CONFIG.bungeecord {
             let split: Vec<&str> = handshake.server_address.split('\u{0}').collect();
             if split.len() == 3 || split.len() == 4 {
                 client.uuid = u128::from_str_radix(split[2], 16).ok();

@@ -71,7 +71,7 @@ impl From<CompileNode> for Node {
             },
             facing_diode: node.facing_diode,
             inputs: node.inputs,
-            outputs: node.updates.into_iter().map(|id| id).collect(),
+            outputs: node.updates.into_iter().collect(),
             update_queued: AtomicBool::new(false),
             powered: AtomicBool::new(match node.state {
                 Block::RedstoneRepeater { repeater } => repeater.powered,
