@@ -397,11 +397,11 @@ bitflags! {
 /// This is used for command autocomplete.
 pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
     CDeclareCommands {
-        nodes: vec![
+        nodes: &[
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: vec![
+                children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
                     47, 49,
                 ],
@@ -412,7 +412,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 1: /teleport
             Node {
                 flags: CommandFlags::LITERAL.bits() as i8,
-                children: vec![2, 3],
+                children: &[2, 3],
                 redirect_node: None,
                 name: Some("teleport"),
                 parser: None,
@@ -420,7 +420,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 2: /teleport [x, y, z]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("x, y, z"),
                 parser: Some(Parser::Vec3),
@@ -428,7 +428,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 3: /teleport [player]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("player"),
                 parser: Some(Parser::Entity(3)), // Only allow one player
@@ -436,7 +436,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 4: /tp
             Node {
                 flags: (CommandFlags::REDIRECT | CommandFlags::LITERAL).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(1),
                 name: Some("tp"),
                 parser: None,
@@ -444,7 +444,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 5: /stop
             Node {
                 flags: (CommandFlags::EXECUTABLE | CommandFlags::LITERAL).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("stop"),
                 parser: None,
@@ -452,7 +452,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46],
+                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -460,7 +460,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 7: /plot info
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("info"),
                 parser: None,
@@ -468,7 +468,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 8: /plot i
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(7),
                 name: Some("i"),
                 parser: None,
@@ -476,7 +476,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 9: /plot claim
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("claim"),
                 parser: None,
@@ -484,7 +484,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 10: /plot c
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(9),
                 name: Some("c"),
                 parser: None,
@@ -492,7 +492,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 11: /p
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(6),
                 name: Some("p"),
                 parser: None,
@@ -500,7 +500,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 12: /rtps
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![13],
+                children: &[13],
                 redirect_node: None,
                 name: Some("rtps"),
                 parser: None,
@@ -508,7 +508,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 13: /rtps [rtps]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("rtps"),
                 parser: Some(Parser::Integer(0, 35000)),
@@ -516,7 +516,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 14: //pos1
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![15],
+                children: &[15],
                 redirect_node: None,
                 name: Some("/pos1"),
                 parser: None,
@@ -524,7 +524,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 15: //pos1 [pos]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("pos"),
                 parser: Some(Parser::BlockPos),
@@ -532,7 +532,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 16: //pos2
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![17],
+                children: &[17],
                 redirect_node: None,
                 name: Some("/pos2"),
                 parser: None,
@@ -540,7 +540,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 17: //pos2 [pos]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("pos"),
                 parser: Some(Parser::BlockPos),
@@ -548,7 +548,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 18: /1
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(14),
                 name: Some("/1"),
                 parser: None,
@@ -556,7 +556,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 19: /2
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(16),
                 name: Some("/2"),
                 parser: None,
@@ -564,7 +564,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 20: //copy
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![21],
+                children: &[21],
                 redirect_node: None,
                 name: Some("/copy"),
                 parser: None,
@@ -572,7 +572,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 21: //c
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(20),
                 name: Some("/c"),
                 parser: None,
@@ -580,7 +580,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 22: //paste
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![23],
+                children: &[23],
                 redirect_node: None,
                 name: Some("/paste"),
                 parser: None,
@@ -588,7 +588,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 23: //p
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(20),
                 name: Some("/p"),
                 parser: None,
@@ -596,7 +596,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 24: //set
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![25],
+                children: &[25],
                 redirect_node: None,
                 name: Some("/set"),
                 parser: None,
@@ -604,7 +604,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 25: //set [block]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("block"),
                 parser: Some(Parser::BlockState),
@@ -612,7 +612,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 26: //replace
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![27],
+                children: &[27],
                 redirect_node: None,
                 name: Some("/replace"),
                 parser: None,
@@ -620,7 +620,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 27: //replace [oldblock]
             Node {
                 flags: (CommandFlags::ARGUMENT).bits() as i8,
-                children: vec![28],
+                children: &[28],
                 redirect_node: None,
                 name: Some("oldblock"),
                 parser: Some(Parser::BlockState),
@@ -628,7 +628,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 28: //replace [oldblock] [newblock]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("newblock"),
                 parser: Some(Parser::BlockState),
@@ -636,7 +636,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 29: /radvance
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![30],
+                children: &[30],
                 redirect_node: None,
                 name: Some("radvance"),
                 parser: None,
@@ -644,7 +644,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 30: /radvance [rticks]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("rticks"),
                 parser: Some(Parser::Integer(0, 35000)),
@@ -652,7 +652,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 31: /radv
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(29),
                 name: Some("radv"),
                 parser: None,
@@ -660,7 +660,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 32: /speed
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![33],
+                children: &[33],
                 redirect_node: None,
                 name: Some("speed"),
                 parser: None,
@@ -668,7 +668,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 33: /speed [speed]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("speed"),
                 parser: Some(Parser::Float(0.0, 10.0)),
@@ -676,7 +676,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 34: //stack
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![35],
+                children: &[35],
                 redirect_node: None,
                 name: Some("/stack"),
                 parser: None,
@@ -684,7 +684,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 35: //stack [amount]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("amount"),
                 parser: Some(Parser::Integer(0, 256)),
@@ -692,7 +692,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 36: //undo
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("/undo"),
                 parser: None,
@@ -700,7 +700,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 37: //sel
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("/sel"),
                 parser: None,
@@ -708,7 +708,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 38: /p auto
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("auto"),
                 parser: None,
@@ -716,7 +716,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 39: /p a
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(9),
                 name: Some("a"),
                 parser: None,
@@ -724,7 +724,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 40: /p middle
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("middle"),
                 parser: None,
@@ -732,7 +732,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 41: /p visit
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![42],
+                children: &[42],
                 redirect_node: None,
                 name: Some("visit"),
                 parser: None,
@@ -740,7 +740,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 42: /p visit [player]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("player"),
                 parser: Some(Parser::Entity(3)),
@@ -748,7 +748,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 43: /p v
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(41),
                 name: Some("v"),
                 parser: None,
@@ -756,7 +756,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 44: /p teleport
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![45],
+                children: &[45],
                 redirect_node: None,
                 name: Some("teleport"),
                 parser: None,
@@ -764,7 +764,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 45: /p teleport [x, z]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("x, z"),
                 parser: Some(Parser::Vec2),
@@ -772,7 +772,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 46: /p tp
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: Some(44),
                 name: Some("tp"),
                 parser: None,
@@ -780,7 +780,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 47: //shift
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![35],
+                children: &[35],
                 redirect_node: None,
                 name: Some("/shift"),
                 parser: None,
@@ -788,7 +788,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 48: //shift [amount]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("amount"),
                 parser: Some(Parser::Integer(0, 256)),
@@ -796,7 +796,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 49: /whitelist
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![50, 51],
+                children: &[50, 51],
                 redirect_node: None,
                 name: Some("whitelist"),
                 parser: None,
@@ -804,7 +804,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 50: /whitelist add
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![52],
+                children: &[52],
                 redirect_node: None,
                 name: Some("add"),
                 parser: None,
@@ -812,7 +812,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 51: /whitelist remove
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![52],
+                children: &[52],
                 redirect_node: None,
                 name: Some("remove"),
                 parser: None,
@@ -820,7 +820,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 52: /whitelist add|remove [username]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: vec![],
+                children: &[],
                 redirect_node: None,
                 name: Some("username"),
                 parser: Some(Parser::Entity(3)),

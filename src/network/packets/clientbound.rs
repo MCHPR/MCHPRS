@@ -270,27 +270,27 @@ impl CDeclareCommandsNodeParser {
     }
 }
 
-pub struct CDeclareCommandsNode {
+pub struct CDeclareCommandsNode<'a> {
     pub flags: i8,
-    pub children: Vec<i32>,
+    pub children: &'a [i32],
     pub redirect_node: Option<i32>,
     pub name: Option<&'static str>,
     pub parser: Option<CDeclareCommandsNodeParser>,
 }
 
-pub struct CDeclareCommands {
-    pub nodes: Vec<CDeclareCommandsNode>,
+pub struct CDeclareCommands<'a> {
+    pub nodes: &'a [CDeclareCommandsNode<'a>],
     pub root_index: i32,
 }
 
-impl ClientBoundPacket for CDeclareCommands {
+impl<'a> ClientBoundPacket for CDeclareCommands<'a> {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.nodes.len() as i32);
-        for node in &self.nodes {
+        for node in self.nodes {
             buf.write_byte(node.flags);
             buf.write_varint(node.children.len() as i32);
-            for child in &node.children {
+            for child in node.children {
                 buf.write_varint(*child);
             }
             if let Some(redirect_node) = node.redirect_node {
