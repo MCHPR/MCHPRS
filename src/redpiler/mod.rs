@@ -563,7 +563,7 @@ impl Compiler {
     }
 
     pub fn reset(&mut self, plot: &mut PlotWorld) {
-        if !self.is_active {
+        if self.is_active {
             self.is_active = false;
             if let Some(jit) = &mut self.jit {
                 jit.reset(plot)
