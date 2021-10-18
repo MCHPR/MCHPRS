@@ -35,7 +35,6 @@ pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
         let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
         if let Some(properties_match) = captures.get(2) {
             let properties = properties_match.as_str().split(&[',', '='][..]).tuples().collect();
-            dbg!(&properties);
             block.set_properties(properties);
         }
         palette.insert(id, block.get_id());
