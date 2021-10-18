@@ -1,6 +1,7 @@
 use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos, BlockProperty};
 use crate::world::World;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 impl Block {
     fn unwrap_wire(self) -> RedstoneWire {
@@ -29,13 +30,18 @@ impl RedstoneWireSide {
     pub fn is_none(self) -> bool {
         matches!(self, RedstoneWireSide::None)
     }
+}
 
-    pub fn from_str(name: &str) -> RedstoneWireSide {
-        match name {
+impl FromStr for RedstoneWireSide {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
             "up" => RedstoneWireSide::Up,
             "side" => RedstoneWireSide::Side,
-            _ => RedstoneWireSide::None,
-        }
+            "none" => RedstoneWireSide::None,
+            _ => return Err(())
+        })
     }
 }
 

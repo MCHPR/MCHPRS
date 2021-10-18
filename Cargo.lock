@@ -1229,6 +1229,7 @@ dependencies = [
  "fern",
  "flate2",
  "hematite-nbt",
+ "itertools",
  "log",
  "mchprs_proc_macros",
  "md5",

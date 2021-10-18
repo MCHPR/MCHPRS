@@ -33,6 +33,12 @@ fn create_block_property_impl(input: DeriveInput) -> Result<TokenStream, Error> 
                     <#field_types as BlockProperty>::encode(self.#field_names, props, stringify!(#field_names));
                 )*
             }
+
+            fn decode(&mut self, props: &::std::collections::HashMap<&str, &str>, _name: &str) {
+                #(
+                    <#field_types as BlockProperty>::decode(&mut self.#field_names, props, stringify!(#field_names));
+                )*
+            }
         }
     };
     Ok(tokens.into())

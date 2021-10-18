@@ -5,6 +5,7 @@ pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 use crate::blocks::{Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty};
 use crate::world::{TickPriority, World};
 use std::cmp;
+use std::str::FromStr;
 
 impl Block {
     fn get_weak_power(
@@ -311,13 +312,17 @@ impl ComparatorMode {
             ComparatorMode::Compare => ComparatorMode::Subtract,
         }
     }
+}
 
-    pub(super) fn from_str(name: &str) -> ComparatorMode {
-        match name {
+impl FromStr for ComparatorMode {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
             "subtract" => ComparatorMode::Subtract,
             "compare" => ComparatorMode::Compare,
-            _ => ComparatorMode::Compare,
-        }
+            _ => return Err(())
+        })
     }
 }
 
@@ -517,13 +522,18 @@ impl LeverFace {
             LeverFace::Ceiling => 2,
         }
     }
+}
 
-    pub(super) fn from_str(name: &str) -> LeverFace {
-        match name {
+impl FromStr for LeverFace {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
             "floor" => LeverFace::Floor,
             "ceiling" => LeverFace::Ceiling,
-            _ => LeverFace::Wall,
-        }
+            "wall" => LeverFace::Wall,
+            _ => return Err(())
+        })
     }
 }
 
@@ -584,13 +594,18 @@ impl ButtonFace {
             ButtonFace::Ceiling => 2,
         }
     }
+}
 
-    pub(super) fn from_str(name: &str) -> ButtonFace {
-        match name {
+impl FromStr for ButtonFace {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
             "floor" => ButtonFace::Floor,
             "ceiling" => ButtonFace::Ceiling,
-            _ => ButtonFace::Wall,
-        }
+            "wall" => ButtonFace::Wall,
+            _ => return Err(())
+        })
     }
 }
 

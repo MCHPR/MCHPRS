@@ -7,17 +7,28 @@ use mchprs_proc_macros::BlockProperty;
 pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 trait BlockProperty: Sized {
     fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str);
+    fn decode(&mut self, props: &HashMap<&str, &str>, name: &str);
 }
 
 impl<T> BlockProperty for T
 where
-    T: ToString,
+    T: ToString + FromStr,
 {
     fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str) {
         props.insert(name, self.to_string());
+    }
+
+
+    fn decode(&mut self, props: &HashMap<&str, &str>, name: &str) {
+        if let Some(&str) = props.get(name) {
+            if let Ok(val) = str.parse() {
+                *self = val;
+            }
+        }
     }
 }
 
@@ -314,15 +325,6 @@ impl BlockDirection {
         }
     }
 
-    fn from_str(name: &str) -> BlockDirection {
-        match name {
-            "north" => BlockDirection::North,
-            "south" => BlockDirection::South,
-            "east" => BlockDirection::East,
-            _ => BlockDirection::West,
-        }
-    }
-
     fn get_id(self) -> u32 {
         match self {
             BlockDirection::North => 0,
@@ -350,6 +352,20 @@ impl BlockDirection {
             South => East,
             East => North,
         }
+    }
+}
+
+impl FromStr for BlockDirection {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "north" => BlockDirection::North,
+            "south" => BlockDirection::South,
+            "east" => BlockDirection::East,
+            "west" => BlockDirection::West,
+            _ => return Err(())
+        })
     }
 }
 
@@ -428,17 +444,6 @@ impl BlockFacing {
         }
     }
 
-    fn from_str(name: &str) -> BlockFacing {
-        match name {
-            "north" => BlockFacing::North,
-            "south" => BlockFacing::South,
-            "east" => BlockFacing::East,
-            "west" => BlockFacing::West,
-            "up" => BlockFacing::Up,
-            _ => BlockFacing::Down,
-        }
-    }
-
     pub fn offset_pos(self, mut pos: BlockPos, n: i32) -> BlockPos {
         match self {
             BlockFacing::North => pos.z -= n,
@@ -484,6 +489,22 @@ impl ToString for BlockFacing {
             BlockFacing::Up => "up".to_owned(),
             BlockFacing::Down => "down".to_owned(),
         }
+    }
+}
+
+impl FromStr for BlockFacing {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "north" => BlockFacing::North,
+            "south" => BlockFacing::South,
+            "east" => BlockFacing::East,
+            "west" => BlockFacing::West,
+            "up" => BlockFacing::Up,
+            "down" => BlockFacing::Down,
+            _ => return Err(())
+        })
     }
 }
 
@@ -567,6 +588,7 @@ impl BlockColorVariant {
 impl BlockProperty for BlockColorVariant {
     // Don't encode: the color is encoded in the block name
     fn encode(self, _props: &mut HashMap<&'static str, String>, _name: &'static str) {}
+    fn decode(&mut self, _props: &HashMap<&str, &str>, _name: &str) {}
 }
 
 impl Block {
@@ -1103,91 +1125,6 @@ impl Block {
             down_block.change(world, down_pos, *direction);
         }
     }
-
-    pub fn set_property(&mut self, key: &str, val: &str) {
-        // Macros might be able to help here
-        match self {
-            Block::RedstoneWire { wire } if key == "north" => {
-                wire.north = RedstoneWireSide::from_str(val);
-            }
-            Block::RedstoneWire { wire } if key == "south" => {
-                wire.south = RedstoneWireSide::from_str(val);
-            }
-            Block::RedstoneWire { wire } if key == "east" => {
-                wire.east = RedstoneWireSide::from_str(val);
-            }
-            Block::RedstoneWire { wire } if key == "west" => {
-                wire.west = RedstoneWireSide::from_str(val);
-            }
-            Block::RedstoneWire { wire } if key == "power" => {
-                wire.power = val.parse::<u8>().unwrap_or_default();
-            }
-            Block::RedstoneLamp { lit } if key == "lit" => {
-                *lit = val.parse::<bool>().unwrap_or_default();
-            }
-            Block::RedstoneTorch { lit } | Block::RedstoneWallTorch { lit, .. } if key == "lit" => {
-                *lit = val.parse::<bool>().unwrap_or_default();
-            }
-            Block::RedstoneWallTorch { facing, .. } if key == "facing" => {
-                *facing = BlockDirection::from_str(val);
-            }
-            Block::RedstoneRepeater { repeater } if key == "facing" => {
-                repeater.facing = BlockDirection::from_str(val);
-            }
-            Block::RedstoneRepeater { repeater } if key == "delay" => {
-                repeater.delay = val.parse::<u8>().unwrap_or(1);
-            }
-            Block::RedstoneRepeater { repeater } if key == "powered" => {
-                repeater.powered = val.parse::<bool>().unwrap_or_default();
-            }
-            Block::RedstoneRepeater { repeater } if key == "locked" => {
-                repeater.locked = val.parse::<bool>().unwrap_or_default();
-            }
-            Block::RedstoneComparator { comparator } if key == "facing" => {
-                comparator.facing = BlockDirection::from_str(val);
-            }
-            Block::RedstoneComparator { comparator } if key == "mode" => {
-                comparator.mode = ComparatorMode::from_str(val);
-            }
-            Block::RedstoneComparator { comparator } if key == "powered" => {
-                comparator.powered = val.parse::<bool>().unwrap_or_default();
-            }
-            Block::Lever { lever } if key == "face" => {
-                lever.face = LeverFace::from_str(val);
-            }
-            Block::Lever { lever } if key == "facing" => {
-                lever.facing = BlockDirection::from_str(val);
-            }
-            Block::Lever { lever } if key == "powered" => {
-                lever.powered = val.parse::<bool>().unwrap_or_default();
-            }
-            Block::StoneButton { button } if key == "face" => {
-                button.face = ButtonFace::from_str(val);
-            }
-            Block::StoneButton { button } if key == "facing" => {
-                button.facing = BlockDirection::from_str(val);
-            }
-            Block::StoneButton { button } if key == "powered" => {
-                button.powered = val.parse::<bool>().unwrap_or_default();
-            }
-            Block::TripwireHook { direction, .. } if key == "facing" => {
-                *direction = BlockDirection::from_str(val);
-            }
-            Block::Observer { facing } if key == "facing" => {
-                *facing = BlockFacing::from_str(val);
-            }
-            Block::WallSign { facing, .. } if key == "facing" => {
-                *facing = BlockDirection::from_str(val);
-            }
-            Block::Sign { rotation, .. } if key == "rotation" => {
-                *rotation = val.parse::<u32>().unwrap_or_default();
-            }
-            Block::Cauldron { level } if key == "level" => {
-                *level = val.parse::<u8>().unwrap_or_default();
-            }
-            _ => {}
-        }
-    }
 }
 
 #[test]
@@ -1340,6 +1277,22 @@ macro_rules! blocks {
                                 $prop_name,
                             )*
                         } => $get_name,
+                    )*
+                }
+            }
+
+            pub fn set_properties(&mut self, props: HashMap<&str, &str>) {
+                match self {
+                    $(
+                        Block::$name {
+                            $(
+                                $prop_name,
+                            )*
+                        } => {
+                            $(
+                                <$prop_type as BlockProperty>::decode($prop_name, &props, stringify!($prop_name));
+                            )*
+                        },
                     )*
                 }
             }
