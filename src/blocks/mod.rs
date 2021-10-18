@@ -22,7 +22,6 @@ where
         props.insert(name, self.to_string());
     }
 
-
     fn decode(&mut self, props: &HashMap<&str, &str>, name: &str) {
         if let Some(&str) = props.get(name) {
             if let Ok(val) = str.parse() {
@@ -364,7 +363,7 @@ impl FromStr for BlockDirection {
             "south" => BlockDirection::South,
             "east" => BlockDirection::East,
             "west" => BlockDirection::West,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }
@@ -503,7 +502,7 @@ impl FromStr for BlockFacing {
             "west" => BlockFacing::West,
             "up" => BlockFacing::Up,
             "down" => BlockFacing::Down,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }

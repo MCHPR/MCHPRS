@@ -321,7 +321,7 @@ impl FromStr for ComparatorMode {
         Ok(match s {
             "subtract" => ComparatorMode::Subtract,
             "compare" => ComparatorMode::Compare,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }
@@ -532,7 +532,7 @@ impl FromStr for LeverFace {
             "floor" => LeverFace::Floor,
             "ceiling" => LeverFace::Ceiling,
             "wall" => LeverFace::Wall,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }
@@ -604,7 +604,7 @@ impl FromStr for ButtonFace {
             "floor" => ButtonFace::Floor,
             "ceiling" => ButtonFace::Ceiling,
             "wall" => ButtonFace::Wall,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }

@@ -40,7 +40,7 @@ impl FromStr for RedstoneWireSide {
             "up" => RedstoneWireSide::Up,
             "side" => RedstoneWireSide::Side,
             "none" => RedstoneWireSide::None,
-            _ => return Err(())
+            _ => return Err(()),
         })
     }
 }

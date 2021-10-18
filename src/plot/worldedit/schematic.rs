@@ -5,8 +5,8 @@ use super::WorldEditClipboard;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::server::MC_DATA_VERSION;
 use crate::world::storage::PalettedBitBuffer;
-use itertools::Itertools;
 use anyhow::Result;
+use itertools::Itertools;
 use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -34,7 +34,11 @@ pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
         let captures = RE.captures(k)?;
         let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
         if let Some(properties_match) = captures.get(2) {
-            let properties = properties_match.as_str().split(&[',', '='][..]).tuples().collect();
+            let properties = properties_match
+                .as_str()
+                .split(&[',', '='][..])
+                .tuples()
+                .collect();
             block.set_properties(properties);
         }
         palette.insert(id, block.get_id());
