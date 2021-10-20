@@ -115,8 +115,10 @@ impl ServerBoundPacketHandler for Plot {
 
         let selected_slot = self.players[player].selected_slot as usize;
         let item_in_hand = if player_block_placement.hand == 0 {
+            // Slot in hotbar
             self.players[player].inventory[selected_slot + 36].clone()
         } else {
+            // Slot for left hand
             self.players[player].inventory[45].clone()
         };
 
@@ -166,7 +168,6 @@ impl ServerBoundPacketHandler for Plot {
             }
         }
 
-        // TODO: Allow WE wand without interact permissions, and while redpiler is running
         if let Some(item) = item_in_hand {
             let cancelled = item.use_on_block(
                 self,
