@@ -28,7 +28,7 @@ use std::fs::{self, File};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
-pub const MC_VERSION: &str = "1.16.4";
+pub const MC_VERSION: &str = "1.16.5";
 pub const MC_DATA_VERSION: i32 = 2586;
 pub const PROTOCOL_VERSION: i32 = 754;
 
