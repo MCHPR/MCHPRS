@@ -99,7 +99,19 @@ impl ServerBoundPacketHandler for Plot {
         player_block_placement: SPlayerBlockPlacemnt,
         player: usize,
     ) {
+        let block_pos = BlockPos::new(
+            player_block_placement.x,
+            player_block_placement.y,
+            player_block_placement.z,
+        );
         let block_face = BlockFace::from_id(player_block_placement.face as u32);
+
+        let cancel = |plot: &mut Plot| {
+            plot.send_block_change(block_pos, plot.world.get_block_raw(block_pos));
+
+            let offset_pos = block_pos.offset(block_face);
+            plot.send_block_change(offset_pos, plot.world.get_block_raw(offset_pos));
+        };
 
         let selected_slot = self.players[player].selected_slot as usize;
         let item_in_hand = if player_block_placement.hand == 0 {
@@ -108,26 +120,38 @@ impl ServerBoundPacketHandler for Plot {
             self.players[player].inventory[45].clone()
         };
 
-        let block_pos = BlockPos::new(
-            player_block_placement.x,
-            player_block_placement.y,
-            player_block_placement.z,
-        );
-
         if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
             self.players[player].send_system_message("Can't interact with blocks outside of plot");
-            self.send_block_change(block_pos.offset(block_face), 0);
+            cancel(self);
             return;
+        }
+
+        if let Some(item) = &item_in_hand {
+            let has_permission = self.players[player].has_permission("worldedit.selection.pos");
+            if item.item_type == (Item::WEWand {}) && has_permission {
+                let same = self.players[player]
+                    .second_position
+                    .map_or(false, |p| p == block_pos);
+                if !same {
+                    self.players[player].worldedit_set_second_position(block_pos);
+                }
+                cancel(self);
+                // FIXME: Because the client sends another packet after this for the left hand for most blocks,
+                // redpiler will get reset anyways.
+                return;
+            }
         }
 
         if let Some(owner) = self.owner {
             let player = &mut self.players[player];
             if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
                 player.send_no_permission_message();
+                cancel(self);
                 return;
             }
         } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
             self.players[player].send_no_permission_message();
+            cancel(self);
             return;
         }
 
@@ -144,7 +168,7 @@ impl ServerBoundPacketHandler for Plot {
 
         // TODO: Allow WE wand without interact permissions, and while redpiler is running
         if let Some(item) = item_in_hand {
-            item.use_on_block(
+            let cancelled = item.use_on_block(
                 self,
                 UseOnBlockContext {
                     block_face,
@@ -155,6 +179,9 @@ impl ServerBoundPacketHandler for Plot {
                     player_idx: player,
                 },
             );
+            if cancelled {
+                cancel(self);
+            }
             return;
         }
 
@@ -356,6 +383,7 @@ impl ServerBoundPacketHandler for Plot {
     fn handle_player_digging(&mut self, player_digging: SPlayerDigging, player: usize) {
         if player_digging.status == 0 {
             let block_pos = BlockPos::new(player_digging.x, player_digging.y, player_digging.z);
+            let block = self.world.get_block(block_pos);
 
             if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
                 self.players[player].send_system_message("Can't break blocks outside of plot");
@@ -367,8 +395,8 @@ impl ServerBoundPacketHandler for Plot {
                 [self.players[player].selected_slot as usize + 36]
                 .clone();
             if let Some(item) = item_in_hand {
-                if item.item_type == (Item::WEWand {}) {
-                    let block = self.world.get_block(block_pos);
+                let has_permission = self.players[player].has_permission("worldedit.selection.pos");
+                if item.item_type == (Item::WEWand {}) && has_permission {
                     self.send_block_change(block_pos, block.get_id());
                     if let Some(pos) = self.players[player].first_position {
                         if pos == block_pos {
@@ -384,24 +412,25 @@ impl ServerBoundPacketHandler for Plot {
                 let player = &mut self.players[player];
                 if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
                     player.send_no_permission_message();
+                    self.send_block_change(block_pos, block.get_id());
                     return;
                 }
             } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
                 self.players[player].send_no_permission_message();
+                self.send_block_change(block_pos, block.get_id());
                 return;
             }
 
             self.reset_redpiler();
 
-            let other_block = self.world.get_block(block_pos);
-            other_block.destroy(&mut self.world, block_pos);
+            block.destroy(&mut self.world, block_pos);
 
             let effect = CEffect {
                 effect_id: 2001,
                 x: player_digging.x,
                 y: player_digging.y,
                 z: player_digging.z,
-                data: other_block.get_id() as i32,
+                data: block.get_id() as i32,
                 disable_relative_volume: false,
             }
             .encode();

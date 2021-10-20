@@ -43,27 +43,16 @@ pub struct InventoryEntry {
 }
 
 impl ItemStack {
-    pub fn use_on_block(&self, plot: &mut Plot, context: UseOnBlockContext) {
+    /// returns true if cancelled
+    pub fn use_on_block(&self, plot: &mut Plot, context: UseOnBlockContext) -> bool {
         let use_pos = context.block_pos;
         let use_block = plot.world.get_block(use_pos);
         let block_pos = context.block_pos.offset(context.block_face);
 
         let can_place =
             self.item_type.is_block() && plot.world.get_block(block_pos).can_place_block_in();
-        let mut cancelled = false;
-
-        if let Item::WEWand {} = self.item_type {
-            let same = plot.players[context.player_idx]
-                .second_position
-                .map_or(false, |p| p == use_pos);
-            if !same {
-                plot.players[context.player_idx].worldedit_set_second_position(use_pos);
-            }
-            cancelled = true;
-        }
 
         if !context.player_crouching
-            && !cancelled
             && use_block
                 .on_use(
                     &mut plot.world,
@@ -73,10 +62,10 @@ impl ItemStack {
                 )
                 .is_success()
         {
-            return;
+            return false;
         }
 
-        if can_place && !cancelled {
+        if can_place {
             let block =
                 Block::get_state_for_placement(&plot.world, block_pos, self.item_type, &context);
 
@@ -96,15 +85,9 @@ impl ItemStack {
             }
 
             block.place_in_world(&mut plot.world, block_pos, &self.nbt);
+            false
         } else {
-            // This is to make sure the client doesn't place a block
-            // that the server can't handle.
-
-            let block = plot.world.get_block(context.block_pos);
-            plot.send_block_change(context.block_pos, block.get_id());
-
-            let offset_block = plot.world.get_block(block_pos);
-            plot.send_block_change(block_pos, offset_block.get_id());
+            true
         }
     }
 }
