@@ -610,6 +610,7 @@ impl Block {
                 | Block::Furnace { .. }
                 | Block::Hopper { .. }
                 | Block::Cauldron { .. }
+                | Block::Composter { .. }
         )
     }
 
@@ -627,6 +628,7 @@ impl Block {
                 }
             }
             Block::Cauldron { level } => level,
+            Block::Composter { level } => level,
             _ => 0,
         }
     }
@@ -1831,6 +1833,24 @@ blocks! {
             }
         },
         get_name: "cauldron",
+        transparent: true,
+        cube: false,
+    },
+    Composter {
+        props: {
+            level: u8
+        },
+        get_id: level as u32 + 15759,
+        from_id_offset: 15759,
+        from_id(id): 15759..=15767 => {
+            level: id as u8
+        },
+        from_names(_name): {
+            "composter" => {
+                level: 0
+            }
+        },
+        get_name: "composter",
         transparent: true,
         cube: false,
     },
