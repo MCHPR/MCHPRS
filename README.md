@@ -25,7 +25,7 @@ Once complete, the optimized executable will be located at `./target/release/mch
 ### General Commands
 | Command | Alias | Description |
 | --- | --- |--- |
-| `/rtps [rtps]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two redstone ticks in a game tick) |
+| `/rtps [rtps]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two game ticks in a redstone tick) |
 | `/radvance [ticks]` | `/radv` | Advances the plot by `[ticks]` redstone ticks. |
 | `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
 | `/speed [speed]` | `/tp` | Sets your flyspeed. |
