@@ -1852,7 +1852,8 @@ blocks! {
         },
         get_name: "composter",
         transparent: true,
-        cube: false,
+        // FIXME: You can place repeaters and comparators on it, but not wires?
+        cube: true,
     },
     Concrete {
         props: {
