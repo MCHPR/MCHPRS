@@ -281,6 +281,11 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 Block::RedstoneComparator { mut comparator } => {
+                    if let Some(far_override) = self.nodes[node_id].comparator_far_input {
+                        if input_power < 15 {
+                            input_power = far_override;
+                        }
+                    }
                     let comparator_output = node.comparator_output;
                     let new_strength = self.calculate_comparator_output(
                         comparator.mode,

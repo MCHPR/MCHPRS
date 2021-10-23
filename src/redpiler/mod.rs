@@ -49,6 +49,7 @@ pub struct CompileNode {
     comparator_output: u8,
     container_overriding: bool,
     facing_diode: bool,
+    comparator_far_input: Option<u8>, 
 }
 
 impl CompileNode {
@@ -61,6 +62,7 @@ impl CompileNode {
             comparator_output: 0,
             container_overriding: false,
             facing_diode,
+            comparator_far_input: None,
         }
     }
 
@@ -386,6 +388,13 @@ impl<'a> InputSearch<'a> {
                         0,
                         self.pos_map[&input_pos],
                     ));
+                } else {
+                    let far_input_pos = input_pos.offset(facing.block_face());
+                    let far_input_block = self.plot.get_block(far_input_pos);
+                    if input_block.is_cube() && far_input_block.has_comparator_override() {
+                        let far_override = far_input_block.get_comparator_override(self.plot, far_input_pos);
+                        self.nodes[id].comparator_far_input = Some(far_override);
+                    }
                 }
 
                 let output_strength = if let Some(BlockEntity::Comparator { output_strength }) =
