@@ -28,7 +28,7 @@ Once complete, the optimized executable will be located at `./target/release/mch
 | `/rtps [rtps]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two game ticks in a redstone tick) |
 | `/radvance [ticks]` | `/radv` | Advances the plot by `[ticks]` redstone ticks. |
 | `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
-| `/speed [speed]` | `/tp` | Sets your flyspeed. |
+| `/speed [speed]` | None | Sets your flyspeed. |
 | `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
 | `/stop` | None | Stops the server. |
 

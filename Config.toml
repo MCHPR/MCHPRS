@@ -1,6 +1,0 @@
-bind_address = "0.0.0.0:25565"
-motd = "Minecraft High Performance Redstone Server"
-chat_format = "<{username}> {message}"
-max_players = 99999
-bungeecord = false
-whitelist = false
