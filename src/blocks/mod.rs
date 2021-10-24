@@ -49,7 +49,8 @@ impl ToString for ContainerType {
             ContainerType::Furnace => "minecraft:furnace",
             ContainerType::Barrel => "minecraft:barrel",
             ContainerType::Hopper => "minecraft:hopper",
-        }.to_owned()
+        }
+        .to_owned()
     }
 }
 

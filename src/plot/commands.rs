@@ -435,7 +435,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49, 53
+                    47, 49, 53,
                 ],
                 redirect_node: None,
                 name: None,
@@ -857,7 +857,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 name: Some("username"),
                 parser: Some(Parser::Entity(3)),
             },
-            // 53: /container 
+            // 53: /container
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
                 children: &[54, 55, 56],
@@ -896,7 +896,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 redirect_node: None,
                 name: Some("power"),
                 parser: Some(Parser::Integer(0, 15)),
-            }
+            },
         ],
         root_index: 0,
     }

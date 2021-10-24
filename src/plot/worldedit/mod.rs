@@ -1547,8 +1547,16 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
     let size_x = clipboard.size_x;
     let size_y = clipboard.size_y;
     let size_z = clipboard.size_z;
-
     let volume = size_x * size_y * size_z;
+
+    let flip_pos = |mut pos: BlockPos| {
+        match direction {
+            BlockFacing::East | BlockFacing::West => pos.x = size_x as i32 - 1 - pos.x,
+            BlockFacing::North | BlockFacing::South => pos.z = size_z as i32 - 1 - pos.z,
+            BlockFacing::Up | BlockFacing::Down => pos.y = size_y as i32 - 1 - pos.y,
+        }
+        pos
+    };
 
     let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
 
@@ -1596,16 +1604,24 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
         }
     }
 
+    let offset = flip_pos(BlockPos::new(
+        clipboard.offset_x,
+        clipboard.offset_y,
+        clipboard.offset_z,
+    ));
     let cb = WorldEditClipboard {
-        offset_x: clipboard.offset_x,
-        offset_y: clipboard.offset_y,
-        offset_z: clipboard.offset_z,
+        offset_x: offset.x,
+        offset_y: offset.y,
+        offset_z: offset.z,
         size_x,
         size_y,
         size_z,
         data: newcpdata,
-        // TODO: Get the block entities in the selection
-        block_entities: HashMap::new(),
+        block_entities: clipboard
+            .block_entities
+            .iter()
+            .map(|(pos, e)| (flip_pos(*pos), e.clone()))
+            .collect(),
     };
 
     ctx.player.worldedit_clipboard = Some(cb);
