@@ -30,6 +30,7 @@ Once complete, the optimized executable will be located at `./target/release/mch
 | `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
 | `/speed [speed]` | None | Sets your flyspeed. |
 | `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
+| `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
 | `/stop` | None | Stops the server. |
 
 ### Plot ownership
