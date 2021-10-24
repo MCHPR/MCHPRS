@@ -43,6 +43,16 @@ pub enum ContainerType {
     Hopper,
 }
 
+impl ToString for ContainerType {
+    fn to_string(&self) -> String {
+        match self {
+            ContainerType::Furnace => "minecraft:furnace",
+            ContainerType::Barrel => "minecraft:barrel",
+            ContainerType::Hopper => "minecraft:hopper",
+        }.to_owned()
+    }
+}
+
 impl ContainerType {
     pub fn num_slots(self) -> u8 {
         match self {

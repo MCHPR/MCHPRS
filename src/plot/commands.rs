@@ -1,5 +1,7 @@
 use super::{database, worldedit, Plot};
+use crate::blocks::ContainerType;
 use crate::chat::ChatComponent;
+use crate::items::ItemStack;
 use crate::network::packets::clientbound::{
     CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
     ClientBoundPacket,
@@ -376,6 +378,35 @@ impl Plot {
                 };
                 self.change_player_gamemode(player, gamemode);
             }
+            "/container" => {
+                if args.len() != 2 {
+                    self.players[player].send_error_message("Usage: /container [type] [power]");
+                    return false;
+                }
+
+                let power = if let Ok(p) = args[1].parse() {
+                    p
+                } else {
+                    self.players[player].send_error_message("Unable to parse power!");
+                    return false;
+                };
+
+                let container_ty = match args[0] {
+                    "barrel" => ContainerType::Barrel,
+                    "furnace" => ContainerType::Furnace,
+                    "hopper" => ContainerType::Hopper,
+                    _ => {
+                        self.players[player].send_error_message(
+                            "Container type must be one of [barrel, furnace, hopper]",
+                        );
+                        return false;
+                    }
+                };
+
+                let item = ItemStack::container_with_ss(container_ty, power);
+                let slot = 36 + self.players[player].selected_slot;
+                self.players[player].set_inventory_slot(slot, Some(item));
+            }
             _ => self.players[player].send_error_message("Command not found!"),
         }
         false
@@ -404,7 +435,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49,
+                    47, 49, 53
                 ],
                 redirect_node: None,
                 name: None,
@@ -826,6 +857,46 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 name: Some("username"),
                 parser: Some(Parser::Entity(3)),
             },
+            // 53: /container 
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[54, 55, 56],
+                redirect_node: None,
+                name: Some("container"),
+                parser: None,
+            },
+            // 54: /container barrel
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[57],
+                redirect_node: None,
+                name: Some("barrel"),
+                parser: None,
+            },
+            // 55: /container hopper
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[57],
+                redirect_node: None,
+                name: Some("hopper"),
+                parser: None,
+            },
+            // 56: /container furnace
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[57],
+                redirect_node: None,
+                name: Some("furnace"),
+                parser: None,
+            },
+            // 57: /container [type] [power]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("power"),
+                parser: Some(Parser::Integer(0, 15)),
+            }
         ],
         root_index: 0,
     }
