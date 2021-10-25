@@ -209,14 +209,22 @@ impl<'a> InputSearch<'a> {
         } else if self.provides_weak_power(block, side) {
             res.push(Link::new(link_ty, start_node, distance, self.pos_map[&pos]));
         } else if let Block::RedstoneWire { wire } = block {
-            let direction = side.to_direction();
-            if search_wire
-                && !wire
-                    .get_regulated_sides(self.plot, pos)
-                    .get_current_side(direction.opposite())
-                    .is_none()
-            {
-                res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+            match side {
+                BlockFace::Top => {
+                    res.append(&mut self.search_wire(start_node, pos, link_ty, distance))
+                }
+                BlockFace::Bottom => {}
+                _ => {
+                    let direction = side.to_direction();
+                    if search_wire
+                        && !wire
+                            .get_regulated_sides(self.plot, pos)
+                            .get_current_side(direction.opposite())
+                            .is_none()
+                    {
+                        res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                    }
+                }
             }
         }
         res
