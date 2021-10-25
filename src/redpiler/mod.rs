@@ -151,8 +151,8 @@ impl<'a> InputSearch<'a> {
                 _ => false,
             },
             Block::StoneButton { button } => match side {
-                BlockFace::Top if button.face == ButtonFace::Floor && button.powered => true,
-                BlockFace::Bottom if button.face == ButtonFace::Ceiling && button.powered => true,
+                BlockFace::Top if button.face == ButtonFace::Floor => true,
+                BlockFace::Bottom if button.face == ButtonFace::Ceiling => true,
                 _ if button.facing == side.to_direction() => true,
                 _ => false,
             },
