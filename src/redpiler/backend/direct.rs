@@ -132,6 +132,11 @@ impl DirectBackend {
                 if self.pending_tick_at(node_id) {
                     return;
                 }
+                if let Some(far_override) = self.nodes[node_id].comparator_far_input {
+                    if input_power < 15 {
+                        input_power = far_override;
+                    }
+                }
                 let output_power = self.calculate_comparator_output(
                     comparator.mode,
                     input_power,

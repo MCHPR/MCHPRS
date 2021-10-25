@@ -385,7 +385,7 @@ impl RedstoneComparator {
         let input_block = world.get_block(input_pos);
         if input_block.has_comparator_override() {
             input_block.get_comparator_override(world, input_pos)
-        } else if base_input_strength < 15 && input_block.is_cube() {
+        } else if base_input_strength < 15 && input_block.is_solid() {
             let far_input_pos = input_pos.offset(self.facing.block_face());
             let far_input_block = world.get_block(far_input_pos);
             if far_input_block.has_comparator_override() {

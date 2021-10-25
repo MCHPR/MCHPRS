@@ -399,7 +399,7 @@ impl<'a> InputSearch<'a> {
                 } else {
                     let far_input_pos = input_pos.offset(facing.block_face());
                     let far_input_block = self.plot.get_block(far_input_pos);
-                    if input_block.is_cube() && far_input_block.has_comparator_override() {
+                    if input_block.is_solid() && far_input_block.has_comparator_override() {
                         let far_override =
                             far_input_block.get_comparator_override(self.plot, far_input_pos);
                         self.nodes[id].comparator_far_input = Some(far_override);
