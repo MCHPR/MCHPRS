@@ -230,15 +230,15 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     fn handle_player_position(&mut self, player_position: SPlayerPosition, player: usize) {
-        let old_x = self.players[player].x;
-        let old_y = self.players[player].y;
-        let old_z = self.players[player].z;
+        let old_x = self.players[player].pos.x;
+        let old_y = self.players[player].pos.y;
+        let old_z = self.players[player].pos.z;
         let new_x = player_position.x;
         let new_y = player_position.y;
         let new_z = player_position.z;
-        self.players[player].x = player_position.x;
-        self.players[player].y = player_position.y;
-        self.players[player].z = player_position.z;
+        self.players[player].pos.x = player_position.x;
+        self.players[player].pos.y = player_position.y;
+        self.players[player].pos.z = player_position.z;
         self.players[player].on_ground = player_position.on_ground;
         let packet = if (new_x - old_x).abs() > 8.0
             || (new_y - old_y).abs() > 8.0
@@ -281,15 +281,15 @@ impl ServerBoundPacketHandler for Plot {
         player: usize,
     ) {
         // This is beautiful
-        let old_x = self.players[player].x;
-        let old_y = self.players[player].y;
-        let old_z = self.players[player].z;
+        let old_x = self.players[player].pos.x;
+        let old_y = self.players[player].pos.y;
+        let old_z = self.players[player].pos.z;
         let new_x = player_position_and_rotation.x;
         let new_y = player_position_and_rotation.y;
         let new_z = player_position_and_rotation.z;
-        self.players[player].x = player_position_and_rotation.x;
-        self.players[player].y = player_position_and_rotation.y;
-        self.players[player].z = player_position_and_rotation.z;
+        self.players[player].pos.x = player_position_and_rotation.x;
+        self.players[player].pos.y = player_position_and_rotation.y;
+        self.players[player].pos.z = player_position_and_rotation.z;
         self.players[player].yaw = player_position_and_rotation.yaw;
         self.players[player].pitch = player_position_and_rotation.pitch;
         self.players[player].on_ground = player_position_and_rotation.on_ground;

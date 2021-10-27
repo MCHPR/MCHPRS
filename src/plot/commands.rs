@@ -7,7 +7,7 @@ use crate::network::packets::clientbound::{
     ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
-use crate::player::Gamemode;
+use crate::player::{Gamemode, PlayerPos};
 use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
@@ -19,8 +19,7 @@ use std::time::{Duration, Instant, SystemTime};
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
     fn handle_plot_command(&mut self, player: usize, command: &str, args: &[&str]) {
-        let plot_x = self.players[player].x as i32 >> 8;
-        let plot_z = self.players[player].z as i32 >> 8;
+        let (plot_x, plot_z) = self.players[player].pos.plot_pos();
 
         let permission_node = match command {
             "info" | "i" => "plots.info",
@@ -70,7 +69,7 @@ impl Plot {
             }
             "middle" => {
                 let center = Plot::get_center(plot_x, plot_z);
-                self.players[player].teleport(center.0, 64.0, center.1);
+                self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
             }
             "visit" | "v" => {
                 if !(1..=2).contains(&args.len()) {
@@ -94,7 +93,7 @@ impl Plot {
                 if !plots.is_empty() {
                     if let Some(&(plot_x, plot_z)) = plots.get(idx) {
                         let center = Plot::get_center(plot_x, plot_z);
-                        self.players[player].teleport(center.0, 64.0, center.1);
+                        self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
                     } else {
                         self.players[player]
                             .send_system_message(&format!("Plot range (1, {}).", plots.len()));
@@ -126,7 +125,7 @@ impl Plot {
                 }
 
                 let center = Plot::get_center(plot_x, plot_z);
-                self.players[player].teleport(center.0, 64.0, center.1);
+                self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
@@ -311,7 +310,7 @@ impl Plot {
                         self.players[player].send_error_message("Unable to parse z coordinate!");
                         return false;
                     }
-                    self.players[player].teleport(x, y, z);
+                    self.players[player].teleport(PlayerPos::new(x, y, z));
                 } else if args.len() == 1 {
                     let uuid = self.players[player].uuid;
                     let player = self.leave_plot(uuid);

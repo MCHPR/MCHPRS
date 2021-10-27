@@ -9,7 +9,7 @@ use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::network::PlayerPacketSender;
-use crate::player::{Gamemode, Player};
+use crate::player::{Gamemode, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
@@ -279,9 +279,9 @@ impl Plot {
             uuid: player.uuid,
             pitch: player.pitch,
             yaw: player.yaw,
-            x: player.x,
-            y: player.y,
-            z: player.z,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
         }
         .encode();
         let metadata_entries = vec![CEntityMetadataEntry {
@@ -303,9 +303,9 @@ impl Plot {
                 uuid: other_player.uuid,
                 pitch: other_player.pitch,
                 yaw: other_player.yaw,
-                x: other_player.x,
-                y: other_player.y,
-                z: other_player.z,
+                x: other_player.pos.x,
+                y: other_player.pos.y,
+                z: other_player.pos.z,
             }
             .encode();
             player.client.send_packet(&spawn_other_player);
@@ -401,8 +401,7 @@ impl Plot {
 
     pub fn update_view_pos_for_player(&mut self, player_idx: usize, force_load: bool) {
         let view_distance = 8;
-        let chunk_x = self.players[player_idx].x as i32 >> 4;
-        let chunk_z = self.players[player_idx].z as i32 >> 4;
+        let (chunk_x, chunk_z) = self.players[player_idx].pos.chunk_pos();
         let last_chunk_x = self.players[player_idx].last_chunk_x;
         let last_chunk_z = self.players[player_idx].last_chunk_z;
 
@@ -512,7 +511,7 @@ impl Plot {
         let player = &mut self.players[player];
         database::claim_plot(plot_x, plot_z, &format!("{:032x}", player.uuid));
         let center = Plot::get_center(plot_x, plot_z);
-        player.teleport(center.0, 64.0, center.1);
+        player.teleport(PlayerPos::new(center.0, 64.0, center.1));
         player.send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
     }
 
@@ -625,7 +624,7 @@ impl Plot {
                 }
                 PrivMessage::PlayerTeleportOther(mut player, username) => {
                     if let Some(other) = self.players.iter().find(|p| p.username == username) {
-                        player.teleport(other.x, other.y, other.z);
+                        player.teleport(other.pos);
                     }
                     self.enter_plot(player);
                 }
@@ -638,7 +637,8 @@ impl Plot {
         let mut outside_players = Vec::new();
         for player in 0..self.players.len() {
             let player = &mut self.players[player];
-            if !Plot::in_plot_bounds(self.world.x, self.world.z, player.x as i32, player.z as i32) {
+            let pos = player.pos.block_pos();
+            if !Plot::in_plot_bounds(self.world.x, self.world.z, pos.x, pos.z) {
                 outside_players.push(player.uuid);
             }
         }
@@ -919,7 +919,7 @@ impl Drop for Plot {
                 } else {
                     Plot::get_center(0, 0)
                 };
-                player.teleport(px, 64.0, pz);
+                player.teleport(PlayerPos::new(px, 64.0, pz));
 
                 player.send_raw_system_message(
                     json!({

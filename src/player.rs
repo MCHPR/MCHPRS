@@ -65,6 +65,35 @@ bitflags! {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct PlayerPos {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+}
+
+impl PlayerPos {
+    pub fn new(x: f64, y: f64, z: f64) -> PlayerPos {
+        PlayerPos { x, y, z }
+    }
+
+    pub fn block_pos(self) -> BlockPos {
+        BlockPos {
+            x: self.x.floor() as i32,
+            y: self.y.floor() as i32,
+            z: self.z.floor() as i32,
+        }
+    }
+
+    pub fn chunk_pos(self) -> (i32, i32) {
+        (self.x as i32 >> 4, self.z as i32 >> 4)
+    }
+
+    pub fn plot_pos(self) -> (i32, i32) {
+        (self.x as i32 >> 8, self.z as i32 >> 8)
+    }
+}
+
 pub struct Player {
     pub uuid: u128,
     pub username: String,
@@ -72,9 +101,7 @@ pub struct Player {
     pub inventory: Vec<Option<ItemStack>>,
     /// The selected slot of the player's hotbar (1-9)
     pub selected_slot: u32,
-    pub x: f64,
-    pub y: f64,
-    pub z: f64,
+    pub pos: PlayerPos,
     /// The last X chunk the player was in. This is used for updated view position.
     pub last_chunk_x: i32,
     /// The last Z chunk the player was in. This is used for updated view position.
@@ -163,9 +190,11 @@ impl Player {
                 skin_parts: Default::default(),
                 inventory,
                 selected_slot: player_data.selected_item_slot as u32,
-                x: player_data.position[0],
-                y: player_data.position[1],
-                z: player_data.position[2],
+                pos: PlayerPos {
+                    x: player_data.position[0],
+                    y: player_data.position[1],
+                    z: player_data.position[2],
+                },
                 pitch: player_data.rotation[0],
                 yaw: player_data.rotation[1],
                 last_chunk_x: 0,
@@ -205,9 +234,11 @@ impl Player {
             username,
             skin_parts: Default::default(),
             selected_slot: 0,
-            x: 128f64,
-            y: 128f64,
-            z: 128f64,
+            pos: PlayerPos {
+                x: 128f64,
+                y: 128f64,
+                z: 128f64,
+            },
             last_chunk_x: 8,
             last_chunk_z: 8,
             yaw: 0f32,
@@ -264,7 +295,7 @@ impl Player {
             inventory,
             motion: [0f64, 0f64, 0f64],
             on_ground: self.on_ground,
-            position: [self.x, self.y, self.z],
+            position: [self.pos.x, self.pos.y, self.pos.z],
             rotation: [self.pitch, self.yaw],
             selected_item_slot: self.selected_slot as i32,
             walk_speed: self.walk_speed,
@@ -281,7 +312,9 @@ impl Player {
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
         }
-        self.x as i32 >> 4 != self.last_chunk_x || self.z as i32 >> 4 != self.last_chunk_z
+
+        let (chunk_x, chunk_z) = self.pos.chunk_pos();
+        chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z
     }
 
     /// Sends the keep alive packet to the client and updates `last_keep_alive_sent`
@@ -325,20 +358,18 @@ impl Player {
         }
     }
 
-    pub fn teleport(&mut self, x: f64, y: f64, z: f64) {
+    pub fn teleport(&mut self, pos: PlayerPos) {
         let player_position_and_look = CPlayerPositionAndLook {
-            x,
-            y,
-            z,
+            x: pos.x,
+            y: pos.y,
+            z: pos.z,
             yaw: 0f32,
             pitch: 0f32,
             flags: 0x08 | 0x10, // pitch and yaw are relative
             teleport_id: 0,
         }
         .encode();
-        self.x = x;
-        self.y = y;
-        self.z = z;
+        self.pos = pos;
         self.client.send_packet(&player_position_and_look);
     }
 

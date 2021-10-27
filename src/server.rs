@@ -272,8 +272,7 @@ impl MinecraftServer {
     }
 
     fn send_player_to_plot(&mut self, player: Player, new_entry: bool) {
-        let plot_x = (player.x as i32) >> 8;
-        let plot_z = (player.z as i32) >> 8;
+        let (plot_x, plot_z) = player.pos.plot_pos();
 
         if new_entry {
             let player_list_entry = PlayerListEntry {
@@ -463,9 +462,9 @@ impl MinecraftServer {
 
         // Send the player's position and rotation.
         let player_pos_and_look = CPlayerPositionAndLook {
-            x: player.x,
-            y: player.y,
-            z: player.z,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
             yaw: player.yaw,
             pitch: player.pitch,
             flags: 0,
