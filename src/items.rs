@@ -302,6 +302,12 @@ items! {
         from_id(_id): 189 => {},
         block: true,
     },
+    StonePressurePlate {
+        props: {},
+        get_id: 190,
+        from_id(_id): 190 => {},
+        block: true,
+    },
     RedstoneTorch {
         props: {},
         get_id: 201,

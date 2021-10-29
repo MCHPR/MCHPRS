@@ -94,6 +94,12 @@ impl PlayerPos {
     }
 }
 
+impl std::fmt::Display for PlayerPos {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
+    }
+}
+
 pub struct Player {
     pub uuid: u128,
     pub username: String,

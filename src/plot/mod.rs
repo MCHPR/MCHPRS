@@ -4,7 +4,7 @@ mod monitor;
 mod packet_handlers;
 pub mod worldedit;
 
-use crate::blocks::{Block, BlockEntity, BlockPos};
+use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos};
 use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
@@ -16,7 +16,7 @@ use crate::utils::HyphenatedUUID;
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use log::debug;
+use log::{debug, warn};
 use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -270,6 +270,51 @@ impl Plot {
             self.players[player_idx].uuid,
             gamemode,
         ));
+    }
+
+    fn on_player_move(&mut self, player_idx: usize, old: PlayerPos, new: PlayerPos) {
+        let old_block = old.block_pos();
+        let new_block = new.block_pos();
+
+        if let Block::StonePressurePlate { powered: true } = self.world.get_block(old_block) {
+            if !self.are_players_on_block(old_block) {
+                self.set_pressure_plate(old_block, false);
+            }
+        }
+
+        if let Block::StonePressurePlate { powered: false } = self.world.get_block(new_block) {
+            if self.players[player_idx].on_ground {
+                self.set_pressure_plate(new_block, true);
+            }
+        }
+    }
+
+    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
+        if self.redpiler.is_active {
+            self.redpiler
+                .set_pressure_plate(&mut self.world, pos, powered);
+            return;
+        }
+
+        let block = self.world.get_block(pos);
+        match block {
+            Block::StonePressurePlate { .. } => {
+                self.world
+                    .set_block(pos, Block::StonePressurePlate { powered });
+                Block::update_surrounding_blocks(&mut self.world, pos);
+                Block::update_surrounding_blocks(&mut self.world, pos.offset(BlockFace::Bottom));
+            }
+            _ => warn!("Block at {} is not a pressure plate", pos),
+        }
+    }
+
+    fn are_players_on_block(&mut self, pos: BlockPos) -> bool {
+        for player in &self.players {
+            if player.pos.block_pos() == pos && player.on_ground {
+                return true;
+            }
+        }
+        false
     }
 
     fn enter_plot(&mut self, mut player: Player) {

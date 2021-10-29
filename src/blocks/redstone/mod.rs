@@ -19,6 +19,7 @@ impl Block {
             Block::RedstoneTorch { lit: true } => 15,
             Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
             Block::RedstoneBlock {} => 15,
+            Block::StonePressurePlate { powered: true } => 15,
             Block::Lever { lever } if lever.powered => 15,
             Block::StoneButton { button } if button.powered => 15,
             Block::RedstoneRepeater { repeater }
@@ -77,6 +78,7 @@ impl Block {
                 _ if button.facing == side.to_direction() && button.powered => 15,
                 _ => 0,
             },
+            Block::StonePressurePlate { powered: true } if side == BlockFace::Top => 15,
             Block::RedstoneWire { .. } => self.get_weak_power(world, pos, side, dust_power),
             Block::RedstoneRepeater { .. } => self.get_weak_power(world, pos, side, dust_power),
             Block::RedstoneComparator { .. } => self.get_weak_power(world, pos, side, dust_power),

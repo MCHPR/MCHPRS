@@ -78,6 +78,7 @@ impl CompileNode {
                 | Block::StoneButton { .. }
                 | Block::RedstoneBlock { .. }
                 | Block::RedstoneLamp { .. }
+                | Block::StonePressurePlate { .. }
         );
 
         if is_node || block.has_comparator_override() {
@@ -96,6 +97,7 @@ impl CompileNode {
             Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
             Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
             Block::RedstoneBlock {} => 15,
+            Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
             s if s.has_comparator_override() => self.comparator_output,
             s => {
                 warn!("How did {:?} become an output node?", s);
@@ -132,6 +134,7 @@ impl<'a> InputSearch<'a> {
             Block::RedstoneBlock {} => true,
             Block::Lever { .. } => true,
             Block::StoneButton { .. } => true,
+            Block::StonePressurePlate { .. } => true,
             Block::RedstoneRepeater { repeater } if repeater.facing.block_face() == side => true,
             Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => {
                 true
@@ -144,6 +147,7 @@ impl<'a> InputSearch<'a> {
         match block {
             Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
             Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
+            Block::StonePressurePlate { .. } if side == BlockFace::Top => true,
             Block::Lever { lever } => match side {
                 BlockFace::Top if lever.face == LeverFace::Floor => true,
                 BlockFace::Bottom if lever.face == LeverFace::Ceiling => true,
@@ -602,6 +606,20 @@ impl Compiler {
         assert!(self.is_active, "Redpiler cannot use block while inactive");
         if let Some(jit) = &mut self.jit {
             jit.on_use_block(plot, pos);
+        } else {
+            error!(
+                "Tried to use redpiler block while missing its JIT variant. How is it even active?"
+            );
+        }
+    }
+
+    pub fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
+        assert!(
+            self.is_active,
+            "Redpiler cannot set pressure plate while inactive"
+        );
+        if let Some(jit) = &mut self.jit {
+            jit.set_pressure_plate(plot, pos, powered);
         } else {
             error!(
                 "Tried to use redpiler block while missing its JIT variant. How is it even active?"

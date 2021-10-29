@@ -278,6 +278,12 @@ impl std::ops::Mul<i32> for BlockPos {
     }
 }
 
+impl std::fmt::Display for BlockPos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BlockDirection {
     North,
@@ -762,6 +768,7 @@ impl Block {
             Item::SeaPickle {} => Block::SeaPickle { pickles: 1 },
             Item::Wool { color } => Block::Wool { color },
             Item::Furnace {} => Block::Furnace {},
+            Item::StonePressurePlate {} => Block::StonePressurePlate { powered: false },
             Item::Lever {} => {
                 let lever_face = match context.block_face {
                     BlockFace::Top => LeverFace::Floor,
@@ -1094,7 +1101,7 @@ impl Block {
         }
     }
 
-    fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
+    pub fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
@@ -1714,11 +1721,18 @@ blocks! {
         cube: true,
     },
     StonePressurePlate {
-        props: {},
-        get_id: 3808,
-        from_id(_id): 3808 => {},
+        props: {
+            powered: bool
+        },
+        get_id: 3807 + !powered as u32,
+        from_id_offset: 3807,
+        from_id(id): 3807..=3808 => {
+            powered: id == 0
+        },
         from_names(_name): {
-            "stone_pressure_plate" => {}
+            "stone_pressure_plate" => {
+                powered: false
+            }
         },
         get_name: "stone_pressure_plate",
     },

@@ -219,6 +219,22 @@ impl JITBackend for DirectBackend {
         }
     }
 
+    fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
+        let node_id = self.pos_map[&pos];
+        let node = &self.nodes[node_id];
+        match node.state {
+            Block::StonePressurePlate { powered } => {
+                self.set_node(
+                    plot,
+                    node_id,
+                    Block::StonePressurePlate { powered: !powered },
+                    true,
+                );
+            }
+            _ => warn!("Tried to set pressure plate state for a {:?}", node.state),
+        }
+    }
+
     fn tick(&mut self, plot: &mut PlotWorld) {
         self.to_be_ticked
             .sort_by_key(|e| (e.ticks_left, e.tick_priority));

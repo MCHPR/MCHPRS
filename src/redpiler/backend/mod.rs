@@ -13,5 +13,6 @@ pub trait JITBackend {
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>);
     fn tick(&mut self, plot: &mut PlotWorld);
     fn on_use_block(&mut self, plot: &mut PlotWorld, pos: BlockPos);
+    fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool);
     fn reset(&mut self, plot: &mut PlotWorld);
 }
