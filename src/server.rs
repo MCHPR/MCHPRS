@@ -370,6 +370,8 @@ impl MinecraftServer {
             shrunk: 0,
             ultrawarm: 0,
             has_raids: 0,
+            min_y: 0,
+            height: 256,
             respawn_anchor_works: 0,
             bed_works: 0,
             coordinate_scale: 1.0,
@@ -469,6 +471,7 @@ impl MinecraftServer {
             pitch: player.pitch,
             flags: 0,
             teleport_id: 0,
+            dismount_vehicle: false,
         }
         .encode();
         player.client.send_packet(&player_pos_and_look);
@@ -511,7 +514,9 @@ impl MinecraftServer {
             .collect();
         let window_items = CWindowItems {
             window_id: 0,
+            state_id: 0,
             slot_data,
+            carried_item: None,
         }
         .encode();
         player.client.send_packet(&window_items);

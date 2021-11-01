@@ -310,14 +310,17 @@ impl<'a> ClientBoundPacket for CDeclareCommands<'a> {
 
 pub struct CWindowItems {
     pub window_id: u8,
+    pub state_id: i32,
     pub slot_data: Vec<Option<SlotData>>,
+    pub carried_item: Option<SlotData>,
 }
 
 impl ClientBoundPacket for CWindowItems {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_unsigned_byte(self.window_id);
-        buf.write_short(self.slot_data.len() as i16);
+        buf.write_varint(self.state_id);
+        buf.write_varint(self.slot_data.len() as i32);
         for slot_data in &self.slot_data {
             if let Some(slot) = slot_data {
                 buf.write_bool(true);
@@ -331,6 +334,18 @@ impl ClientBoundPacket for CWindowItems {
             } else {
                 buf.write_bool(false);
             }
+        }
+        if let Some(slot) = &self.carried_item {
+            buf.write_bool(true);
+            buf.write_varint(slot.item_id);
+            buf.write_byte(slot.item_count);
+            if let Some(nbt) = &slot.nbt {
+                buf.write_nbt_blob(nbt);
+            } else {
+                buf.write_byte(0); // End tag
+            }
+        } else {
+            buf.write_bool(false);
         }
         PacketEncoder::new(buf, 0x14)
     }
@@ -525,6 +540,8 @@ pub struct CJoinGameDimensionElement {
     pub shrunk: i8,
     pub ultrawarm: i8,
     pub has_raids: i8,
+    pub min_y: i32,
+    pub height: i32,
     pub respawn_anchor_works: i8,
     pub bed_works: i8,
     pub piglin_safe: i8,
@@ -819,6 +836,7 @@ pub struct CPlayerPositionAndLook {
     pub pitch: f32,
     pub flags: u8,
     pub teleport_id: i32,
+    pub dismount_vehicle: bool,
 }
 
 impl ClientBoundPacket for CPlayerPositionAndLook {
@@ -831,6 +849,7 @@ impl ClientBoundPacket for CPlayerPositionAndLook {
         buf.write_float(self.pitch);
         buf.write_unsigned_byte(self.flags);
         buf.write_varint(self.teleport_id);
+        buf.write_bool(self.dismount_vehicle);
         PacketEncoder::new(buf, 0x38)
     }
 }
