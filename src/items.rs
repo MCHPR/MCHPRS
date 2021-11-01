@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPos};
+use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPos, ContainerType};
 use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
@@ -33,6 +33,61 @@ pub struct ItemStack {
     pub count: u8,
     pub nbt: Option<nbt::Blob>,
 }
+
+impl ItemStack {
+    /// Create container item with specified signal strength
+    pub fn container_with_ss(container_ty: ContainerType, ss: u8) -> ItemStack {
+        let item = match container_ty {
+            ContainerType::Barrel => Item::Barrel {},
+            ContainerType::Hopper => Item::Hopper {},
+            ContainerType::Furnace => Item::Furnace {},
+        };
+        let slots = container_ty.num_slots() as u32;
+
+        let items_needed = match ss {
+            0 => 0,
+            15 => slots * 64,
+            _ => ((32 * slots * ss as u32) as f32 / 7.0 - 1.0).ceil() as u32,
+        } as usize;
+
+        let nbt = match items_needed {
+            0 => None,
+            _ => Some({
+                let mut nbt = nbt::Blob::new();
+                let list = nbt::Value::List({
+                    let mut items = Vec::new();
+                    for (slot, items_added) in (0..items_needed).step_by(64).enumerate() {
+                        let count = if items_added > items_needed {
+                            items_added - items_needed
+                        } else {
+                            64
+                        };
+                        items.push(nbt::Value::Compound(map! {
+                            "Count".to_owned() => nbt::Value::Byte(count as i8),
+                            "id".to_owned() => nbt::Value::String("minecraft:redstone".to_owned()),
+                            "Slot".to_owned() => nbt::Value::Byte(slot as i8)
+                        }));
+                    }
+                    items
+                });
+
+                let tag = nbt::Value::Compound(map! {
+                    "Items".to_owned() => list,
+                    "Id".to_owned() => nbt::Value::String(container_ty.to_string())
+                });
+                nbt.insert("BlockEntityTag", tag).unwrap();
+                nbt
+            }),
+        };
+
+        ItemStack {
+            item_type: item,
+            count: 1,
+            nbt,
+        }
+    }
+}
+
 /// A single item in an inventory
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct InventoryEntry {
@@ -245,6 +300,12 @@ items! {
         props: {},
         get_id: 600,
         from_id(_id): 600 => {},
+        block: true,
+    },
+    StonePressurePlate {
+        props: {},
+        get_id: 190,
+        from_id(_id): 190 => {},
         block: true,
     },
     RedstoneTorch {

@@ -1,11 +1,13 @@
 use super::{database, worldedit, Plot};
+use crate::blocks::ContainerType;
 use crate::chat::ChatComponent;
+use crate::items::ItemStack;
 use crate::network::packets::clientbound::{
     CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
     ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
-use crate::player::Gamemode;
+use crate::player::{Gamemode, PlayerPos};
 use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
@@ -17,8 +19,7 @@ use std::time::{Duration, Instant, SystemTime};
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
     fn handle_plot_command(&mut self, player: usize, command: &str, args: &[&str]) {
-        let plot_x = self.players[player].x as i32 >> 8;
-        let plot_z = self.players[player].z as i32 >> 8;
+        let (plot_x, plot_z) = self.players[player].pos.plot_pos();
 
         let permission_node = match command {
             "info" | "i" => "plots.info",
@@ -68,7 +69,7 @@ impl Plot {
             }
             "middle" => {
                 let center = Plot::get_center(plot_x, plot_z);
-                self.players[player].teleport(center.0, 64.0, center.1);
+                self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
             }
             "visit" | "v" => {
                 if !(1..=2).contains(&args.len()) {
@@ -92,7 +93,7 @@ impl Plot {
                 if !plots.is_empty() {
                     if let Some(&(plot_x, plot_z)) = plots.get(idx) {
                         let center = Plot::get_center(plot_x, plot_z);
-                        self.players[player].teleport(center.0, 64.0, center.1);
+                        self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
                     } else {
                         self.players[player]
                             .send_system_message(&format!("Plot range (1, {}).", plots.len()));
@@ -124,7 +125,7 @@ impl Plot {
                 }
 
                 let center = Plot::get_center(plot_x, plot_z);
-                self.players[player].teleport(center.0, 64.0, center.1);
+                self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
@@ -309,7 +310,7 @@ impl Plot {
                         self.players[player].send_error_message("Unable to parse z coordinate!");
                         return false;
                     }
-                    self.players[player].teleport(x, y, z);
+                    self.players[player].teleport(PlayerPos::new(x, y, z));
                 } else if args.len() == 1 {
                     let uuid = self.players[player].uuid;
                     let player = self.leave_plot(uuid);
@@ -376,6 +377,35 @@ impl Plot {
                 };
                 self.change_player_gamemode(player, gamemode);
             }
+            "/container" => {
+                if args.len() != 2 {
+                    self.players[player].send_error_message("Usage: /container [type] [power]");
+                    return false;
+                }
+
+                let power = if let Ok(p) = args[1].parse() {
+                    p
+                } else {
+                    self.players[player].send_error_message("Unable to parse power!");
+                    return false;
+                };
+
+                let container_ty = match args[0] {
+                    "barrel" => ContainerType::Barrel,
+                    "furnace" => ContainerType::Furnace,
+                    "hopper" => ContainerType::Hopper,
+                    _ => {
+                        self.players[player].send_error_message(
+                            "Container type must be one of [barrel, furnace, hopper]",
+                        );
+                        return false;
+                    }
+                };
+
+                let item = ItemStack::container_with_ss(container_ty, power);
+                let slot = 36 + self.players[player].selected_slot;
+                self.players[player].set_inventory_slot(slot, Some(item));
+            }
             _ => self.players[player].send_error_message("Command not found!"),
         }
         false
@@ -404,7 +434,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49,
+                    47, 49, 53,
                 ],
                 redirect_node: None,
                 name: None,
@@ -825,6 +855,46 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 redirect_node: None,
                 name: Some("username"),
                 parser: Some(Parser::Entity(3)),
+            },
+            // 53: /container
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[54, 55, 56],
+                redirect_node: None,
+                name: Some("container"),
+                parser: None,
+            },
+            // 54: /container barrel
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[57],
+                redirect_node: None,
+                name: Some("barrel"),
+                parser: None,
+            },
+            // 55: /container hopper
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[57],
+                redirect_node: None,
+                name: Some("hopper"),
+                parser: None,
+            },
+            // 56: /container furnace
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[57],
+                redirect_node: None,
+                name: Some("furnace"),
+                parser: None,
+            },
+            // 57: /container [type] [power]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("power"),
+                parser: Some(Parser::Integer(0, 15)),
             },
         ],
         root_index: 0,

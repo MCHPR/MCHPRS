@@ -5,7 +5,7 @@ mod schematic;
 use super::{Plot, PlotWorld};
 use crate::blocks::{Block, BlockEntity, BlockFace, BlockFacing, BlockPos};
 use crate::chat::{ChatComponentBuilder, ColorCode};
-use crate::player::Player;
+use crate::player::{Player, PlayerPos};
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
 use log::error;
@@ -858,9 +858,7 @@ impl WorldEditOperation {
 
 fn ray_trace_block(
     world: &impl World,
-    mut x: f64,
-    mut y: f64,
-    mut z: f64,
+    mut pos: PlayerPos,
     start_pitch: f64,
     start_yaw: f64,
     max_distance: f64,
@@ -868,7 +866,7 @@ fn ray_trace_block(
     let check_distance = 0.2;
 
     // Player view height
-    y += 1.65;
+    pos.y += 1.65;
     let rot_x = (start_yaw + 90.0) % 360.0;
     let rot_y = start_pitch * -1.0;
     let h = check_distance * rot_y.to_radians().cos();
@@ -880,16 +878,16 @@ fn ray_trace_block(
     let mut current_distance = 0.0;
 
     while current_distance < max_distance {
-        let block_pos = BlockPos::from_pos(x, y, z);
+        let block_pos = pos.block_pos();
         let block = world.get_block(block_pos);
 
         if !matches!(block, Block::Air {}) {
             return Some(block_pos);
         }
 
-        x += offset_x;
-        y += offset_y;
-        z += offset_z;
+        pos.x += offset_x;
+        pos.y += offset_y;
+        pos.z += offset_z;
         current_distance += check_distance;
     }
 
@@ -1150,11 +1148,7 @@ fn capture_undo(
 fn execute_copy(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let origin = BlockPos::new(
-        ctx.player.x.floor() as i32,
-        ctx.player.y.floor() as i32,
-        ctx.player.z.floor() as i32,
-    );
+    let origin = ctx.player.pos.block_pos();
     let clipboard = create_clipboard(
         ctx.plot,
         origin,
@@ -1177,11 +1171,7 @@ fn execute_cut(mut ctx: CommandExecuteContext<'_>) {
 
     capture_undo(ctx.plot, ctx.player, first_pos, second_pos);
 
-    let origin = BlockPos::new(
-        ctx.player.x.floor() as i32,
-        ctx.player.y.floor() as i32,
-        ctx.player.z.floor() as i32,
-    );
+    let origin = ctx.player.pos.block_pos();
     let clipboard = create_clipboard(ctx.plot, origin, first_pos, second_pos);
     ctx.player.worldedit_clipboard = Some(clipboard);
     clear_area(ctx.plot, first_pos, second_pos);
@@ -1248,11 +1238,7 @@ fn execute_paste(ctx: CommandExecuteContext<'_>) {
     if ctx.player.worldedit_clipboard.is_some() {
         // Here I am cloning the clipboard. This is bad. Don't do this.
         let cb = &ctx.player.worldedit_clipboard.clone().unwrap();
-        let pos = BlockPos::new(
-            ctx.player.x.floor() as i32,
-            ctx.player.y.floor() as i32,
-            ctx.player.z.floor() as i32,
-        );
+        let pos = ctx.player.pos.block_pos();
         let offset_x = pos.x - cb.offset_x;
         let offset_y = pos.y - cb.offset_y;
         let offset_z = pos.z - cb.offset_z;
@@ -1385,30 +1371,21 @@ fn execute_sel(ctx: CommandExecuteContext<'_>) {
 }
 
 fn execute_pos1(ctx: CommandExecuteContext<'_>) {
-    let player = ctx.player;
-
-    let pos = BlockPos::from_pos(player.x, player.y, player.z);
-
-    player.worldedit_set_first_position(pos);
+    let pos = ctx.player.pos.block_pos();
+    ctx.player.worldedit_set_first_position(pos);
 }
 
 fn execute_pos2(ctx: CommandExecuteContext<'_>) {
-    let player = ctx.player;
-
-    let pos = BlockPos::from_pos(player.x, player.y, player.z);
-
-    player.worldedit_set_second_position(pos);
+    let pos = ctx.player.pos.block_pos();
+    ctx.player.worldedit_set_second_position(pos);
 }
 
 fn execute_hpos1(mut ctx: CommandExecuteContext<'_>) {
     let player = &mut ctx.player;
-    let x = player.x;
-    let y = player.y;
-    let z = player.z;
     let pitch = player.pitch as f64;
     let yaw = player.yaw as f64;
 
-    let result = ray_trace_block(ctx.plot, x, y, z, pitch, yaw, 300.0);
+    let result = ray_trace_block(ctx.plot, player.pos, pitch, yaw, 300.0);
 
     let player = ctx.player;
     match result {
@@ -1419,13 +1396,13 @@ fn execute_hpos1(mut ctx: CommandExecuteContext<'_>) {
 
 fn execute_hpos2(mut ctx: CommandExecuteContext<'_>) {
     let player = &mut ctx.player;
-    let x = player.x;
-    let y = player.y;
-    let z = player.z;
+    let x = player.pos.x;
+    let y = player.pos.y;
+    let z = player.pos.z;
     let pitch = player.pitch as f64;
     let yaw = player.yaw as f64;
 
-    let result = ray_trace_block(ctx.plot, x, y, z, pitch, yaw, 300.0);
+    let result = ray_trace_block(ctx.plot, player.pos, pitch, yaw, 300.0);
 
     let player = &mut ctx.player;
     match result {
@@ -1547,8 +1524,16 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
     let size_x = clipboard.size_x;
     let size_y = clipboard.size_y;
     let size_z = clipboard.size_z;
-
     let volume = size_x * size_y * size_z;
+
+    let flip_pos = |mut pos: BlockPos| {
+        match direction {
+            BlockFacing::East | BlockFacing::West => pos.x = size_x as i32 - 1 - pos.x,
+            BlockFacing::North | BlockFacing::South => pos.z = size_z as i32 - 1 - pos.z,
+            BlockFacing::Up | BlockFacing::Down => pos.y = size_y as i32 - 1 - pos.y,
+        }
+        pos
+    };
 
     let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
 
@@ -1596,16 +1581,24 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
         }
     }
 
+    let offset = flip_pos(BlockPos::new(
+        clipboard.offset_x,
+        clipboard.offset_y,
+        clipboard.offset_z,
+    ));
     let cb = WorldEditClipboard {
-        offset_x: clipboard.offset_x,
-        offset_y: clipboard.offset_y,
-        offset_z: clipboard.offset_z,
+        offset_x: offset.x,
+        offset_y: offset.y,
+        offset_z: offset.z,
         size_x,
         size_y,
         size_z,
         data: newcpdata,
-        // TODO: Get the block entities in the selection
-        block_entities: HashMap::new(),
+        block_entities: clipboard
+            .block_entities
+            .iter()
+            .map(|(pos, e)| (flip_pos(*pos), e.clone()))
+            .collect(),
     };
 
     ctx.player.worldedit_clipboard = Some(cb);
@@ -1736,18 +1729,18 @@ fn execute_help(mut ctx: CommandExecuteContext<'_>) {
 
 fn execute_up(mut ctx: CommandExecuteContext<'_>) {
     let distance = ctx.arguments[0].unwrap_uint();
-    let player = &mut ctx.player;
+    let player = ctx.player;
 
-    let y = player.y + distance as f64;
-    let block_pos = BlockPos::from_pos(player.x, y, player.z);
+    let mut pos = player.pos;
+    pos.y += distance as f64;
+    let block_pos = pos.block_pos();
+
     let platform_pos = block_pos.offset(BlockFace::Bottom);
-
     if matches!(ctx.plot.get_block(platform_pos), Block::Air {}) {
         ctx.plot.set_block(platform_pos, Block::Glass {});
     }
 
-    let player = &mut ctx.player;
-    player.teleport(player.x, block_pos.y as f64, player.z);
+    player.teleport(pos);
 }
 
 fn execute_rstack(ctx: CommandExecuteContext<'_>) {

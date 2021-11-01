@@ -43,6 +43,17 @@ pub enum ContainerType {
     Hopper,
 }
 
+impl ToString for ContainerType {
+    fn to_string(&self) -> String {
+        match self {
+            ContainerType::Furnace => "minecraft:furnace",
+            ContainerType::Barrel => "minecraft:barrel",
+            ContainerType::Hopper => "minecraft:hopper",
+        }
+        .to_owned()
+    }
+}
+
 impl ContainerType {
     pub fn num_slots(self) -> u8 {
         match self {
@@ -203,14 +214,6 @@ impl BlockPos {
         BlockPos::new(0, 0, 0)
     }
 
-    pub fn from_pos(x: f64, y: f64, z: f64) -> BlockPos {
-        BlockPos {
-            x: x.floor() as i32,
-            y: y.floor() as i32,
-            z: z.floor() as i32,
-        }
-    }
-
     pub fn offset(self, face: BlockFace) -> BlockPos {
         match face {
             BlockFace::Bottom => BlockPos::new(self.x, self.y.saturating_sub(1), self.z),
@@ -272,6 +275,12 @@ impl std::ops::Mul<i32> for BlockPos {
             y: self.y * rhs,
             z: self.z * rhs,
         }
+    }
+}
+
+impl std::fmt::Display for BlockPos {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {}, {})", self.x, self.y, self.z)
     }
 }
 
@@ -759,6 +768,7 @@ impl Block {
             Item::SeaPickle {} => Block::SeaPickle { pickles: 1 },
             Item::Wool { color } => Block::Wool { color },
             Item::Furnace {} => Block::Furnace {},
+            Item::StonePressurePlate {} => Block::StonePressurePlate { powered: false },
             Item::Lever {} => {
                 let lever_face = match context.block_face {
                     BlockFace::Top => LeverFace::Floor,
@@ -1091,7 +1101,7 @@ impl Block {
         }
     }
 
-    fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
+    pub fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
@@ -1711,11 +1721,18 @@ blocks! {
         cube: true,
     },
     StonePressurePlate {
-        props: {},
-        get_id: 17006,
-        from_id(_id): 17006 => {},
+        props: {
+            powered: bool
+        },
+        get_id: 3874 + !powered as u32,
+        from_id_offset: 3874,
+        from_id(id): 3874..=3875 => {
+            powered: id == 0
+        },
         from_names(_name): {
-            "stone_pressure_plate" => {}
+            "stone_pressure_plate" => {
+                powered: false
+            }
         },
         get_name: "stone_pressure_plate",
     },

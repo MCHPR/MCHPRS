@@ -4,19 +4,19 @@ mod monitor;
 mod packet_handlers;
 pub mod worldedit;
 
-use crate::blocks::{Block, BlockEntity, BlockPos};
+use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos};
 use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::network::PlayerPacketSender;
-use crate::player::{Gamemode, Player};
+use crate::player::{Gamemode, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use log::debug;
+use log::{debug, warn};
 use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -272,6 +272,51 @@ impl Plot {
         ));
     }
 
+    fn on_player_move(&mut self, player_idx: usize, old: PlayerPos, new: PlayerPos) {
+        let old_block = old.block_pos();
+        let new_block = new.block_pos();
+
+        if let Block::StonePressurePlate { powered: true } = self.world.get_block(old_block) {
+            if !self.are_players_on_block(old_block) {
+                self.set_pressure_plate(old_block, false);
+            }
+        }
+
+        if let Block::StonePressurePlate { powered: false } = self.world.get_block(new_block) {
+            if self.players[player_idx].on_ground {
+                self.set_pressure_plate(new_block, true);
+            }
+        }
+    }
+
+    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
+        if self.redpiler.is_active {
+            self.redpiler
+                .set_pressure_plate(&mut self.world, pos, powered);
+            return;
+        }
+
+        let block = self.world.get_block(pos);
+        match block {
+            Block::StonePressurePlate { .. } => {
+                self.world
+                    .set_block(pos, Block::StonePressurePlate { powered });
+                Block::update_surrounding_blocks(&mut self.world, pos);
+                Block::update_surrounding_blocks(&mut self.world, pos.offset(BlockFace::Bottom));
+            }
+            _ => warn!("Block at {} is not a pressure plate", pos),
+        }
+    }
+
+    fn are_players_on_block(&mut self, pos: BlockPos) -> bool {
+        for player in &self.players {
+            if player.pos.block_pos() == pos && player.on_ground {
+                return true;
+            }
+        }
+        false
+    }
+
     fn enter_plot(&mut self, mut player: Player) {
         self.save();
         let spawn_player = CSpawnPlayer {
@@ -279,9 +324,9 @@ impl Plot {
             uuid: player.uuid,
             pitch: player.pitch,
             yaw: player.yaw,
-            x: player.x,
-            y: player.y,
-            z: player.z,
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
         }
         .encode();
         let metadata_entries = vec![CEntityMetadataEntry {
@@ -303,9 +348,9 @@ impl Plot {
                 uuid: other_player.uuid,
                 pitch: other_player.pitch,
                 yaw: other_player.yaw,
-                x: other_player.x,
-                y: other_player.y,
-                z: other_player.z,
+                x: other_player.pos.x,
+                y: other_player.pos.y,
+                z: other_player.pos.z,
             }
             .encode();
             player.client.send_packet(&spawn_other_player);
@@ -401,8 +446,7 @@ impl Plot {
 
     pub fn update_view_pos_for_player(&mut self, player_idx: usize, force_load: bool) {
         let view_distance = 8;
-        let chunk_x = self.players[player_idx].x as i32 >> 4;
-        let chunk_z = self.players[player_idx].z as i32 >> 4;
+        let (chunk_x, chunk_z) = self.players[player_idx].pos.chunk_pos();
         let last_chunk_x = self.players[player_idx].last_chunk_x;
         let last_chunk_z = self.players[player_idx].last_chunk_z;
 
@@ -512,7 +556,7 @@ impl Plot {
         let player = &mut self.players[player];
         database::claim_plot(plot_x, plot_z, &format!("{:032x}", player.uuid));
         let center = Plot::get_center(plot_x, plot_z);
-        player.teleport(center.0, 64.0, center.1);
+        player.teleport(PlayerPos::new(center.0, 64.0, center.1));
         player.send_system_message(&format!("Claimed plot {},{}", plot_x, plot_z));
     }
 
@@ -625,7 +669,7 @@ impl Plot {
                 }
                 PrivMessage::PlayerTeleportOther(mut player, username) => {
                     if let Some(other) = self.players.iter().find(|p| p.username == username) {
-                        player.teleport(other.x, other.y, other.z);
+                        player.teleport(other.pos);
                     }
                     self.enter_plot(player);
                 }
@@ -638,7 +682,8 @@ impl Plot {
         let mut outside_players = Vec::new();
         for player in 0..self.players.len() {
             let player = &mut self.players[player];
-            if !Plot::in_plot_bounds(self.world.x, self.world.z, player.x as i32, player.z as i32) {
+            let pos = player.pos.block_pos();
+            if !Plot::in_plot_bounds(self.world.x, self.world.z, pos.x, pos.z) {
                 outside_players.push(player.uuid);
             }
         }
@@ -919,7 +964,7 @@ impl Drop for Plot {
                 } else {
                     Plot::get_center(0, 0)
                 };
-                player.teleport(px, 64.0, pz);
+                player.teleport(PlayerPos::new(px, 64.0, pz));
 
                 player.send_raw_system_message(
                     json!({

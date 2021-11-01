@@ -4,7 +4,7 @@ use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::SlotData;
-use crate::player::SkinParts;
+use crate::player::{PlayerPos, SkinParts};
 use crate::server::Message;
 use crate::world::World;
 use serde_json::json;
@@ -230,34 +230,28 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     fn handle_player_position(&mut self, player_position: SPlayerPosition, player: usize) {
-        let old_x = self.players[player].x;
-        let old_y = self.players[player].y;
-        let old_z = self.players[player].z;
-        let new_x = player_position.x;
-        let new_y = player_position.y;
-        let new_z = player_position.z;
-        self.players[player].x = player_position.x;
-        self.players[player].y = player_position.y;
-        self.players[player].z = player_position.z;
+        let old = self.players[player].pos;
+        let new = PlayerPos::new(player_position.x, player_position.y, player_position.z);
+        self.players[player].pos = new;
         self.players[player].on_ground = player_position.on_ground;
-        let packet = if (new_x - old_x).abs() > 8.0
-            || (new_y - old_y).abs() > 8.0
-            || (new_z - old_z).abs() > 8.0
+        let packet = if (new.x - old.x).abs() > 8.0
+            || (new.y - old.y).abs() > 8.0
+            || (new.z - old.z).abs() > 8.0
         {
             CEntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
-                x: new_x,
-                y: new_y,
-                z: new_z,
+                x: new.x,
+                y: new.y,
+                z: new.z,
                 yaw: self.players[player].yaw,
                 pitch: self.players[player].pitch,
                 on_ground: player_position.on_ground,
             }
             .encode()
         } else {
-            let delta_x = ((player_position.x * 32.0 - old_x * 32.0) * 128.0) as i16;
-            let delta_y = ((player_position.y * 32.0 - old_y * 32.0) * 128.0) as i16;
-            let delta_z = ((player_position.z * 32.0 - old_z * 32.0) * 128.0) as i16;
+            let delta_x = ((player_position.x * 32.0 - old.x * 32.0) * 128.0) as i16;
+            let delta_y = ((player_position.y * 32.0 - old.y * 32.0) * 128.0) as i16;
+            let delta_z = ((player_position.z * 32.0 - old.z * 32.0) * 128.0) as i16;
             CEntityPosition {
                 delta_x,
                 delta_y,
@@ -273,6 +267,7 @@ impl ServerBoundPacketHandler for Plot {
             };
             self.players[other_player].client.send_packet(&packet);
         }
+        self.on_player_move(player, old, new);
     }
 
     fn handle_player_position_and_rotation(
@@ -280,37 +275,34 @@ impl ServerBoundPacketHandler for Plot {
         player_position_and_rotation: SPlayerPositionAndRotation,
         player: usize,
     ) {
-        // This is beautiful
-        let old_x = self.players[player].x;
-        let old_y = self.players[player].y;
-        let old_z = self.players[player].z;
-        let new_x = player_position_and_rotation.x;
-        let new_y = player_position_and_rotation.y;
-        let new_z = player_position_and_rotation.z;
-        self.players[player].x = player_position_and_rotation.x;
-        self.players[player].y = player_position_and_rotation.y;
-        self.players[player].z = player_position_and_rotation.z;
+        let old = self.players[player].pos;
+        let new = PlayerPos::new(
+            player_position_and_rotation.x,
+            player_position_and_rotation.y,
+            player_position_and_rotation.z,
+        );
+        self.players[player].pos = new;
         self.players[player].yaw = player_position_and_rotation.yaw;
         self.players[player].pitch = player_position_and_rotation.pitch;
         self.players[player].on_ground = player_position_and_rotation.on_ground;
-        let packet = if (new_x - old_x).abs() > 8.0
-            || (new_y - old_y).abs() > 8.0
-            || (new_z - old_z).abs() > 8.0
+        let packet = if (new.x - old.x).abs() > 8.0
+            || (new.y - old.y).abs() > 8.0
+            || (new.z - old.z).abs() > 8.0
         {
             CEntityTeleport {
                 entity_id: self.players[player].entity_id as i32,
-                x: new_x,
-                y: new_y,
-                z: new_z,
+                x: new.x,
+                y: new.y,
+                z: new.z,
                 yaw: self.players[player].yaw,
                 pitch: self.players[player].pitch,
                 on_ground: player_position_and_rotation.on_ground,
             }
             .encode()
         } else {
-            let delta_x = ((player_position_and_rotation.x * 32.0 - old_x * 32.0) * 128.0) as i16;
-            let delta_y = ((player_position_and_rotation.y * 32.0 - old_y * 32.0) * 128.0) as i16;
-            let delta_z = ((player_position_and_rotation.z * 32.0 - old_z * 32.0) * 128.0) as i16;
+            let delta_x = ((player_position_and_rotation.x * 32.0 - old.x * 32.0) * 128.0) as i16;
+            let delta_y = ((player_position_and_rotation.y * 32.0 - old.y * 32.0) * 128.0) as i16;
+            let delta_z = ((player_position_and_rotation.z * 32.0 - old.z * 32.0) * 128.0) as i16;
             CEntityPositionAndRotation {
                 delta_x,
                 delta_y,
@@ -336,6 +328,7 @@ impl ServerBoundPacketHandler for Plot {
                 .client
                 .send_packet(&entity_head_look);
         }
+        self.on_player_move(player, old, new);
     }
 
     fn handle_player_rotation(&mut self, player_rotation: SPlayerRotation, player: usize) {

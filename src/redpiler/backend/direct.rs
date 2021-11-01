@@ -132,6 +132,11 @@ impl DirectBackend {
                 if self.pending_tick_at(node_id) {
                     return;
                 }
+                if let Some(far_override) = self.nodes[node_id].comparator_far_input {
+                    if input_power < 15 {
+                        input_power = far_override;
+                    }
+                }
                 let output_power = self.calculate_comparator_output(
                     comparator.mode,
                     input_power,
@@ -214,6 +219,22 @@ impl JITBackend for DirectBackend {
         }
     }
 
+    fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
+        let node_id = self.pos_map[&pos];
+        let node = &self.nodes[node_id];
+        match node.state {
+            Block::StonePressurePlate { powered } => {
+                self.set_node(
+                    plot,
+                    node_id,
+                    Block::StonePressurePlate { powered: !powered },
+                    true,
+                );
+            }
+            _ => warn!("Tried to set pressure plate state for a {:?}", node.state),
+        }
+    }
+
     fn tick(&mut self, plot: &mut PlotWorld) {
         self.to_be_ticked
             .sort_by_key(|e| (e.ticks_left, e.tick_priority));
@@ -281,6 +302,11 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 Block::RedstoneComparator { mut comparator } => {
+                    if let Some(far_override) = self.nodes[node_id].comparator_far_input {
+                        if input_power < 15 {
+                            input_power = far_override;
+                        }
+                    }
                     let comparator_output = node.comparator_output;
                     let new_strength = self.calculate_comparator_output(
                         comparator.mode,

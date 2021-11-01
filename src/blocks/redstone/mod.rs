@@ -19,6 +19,7 @@ impl Block {
             Block::RedstoneTorch { lit: true } => 15,
             Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
             Block::RedstoneBlock {} => 15,
+            Block::StonePressurePlate { powered: true } => 15,
             Block::Lever { lever } if lever.powered => 15,
             Block::StoneButton { button } if button.powered => 15,
             Block::RedstoneRepeater { repeater }
@@ -77,6 +78,7 @@ impl Block {
                 _ if button.facing == side.to_direction() && button.powered => 15,
                 _ => 0,
             },
+            Block::StonePressurePlate { powered: true } if side == BlockFace::Top => 15,
             Block::RedstoneWire { .. } => self.get_weak_power(world, pos, side, dust_power),
             Block::RedstoneRepeater { .. } => self.get_weak_power(world, pos, side, dust_power),
             Block::RedstoneComparator { .. } => self.get_weak_power(world, pos, side, dust_power),
@@ -385,7 +387,7 @@ impl RedstoneComparator {
         let input_block = world.get_block(input_pos);
         if input_block.has_comparator_override() {
             input_block.get_comparator_override(world, input_pos)
-        } else if base_input_strength < 15 && input_block.is_cube() {
+        } else if base_input_strength < 15 && input_block.is_solid() {
             let far_input_pos = input_pos.offset(self.facing.block_face());
             let far_input_block = world.get_block(far_input_pos);
             if far_input_block.has_comparator_override() {

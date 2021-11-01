@@ -49,6 +49,7 @@ pub struct CompileNode {
     comparator_output: u8,
     container_overriding: bool,
     facing_diode: bool,
+    comparator_far_input: Option<u8>,
 }
 
 impl CompileNode {
@@ -61,6 +62,7 @@ impl CompileNode {
             comparator_output: 0,
             container_overriding: false,
             facing_diode,
+            comparator_far_input: None,
         }
     }
 
@@ -76,6 +78,7 @@ impl CompileNode {
                 | Block::StoneButton { .. }
                 | Block::RedstoneBlock { .. }
                 | Block::RedstoneLamp { .. }
+                | Block::StonePressurePlate { .. }
         );
 
         if is_node || block.has_comparator_override() {
@@ -94,6 +97,7 @@ impl CompileNode {
             Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
             Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
             Block::RedstoneBlock {} => 15,
+            Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
             s if s.has_comparator_override() => self.comparator_output,
             s => {
                 warn!("How did {:?} become an output node?", s);
@@ -130,6 +134,7 @@ impl<'a> InputSearch<'a> {
             Block::RedstoneBlock {} => true,
             Block::Lever { .. } => true,
             Block::StoneButton { .. } => true,
+            Block::StonePressurePlate { .. } => true,
             Block::RedstoneRepeater { repeater } if repeater.facing.block_face() == side => true,
             Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => {
                 true
@@ -142,6 +147,7 @@ impl<'a> InputSearch<'a> {
         match block {
             Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
             Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
+            Block::StonePressurePlate { .. } if side == BlockFace::Top => true,
             Block::Lever { lever } => match side {
                 BlockFace::Top if lever.face == LeverFace::Floor => true,
                 BlockFace::Bottom if lever.face == LeverFace::Ceiling => true,
@@ -149,8 +155,8 @@ impl<'a> InputSearch<'a> {
                 _ => false,
             },
             Block::StoneButton { button } => match side {
-                BlockFace::Top if button.face == ButtonFace::Floor && button.powered => true,
-                BlockFace::Bottom if button.face == ButtonFace::Ceiling && button.powered => true,
+                BlockFace::Top if button.face == ButtonFace::Floor => true,
+                BlockFace::Bottom if button.face == ButtonFace::Ceiling => true,
                 _ if button.facing == side.to_direction() => true,
                 _ => false,
             },
@@ -207,14 +213,22 @@ impl<'a> InputSearch<'a> {
         } else if self.provides_weak_power(block, side) {
             res.push(Link::new(link_ty, start_node, distance, self.pos_map[&pos]));
         } else if let Block::RedstoneWire { wire } = block {
-            let direction = side.to_direction();
-            if search_wire
-                && !wire
-                    .get_regulated_sides(self.plot, pos)
-                    .get_current_side(direction.opposite())
-                    .is_none()
-            {
-                res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+            match side {
+                BlockFace::Top => {
+                    res.append(&mut self.search_wire(start_node, pos, link_ty, distance))
+                }
+                BlockFace::Bottom => {}
+                _ => {
+                    let direction = side.to_direction();
+                    if search_wire
+                        && !wire
+                            .get_regulated_sides(self.plot, pos)
+                            .get_current_side(direction.opposite())
+                            .is_none()
+                    {
+                        res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                    }
+                }
             }
         }
         res
@@ -386,6 +400,14 @@ impl<'a> InputSearch<'a> {
                         0,
                         self.pos_map[&input_pos],
                     ));
+                } else {
+                    let far_input_pos = input_pos.offset(facing.block_face());
+                    let far_input_block = self.plot.get_block(far_input_pos);
+                    if input_block.is_solid() && far_input_block.has_comparator_override() {
+                        let far_override =
+                            far_input_block.get_comparator_override(self.plot, far_input_pos);
+                        self.nodes[id].comparator_far_input = Some(far_override);
+                    }
                 }
 
                 let output_strength = if let Some(BlockEntity::Comparator { output_strength }) =
@@ -584,6 +606,20 @@ impl Compiler {
         assert!(self.is_active, "Redpiler cannot use block while inactive");
         if let Some(jit) = &mut self.jit {
             jit.on_use_block(plot, pos);
+        } else {
+            error!(
+                "Tried to use redpiler block while missing its JIT variant. How is it even active?"
+            );
+        }
+    }
+
+    pub fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
+        assert!(
+            self.is_active,
+            "Redpiler cannot set pressure plate while inactive"
+        );
+        if let Some(jit) = &mut self.jit {
+            jit.set_pressure_plate(plot, pos, powered);
         } else {
             error!(
                 "Tried to use redpiler block while missing its JIT variant. How is it even active?"
