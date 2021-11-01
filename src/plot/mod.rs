@@ -330,7 +330,7 @@ impl Plot {
         }
         .encode();
         let metadata_entries = vec![CEntityMetadataEntry {
-            index: 16,
+            index: 17,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
         }];
@@ -372,7 +372,7 @@ impl Plot {
             }
 
             let other_metadata_entries = vec![CEntityMetadataEntry {
-                index: 16,
+                index: 17,
                 metadata_type: 0,
                 value: vec![other_player.skin_parts.bits() as u8],
             }];

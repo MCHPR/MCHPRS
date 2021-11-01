@@ -209,7 +209,7 @@ impl ServerBoundPacketHandler for Plot {
         player.skin_parts =
             SkinParts::from_bits_truncate(client_settings.displayed_skin_parts as u32);
         let metadata_entry = CEntityMetadataEntry {
-            index: 16,
+            index: 17,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
         };
