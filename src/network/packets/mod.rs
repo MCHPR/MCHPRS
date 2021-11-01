@@ -331,6 +331,24 @@ pub trait PacketEncoderExt: Write {
     {
         blob.to_writer(self).unwrap();
     }
+
+    fn write_slot_data(&mut self, slot_data: &Option<SlotData>)
+    where
+        Self: Sized, 
+    {
+        if let Some(slot) = slot_data {
+            self.write_bool(true);
+            self.write_varint(slot.item_id);
+            self.write_byte(slot.item_count);
+            if let Some(nbt) = &slot.nbt {
+                self.write_nbt_blob(nbt);
+            } else {
+                self.write_byte(0); // End tag
+            }
+        } else {
+            self.write_bool(false);
+        }
+    }
 }
 
 impl PacketEncoderExt for Vec<u8> {}

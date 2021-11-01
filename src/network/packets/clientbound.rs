@@ -322,31 +322,9 @@ impl ClientBoundPacket for CWindowItems {
         buf.write_varint(self.state_id);
         buf.write_varint(self.slot_data.len() as i32);
         for slot_data in &self.slot_data {
-            if let Some(slot) = slot_data {
-                buf.write_bool(true);
-                buf.write_varint(slot.item_id);
-                buf.write_byte(slot.item_count);
-                if let Some(nbt) = &slot.nbt {
-                    buf.write_nbt_blob(nbt);
-                } else {
-                    buf.write_byte(0); // End tag
-                }
-            } else {
-                buf.write_bool(false);
-            }
+            buf.write_slot_data(slot_data);
         }
-        if let Some(slot) = &self.carried_item {
-            buf.write_bool(true);
-            buf.write_varint(slot.item_id);
-            buf.write_byte(slot.item_count);
-            if let Some(nbt) = &slot.nbt {
-                buf.write_nbt_blob(nbt);
-            } else {
-                buf.write_byte(0); // End tag
-            }
-        } else {
-            buf.write_bool(false);
-        }
+        buf.write_slot_data(&self.carried_item);
         PacketEncoder::new(buf, 0x14)
     }
 }
@@ -360,20 +338,7 @@ pub struct CSetSlot {
 impl ClientBoundPacket for CSetSlot {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_unsigned_byte(self.window_id);
-        buf.write_short(self.slot);
-        if let Some(slot) = &self.slot_data {
-            buf.write_bool(true);
-            buf.write_varint(slot.item_id);
-            buf.write_byte(slot.item_count);
-            if let Some(nbt) = &slot.nbt {
-                buf.write_nbt_blob(nbt);
-            } else {
-                buf.write_byte(0); // End tag
-            }
-        } else {
-            buf.write_bool(false);
-        }
+        buf.write_slot_data(&self.slot_data);
         PacketEncoder::new(buf, 0x16)
     }
 }
@@ -984,18 +949,7 @@ impl ClientBoundPacket for CEntityEquipment {
         buf.write_varint(self.entity_id);
         for slot in &self.equipment {
             buf.write_varint(slot.slot);
-            if let Some(slot) = &slot.item {
-                buf.write_bool(true);
-                buf.write_varint(slot.item_id);
-                buf.write_byte(slot.item_count);
-                if let Some(nbt) = &slot.nbt {
-                    buf.write_nbt_blob(nbt);
-                } else {
-                    buf.write_byte(0); // End tag
-                }
-            } else {
-                buf.write_bool(false);
-            }
+            buf.write_slot_data(&slot.item);
         }
 
         PacketEncoder::new(buf, 0x50)
