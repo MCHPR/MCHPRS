@@ -900,7 +900,7 @@ fn worldedit_send_operation(plot: &mut PlotWorld, operation: WorldEditOperation)
             Some(chunk) => chunk,
             None => continue,
         };
-        let chunk_data = chunk.encode_packet(false);
+        let chunk_data = chunk.encode_packet();
         for player in &mut plot.packet_senders {
             player.send_packet(&chunk_data);
         }
@@ -1068,7 +1068,7 @@ fn clear_area(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
     for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
         for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
             if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
-                let chunk_data = chunk.encode_packet(false);
+                let chunk_data = chunk.encode_packet();
                 for player in &mut plot.packet_senders {
                     player.send_packet(&chunk_data);
                 }
@@ -1110,7 +1110,7 @@ fn paste_clipboard(plot: &mut PlotWorld, cb: &WorldEditClipboard, pos: BlockPos,
     for chunk_x in chunk_x_range {
         for chunk_z in chunk_z_range.clone() {
             if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
-                let chunk_data = chunk.encode_packet(false);
+                let chunk_data = chunk.encode_packet();
                 for player in &mut plot.packet_senders {
                     player.send_packet(&chunk_data);
                 }

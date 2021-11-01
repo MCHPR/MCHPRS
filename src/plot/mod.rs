@@ -434,11 +434,11 @@ impl Plot {
             if !Plot::chunk_in_plot_bounds(self.world.x, self.world.z, chunk_x, chunk_z) {
                 self.players[player_idx]
                     .client
-                    .send_packet(&Chunk::empty(chunk_x, chunk_z).encode_packet(true));
+                    .send_packet(&Chunk::empty(chunk_x, chunk_z).encode_packet());
             } else {
                 let chunk_data = self.world.chunks
                     [self.world.get_chunk_index_for_chunk(chunk_x, chunk_z)]
-                .encode_packet(true);
+                .encode_packet();
                 self.players[player_idx].client.send_packet(&chunk_data);
             }
         }
@@ -507,12 +507,12 @@ impl Plot {
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
-        let destroy_entities = CDestroyEntities {
-            entity_ids: vec![entity_id as i32],
+        let destroy_entity = CDestroyEntity {
+            entity_id: entity_id as i32,
         }
         .encode();
         for player in &mut self.players {
-            player.client.send_packet(&destroy_entities);
+            player.client.send_packet(&destroy_entity);
         }
     }
 
@@ -520,12 +520,10 @@ impl Plot {
         let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
         self.world.packet_senders.remove(player_idx);
         let player = self.players.remove(player_idx);
-        let mut entity_ids = Vec::new();
         for player in &self.players {
-            entity_ids.push(player.entity_id as i32);
+            let destroy_other_entity = CDestroyEntity { entity_id: player.entity_id as i32 }.encode();
+            player.client.send_packet(&destroy_other_entity);
         }
-        let destroy_other_entities = CDestroyEntities { entity_ids }.encode();
-        player.client.send_packet(&destroy_other_entities);
         let chunk_offset_x = self.world.x << 4;
         let chunk_offset_z = self.world.z << 4;
         for chunk in &self.world.chunks {

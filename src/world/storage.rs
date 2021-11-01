@@ -352,7 +352,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
-    pub fn encode_packet(&self, full_chunk: bool) -> PacketEncoder {
+    pub fn encode_packet(&self) -> PacketEncoder {
         let mut heightmap_buffer = BitBuffer::create(9, 256);
         for x in 0..16 {
             for z in 0..16 {
@@ -390,13 +390,12 @@ impl Chunk {
             })
             .for_each(drop);
         CChunkData {
-            biomes: full_chunk.then(|| vec![0; 1024]),
+            biomes: vec![0; 1024],
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,
-            full_chunk,
             heightmaps,
-            primary_bit_mask: bitmask as i32,
+            primary_bit_mask: vec![bitmask],
             block_entities,
         }
         .encode()

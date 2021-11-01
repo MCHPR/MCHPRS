@@ -362,16 +362,6 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_movement(&mut self, player_movement: SPlayerMovement, player: usize) {
         self.players[player].on_ground = player_movement.on_ground;
-        let packet = CEntityMovement {
-            entity_id: self.players[player].entity_id as i32,
-        }
-        .encode();
-        for other_player in 0..self.players.len() {
-            if player == other_player {
-                continue;
-            };
-            self.players[other_player].client.send_packet(&packet);
-        }
     }
 
     fn handle_player_digging(&mut self, player_digging: SPlayerDigging, player: usize) {
