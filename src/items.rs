@@ -257,8 +257,8 @@ items! {
     },
     Redstone {
         props: {},
-        get_id: 587,
-        from_id(_id): 587 => {},
+        get_id: 585,
+        from_id(_id): 585 => {},
         block: true,
     },
     Glass {
