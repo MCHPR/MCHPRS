@@ -373,6 +373,7 @@ impl Player {
             pitch: 0f32,
             flags: 0x08 | 0x10, // pitch and yaw are relative
             teleport_id: 0,
+            dismount_vehicle: false,
         }
         .encode();
         self.pos = pos;
@@ -538,7 +539,9 @@ impl Player {
 
         let window_items = CWindowItems {
             window_id: 1,
+            state_id: 0,
             slot_data: slots,
+            carried_item: None,
         }
         .encode();
         self.client.send_packet(&window_items);

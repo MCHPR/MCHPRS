@@ -28,9 +28,9 @@ use std::fs::{self, File};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
-pub const MC_VERSION: &str = "1.16.5";
-pub const MC_DATA_VERSION: i32 = 2586;
-pub const PROTOCOL_VERSION: i32 = 754;
+pub const MC_VERSION: &str = "1.17.1";
+pub const MC_DATA_VERSION: i32 = 2730;
+pub const PROTOCOL_VERSION: i32 = 756;
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
@@ -370,6 +370,8 @@ impl MinecraftServer {
             shrunk: 0,
             ultrawarm: 0,
             has_raids: 0,
+            min_y: 0,
+            height: 256,
             respawn_anchor_works: 0,
             bed_works: 0,
             coordinate_scale: 1.0,
@@ -469,6 +471,7 @@ impl MinecraftServer {
             pitch: player.pitch,
             flags: 0,
             teleport_id: 0,
+            dismount_vehicle: false,
         }
         .encode();
         player.client.send_packet(&player_pos_and_look);
@@ -511,7 +514,9 @@ impl MinecraftServer {
             .collect();
         let window_items = CWindowItems {
             window_id: 0,
+            state_id: 0,
             slot_data,
+            carried_item: None,
         }
         .encode();
         player.client.send_packet(&window_items);

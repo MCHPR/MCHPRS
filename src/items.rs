@@ -234,19 +234,19 @@ items! {
     // Wooden Axe
     WEWand {
         props: {},
-        get_id: 586,
-        from_id(_id): 586 => {},
+        get_id: 702,
+        from_id(_id): 702 => {},
     },
     Snowball {
         props: {},
-        get_id: 666,
-        from_id(_id): 666 => {},
+        get_id: 780,
+        from_id(_id): 780 => {},
         max_stack: 16,
     },
     TotemOfUndying {
         props: {},
-        get_id: 904,
-        from_id(_id): 904 => {},
+        get_id: 1010,
+        from_id(_id): 1010 => {},
         max_stack: 1,
     },
     Stone {
@@ -257,49 +257,49 @@ items! {
     },
     Redstone {
         props: {},
-        get_id: 665,
-        from_id(_id): 665 => {},
+        get_id: 585,
+        from_id(_id): 585 => {},
         block: true,
     },
     Glass {
         props: {},
-        get_id: 77,
-        from_id(_id): 77 => {},
+        get_id: 143,
+        from_id(_id): 143 => {},
         block: true,
     },
     Sandstone {
         props: {},
-        get_id: 81,
-        from_id(_id): 81 => {},
+        get_id: 146,
+        from_id(_id): 146 => {},
         block: true,
     },
     SeaPickle {
         props: {},
-        get_id: 93,
-        from_id(_id): 93 => {},
+        get_id: 156,
+        from_id(_id): 156 => {},
         block: true,
     },
     Wool {
         props: {
             color: BlockColorVariant
         },
-        get_id: 95 + color.get_id(),
-        from_id_offset: 95,
-        from_id(id): 95..=110 => {
+        get_id: 157 + color.get_id(),
+        from_id_offset: 157,
+        from_id(id): 157..=172 => {
             color: BlockColorVariant::from_id(id)
         },
         block: true,
     },
     Furnace {
         props: {},
-        get_id: 185,
-        from_id(_id): 185 => {},
+        get_id: 248,
+        from_id(_id): 248 => {},
         block: true,
     },
     Lever {
         props: {},
-        get_id: 189,
-        from_id(_id): 189 => {},
+        get_id: 600,
+        from_id(_id): 600 => {},
         block: true,
     },
     StonePressurePlate {
@@ -310,47 +310,47 @@ items! {
     },
     RedstoneTorch {
         props: {},
-        get_id: 201,
-        from_id(_id): 201 => {},
+        get_id: 586,
+        from_id(_id): 586 => {},
         block: true,
     },
     StoneButton {
         props: {},
-        get_id: 304,
-        from_id(_id): 304 => {},
+        get_id: 609,
+        from_id(_id): 609 => {},
         block: true,
     },
     RedstoneLamp {
         props: {},
-        get_id: 274,
-        from_id(_id): 274 => {},
+        get_id: 607,
+        from_id(_id): 607 => {},
         block: true,
     },
     RedstoneBlock {
         props: {},
-        get_id: 321,
-        from_id(_id): 321 => {},
+        get_id: 587,
+        from_id(_id): 587 => {},
         block: true,
     },
     Hopper {
         props: {},
-        get_id: 323,
-        from_id(_id): 323 => {},
+        get_id: 595,
+        from_id(_id): 595 => {},
         block: true,
     },
     Terracotta {
         props: {},
-        get_id: 366,
-        from_id(_id): 366 => {},
+        get_id: 389,
+        from_id(_id): 389 => {},
         block: true,
     },
     ColoredTerracotta {
         props: {
             color: BlockColorVariant
         },
-        get_id: 331 + color.get_id(),
-        from_id_offset: 331,
-        from_id(id): 331..=346 => {
+        get_id: 354 + color.get_id(),
+        from_id_offset: 354,
+        from_id(id): 354..=371 => {
             color: BlockColorVariant::from_id(id)
         },
         block: true,
@@ -359,9 +359,9 @@ items! {
         props: {
             color: BlockColorVariant
         },
-        get_id: 464 + color.get_id(),
-        from_id_offset: 464,
-        from_id(id): 464..=479 => {
+        get_id: 484 + color.get_id(),
+        from_id_offset: 484,
+        from_id(id): 484..=499 => {
             color: BlockColorVariant::from_id(id)
         },
         block: true,
@@ -370,58 +370,58 @@ items! {
         props: {
             color: BlockColorVariant
         },
-        get_id: 379 + color.get_id(),
-        from_id_offset: 379,
-        from_id(id): 379..=394 => {
+        get_id: 400 + color.get_id(),
+        from_id_offset: 400,
+        from_id(id): 400..=415 => {
             color: BlockColorVariant::from_id(id)
         },
         block: true,
     },
     Repeater {
         props: {},
-        get_id: 566,
-        from_id(_id): 566 => {},
+        get_id: 588,
+        from_id(_id): 588 => {},
         block: true,
     },
     Comparator {
         props: {},
-        get_id: 567,
-        from_id(_id): 567 => {},
+        get_id: 589,
+        from_id(_id): 589 => {},
         block: true,
     },
     Sign {
         props: {
             sign_type: u32
         },
-        get_id: 652 + sign_type,
-        from_id_offset: 652,
-        from_id(id): 652..=657 => {
+        get_id: 768 + sign_type,
+        from_id_offset: 768,
+        from_id(id): 768..=773 => {
             sign_type: id
         },
         block: true,
     },
     Barrel {
         props: {},
-        get_id: 936,
-        from_id(_id): 936 => {},
+        get_id: 1042,
+        from_id(_id): 1042 => {},
         block: true,
     },
     Target {
         props: {},
-        get_id: 961,
-        from_id(_id): 961 => {},
+        get_id: 599,
+        from_id(_id): 599 => {},
         block: true,
     },
     SmoothStoneSlab {
         props: {},
-        get_id: 147,
-        from_id(_id): 147 => {},
+        get_id: 213,
+        from_id(_id): 213 => {},
         block: true,
     },
     QuartzSlab {
         props: {},
-        get_id: 155,
-        from_id(_id): 155 => {},
+        get_id: 221,
+        from_id(_id): 221 => {},
         block: true,
     },
     Unknown {

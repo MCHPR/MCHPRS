@@ -91,15 +91,15 @@ fn read_decompressed<T: PacketDecoderExt>(
         _ => match packet_id {
             0x03 => Box::new(SChatMessage::decode(reader)?),
             0x05 => Box::new(SClientSettings::decode(reader)?),
-            0x0B => Box::new(SPluginMessage::decode(reader)?),
-            0x10 => Box::new(SKeepAlive::decode(reader)?),
-            0x12 => Box::new(SPlayerPosition::decode(reader)?),
-            0x13 => Box::new(SPlayerPositionAndRotation::decode(reader)?),
-            0x14 => Box::new(SPlayerRotation::decode(reader)?),
-            0x15 => Box::new(SPlayerMovement::decode(reader)?),
-            0x1A => Box::new(SPlayerAbilities::decode(reader)?),
-            0x1B => Box::new(SPlayerDigging::decode(reader)?),
-            0x1C => Box::new(SEntityAction::decode(reader)?),
+            0x0A => Box::new(SPluginMessage::decode(reader)?),
+            0x0F => Box::new(SKeepAlive::decode(reader)?),
+            0x11 => Box::new(SPlayerPosition::decode(reader)?),
+            0x12 => Box::new(SPlayerPositionAndRotation::decode(reader)?),
+            0x13 => Box::new(SPlayerRotation::decode(reader)?),
+            0x14 => Box::new(SPlayerMovement::decode(reader)?),
+            0x19 => Box::new(SPlayerAbilities::decode(reader)?),
+            0x1A => Box::new(SPlayerDigging::decode(reader)?),
+            0x1B => Box::new(SEntityAction::decode(reader)?),
             0x25 => Box::new(SHeldItemChange::decode(reader)?),
             0x28 => Box::new(SCreativeInventoryAction::decode(reader)?),
             0x2B => Box::new(SUpdateSign::decode(reader)?),
@@ -330,6 +330,24 @@ pub trait PacketEncoderExt: Write {
         Self: Sized,
     {
         blob.to_writer(self).unwrap();
+    }
+
+    fn write_slot_data(&mut self, slot_data: &Option<SlotData>)
+    where
+        Self: Sized, 
+    {
+        if let Some(slot) = slot_data {
+            self.write_bool(true);
+            self.write_varint(slot.item_id);
+            self.write_byte(slot.item_count);
+            if let Some(nbt) = &slot.nbt {
+                self.write_nbt_blob(nbt);
+            } else {
+                self.write_byte(0); // End tag
+            }
+        } else {
+            self.write_bool(false);
+        }
     }
 }
 
