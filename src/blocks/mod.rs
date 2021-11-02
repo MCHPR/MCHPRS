@@ -1395,9 +1395,9 @@ blocks! {
             sign_type: u32,
             facing: BlockDirection
         },
-        get_id: (sign_type << 3) + (facing.get_id() << 1) + 3736,
-        from_id_offset: 3802,
-        from_id(id): 3802..=3848 => {
+        get_id: (sign_type << 3) + (facing.get_id() << 1) + 3803,
+        from_id_offset: 3803,
+        from_id(id): 3803..=3849 => {
             sign_type: id >> 3,
             facing: BlockDirection::from_id((id & 0b110) >> 1)
         },
@@ -1488,9 +1488,9 @@ blocks! {
             sign_type: u32,
             rotation: u32
         },
-        get_id: (sign_type << 5) + (rotation << 1) + 3438,
-        from_id_offset: 3438,
-        from_id(id): 3438..=3469 => {
+        get_id: (sign_type << 5) + (rotation << 1) + 3439,
+        from_id_offset: 3439,
+        from_id(id): 3439..=3629 => {
             sign_type: id >> 5,
             rotation: (id & 0b11110) >> 1
         },
