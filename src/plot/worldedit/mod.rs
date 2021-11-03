@@ -612,6 +612,15 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             description: "Flip the contents of the clipboard across the origin",
             ..Default::default()
         },
+        "/rotate" => WorldeditCommand {
+            arguments: &[
+                argument!("rotateY", UnsignedInteger, "Amount to rotate on the x-axis", 0),
+            ],
+            requires_clipboard: true,
+            execute_fn: execute_rotate,
+            description: "Rotate the contents of the clipboard",
+            ..Default::default()
+        },
         "/rstack" => WorldeditCommand {
             arguments: &[
                 argument!("count", UnsignedInteger, "# of copies to stack"),
@@ -651,6 +660,8 @@ static ALIASES: SyncLazy<HashMap<&'static str, &'static str>> = SyncLazy::new(||
         "/s" => "/stack",
         "/sa" => "/stack -a",
         "/e" => "/expand",
+        "/r" => "/rotate",
+        "/f" => "/flip",
         "/h1" => "/hpos1",
         "/h2" => "/hpos2",
         "/rs" => "/rstack"
@@ -1540,41 +1551,20 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
     let mut c_x = 0;
     let mut c_y = 0;
     let mut c_z = 0;
-
     for i in 0..volume {
-        let n_x;
-        let n_y;
-        let n_z;
+        let BlockPos { x: n_x, y: n_y, z: n_z } = flip_pos(BlockPos::new(c_x, c_y, c_z));
 
-        if matches!(direction, BlockFacing::East | BlockFacing::West) {
-            n_x = size_x - 1 - c_x;
-        } else {
-            n_x = c_x;
-        }
-
-        if matches!(direction, BlockFacing::Up | BlockFacing::Down) {
-            n_y = size_y - 1 - c_y;
-        } else {
-            n_y = c_y;
-        }
-
-        if matches!(direction, BlockFacing::North | BlockFacing::South) {
-            n_z = size_z - 1 - c_z;
-        } else {
-            n_z = c_z;
-        }
-
-        let n_i = (n_y * size_x * size_z) + (n_z * size_x) + n_x;
+        let n_i = (n_y as u32 * size_x * size_z) + (n_z as u32 * size_x) + n_x as u32;
         newcpdata.set_entry(n_i as usize, clipboard.data.get_entry(i as usize));
 
         // Ok now lets increment the coordinates for the next block
         c_x += 1;
 
-        if c_x == size_x {
+        if c_x as u32 == size_x {
             c_x = 0;
             c_z += 1;
 
-            if c_z == size_z {
+            if c_z as u32 == size_z {
                 c_z = 0;
                 c_y += 1;
             }
@@ -1603,7 +1593,101 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
 
     ctx.player.worldedit_clipboard = Some(cb);
     ctx.player.send_worldedit_message(&format!(
-        "Your selection was flipped. ({:?})",
+        "The clipboard copy has been flipped. ({:?})",
+        start_time.elapsed()
+    ));
+}
+
+fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
+    let start_time = Instant::now();
+    let rotateAmt = ctx.arguments[0].unwrap_uint() % 360;
+
+    if rotateAmt % 90 != 0 {
+        ctx.player.send_error_message("Rotate amount must be a multiple of 90.");
+        return;
+    }
+
+    let clipboard = ctx.player.worldedit_clipboard.as_ref().unwrap();
+    let size_x = clipboard.size_x;
+    let size_y = clipboard.size_y;
+    let size_z = clipboard.size_z;
+    let volume = size_x * size_y * size_z;
+
+    let (n_size_x, n_size_z) = match rotateAmt {
+        90 | 270 => (size_z, size_x),
+        _ => (size_x, size_z),
+    };
+
+    let rotate_pos = |pos: BlockPos| {
+        match rotateAmt {
+            0 => pos,
+            90 => BlockPos {
+                x: pos.z,
+                y: pos.y,
+                z: n_size_z as i32 - 1 - pos.x
+            },
+            180 => BlockPos {
+                x: n_size_x as i32 - 1 - pos.x,
+                y: pos.y,
+                z: n_size_z as i32 - 1 - pos.z,
+            },
+            270 => BlockPos {
+                x: n_size_x as i32 - 1 - pos.z,
+                y: pos.y,
+                z: pos.x,
+            },
+            _ => unreachable!(),
+        }
+    };
+
+    let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
+
+    let mut c_x = 0;
+    let mut c_y = 0;
+    let mut c_z = 0;
+    for i in 0..volume {
+        let BlockPos { x: n_x, y: n_y, z: n_z } = rotate_pos(BlockPos::new(c_x, c_y, c_z));
+
+        let n_i = (n_y as u32 * n_size_x * n_size_z) + (n_z as u32 * n_size_x) + n_x as u32;
+        newcpdata.set_entry(n_i as usize, clipboard.data.get_entry(i as usize));
+
+        // Ok now lets increment the coordinates for the next block
+        c_x += 1;
+
+        if c_x as u32 == size_x {
+            c_x = 0;
+            c_z += 1;
+
+            if c_z as u32 == size_z {
+                c_z = 0;
+                c_y += 1;
+            }
+        }
+    }
+
+    let offset = rotate_pos(BlockPos::new(
+        clipboard.offset_x,
+        clipboard.offset_y,
+        clipboard.offset_z,
+    ));
+    let cb = WorldEditClipboard {
+        offset_x: offset.x,
+        offset_y: offset.y,
+        offset_z: offset.z,
+        size_x: n_size_x,
+        size_y,
+        size_z: n_size_z,
+        data: newcpdata,
+        block_entities: clipboard
+            .block_entities
+            .iter()
+            .map(|(pos, e)| (rotate_pos(*pos), e.clone()))
+            .collect(),
+    };
+
+    ctx.player.worldedit_clipboard = Some(cb);
+    ctx.player.send_worldedit_message(&format!(
+        "The clipboard copy has been rotated. ({:?})",
         start_time.elapsed()
     ));
 }
