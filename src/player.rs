@@ -138,6 +138,7 @@ pub struct Player {
     /// The saved sections used for worldedit //undo
     /// Each entry stores the plot coords and the clipboard
     pub worldedit_undo: Vec<WorldEditUndo>,
+    pub worldedit_redo: Vec<WorldEditUndo>,
     /// Commands are stored so they can be handled after packets
     pub command_queue: Vec<String>,
     permissions_cache: Option<PlayerPermissionsCache>,
@@ -220,6 +221,7 @@ impl Player {
                 second_position: None,
                 worldedit_clipboard: None,
                 worldedit_undo: Vec::new(),
+                worldedit_redo: Vec::new(),
                 command_queue: Vec::new(),
                 permissions_cache,
             }
@@ -265,6 +267,7 @@ impl Player {
             second_position: None,
             worldedit_clipboard: None,
             worldedit_undo: Vec::new(),
+            worldedit_redo: Vec::new(),
             command_queue: Vec::new(),
             permissions_cache,
         }

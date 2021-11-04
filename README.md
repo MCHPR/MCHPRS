@@ -61,7 +61,8 @@ These are the commands that are currently implemented:
 | `//copy` | `//c` | Copy the selection to the clipboard |
 | `//cut` | `//x` | Cut the selection to the clipboard |
 | `//paste` | `//v` | Paste the clipboard's contents |
-| `//undo` | None | Undo's the last action (from history) |
+| `//undo` | None | Undoes the last action (from history) |
+| `//redo` | None | Redoes the last action (from history) |
 | `//stack` | `//s` | Repeat the contents of the selection |
 | `//move` | None | Move the contents of the selection |
 | `//count` | None | Counts the number of blocks matching a mask |

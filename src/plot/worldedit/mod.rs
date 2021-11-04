@@ -508,8 +508,14 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
         },
         "/undo" => WorldeditCommand {
             execute_fn: execute_undo,
-            description: "Undo's the last action (from history)",
+            description: "Undoes the last action (from history)",
             permission_node: "worldedit.history.undo",
+            ..Default::default()
+        },
+        "/redo" => WorldeditCommand {
+            execute_fn: execute_redo,
+            description: "Redoes the last action (from history)",
+            permission_node: "worldedit.history.redo",
             ..Default::default()
         },
         "/stack" => WorldeditCommand {
@@ -1154,6 +1160,7 @@ fn capture_undo(
     };
 
     player.worldedit_undo.push(undo);
+    player.worldedit_redo.clear();
 }
 
 fn execute_copy(mut ctx: CommandExecuteContext<'_>) {
@@ -1356,7 +1363,7 @@ fn execute_stack(ctx: CommandExecuteContext<'_>) {
     ));
 }
 
-fn execute_undo(ctx: CommandExecuteContext<'_>) {
+fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
     if ctx.player.worldedit_undo.is_empty() {
         ctx.player
             .send_error_message("There is nothing left to undo.");
@@ -1368,9 +1375,60 @@ fn execute_undo(ctx: CommandExecuteContext<'_>) {
             .send_error_message("Cannot undo outside of your current plot.");
         return;
     }
+    let mut redo = WorldEditUndo {
+        clipboards: undo.clipboards.iter().map(|clipboard| {
+            let first_pos = BlockPos {
+                x: undo.pos.x - clipboard.offset_x,
+                y: undo.pos.y - clipboard.offset_y,
+                z: undo.pos.z - clipboard.offset_z,
+            };
+            let second_pos = BlockPos {
+                x: first_pos.x + clipboard.size_x as i32 - 1,
+                y: first_pos.y + clipboard.size_y as i32 - 1,
+                z: first_pos.z + clipboard.size_z as i32 - 1,
+            };
+            create_clipboard(&mut ctx.plot, undo.pos, first_pos, second_pos)
+        }).collect(),
+        ..undo
+    };
     for clipboard in &undo.clipboards {
         paste_clipboard(ctx.plot, clipboard, undo.pos, false);
     }
+    ctx.player.worldedit_redo.push(redo);
+}
+
+fn execute_redo(mut ctx: CommandExecuteContext<'_>) {
+    if ctx.player.worldedit_redo.is_empty() {
+        ctx.player
+            .send_error_message("There is nothing left to redo.");
+        return;
+    }
+    let redo = ctx.player.worldedit_redo.pop().unwrap();
+    if redo.plot_x != ctx.plot.x || redo.plot_z != ctx.plot.z {
+        ctx.player
+            .send_error_message("Cannot redo outside of your current plot.");
+        return;
+    }
+    let mut undo = WorldEditUndo {
+        clipboards: redo.clipboards.iter().map(|clipboard| {
+            let first_pos = BlockPos {
+                x: redo.pos.x - clipboard.offset_x,
+                y: redo.pos.y - clipboard.offset_y,
+                z: redo.pos.z - clipboard.offset_z,
+            };
+            let second_pos = BlockPos {
+                x: first_pos.x + clipboard.size_x as i32 - 1,
+                y: first_pos.y + clipboard.size_y as i32 - 1,
+                z: first_pos.z + clipboard.size_z as i32 - 1,
+            };
+            create_clipboard(&mut ctx.plot, redo.pos, first_pos, second_pos)
+        }).collect(),
+        ..redo
+    };
+    for clipboard in &redo.clipboards {
+        paste_clipboard(ctx.plot, clipboard, redo.pos, false);
+    }
+    ctx.player.worldedit_undo.push(undo);
 }
 
 fn execute_sel(ctx: CommandExecuteContext<'_>) {
