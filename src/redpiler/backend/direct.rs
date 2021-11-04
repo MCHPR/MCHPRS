@@ -223,11 +223,11 @@ impl JITBackend for DirectBackend {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.state {
-            Block::StonePressurePlate { powered } => {
+            Block::StonePressurePlate { .. } => {
                 self.set_node(
                     plot,
                     node_id,
-                    Block::StonePressurePlate { powered: !powered },
+                    Block::StonePressurePlate { powered },
                     true,
                 );
             }
