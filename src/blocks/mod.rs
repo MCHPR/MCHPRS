@@ -44,7 +44,7 @@ trait BlockTransform {
 
 impl<T> BlockTransform for T {
     default fn rotate90(&mut self) {}
-    default fn flip(&mut self, dir: crate::blocks::FlipDirection) {}
+    default fn flip(&mut self, _dir: crate::blocks::FlipDirection) {}
 }
 
 trait BlockProperty: Sized {

@@ -1407,9 +1407,6 @@ fn execute_hpos1(mut ctx: CommandExecuteContext<'_>) {
 
 fn execute_hpos2(mut ctx: CommandExecuteContext<'_>) {
     let player = &mut ctx.player;
-    let x = player.pos.x;
-    let y = player.pos.y;
-    let z = player.pos.z;
     let pitch = player.pitch as f64;
     let yaw = player.yaw as f64;
 
@@ -1649,7 +1646,6 @@ fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
                 y: pos.y,
                 z: n_size_z as i32 - 1 - pos.x
             },
-            _ => unreachable!(),
         }
     };
 
@@ -1826,7 +1822,7 @@ fn execute_help(mut ctx: CommandExecuteContext<'_>) {
     player.send_chat_message(0, &message);
 }
 
-fn execute_up(mut ctx: CommandExecuteContext<'_>) {
+fn execute_up(ctx: CommandExecuteContext<'_>) {
     let distance = ctx.arguments[0].unwrap_uint();
     let player = ctx.player;
 
