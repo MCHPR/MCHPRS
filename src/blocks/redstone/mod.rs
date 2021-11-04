@@ -2,7 +2,7 @@ mod redstone_wire;
 
 pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 
-use crate::blocks::{Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty};
+use crate::blocks::{Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty, BlockTransform};
 use crate::world::{TickPriority, World};
 use std::cmp;
 use std::str::FromStr;
@@ -160,7 +160,7 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     power
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, BlockProperty)]
+#[derive(Copy, Clone, Debug, PartialEq, BlockProperty, BlockTransform)]
 pub struct RedstoneRepeater {
     pub delay: u8,
     pub facing: BlockDirection,
@@ -343,7 +343,7 @@ impl Default for ComparatorMode {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty, BlockTransform)]
 pub struct RedstoneComparator {
     pub facing: BlockDirection,
     pub mode: ComparatorMode,
@@ -555,7 +555,7 @@ impl Default for LeverFace {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty, BlockTransform)]
 pub struct Lever {
     pub face: LeverFace,
     pub facing: BlockDirection,
@@ -627,7 +627,7 @@ impl Default for ButtonFace {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
+#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty, BlockTransform)]
 pub struct StoneButton {
     pub face: ButtonFace,
     pub facing: BlockDirection,

@@ -3,16 +3,55 @@ mod redstone;
 use crate::items::{ActionResult, InventoryEntry, Item, UseOnBlockContext};
 use crate::player::Player;
 use crate::world::{TickPriority, World};
-use mchprs_proc_macros::BlockProperty;
+use mchprs_proc_macros::{BlockProperty, BlockTransform};
 pub use redstone::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
 
+#[derive(Clone, Copy, Debug)]
+pub enum FlipDirection {
+    FlipX,
+    FlipZ,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum RotateAmt {
+    Rotate90,
+    Rotate180,
+    Rotate270,
+}
+
+trait BlockTransform {
+    fn rotate(&mut self, amt: crate::blocks::RotateAmt) {
+        match amt {
+            // ez
+            RotateAmt::Rotate90 => self.rotate90(),
+            RotateAmt::Rotate180 => {
+                self.rotate90();
+                self.rotate90();
+            }
+            RotateAmt::Rotate270 => {
+                self.rotate90();
+                self.rotate90();
+                self.rotate90();
+            }
+        }
+    }
+    fn rotate90(&mut self);
+    fn flip(&mut self, dir: crate::blocks::FlipDirection);
+}
+
+impl<T> BlockTransform for T {
+    default fn rotate90(&mut self) {}
+    default fn flip(&mut self, dir: crate::blocks::FlipDirection) {}
+}
+
 trait BlockProperty: Sized {
     fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str);
     fn decode(&mut self, props: &HashMap<&str, &str>, name: &str);
 }
+
 
 impl<T> BlockProperty for T
 where
@@ -359,6 +398,32 @@ impl BlockDirection {
             West => South,
             South => East,
             East => North,
+        }
+    }
+}
+
+impl BlockTransform for BlockDirection {
+    fn flip(&mut self, dir: FlipDirection) {
+        match dir {
+            FlipDirection::FlipX => match self {
+                BlockDirection::East => *self = BlockDirection::West,
+                BlockDirection::West => *self = BlockDirection::East,
+                _ => {}
+            }
+            FlipDirection::FlipZ => match self {
+                BlockDirection::North => *self = BlockDirection::South,
+                BlockDirection::South => *self = BlockDirection::North,
+                _ => {}
+            }
+        }
+    }
+
+    fn rotate90(&mut self) {
+        *self = match self {
+            BlockDirection::North => BlockDirection::East,
+            BlockDirection::East => BlockDirection::South,
+            BlockDirection::South => BlockDirection::West,
+            BlockDirection::West => BlockDirection::North,
         }
     }
 }
@@ -1308,7 +1373,7 @@ macro_rules! blocks {
                 }
             }
 
-            pub fn properties<'a>(&'a self) -> HashMap<&'static str, String> {
+            pub fn properties(&self) -> HashMap<&'static str, String> {
                 let mut props = HashMap::new();
                 match self {
                     $(
@@ -1324,6 +1389,38 @@ macro_rules! blocks {
                     )*
                 }
                 props
+            }
+
+            pub fn rotate(&mut self, amt: RotateAmt) {
+                match self {
+                    $(
+                        Block::$name {
+                            $(
+                                $prop_name,
+                            )*
+                        } => {
+                            $(
+                                <$prop_type as BlockTransform>::rotate($prop_name, amt);
+                            )*
+                        },
+                    )*
+                }
+            }
+
+            pub fn flip(&mut self, dir: FlipDirection) {
+                match self {
+                    $(
+                        Block::$name {
+                            $(
+                                $prop_name,
+                            )*
+                        } => {
+                            $(
+                                <$prop_type as BlockTransform>::flip($prop_name, dir);
+                            )*
+                        },
+                    )*
+                }
             }
         }
     }

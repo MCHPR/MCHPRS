@@ -1,4 +1,4 @@
-use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos, BlockProperty};
+use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos, BlockProperty, BlockTransform, FlipDirection};
 use crate::world::World;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -355,6 +355,33 @@ impl RedstoneWire {
         }
 
         block_power.max(wire_power.saturating_sub(1))
+    }
+}
+
+impl BlockTransform for RedstoneWire {
+    fn rotate90(&mut self) {
+        *self = RedstoneWire {
+            north: self.west,
+            east: self.north,
+            south: self.east,
+            west: self.south,
+            ..*self
+        }
+    }
+
+    fn flip(&mut self, dir: FlipDirection) {
+        *self = match dir {
+            FlipDirection::FlipX => RedstoneWire {
+                east: self.west,
+                west: self.east,
+                ..*self
+            },
+            FlipDirection::FlipZ => RedstoneWire {
+                north: self.south,
+                south: self.north,
+                ..*self
+            }
+        }
     }
 }
 

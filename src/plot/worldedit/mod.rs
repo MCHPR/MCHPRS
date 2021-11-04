@@ -3,7 +3,7 @@
 mod schematic;
 
 use super::{Plot, PlotWorld};
-use crate::blocks::{Block, BlockEntity, BlockFace, BlockFacing, BlockPos};
+use crate::blocks::{Block, BlockEntity, BlockFace, BlockFacing, BlockPos, FlipDirection, RotateAmt};
 use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::player::{Player, PlayerPos};
 use crate::world::storage::PalettedBitBuffer;
@@ -1553,9 +1553,15 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
     let mut c_z = 0;
     for i in 0..volume {
         let BlockPos { x: n_x, y: n_y, z: n_z } = flip_pos(BlockPos::new(c_x, c_y, c_z));
-
         let n_i = (n_y as u32 * size_x * size_z) + (n_z as u32 * size_x) + n_x as u32;
-        newcpdata.set_entry(n_i as usize, clipboard.data.get_entry(i as usize));
+
+        let mut block = Block::from_id(clipboard.data.get_entry(i as usize));
+        match direction {
+            BlockFacing::East | BlockFacing::West => block.flip(FlipDirection::FlipX),
+            BlockFacing::North | BlockFacing::South => block.flip(FlipDirection::FlipZ),
+            _ => {}
+        }
+        newcpdata.set_entry(n_i as usize, block.get_id());
 
         // Ok now lets increment the coordinates for the next block
         c_x += 1;
@@ -1600,12 +1606,20 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
 
 fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
-    let rotateAmt = ctx.arguments[0].unwrap_uint() % 360;
-
-    if rotateAmt % 90 != 0 {
-        ctx.player.send_error_message("Rotate amount must be a multiple of 90.");
-        return;
-    }
+    let rotate_amt = ctx.arguments[0].unwrap_uint();
+    let rotate_amt = match rotate_amt % 360 {
+        0 => {
+            ctx.player.send_worldedit_message("Successfully rotated by 0! That took a lot of work.");
+            return;
+        }
+        90 => RotateAmt::Rotate90,
+        180 => RotateAmt::Rotate180,
+        270 => RotateAmt::Rotate270,
+        _ => {
+            ctx.player.send_error_message("Rotate amount must be a multiple of 90.");
+            return;
+        }
+    };
 
     let clipboard = ctx.player.worldedit_clipboard.as_ref().unwrap();
     let size_x = clipboard.size_x;
@@ -1613,28 +1627,27 @@ fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
     let size_z = clipboard.size_z;
     let volume = size_x * size_y * size_z;
 
-    let (n_size_x, n_size_z) = match rotateAmt {
-        90 | 270 => (size_z, size_x),
+    let (n_size_x, n_size_z) = match rotate_amt {
+        RotateAmt::Rotate90 | RotateAmt::Rotate270 => (size_z, size_x),
         _ => (size_x, size_z),
     };
 
     let rotate_pos = |pos: BlockPos| {
-        match rotateAmt {
-            0 => pos,
-            90 => BlockPos {
-                x: pos.z,
+        match rotate_amt {
+            RotateAmt::Rotate90 => BlockPos {
+                x: n_size_x as i32 - 1 - pos.z,
                 y: pos.y,
-                z: n_size_z as i32 - 1 - pos.x
+                z: pos.x,
             },
-            180 => BlockPos {
+            RotateAmt::Rotate180 => BlockPos {
                 x: n_size_x as i32 - 1 - pos.x,
                 y: pos.y,
                 z: n_size_z as i32 - 1 - pos.z,
             },
-            270 => BlockPos {
-                x: n_size_x as i32 - 1 - pos.z,
+            RotateAmt::Rotate270 => BlockPos {
+                x: pos.z,
                 y: pos.y,
-                z: pos.x,
+                z: n_size_z as i32 - 1 - pos.x
             },
             _ => unreachable!(),
         }
@@ -1647,9 +1660,11 @@ fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
     let mut c_z = 0;
     for i in 0..volume {
         let BlockPos { x: n_x, y: n_y, z: n_z } = rotate_pos(BlockPos::new(c_x, c_y, c_z));
-
         let n_i = (n_y as u32 * n_size_x * n_size_z) + (n_z as u32 * n_size_x) + n_x as u32;
-        newcpdata.set_entry(n_i as usize, clipboard.data.get_entry(i as usize));
+
+        let mut block = Block::from_id(clipboard.data.get_entry(i as usize));
+        block.rotate(rotate_amt);
+        newcpdata.set_entry(n_i as usize, block.get_id());
 
         // Ok now lets increment the coordinates for the next block
         c_x += 1;
