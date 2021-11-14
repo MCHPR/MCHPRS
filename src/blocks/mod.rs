@@ -1742,13 +1742,13 @@ blocks! {
             direction: BlockDirection
         },
         get_id: match direction {
-            BlockDirection::North => 5466,
-            BlockDirection::South => 5468,
-            BlockDirection::West => 5470,
-            BlockDirection::East => 5472,
+            BlockDirection::North => 5474,
+            BlockDirection::South => 5476,
+            BlockDirection::West => 5478,
+            BlockDirection::East => 5480,
         },
-        from_id_offset: 5465,
-        from_id(id): 5465..=5480 => {
+        from_id_offset: 5474,
+        from_id(id): 5474..=5480 => {
             direction: BlockDirection::from_id(id / 2)
         },
         from_names(_name): {
