@@ -154,7 +154,7 @@ impl Plot {
                 self.reset_redpiler();
                 self.start_redpiler(options, pos1, pos2);
 
-                println!("Compile took {:?}", start_time.elapsed());
+                debug!("Compile took {:?}", start_time.elapsed());
             }
             "reset" | "r" => {
                 self.reset_redpiler();

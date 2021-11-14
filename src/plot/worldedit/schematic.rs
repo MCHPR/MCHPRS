@@ -5,7 +5,7 @@ use super::WorldEditClipboard;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::server::MC_DATA_VERSION;
 use crate::world::storage::PalettedBitBuffer;
-use anyhow::Result;
+use anyhow::{Context, Result, bail};
 use itertools::Itertools;
 use regex::Regex;
 use serde::Serialize;
@@ -13,37 +13,53 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::lazy::SyncLazy;
 
-pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
-    use nbt::Value;
+macro_rules! nbt_as {
+    // I'm not sure if path is the right type here.
+    // It works though!
+    ($e:expr, $p:path) => {
+        match $e {
+            $p(val) => val,
+            _ => bail!(concat!("Could not parse nbt value as ", stringify!($p))),
+        }
+    };
+}
 
-    let mut file = File::open("./schems/".to_owned() + file_name).ok()?;
-    let nbt = nbt::Blob::from_gzip_reader(&mut file).ok()?;
-    let size_x = nbt_unwrap_val!(nbt["Width"], Value::Short) as u32;
-    let size_z = nbt_unwrap_val!(nbt["Length"], Value::Short) as u32;
-    let size_y = nbt_unwrap_val!(nbt["Height"], Value::Short) as u32;
-    let nbt_palette = nbt_unwrap_val!(&nbt["Palette"], Value::Compound);
-    let metadata = nbt_unwrap_val!(&nbt["Metadata"], Value::Compound);
-    let offset_x = -nbt_unwrap_val!(metadata["WEOffsetX"], Value::Int);
-    let offset_y = -nbt_unwrap_val!(metadata["WEOffsetY"], Value::Int);
-    let offset_z = -nbt_unwrap_val!(metadata["WEOffsetZ"], Value::Int);
+fn parse_block(str: &str) -> Option<Block> {
     static RE: SyncLazy<Regex> =
         SyncLazy::new(|| Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap());
+    let captures = RE.captures(str)?;
+    let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
+    if let Some(properties_match) = captures.get(2) {
+        let properties = properties_match
+            .as_str()
+            .split(&[',', '='][..])
+            .tuples()
+            .collect();
+        block.set_properties(properties);
+    }
+    Some(block)
+}
+
+pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
+    use nbt::Value;
+
+    let mut file = File::open("./schems/".to_owned() + file_name)?;
+    let nbt = nbt::Blob::from_gzip_reader(&mut file)?;
+    let size_x = nbt_as!(nbt["Width"], Value::Short) as u32;
+    let size_z = nbt_as!(nbt["Length"], Value::Short) as u32;
+    let size_y = nbt_as!(nbt["Height"], Value::Short) as u32;
+    let nbt_palette = nbt_as!(&nbt["Palette"], Value::Compound);
+    let metadata = nbt_as!(&nbt["Metadata"], Value::Compound);
+    let offset_x = -nbt_as!(metadata["WEOffsetX"], Value::Int);
+    let offset_y = -nbt_as!(metadata["WEOffsetY"], Value::Int);
+    let offset_z = -nbt_as!(metadata["WEOffsetZ"], Value::Int);
     let mut palette: HashMap<u32, u32> = HashMap::new();
     for (k, v) in nbt_palette {
-        let id = *nbt_unwrap_val!(v, Value::Int) as u32;
-        let captures = RE.captures(k)?;
-        let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
-        if let Some(properties_match) = captures.get(2) {
-            let properties = properties_match
-                .as_str()
-                .split(&[',', '='][..])
-                .tuples()
-                .collect();
-            block.set_properties(properties);
-        }
+        let id = *nbt_as!(v, Value::Int) as u32;
+        let block = parse_block(k).with_context(|| format!("error parsing block: {}", k))?;
         palette.insert(id, block.get_id());
     }
-    let blocks: Vec<u8> = nbt_unwrap_val!(&nbt["BlockData"], Value::ByteArray)
+    let blocks: Vec<u8> = nbt_as!(&nbt["BlockData"], Value::ByteArray)
         .iter()
         .map(|b| *b as u8)
         .collect();
@@ -67,11 +83,11 @@ pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
             }
         }
     }
-    let block_entities = nbt_unwrap_val!(&nbt["BlockEntities"], Value::List);
+    let block_entities = nbt_as!(&nbt["BlockEntities"], Value::List);
     let mut parsed_block_entities = HashMap::new();
     for block_entity in block_entities {
-        let val = nbt_unwrap_val!(block_entity, Value::Compound);
-        let pos_array = nbt_unwrap_val!(&val["Pos"], Value::IntArray);
+        let val = nbt_as!(block_entity, Value::Compound);
+        let pos_array = nbt_as!(&val["Pos"], Value::IntArray);
         let pos = BlockPos {
             x: pos_array[0],
             y: pos_array[1],
@@ -81,7 +97,7 @@ pub fn load_schematic(file_name: &str) -> Option<WorldEditClipboard> {
             parsed_block_entities.insert(pos, parsed);
         }
     }
-    Some(WorldEditClipboard {
+    Ok(WorldEditClipboard {
         size_x,
         size_y,
         size_z,
@@ -149,26 +165,38 @@ pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result
                 } else {
                     name
                 };
-                let idx = if let Some(idx) = pallette.iter().position(|s| *s == full_name) {
+                let mut idx = if let Some(idx) = pallette.iter().position(|s| *s == full_name) {
                     idx
                 } else {
                     let idx = pallette.len();
                     pallette.push(full_name);
                     idx
                 };
-                data.push(idx as i8);
+
+                loop {
+                    let mut temp = (idx & 0b1111_1111) as u8;
+                    idx >>= 7;
+                    if idx != 0 {
+                        temp |= 0b1000_0000;
+                    }
+                    data.push(temp as i8);
+                    if idx == 0 {
+                        break;
+                    }
+                }
             }
         }
     }
 
-    let mut encoded_pallete = nbt::Blob::named("Palette");
+    let mut encoded_pallete = nbt::Blob::new();
     for (i, entry) in pallette.iter().enumerate() {
         encoded_pallete.insert(entry, i as i32)?;
     }
 
     let mut block_entities = Vec::new();
     for (pos, block_entity) in &clipboard.block_entities {
-        if let Some(blob) = block_entity.to_nbt(*pos) {
+        if let Some(mut blob) = block_entity.to_nbt(false) {
+            blob.insert("Pos", nbt::Value::IntArray(vec![pos.x, pos.y, pos.z]))?;
             block_entities.push(blob);
         }
     }

@@ -1287,15 +1287,16 @@ fn execute_load(mut ctx: CommandExecuteContext<'_>) {
 
     let clipboard = load_schematic(file_name);
     match clipboard {
-        Some(cb) => {
+        Ok(cb) => {
             ctx.player.worldedit_clipboard = Some(cb);
             ctx.player.send_worldedit_message(&format!(
                 "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
                 start_time.elapsed()
             ));
         }
-        None => {
-            error!("There was an error loading a schematic.");
+        Err(e) => {
+            error!("There was an error loading a schematic:");
+            error!("{}", e);
             ctx.player
                 .send_error_message("There was an error loading the schematic.");
         }
@@ -1375,7 +1376,7 @@ fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
             .send_error_message("Cannot undo outside of your current plot.");
         return;
     }
-    let mut redo = WorldEditUndo {
+    let redo = WorldEditUndo {
         clipboards: undo.clipboards.iter().map(|clipboard| {
             let first_pos = BlockPos {
                 x: undo.pos.x - clipboard.offset_x,
@@ -1409,7 +1410,7 @@ fn execute_redo(mut ctx: CommandExecuteContext<'_>) {
             .send_error_message("Cannot redo outside of your current plot.");
         return;
     }
-    let mut undo = WorldEditUndo {
+    let undo = WorldEditUndo {
         clipboards: redo.clipboards.iter().map(|clipboard| {
             let first_pos = BlockPos {
                 x: redo.pos.x - clipboard.offset_x,

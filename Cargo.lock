@@ -940,8 +940,7 @@ dependencies = [
 [[package]]
 name = "hematite-nbt"
 version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "670d0784ee67cfb57393dc1837867d2951f9a59ca7db99a653499c854f745739"
+source = "git+https://github.com/StackDoubleFlow/hematite_nbt?branch=fix_array_val_ser#5c7eaafacb273dbd5dba3ed93dde4d5d0857fd4e"
 dependencies = [
  "byteorder",
  "cesu8",

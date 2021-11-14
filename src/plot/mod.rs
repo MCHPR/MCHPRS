@@ -169,7 +169,7 @@ impl World for PlotWorld {
         if chunk_index >= 256 {
             return;
         }
-        if let Some(nbt) = block_entity.to_nbt(pos) {
+        if let Some(nbt) = block_entity.to_nbt(true) {
             let block_entity_data = CBlockEntityData {
                 x: pos.x,
                 y: pos.y,

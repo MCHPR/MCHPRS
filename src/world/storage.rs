@@ -381,11 +381,13 @@ impl Chunk {
             .iter()
             .map(|(pos, block_entity)| {
                 block_entity
-                    .to_nbt(BlockPos::new(
-                        pos.x + (self.x << 4),
-                        pos.y,
-                        pos.z + (self.z << 4),
-                    ))
+                    .to_nbt(true)
+                    .map(|mut nbt| {
+                        let _ = nbt.insert("x", nbt::Value::Int(pos.x + (self.x << 4)));
+                        let _ = nbt.insert("y", nbt::Value::Int(pos.y as i32));
+                        let _ = nbt.insert("z", nbt::Value::Int(pos.z + (self.z << 4)));
+                        nbt
+                    })
                     .map(|blob| block_entities.push(blob))
             })
             .for_each(drop);

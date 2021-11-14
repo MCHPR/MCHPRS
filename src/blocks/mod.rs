@@ -213,9 +213,13 @@ impl BlockEntity {
         }
     }
 
-    pub fn to_nbt(&self, pos: BlockPos) -> Option<nbt::Blob> {
+    pub fn to_nbt(&self, sign_only: bool) -> Option<nbt::Blob> {
+        if sign_only && !matches!(self, BlockEntity::Sign(_)) {
+            return None;
+        }
+
         use nbt::Value;
-        let blob = match self {
+        match self {
             BlockEntity::Sign(sign) => Some({
                 let mut blob = nbt::Blob::new();
                 let [r1, r2, r3, r4] = sign.rows.clone();
@@ -226,14 +230,32 @@ impl BlockEntity {
                 let _ = blob.insert("id", Value::String("minecraft:sign".to_owned()));
                 blob
             }),
-            _ => None,
-        };
-        blob.map(|mut nbt| {
-            let _ = nbt.insert("x", Value::Int(pos.x));
-            let _ = nbt.insert("y", Value::Int(pos.y as i32));
-            let _ = nbt.insert("z", Value::Int(pos.z));
-            nbt
-        })
+            BlockEntity::Comparator { output_strength } => Some({
+                let mut blob = nbt::Blob::new();
+                let _ = blob.insert("OutputSignal", Value::Int(*output_strength as i32));
+                let _ = blob.insert("id", Value::String("minecraft:comparator".to_owned()));
+                blob
+            }),
+            BlockEntity::Container { inventory, ty, .. } => Some({
+                let mut blob = nbt::Blob::new();
+                let _ = blob.insert("id", Value::String(ty.to_string()));
+                let mut items = Vec::new();
+                for entry in inventory {
+                    let nbt = map! {
+                        "Count".to_owned() => nbt::Value::Byte(entry.count),
+                        "id".to_owned() => nbt::Value::String("minecraft:".to_string() + Item::from_id(entry.id).get_name()),
+                        "Slot".to_owned() => nbt::Value::Byte(entry.slot)
+                    };
+                    // TODO: item nbt data in containers
+                    // if let Some(tag) = &entry.nbt {
+                    //     let blob = nbt::Blob::from_reader(&mut Cursor::new(tag)).unwrap();
+                    // }
+                    items.push(nbt::Value::Compound(nbt));
+                }
+                let _ = blob.insert("Items", Value::List(items));
+                blob
+            }),
+        }
     }
 }
 

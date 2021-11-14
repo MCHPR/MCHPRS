@@ -441,4 +441,12 @@ impl Item {
             _ => None,
         }
     }
+
+    pub fn get_name(self) -> &'static str {
+        match self {
+            Item::Snowball {} => "snowball",
+            Item::TotemOfUndying {} => "totem_of_undying",
+            _ => "redstone"
+        }
+    }
 }
