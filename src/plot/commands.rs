@@ -135,7 +135,8 @@ impl Plot {
                     let res = format!("Locked to plot ({}, {}). Use '/p unlock' to unlock.", x, z);
                     self.players[player].send_system_message(&res);
                 } else {
-                    self.players[player].send_system_message("You are already locked to this plot.");
+                    self.players[player]
+                        .send_system_message("You are already locked to this plot.");
                 }
             }
             "unlock" => {
@@ -929,7 +930,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 redirect_node: None,
                 name: Some("unlock"),
                 parser: None,
-            }
+            },
         ],
         root_index: 0,
     }

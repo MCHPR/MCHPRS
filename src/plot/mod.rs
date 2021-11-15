@@ -21,13 +21,13 @@ use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::cmp::Ordering;
+use std::collections::HashSet;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
-use std::collections::HashSet;
 use tokio::runtime::Runtime;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -523,7 +523,10 @@ impl Plot {
         self.world.packet_senders.remove(player_idx);
         let player = self.players.remove(player_idx);
         for player in &self.players {
-            let destroy_other_entity = CDestroyEntity { entity_id: player.entity_id as i32 }.encode();
+            let destroy_other_entity = CDestroyEntity {
+                entity_id: player.entity_id as i32,
+            }
+            .encode();
             player.client.send_packet(&destroy_other_entity);
         }
         let chunk_offset_x = self.world.x << 4;

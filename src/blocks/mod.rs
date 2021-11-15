@@ -52,7 +52,6 @@ trait BlockProperty: Sized {
     fn decode(&mut self, props: &HashMap<&str, &str>, name: &str);
 }
 
-
 impl<T> BlockProperty for T
 where
     T: ToString + FromStr,
@@ -431,12 +430,12 @@ impl BlockTransform for BlockDirection {
                 BlockDirection::East => *self = BlockDirection::West,
                 BlockDirection::West => *self = BlockDirection::East,
                 _ => {}
-            }
+            },
             FlipDirection::FlipZ => match self {
                 BlockDirection::North => *self = BlockDirection::South,
                 BlockDirection::South => *self = BlockDirection::North,
                 _ => {}
-            }
+            },
         }
     }
 

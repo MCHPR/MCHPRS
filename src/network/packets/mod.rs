@@ -334,7 +334,7 @@ pub trait PacketEncoderExt: Write {
 
     fn write_slot_data(&mut self, slot_data: &Option<SlotData>)
     where
-        Self: Sized, 
+        Self: Sized,
     {
         if let Some(slot) = slot_data {
             self.write_bool(true);

@@ -1,4 +1,7 @@
-use crate::blocks::{ActionResult, Block, BlockDirection, BlockFace, BlockPos, BlockProperty, BlockTransform, FlipDirection};
+use crate::blocks::{
+    ActionResult, Block, BlockDirection, BlockFace, BlockPos, BlockProperty, BlockTransform,
+    FlipDirection,
+};
 use crate::world::World;
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -380,7 +383,7 @@ impl BlockTransform for RedstoneWire {
                 north: self.south,
                 south: self.north,
                 ..*self
-            }
+            },
         }
     }
 }

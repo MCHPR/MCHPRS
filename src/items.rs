@@ -446,7 +446,7 @@ impl Item {
         match self {
             Item::Snowball {} => "snowball",
             Item::TotemOfUndying {} => "totem_of_undying",
-            _ => "redstone"
+            _ => "redstone",
         }
     }
 }

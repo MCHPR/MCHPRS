@@ -5,7 +5,7 @@ use super::WorldEditClipboard;
 use crate::blocks::{Block, BlockEntity, BlockPos};
 use crate::server::MC_DATA_VERSION;
 use crate::world::storage::PalettedBitBuffer;
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use regex::Regex;
 use serde::Serialize;

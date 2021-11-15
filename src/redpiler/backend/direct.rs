@@ -224,12 +224,7 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.state {
             Block::StonePressurePlate { .. } => {
-                self.set_node(
-                    plot,
-                    node_id,
-                    Block::StonePressurePlate { powered },
-                    true,
-                );
+                self.set_node(plot, node_id, Block::StonePressurePlate { powered }, true);
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.state),
         }

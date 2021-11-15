@@ -3,7 +3,9 @@
 mod schematic;
 
 use super::{Plot, PlotWorld};
-use crate::blocks::{Block, BlockEntity, BlockFace, BlockFacing, BlockPos, FlipDirection, RotateAmt};
+use crate::blocks::{
+    Block, BlockEntity, BlockFace, BlockFacing, BlockPos, FlipDirection, RotateAmt,
+};
 use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::player::{Player, PlayerPos};
 use crate::world::storage::PalettedBitBuffer;
@@ -1377,19 +1379,23 @@ fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
         return;
     }
     let redo = WorldEditUndo {
-        clipboards: undo.clipboards.iter().map(|clipboard| {
-            let first_pos = BlockPos {
-                x: undo.pos.x - clipboard.offset_x,
-                y: undo.pos.y - clipboard.offset_y,
-                z: undo.pos.z - clipboard.offset_z,
-            };
-            let second_pos = BlockPos {
-                x: first_pos.x + clipboard.size_x as i32 - 1,
-                y: first_pos.y + clipboard.size_y as i32 - 1,
-                z: first_pos.z + clipboard.size_z as i32 - 1,
-            };
-            create_clipboard(&mut ctx.plot, undo.pos, first_pos, second_pos)
-        }).collect(),
+        clipboards: undo
+            .clipboards
+            .iter()
+            .map(|clipboard| {
+                let first_pos = BlockPos {
+                    x: undo.pos.x - clipboard.offset_x,
+                    y: undo.pos.y - clipboard.offset_y,
+                    z: undo.pos.z - clipboard.offset_z,
+                };
+                let second_pos = BlockPos {
+                    x: first_pos.x + clipboard.size_x as i32 - 1,
+                    y: first_pos.y + clipboard.size_y as i32 - 1,
+                    z: first_pos.z + clipboard.size_z as i32 - 1,
+                };
+                create_clipboard(&mut ctx.plot, undo.pos, first_pos, second_pos)
+            })
+            .collect(),
         ..undo
     };
     for clipboard in &undo.clipboards {
@@ -1411,19 +1417,23 @@ fn execute_redo(mut ctx: CommandExecuteContext<'_>) {
         return;
     }
     let undo = WorldEditUndo {
-        clipboards: redo.clipboards.iter().map(|clipboard| {
-            let first_pos = BlockPos {
-                x: redo.pos.x - clipboard.offset_x,
-                y: redo.pos.y - clipboard.offset_y,
-                z: redo.pos.z - clipboard.offset_z,
-            };
-            let second_pos = BlockPos {
-                x: first_pos.x + clipboard.size_x as i32 - 1,
-                y: first_pos.y + clipboard.size_y as i32 - 1,
-                z: first_pos.z + clipboard.size_z as i32 - 1,
-            };
-            create_clipboard(&mut ctx.plot, redo.pos, first_pos, second_pos)
-        }).collect(),
+        clipboards: redo
+            .clipboards
+            .iter()
+            .map(|clipboard| {
+                let first_pos = BlockPos {
+                    x: redo.pos.x - clipboard.offset_x,
+                    y: redo.pos.y - clipboard.offset_y,
+                    z: redo.pos.z - clipboard.offset_z,
+                };
+                let second_pos = BlockPos {
+                    x: first_pos.x + clipboard.size_x as i32 - 1,
+                    y: first_pos.y + clipboard.size_y as i32 - 1,
+                    z: first_pos.z + clipboard.size_z as i32 - 1,
+                };
+                create_clipboard(&mut ctx.plot, redo.pos, first_pos, second_pos)
+            })
+            .collect(),
         ..redo
     };
     for clipboard in &redo.clipboards {
@@ -1608,7 +1618,11 @@ fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
     let mut c_y = 0;
     let mut c_z = 0;
     for i in 0..volume {
-        let BlockPos { x: n_x, y: n_y, z: n_z } = flip_pos(BlockPos::new(c_x, c_y, c_z));
+        let BlockPos {
+            x: n_x,
+            y: n_y,
+            z: n_z,
+        } = flip_pos(BlockPos::new(c_x, c_y, c_z));
         let n_i = (n_y as u32 * size_x * size_z) + (n_z as u32 * size_x) + n_x as u32;
 
         let mut block = Block::from_id(clipboard.data.get_entry(i as usize));
@@ -1665,14 +1679,16 @@ fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
     let rotate_amt = ctx.arguments[0].unwrap_uint();
     let rotate_amt = match rotate_amt % 360 {
         0 => {
-            ctx.player.send_worldedit_message("Successfully rotated by 0! That took a lot of work.");
+            ctx.player
+                .send_worldedit_message("Successfully rotated by 0! That took a lot of work.");
             return;
         }
         90 => RotateAmt::Rotate90,
         180 => RotateAmt::Rotate180,
         270 => RotateAmt::Rotate270,
         _ => {
-            ctx.player.send_error_message("Rotate amount must be a multiple of 90.");
+            ctx.player
+                .send_error_message("Rotate amount must be a multiple of 90.");
             return;
         }
     };
@@ -1688,24 +1704,22 @@ fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
         _ => (size_x, size_z),
     };
 
-    let rotate_pos = |pos: BlockPos| {
-        match rotate_amt {
-            RotateAmt::Rotate90 => BlockPos {
-                x: n_size_x as i32 - 1 - pos.z,
-                y: pos.y,
-                z: pos.x,
-            },
-            RotateAmt::Rotate180 => BlockPos {
-                x: n_size_x as i32 - 1 - pos.x,
-                y: pos.y,
-                z: n_size_z as i32 - 1 - pos.z,
-            },
-            RotateAmt::Rotate270 => BlockPos {
-                x: pos.z,
-                y: pos.y,
-                z: n_size_z as i32 - 1 - pos.x
-            },
-        }
+    let rotate_pos = |pos: BlockPos| match rotate_amt {
+        RotateAmt::Rotate90 => BlockPos {
+            x: n_size_x as i32 - 1 - pos.z,
+            y: pos.y,
+            z: pos.x,
+        },
+        RotateAmt::Rotate180 => BlockPos {
+            x: n_size_x as i32 - 1 - pos.x,
+            y: pos.y,
+            z: n_size_z as i32 - 1 - pos.z,
+        },
+        RotateAmt::Rotate270 => BlockPos {
+            x: pos.z,
+            y: pos.y,
+            z: n_size_z as i32 - 1 - pos.x,
+        },
     };
 
     let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
@@ -1714,7 +1728,11 @@ fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
     let mut c_y = 0;
     let mut c_z = 0;
     for i in 0..volume {
-        let BlockPos { x: n_x, y: n_y, z: n_z } = rotate_pos(BlockPos::new(c_x, c_y, c_z));
+        let BlockPos {
+            x: n_x,
+            y: n_y,
+            z: n_z,
+        } = rotate_pos(BlockPos::new(c_x, c_y, c_z));
         let n_i = (n_y as u32 * n_size_x * n_size_z) + (n_z as u32 * n_size_x) + n_x as u32;
 
         let mut block = Block::from_id(clipboard.data.get_entry(i as usize));
