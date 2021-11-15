@@ -20,6 +20,30 @@ cargo build --release
 
 Once complete, the optimized executable will be located at `./target/release/mchprs` or `./target/release/mchprs.exe` depending on your operating system.
 
+## Configuration
+
+MCHPRS will generate a `Config.toml` file in the current working directory when starting the server if it does not exist.
+
+### LuckPerms
+
+MCHPRS has basic support for LuckPerms with MySQL or MariaDB remote database storage. This implementation has no commands or interface and would have to be manged through LuckPerms running on a proxy (`/lpb`) or other server (`/lp`) 
+
+To use LuckPerms, append this to your `Config.toml`:
+
+```toml
+[luckperms]
+# Define the address for the database.
+host = "localhost"
+# The name of the database the LuckPerms data is in.
+db_name = "minecraft"
+# Credentials for the database.
+username = "minecraft"
+password = "minecraft"
+# The name of the server, used for server specific permissions.
+# See: https://luckperms.net/wiki/Context
+server_context = "global"
+```
+
 ## Usage
 
 ### General Commands
