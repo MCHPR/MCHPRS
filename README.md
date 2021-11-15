@@ -7,6 +7,20 @@ A Minecraft creative server built for redstone. Each 256x256 plot runs on a sepa
 
 MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
+## Table of Contents
+
+- [Table of Contents](#table-of-contents)
+- [Building](#building)
+- [Configuration](#configuration)
+    - [LuckPerms](#luckperms)
+- [Usage](#usage)
+    - [General Commands](#general-commands)
+    - [Plot Ownership](#plot-ownership)
+    - [Worldedit](#worldedit)
+- [Acknowledgments](#acknowledgments)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Building
 
 If the Rust compiler is not already installed, you can find out how [on their official website](https://www.rust-lang.org/tools/install).
@@ -57,7 +71,7 @@ server_context = "global"
 | `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
 | `/stop` | None | Stops the server. |
 
-### Plot ownership
+### Plot Ownership
 The plot ownership system in MCHPRS is very incomplete.
 These are the commands that are currently implemented:
 | Command | Alias | Description |
