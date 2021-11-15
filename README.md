@@ -44,6 +44,8 @@ These are the commands that are currently implemented:
 | `/plot middle` | None | Teleports you to the center of the plot you are in. |
 | `/plot visit [player]` | `/p v` | Teleports you to a player's plot. |
 | `/plot tp [x] [z]` | `/p v` | Teleports you to a plot at (x, z). |
+| `/plot lock` | None | Locks the player into the plot so moving outside of the plot bounds does not transfer you to other plots. |
+| `/plot unlock` | None | Reverses the locking done by `/plot lock`. |
 
 ### Worldedit
 MCHPRS provides its own implementation of [WorldEdit](https://github.com/EngineHub/WorldEdit). Visit their [documentation](https://worldedit.enginehub.org/en/latest/commands/) for more information.

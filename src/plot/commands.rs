@@ -8,6 +8,7 @@ use crate::network::packets::clientbound::{
 };
 use crate::network::packets::PacketEncoder;
 use crate::player::{Gamemode, PlayerPos};
+use crate::plot::PlotWorld;
 use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
@@ -28,6 +29,7 @@ impl Plot {
             "middle" => "plots.middle",
             "visit" | "v" => "plots.visit",
             "teleport" | "tp" => "plots.visit",
+            "lock" | "unlock" => "plots.lock",
             _ => {
                 self.players[player].send_error_message("Invalid argument for /plot");
                 return;
@@ -126,6 +128,22 @@ impl Plot {
 
                 let center = Plot::get_center(plot_x, plot_z);
                 self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
+            }
+            "lock" => {
+                if self.locked_players.insert(self.players[player].entity_id) {
+                    let PlotWorld { x, z, .. } = self.world;
+                    let res = format!("Locked to plot ({}, {}). Use '/p unlock' to unlock.", x, z);
+                    self.players[player].send_system_message(&res);
+                } else {
+                    self.players[player].send_system_message("You are already locked to this plot.");
+                }
+            }
+            "unlock" => {
+                if self.locked_players.remove(&self.players[player].entity_id) {
+                    self.players[player].send_system_message("You are now unlocked.");
+                } else {
+                    self.players[player].send_system_message("You are not locked to this plot.");
+                }
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
@@ -483,7 +501,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46],
+                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46, 58, 59],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -896,6 +914,22 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 name: Some("power"),
                 parser: Some(Parser::Integer(0, 15)),
             },
+            // 58: /plot lock
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("lock"),
+                parser: None,
+            },
+            // 59: /plot unlock
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("unlock"),
+                parser: None,
+            }
         ],
         root_index: 0,
     }

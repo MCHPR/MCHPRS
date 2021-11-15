@@ -9,7 +9,7 @@ use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::network::PlayerPacketSender;
-use crate::player::{Gamemode, Player, PlayerPos};
+use crate::player::{EntityId, Gamemode, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
@@ -27,6 +27,7 @@ use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
+use std::collections::HashSet;
 use tokio::runtime::Runtime;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,6 +44,7 @@ pub struct Plot {
     priv_message_receiver: Receiver<PrivMessage>,
     // It's kinda dumb making this pub but it would be too much work to do it differently.
     pub players: Vec<Player>,
+    locked_players: HashSet<EntityId>,
     tps: u32,
     last_update_time: SystemTime,
     lag_time: Duration,
@@ -536,6 +538,7 @@ impl Plot {
             );
         }
         self.destroy_entity(player.entity_id);
+        self.locked_players.remove(&player.entity_id);
         player
     }
 
@@ -680,6 +683,9 @@ impl Plot {
         let mut outside_players = Vec::new();
         for player in 0..self.players.len() {
             let player = &mut self.players[player];
+            if self.locked_players.contains(&player.entity_id) {
+                continue;
+            }
             let pos = player.pos.block_pos();
             if !Plot::in_plot_bounds(self.world.x, self.world.z, pos.x, pos.z) {
                 outside_players.push(player.uuid);
@@ -815,6 +821,7 @@ impl Plot {
             message_sender: tx,
             priv_message_receiver: priv_rx,
             players: Vec::new(),
+            locked_players: HashSet::new(),
             running: true,
             show_redstone: plot_data.show_redstone,
             tps: plot_data.tps,
@@ -869,6 +876,7 @@ impl Plot {
                 message_sender: tx,
                 priv_message_receiver: priv_rx,
                 players: Vec::new(),
+                locked_players: HashSet::new(),
                 running: true,
                 show_redstone: true,
                 tps: 10,
