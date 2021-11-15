@@ -940,7 +940,7 @@ dependencies = [
 [[package]]
 name = "hematite-nbt"
 version = "0.5.2"
-source = "git+https://github.com/StackDoubleFlow/hematite_nbt?branch=fix_array_val_ser#5c7eaafacb273dbd5dba3ed93dde4d5d0857fd4e"
+source = "git+https://github.com/PistonDevelopers/hematite_nbt#ce60b817f31b20125644c12fbf13f981809d5324"
 dependencies = [
  "byteorder",
  "cesu8",

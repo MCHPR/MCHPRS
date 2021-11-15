@@ -37,7 +37,7 @@ toml = "0.5"
 flate2 = "1"
 byteorder = "1.4"
 # hematite-nbt = "0.5"
-hematite-nbt = { git = "https://github.com/StackDoubleFlow/hematite_nbt", branch = "fix_array_val_ser" }
+hematite-nbt = { git = "https://github.com/PistonDevelopers/hematite_nbt" }
 bitflags = "1.2"
 serde = "1"
 serde_json = "1.0"
