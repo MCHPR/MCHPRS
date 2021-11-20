@@ -1,0 +1,24 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          override: true
+    - uses: Swatinem/rust-cache@v1
+    - name: Build
+      run: cargo test --verbose

@@ -1,9 +1,7 @@
-name: Rust
+name: Build
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
     branches: [ master ]
 
 env:
@@ -28,10 +26,11 @@ jobs:
       with:
           toolchain: nightly
           override: true
+    - uses: Swatinem/rust-cache@v1
     - name: Build
       run: cargo build --release --verbose
     - name: Update artifact
       uses: actions/upload-artifact@v2
       with:
-        name: mchprs-${{ matrix.target }}
+        name: mchprs-${{ matrix.os }}
         path: target/release/mchprs${{ matrix.suffix }}
