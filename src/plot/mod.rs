@@ -27,7 +27,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -46,9 +46,9 @@ pub struct Plot {
     pub players: Vec<Player>,
     locked_players: HashSet<EntityId>,
     tps: u32,
-    last_update_time: SystemTime,
+    last_update_time: Instant,
     lag_time: Duration,
-    last_player_time: SystemTime,
+    last_player_time: Instant,
     sleep_time: Duration,
     running: bool,
     show_redstone: bool,
@@ -742,12 +742,13 @@ impl Plot {
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.timings.set_ticking(true);
-            self.last_player_time = SystemTime::now();
+            self.last_player_time = Instant::now();
             if self.tps != 0 {
                 let dur_per_tick = Duration::from_micros(1_000_000 / self.tps as u64);
-                let elapsed_time = self.last_update_time.elapsed().unwrap();
+                let elapsed_time = self.last_update_time.elapsed();
                 self.lag_time += elapsed_time;
-                self.last_update_time = SystemTime::now();
+                // let ticks = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
+                self.last_update_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
                     if self.timings.is_running_behind() && !self.redpiler.is_active {
                         self.start_redpiler(Default::default(), None, None);
@@ -755,13 +756,17 @@ impl Plot {
                     self.tick();
                     self.lag_time -= dur_per_tick;
                 }
+
+                // if ticks > 0 {
+                //     println!("nspt: {}", (Instant::now() - self.last_update_time).as_nanos() / ticks)
+                // }
             }
 
             self.world.flush_block_changes();
         } else {
             self.timings.set_ticking(false);
             // Unload plot after 600 seconds unless the plot should be always loaded
-            if self.last_player_time.elapsed().unwrap().as_secs() > 600 && !self.always_running {
+            if self.last_player_time.elapsed().as_secs() > 600 && !self.always_running {
                 self.running = false;
                 self.timings.stop();
             }
@@ -812,8 +817,8 @@ impl Plot {
             packet_senders: Vec::new(),
         };
         Plot {
-            last_player_time: SystemTime::now(),
-            last_update_time: SystemTime::now(),
+            last_player_time: Instant::now(),
+            last_update_time: Instant::now(),
             lag_time: Duration::new(0, 0),
             sleep_time: Duration::from_micros(
                 1_000_000u64
@@ -871,8 +876,8 @@ impl Plot {
                 packet_senders: Vec::new(),
             };
             Plot {
-                last_player_time: SystemTime::now(),
-                last_update_time: SystemTime::now(),
+                last_player_time: Instant::now(),
+                last_update_time: Instant::now(),
                 lag_time: Duration::new(0, 0),
                 sleep_time: Duration::from_millis(50),
                 message_receiver: rx,

@@ -281,7 +281,7 @@ impl Plot {
                 self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
                 // This won't get set normally when rtps is 0
-                self.last_update_time = SystemTime::now();
+                self.last_update_time = Instant::now();
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
             "/radv" | "/radvance" => {
