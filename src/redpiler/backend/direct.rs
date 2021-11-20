@@ -3,11 +3,59 @@
 use super::JITBackend;
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::plot::PlotWorld;
-use crate::redpiler::{CompileNode, LinkType};
+use crate::redpiler::{CompileNode, Link, LinkType};
 use crate::world::{TickEntry, TickPriority, World};
 use log::warn;
 use std::collections::HashMap;
 use std::fmt;
+
+#[derive(Debug, Clone)]
+pub struct Node {
+    pos: BlockPos,
+    inputs: Vec<Link>,
+    facing_diode: bool,
+    comparator_far_input: Option<u8>,
+
+    state: Block,
+    updates: Vec<usize>,
+    comparator_output: u8,
+    pending_tick: bool,
+}
+
+impl Node {
+    fn get_output_power(&self) -> u8 {
+        match self.state {
+            Block::RedstoneComparator { .. } => self.comparator_output,
+            Block::RedstoneTorch { lit } => lit.then(|| 15).unwrap_or(0),
+            Block::RedstoneWallTorch { lit, .. } => lit.then(|| 15).unwrap_or(0),
+            Block::RedstoneRepeater { repeater } => repeater.powered.then(|| 15).unwrap_or(0),
+            Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
+            Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
+            Block::RedstoneBlock {} => 15,
+            Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
+            s if s.has_comparator_override() => self.comparator_output,
+            s => {
+                warn!("How did {:?} become an output node?", s);
+                0
+            }
+        }
+    }
+}
+
+impl From<CompileNode> for Node {
+    fn from(node: CompileNode) -> Self {
+        Node { 
+            pos: node.pos,
+            state: node.state,
+            inputs: node.inputs,
+            updates: node.updates,
+            comparator_output: node.comparator_output,
+            facing_diode: node.facing_diode,
+            comparator_far_input: node.comparator_far_input,
+            pending_tick: false,
+        }
+    }
+}
 
 struct RPTickEntry {
     ticks_left: u32,
@@ -17,13 +65,14 @@ struct RPTickEntry {
 
 #[derive(Default)]
 pub struct DirectBackend {
-    nodes: Vec<CompileNode>,
+    nodes: Vec<Node>,
     to_be_ticked: Vec<RPTickEntry>,
     pos_map: HashMap<BlockPos, usize>,
 }
 
 impl DirectBackend {
     fn schedule_tick(&mut self, node_id: usize, delay: u32, priority: TickPriority) {
+        self.nodes[node_id].pending_tick = true;
         self.to_be_ticked.push(RPTickEntry {
             node: node_id,
             ticks_left: delay,
@@ -32,7 +81,7 @@ impl DirectBackend {
     }
 
     fn pending_tick_at(&mut self, node: usize) -> bool {
-        self.to_be_ticked.iter().any(|e| e.node == node)
+        self.nodes[node].pending_tick
     }
 
     fn set_node(&mut self, plot: &mut PlotWorld, node_id: usize, new_block: Block, update: bool) {
@@ -239,6 +288,7 @@ impl JITBackend for DirectBackend {
         while self.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
             let entry = self.to_be_ticked.remove(0);
             let node_id = entry.node;
+            self.nodes[node_id].pending_tick = false;
             let node = &self.nodes[node_id];
 
             let mut input_power = 0u8;
@@ -351,7 +401,7 @@ impl JITBackend for DirectBackend {
         for (i, node) in nodes.iter().enumerate() {
             self.pos_map.insert(node.pos, i);
         }
-        self.nodes = nodes;
+        self.nodes = nodes.into_iter().map(Into::into).collect();
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
                 self.to_be_ticked.push(RPTickEntry {

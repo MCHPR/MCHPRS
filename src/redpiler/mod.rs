@@ -6,7 +6,7 @@ use crate::blocks::{
 use crate::plot::PlotWorld;
 use crate::world::{TickEntry, World};
 use backend::JITBackend;
-use log::{error, warn};
+use log::error;
 use std::collections::{HashMap, VecDeque};
 
 fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
@@ -85,24 +85,6 @@ impl CompileNode {
             Some(CompileNode::new(pos, block, facing_diode))
         } else {
             None
-        }
-    }
-
-    fn get_output_power(&self) -> u8 {
-        match self.state {
-            Block::RedstoneComparator { .. } => self.comparator_output,
-            Block::RedstoneTorch { lit } => lit.then(|| 15).unwrap_or(0),
-            Block::RedstoneWallTorch { lit, .. } => lit.then(|| 15).unwrap_or(0),
-            Block::RedstoneRepeater { repeater } => repeater.powered.then(|| 15).unwrap_or(0),
-            Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
-            Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
-            Block::RedstoneBlock {} => 15,
-            Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
-            s if s.has_comparator_override() => self.comparator_output,
-            s => {
-                warn!("How did {:?} become an output node?", s);
-                0
-            }
         }
     }
 }
