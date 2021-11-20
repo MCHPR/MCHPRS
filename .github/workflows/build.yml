@@ -1,0 +1,37 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            suffix: ''
+          - os: ubuntu-latest
+            suffix: ''
+          - os: windows-latest
+            suffix: .exe
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          override: true
+    - name: Build
+      run: cargo build --release --verbose
+    - name: Update artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: mchprs-${{ matrix.target }}
+        path: target/release/mchprs${{ matrix.suffix }}
