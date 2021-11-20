@@ -105,7 +105,7 @@ impl World for PlotWorld {
         }
 
         let chunk = &mut self.chunks[chunk_index];
-        chunk.set_block_raw(
+        chunk.set_block(
             (pos.x & 0xF) as u32,
             pos.y as u32,
             (pos.z & 0xF) as u32,
@@ -747,7 +747,7 @@ impl Plot {
                 let dur_per_tick = Duration::from_micros(1_000_000 / self.tps as u64);
                 let elapsed_time = self.last_update_time.elapsed();
                 self.lag_time += elapsed_time;
-                // let ticks = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
+                let ticks = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
                 self.last_update_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
                     if self.timings.is_running_behind() && !self.redpiler.is_active {
@@ -757,9 +757,9 @@ impl Plot {
                     self.lag_time -= dur_per_tick;
                 }
 
-                // if ticks > 0 {
-                //     println!("nspt: {}", (Instant::now() - self.last_update_time).as_nanos() / ticks)
-                // }
+                if ticks > 0 {
+                    println!("nspt: {}", (Instant::now() - self.last_update_time).as_nanos() / ticks)
+                }
             }
 
             self.world.flush_block_changes();

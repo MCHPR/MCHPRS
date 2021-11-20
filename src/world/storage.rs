@@ -228,7 +228,12 @@ impl ChunkSection {
     }
 
     fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
-        self.buffer.get_entry(ChunkSection::get_index(x, y, z))
+        let idx = ChunkSection::get_index(x, y, z);
+        if self.changed_blocks[idx] > 0 {
+            self.changed_blocks[idx] as u32
+        } else {
+            self.buffer.get_entry(idx)
+        }
     }
 
     /// Sets a block in the chunk sections. Returns true if a block was changed.
@@ -240,7 +245,6 @@ impl ChunkSection {
             self.block_count -= 1;
         }
         let idx = ChunkSection::get_index(x, y, z);
-        self.buffer.set_entry(idx, block);
         let changed = old_block != block;
         if changed {
             self.changed = true;
@@ -328,18 +332,21 @@ impl ChunkSection {
         self.multi_block.chunk_x = chunk_x;
         self.multi_block.chunk_y = chunk_y;
         self.multi_block.chunk_z = chunk_z;
-        for (i, block) in self.changed_blocks.iter().enumerate() {
-            if *block >= 0 {
-                self.multi_block.records.push(C3BMultiBlockChangeRecord {
-                    block_id: *block as u32,
-                    x: (i & 0xF) as u8,
-                    y: (i >> 8) as u8,
-                    z: ((i & 0xF0) >> 4) as u8,
-                });
+        if self.changed {
+            for (i, block) in self.changed_blocks.iter().enumerate() {
+                self.buffer.set_entry(i, *block as u32);
+                if *block >= 0 {
+                    self.multi_block.records.push(C3BMultiBlockChangeRecord {
+                        block_id: *block as u32,
+                        x: (i & 0xF) as u8,
+                        y: (i >> 8) as u8,
+                        z: ((i & 0xF0) >> 4) as u8,
+                    });
+                }
             }
+            self.changed = false;
+            self.changed_blocks = [-1; 16 * 16 * 16];
         }
-        self.changed = false;
-        self.changed_blocks = [-1; 16 * 16 * 16];
         &self.multi_block
     }
 }
@@ -417,7 +424,7 @@ impl Chunk {
     }
 
     /// Sets a block in the chunk. Returns true if a block was changed.
-    pub fn set_block_raw(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
+    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
         let section_y = (y >> 4) as u8;
         if let Some(section) = self.sections.get_mut(&section_y) {
             section.set_block(x, y & 0xF, z, block_id)
@@ -430,10 +437,6 @@ impl Chunk {
             // The block was air so a new chunk section does not need to be created.
             false
         }
-    }
-
-    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
-        self.set_block_raw(x, y, z, block_id)
     }
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
