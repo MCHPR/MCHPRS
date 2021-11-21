@@ -334,8 +334,8 @@ impl ChunkSection {
         self.multi_block.chunk_z = chunk_z;
         if self.changed {
             for (i, block) in self.changed_blocks.iter().enumerate() {
-                self.buffer.set_entry(i, *block as u32);
                 if *block >= 0 {
+                    self.buffer.set_entry(i, *block as u32);
                     self.multi_block.records.push(C3BMultiBlockChangeRecord {
                         block_id: *block as u32,
                         x: (i & 0xF) as u8,
