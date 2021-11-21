@@ -15,7 +15,7 @@ use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use log::{debug, info};
 use std::lazy::SyncLazy;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
@@ -154,7 +154,7 @@ impl Plot {
     fn handle_redpiler_command(&mut self, player: usize, command: &str, args: &[&str]) {
         match command {
             "compile" | "c" => {
-                let start_time = SystemTime::now();
+                let start_time = Instant::now();
                 let args = args.join(" ");
                 let options = CompilerOptions::parse(&args);
 
