@@ -15,7 +15,8 @@ pub struct Node {
     inputs: Vec<Link>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
-
+    
+    output_power: u8,
     state: Block,
     updates: Vec<usize>,
     comparator_output: u8,
@@ -23,8 +24,8 @@ pub struct Node {
 }
 
 impl Node {
-    fn get_output_power(&self) -> u8 {
-        match self.state {
+    fn update_output_power(&mut self) {
+        self.output_power = match self.state {
             Block::RedstoneComparator { .. } => self.comparator_output,
             Block::RedstoneTorch { lit } => lit.then(|| 15).unwrap_or(0),
             Block::RedstoneWallTorch { lit, .. } => lit.then(|| 15).unwrap_or(0),
@@ -34,26 +35,26 @@ impl Node {
             Block::RedstoneBlock {} => 15,
             Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
             s if s.has_comparator_override() => self.comparator_output,
-            s => {
-                warn!("How did {:?} become an output node?", s);
-                0
-            }
+            _ => 0,
         }
     }
 }
 
 impl From<CompileNode> for Node {
     fn from(node: CompileNode) -> Self {
-        Node { 
+        let mut n = Node { 
             pos: node.pos,
             state: node.state,
             inputs: node.inputs,
             updates: node.updates,
+            output_power: 0,
             comparator_output: node.comparator_output,
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
-        }
+        };
+        n.update_output_power();
+        n
     }
 }
 
@@ -89,6 +90,7 @@ impl DirectBackend {
         node.state = new_block;
         plot.set_block(node.pos, new_block);
         if update {
+            node.update_output_power();
             for i in 0..node.updates.len() {
                 let update = self.nodes[node_id].updates[i];
                 self.update_node(plot, update);
@@ -138,8 +140,7 @@ impl DirectBackend {
                 LinkType::Side => &mut side_input_power,
             };
             *power = (*power).max(
-                self.nodes[link.end]
-                    .get_output_power()
+                self.nodes[link.end].output_power
                     .saturating_sub(link.weight),
             );
         }
@@ -300,7 +301,7 @@ impl JITBackend for DirectBackend {
                 };
                 *power = (*power).max(
                     self.nodes[link.end]
-                        .get_output_power()
+                        .output_power
                         .saturating_sub(link.weight),
                 );
             }

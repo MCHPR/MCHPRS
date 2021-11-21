@@ -105,7 +105,7 @@ impl World for PlotWorld {
         }
 
         let chunk = &mut self.chunks[chunk_index];
-        chunk.set_block_raw(
+        chunk.set_block(
             (pos.x & 0xF) as u32,
             pos.y as u32,
             (pos.z & 0xF) as u32,

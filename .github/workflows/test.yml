@@ -1,4 +1,4 @@
-name: Rust
+name: Test
 
 on:
   push:
@@ -11,7 +11,6 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -19,10 +18,7 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
           toolchain: nightly
-          target: aarch64-linux-android
-          profile: minimal
           override: true
+    - uses: Swatinem/rust-cache@v1
     - name: Build
-      run: cargo build --verbose
-    - name: Run tests
       run: cargo test --verbose
