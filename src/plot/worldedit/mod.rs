@@ -10,6 +10,9 @@ use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::player::{Player, PlayerPos};
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
+use crate::items::{Item, ItemStack};
+use crate::network::packets::clientbound::*;
+use crate::network::packets::SlotData;
 use log::error;
 use rand::Rng;
 use regex::Regex;
@@ -652,6 +655,12 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             description: "Displays help for WorldEdit commands",
             permission_node: "worldedit.help",
             ..Default::default()
+        },
+        "/wand" => WorldeditCommand {
+           execute_fn: execute_wand,
+           description: "Gives a WorldEdit wand",
+           permission_node: "worldedit.wand",
+           ..Default::default()
         }
     }
 });
@@ -930,6 +939,33 @@ fn worldedit_start_operation(player: &mut Player) -> WorldEditOperation {
     let first_pos = player.first_position.unwrap();
     let second_pos = player.second_position.unwrap();
     WorldEditOperation::new(first_pos, second_pos)
+}
+
+fn execute_wand(ctx: CommandExecuteContext<'_>) {
+     let item = ItemStack {
+         count: 1,
+         item_type: Item::WEWand {},
+         nbt: None
+    };
+    ctx.player.inventory[ctx.player.selected_slot as usize] = Some(item);
+    let entity_equipment = CEntityEquipment {
+        entity_id: ctx.player.entity_id as i32,
+        equipment: vec![CEntityEquipmentEquipment {
+            slot: 0,
+            item: ctx.player.inventory
+                [ctx.player.selected_slot as usize]
+                .as_ref()
+                .map(|item| SlotData {
+                    item_count: item.count as i8,
+                    item_id: item.item_type.get_id() as i32,
+                    nbt: item.nbt.clone(),
+                }),
+        }],
+    }
+    .encode();
+    for player in &mut ctx.plot.packet_senders {
+        player.send_packet(&entity_equipment);
+    }
 }
 
 fn execute_set(ctx: CommandExecuteContext<'_>) {

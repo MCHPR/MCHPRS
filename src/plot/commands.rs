@@ -329,8 +329,10 @@ impl Plot {
                         self.players[player].send_error_message("Unable to parse z coordinate!");
                         return false;
                     }
+                    self.players[player].send_system_message(&format!("Teleporting to ({}, {}, {})", x, y, z));
                     self.players[player].teleport(PlayerPos::new(x, y, z));
                 } else if args.len() == 1 {
+                    self.players[player].send_system_message(&format!("Teleporting to {}", args[0]));
                     let uuid = self.players[player].uuid;
                     let player = self.leave_plot(uuid);
                     let _ = self
@@ -374,6 +376,12 @@ impl Plot {
                     }
                     self.players[player].fly_speed = speed_arg;
                     self.players[player].update_player_abilities();
+                    let username = self.players[player].username.clone();
+                    self.players[player].send_system_message(&format!(
+                        "Set flying speed to {} for {}",
+                        speed_arg,
+                        username
+                    ));
                 } else {
                     self.players[player].send_error_message("Unable to parse speed value");
                 }
@@ -453,7 +461,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49, 53,
+                    47, 49, 53, 60,
                 ],
                 redirect_node: None,
                 name: None,
@@ -929,6 +937,14 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 children: &[],
                 redirect_node: None,
                 name: Some("unlock"),
+                parser: None,
+            },
+            // 60: //wand
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("/wand"),
                 parser: None,
             },
         ],
