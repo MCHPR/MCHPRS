@@ -473,7 +473,11 @@ impl Chunk {
 
     pub fn save(&mut self) -> ChunkData {
         ChunkData {
-            sections: self.sections.iter_mut().map(|(y, s)| (*y, s.save())).collect(),
+            sections: self
+                .sections
+                .iter_mut()
+                .map(|(y, s)| (*y, s.save()))
+                .collect(),
             block_entities: self.block_entities.clone(),
         }
     }

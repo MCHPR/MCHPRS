@@ -15,7 +15,7 @@ pub struct Node {
     inputs: Vec<Link>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
-    
+
     output_power: u8,
     state: Block,
     updates: Vec<usize>,
@@ -42,7 +42,7 @@ impl Node {
 
 impl From<CompileNode> for Node {
     fn from(node: CompileNode) -> Self {
-        let mut n = Node { 
+        let mut n = Node {
             pos: node.pos,
             state: node.state,
             inputs: node.inputs,
@@ -233,11 +233,8 @@ impl JITBackend for DirectBackend {
                         }
                     }
                     let comparator_output = node.comparator_output;
-                    let new_strength = calculate_comparator_output(
-                        comparator.mode,
-                        input_power,
-                        side_input_power,
-                    );
+                    let new_strength =
+                        calculate_comparator_output(comparator.mode, input_power, side_input_power);
                     let old_strength = comparator_output;
                     if new_strength != old_strength || comparator.mode == ComparatorMode::Compare {
                         self.nodes[node_id].comparator_output = new_strength;
@@ -302,7 +299,13 @@ fn set_node(world: &mut PlotWorld, node: &mut Node, new_state: Block) {
     world.set_block(node.pos, new_state);
 }
 
-fn schedule_tick(to_be_ticked: &mut Vec<RPTickEntry>, node_id: usize, node: &mut Node, delay: u32, priority: TickPriority) {
+fn schedule_tick(
+    to_be_ticked: &mut Vec<RPTickEntry>,
+    node_id: usize,
+    node: &mut Node,
+    delay: u32,
+    priority: TickPriority,
+) {
     node.pending_tick = true;
     to_be_ticked.push(RPTickEntry {
         node: node_id,
@@ -311,7 +314,12 @@ fn schedule_tick(to_be_ticked: &mut Vec<RPTickEntry>, node_id: usize, node: &mut
     });
 }
 
-fn update_node(plot: &mut PlotWorld, to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut Vec<Node>, node_id: usize) {
+fn update_node(
+    plot: &mut PlotWorld,
+    to_be_ticked: &mut Vec<RPTickEntry>,
+    nodes: &mut Vec<Node>,
+    node_id: usize,
+) {
     let node = &nodes[node_id];
 
     let mut input_power = 0;
@@ -321,10 +329,7 @@ fn update_node(plot: &mut PlotWorld, to_be_ticked: &mut Vec<RPTickEntry>, nodes:
             LinkType::Default => &mut input_power,
             LinkType::Side => &mut side_input_power,
         };
-        *power = (*power).max(
-            nodes[link.end].output_power
-                .saturating_sub(link.weight),
-        );
+        *power = (*power).max(nodes[link.end].output_power.saturating_sub(link.weight));
     }
 
     let facing_diode = node.facing_diode;
@@ -370,19 +375,12 @@ fn update_node(plot: &mut PlotWorld, to_be_ticked: &mut Vec<RPTickEntry>, nodes:
                     input_power = far_override;
                 }
             }
-            let output_power = calculate_comparator_output(
-                comparator.mode,
-                input_power,
-                side_input_power,
-            );
+            let output_power =
+                calculate_comparator_output(comparator.mode, input_power, side_input_power);
             let old_strength = comparator_output;
             if output_power != old_strength
                 || comparator.powered
-                    != comparator_should_be_powered(
-                        comparator.mode,
-                        input_power,
-                        side_input_power,
-                    )
+                    != comparator_should_be_powered(comparator.mode, input_power, side_input_power)
             {
                 let priority = if facing_diode {
                     TickPriority::High
@@ -462,11 +460,7 @@ fn comparator_should_be_powered(
     }
 }
 
-fn calculate_comparator_output(
-    mode: ComparatorMode,
-    input_strength: u8,
-    power_on_sides: u8,
-) -> u8 {
+fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_on_sides: u8) -> u8 {
     if mode == ComparatorMode::Subtract {
         input_strength.saturating_sub(power_on_sides)
     } else if input_strength >= power_on_sides {
