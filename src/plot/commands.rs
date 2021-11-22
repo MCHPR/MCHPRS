@@ -267,9 +267,9 @@ impl Plot {
                     self.players[player].send_error_message("Unable to parse rtps!");
                     return false;
                 };
-                if tps > 35000 {
+                if tps > 100000 {
                     self.players[player]
-                        .send_error_message("The rtps cannot go higher than 35000!");
+                        .send_error_message("The rtps cannot go higher than 100000!");
                     return false;
                 }
                 if tps > 10 {
@@ -561,7 +561,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 children: &[],
                 redirect_node: None,
                 name: Some("rtps"),
-                parser: Some(Parser::Integer(0, 35000)),
+                parser: Some(Parser::Integer(0, 100000)),
             },
             // 14: //pos1
             Node {
@@ -697,7 +697,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 children: &[],
                 redirect_node: None,
                 name: Some("rticks"),
-                parser: Some(Parser::Integer(0, 35000)),
+                parser: Some(Parser::Integer(0, 100000)),
             },
             // 31: /radv
             Node {
