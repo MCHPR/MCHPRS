@@ -6,7 +6,7 @@ use crate::blocks::{
 use crate::plot::PlotWorld;
 use crate::world::{TickEntry, World};
 use backend::JITBackend;
-use log::error;
+use log::{error, warn};
 use std::collections::{HashMap, VecDeque};
 
 fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
@@ -498,7 +498,7 @@ impl<'a> InputSearch<'a> {
 #[derive(Default)]
 pub struct CompilerOptions {
     pub use_worldedit: bool,
-    pub optimize: bool,
+    pub no_wires: bool,
 }
 
 impl CompilerOptions {
@@ -508,9 +508,9 @@ impl CompilerOptions {
         for option in options {
             match option {
                 "--worldedit" | "-w" => co.use_worldedit = true,
-                "--optimize" | "-O" => co.optimize = true,
+                "--no-wires" | "-O" => co.no_wires = true,
                 // FIXME: use actual error handling
-                _ => panic!("Unrecognized option: {}", option),
+                _ => warn!("Unrecognized option: {}", option),
             }
         }
         co
@@ -548,7 +548,7 @@ impl Compiler {
             )
         };
 
-        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos);
+        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.no_wires);
         InputSearch::new(plot, &mut nodes).search();
         self.is_active = true;
 
@@ -613,6 +613,7 @@ impl Compiler {
         plot: &mut PlotWorld,
         first_pos: BlockPos,
         second_pos: BlockPos,
+        no_wires: bool,
     ) -> Vec<CompileNode> {
         let mut nodes = Vec::new();
         let start_pos = first_pos.min(second_pos);
@@ -631,6 +632,10 @@ impl Compiler {
                     } else {
                         false
                     };
+
+                    if no_wires && matches!(block, Block::RedstoneWire { .. }) {
+                        continue;
+                    }
 
                     if let Some(node) = CompileNode::from_block(pos, block, facing_diode) {
                         nodes.push(node);

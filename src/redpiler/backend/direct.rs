@@ -102,7 +102,7 @@ impl DirectBackend {
 
 impl JITBackend for DirectBackend {
     fn reset(&mut self, plot: &mut PlotWorld) {
-        for entry in self.to_be_ticked.drain(..) {
+        for entry in &self.to_be_ticked {
             plot.schedule_tick(
                 self.nodes[entry.node].pos,
                 entry.ticks_left,
