@@ -229,7 +229,7 @@ impl ChunkSection {
 
     fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
         let idx = ChunkSection::get_index(x, y, z);
-        if self.changed_blocks[idx] > 0 {
+        if self.changed_blocks[idx] >= 0 {
             self.changed_blocks[idx] as u32
         } else {
             self.buffer.get_entry(idx)
