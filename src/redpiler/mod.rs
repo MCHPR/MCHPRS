@@ -575,38 +575,29 @@ impl Compiler {
         }
     }
 
-    pub fn tick(&mut self, plot: &mut PlotWorld) {
-        assert!(self.is_active, "Redpiler cannot tick while inactive");
+    fn backend(&mut self) -> &mut Box<dyn JITBackend> {
+        assert!(self.is_active, "tried to get redpiler backend when inactive");
         if let Some(jit) = &mut self.jit {
-            jit.tick(plot);
+            jit
         } else {
-            error!("Tried to tick redpiler while missing its JIT variant. How is it even active?");
+            panic!("redpiler is active but is missing jit backend");
         }
+    }
+
+    pub fn tick(&mut self, plot: &mut PlotWorld) {
+        self.backend().tick(plot);
     }
 
     pub fn on_use_block(&mut self, plot: &mut PlotWorld, pos: BlockPos) {
-        assert!(self.is_active, "Redpiler cannot use block while inactive");
-        if let Some(jit) = &mut self.jit {
-            jit.on_use_block(plot, pos);
-        } else {
-            error!(
-                "Tried to use redpiler block while missing its JIT variant. How is it even active?"
-            );
-        }
+        self.backend().on_use_block(plot, pos);
     }
 
     pub fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
-        assert!(
-            self.is_active,
-            "Redpiler cannot set pressure plate while inactive"
-        );
-        if let Some(jit) = &mut self.jit {
-            jit.set_pressure_plate(plot, pos, powered);
-        } else {
-            error!(
-                "Tried to use redpiler block while missing its JIT variant. How is it even active?"
-            );
-        }
+        self.backend().set_pressure_plate(plot, pos, powered);
+    }
+
+    pub fn flush(&mut self, plot: &mut PlotWorld) {
+        self.backend().flush(plot);
     }
 
     fn identify_nodes(

@@ -762,6 +762,9 @@ impl Plot {
                 // }
             }
 
+            if self.redpiler.is_active {
+                self.redpiler.flush(&mut self.world);
+            }
             self.world.flush_block_changes();
         } else {
             self.timings.set_ticking(false);

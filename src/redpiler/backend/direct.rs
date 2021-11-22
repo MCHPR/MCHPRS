@@ -16,10 +16,11 @@ pub struct Node {
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
-    output_power: u8,
     state: Block,
     updates: Vec<usize>,
+    output_power: u8,
     comparator_output: u8,
+    changed: bool,
     pending_tick: bool,
 }
 
@@ -52,6 +53,7 @@ impl From<CompileNode> for Node {
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
+            changed: false,
         };
         n.update_output_power();
         n
@@ -81,21 +83,17 @@ impl DirectBackend {
         });
     }
 
-    fn pending_tick_at(&mut self, node: usize) -> bool {
-        self.nodes[node].pending_tick
-    }
-
-    fn set_node(&mut self, plot: &mut PlotWorld, node_id: usize, new_block: Block, update: bool) {
+    fn set_node(&mut self, node_id: usize, new_block: Block, update: bool) {
         let node = &mut self.nodes[node_id];
         node.state = new_block;
-        plot.set_block(node.pos, new_block);
+        node.changed = true;
         if update {
             node.update_output_power();
             for i in 0..node.updates.len() {
                 let update = self.nodes[node_id].updates[i];
-                update_node(plot, &mut self.to_be_ticked, &mut self.nodes, update);
+                update_node(&mut self.to_be_ticked, &mut self.nodes, update);
             }
-            update_node(plot, &mut self.to_be_ticked, &mut self.nodes, node_id);
+            update_node(&mut self.to_be_ticked, &mut self.nodes, node_id);
         }
     }
 }
@@ -131,11 +129,11 @@ impl JITBackend for DirectBackend {
             Block::StoneButton { mut button } => {
                 button.powered = !button.powered;
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(plot, node_id, Block::StoneButton { button }, true);
+                self.set_node(node_id, Block::StoneButton { button }, true);
             }
             Block::Lever { mut lever } => {
                 lever.powered = !lever.powered;
-                self.set_node(plot, node_id, Block::Lever { lever }, true);
+                self.set_node(node_id, Block::Lever { lever }, true);
             }
             _ => warn!("Tried to use a {:?} redpiler node", node.state),
         }
@@ -146,7 +144,7 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.state {
             Block::StonePressurePlate { .. } => {
-                self.set_node(plot, node_id, Block::StonePressurePlate { powered }, true);
+                self.set_node(node_id, Block::StonePressurePlate { powered }, true);
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.state),
         }
@@ -194,32 +192,30 @@ impl JITBackend for DirectBackend {
                     let should_be_powered = input_power > 0;
                     if repeater.powered && !should_be_powered {
                         repeater.powered = false;
-                        self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
                     } else if !repeater.powered {
                         repeater.powered = true;
-                        self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
                     }
                 }
                 Block::RedstoneTorch { lit } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
-                        self.set_node(plot, node_id, Block::RedstoneTorch { lit: false }, true);
+                        self.set_node(node_id, Block::RedstoneTorch { lit: false }, true);
                     } else if !lit && !should_be_off {
-                        self.set_node(plot, node_id, Block::RedstoneTorch { lit: true }, true);
+                        self.set_node(node_id, Block::RedstoneTorch { lit: true }, true);
                     }
                 }
                 Block::RedstoneWallTorch { lit, facing } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
                         self.set_node(
-                            plot,
                             node_id,
                             Block::RedstoneWallTorch { lit: false, facing },
                             true,
                         );
                     } else if !lit && !should_be_off {
                         self.set_node(
-                            plot,
                             node_id,
                             Block::RedstoneWallTorch { lit: true, facing },
                             true,
@@ -250,7 +246,6 @@ impl JITBackend for DirectBackend {
                             comparator.powered = true;
                         }
                         self.set_node(
-                            plot,
                             node_id,
                             Block::RedstoneComparator { comparator },
                             true,
@@ -260,13 +255,13 @@ impl JITBackend for DirectBackend {
                 Block::RedstoneLamp { lit } => {
                     let should_be_lit = input_power > 0;
                     if lit && !should_be_lit {
-                        self.set_node(plot, node_id, Block::RedstoneLamp { lit: false }, false);
+                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
                     }
                 }
                 Block::StoneButton { mut button } => {
                     if button.powered {
                         button.powered = false;
-                        self.set_node(plot, node_id, Block::StoneButton { button }, true);
+                        self.set_node(node_id, Block::StoneButton { button }, true);
                     }
                 }
                 _ => warn!("Node {:?} should not be ticked!", node.state),
@@ -292,11 +287,19 @@ impl JITBackend for DirectBackend {
         // Dot file output
         // println!("{}", self);
     }
+
+    fn flush(&mut self, plot: &mut PlotWorld) {
+        for node in &mut self.nodes {
+            if node.changed {
+                plot.set_block(node.pos, node.state);
+            }
+        }
+    }
 }
 
-fn set_node(world: &mut PlotWorld, node: &mut Node, new_state: Block) {
+fn set_node(node: &mut Node, new_state: Block) {
     node.state = new_state;
-    world.set_block(node.pos, new_state);
+    node.changed = true;
 }
 
 fn schedule_tick(
@@ -315,7 +318,6 @@ fn schedule_tick(
 }
 
 fn update_node(
-    plot: &mut PlotWorld,
     to_be_ticked: &mut Vec<RPTickEntry>,
     nodes: &mut Vec<Node>,
     node_id: usize,
@@ -341,10 +343,10 @@ fn update_node(
             let should_be_locked = side_input_power > 0;
             if !repeater.locked && should_be_locked {
                 repeater.locked = true;
-                set_node(plot, node, Block::RedstoneRepeater { repeater });
+                set_node(node, Block::RedstoneRepeater { repeater });
             } else if repeater.locked && !should_be_locked {
                 repeater.locked = false;
-                set_node(plot, node, Block::RedstoneRepeater { repeater });
+                set_node(node, Block::RedstoneRepeater { repeater });
             }
 
             if !repeater.locked && !node.pending_tick {
@@ -395,13 +397,13 @@ fn update_node(
             if lit && !should_be_lit {
                 schedule_tick(to_be_ticked, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
-                set_node(plot, node, Block::RedstoneLamp { lit: true });
+                set_node(node, Block::RedstoneLamp { lit: true });
             }
         }
         Block::RedstoneWire { mut wire } => {
             if wire.power != input_power {
                 wire.power = input_power;
-                set_node(plot, node, Block::RedstoneWire { wire });
+                set_node(node, Block::RedstoneWire { wire });
             }
         }
         _ => {} // panic!("Node {:?} should not be updated!", node.state),
