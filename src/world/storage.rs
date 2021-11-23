@@ -229,7 +229,7 @@ impl ChunkSection {
 
     fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
         let idx = ChunkSection::get_index(x, y, z);
-        if self.changed_blocks[idx] > 0 {
+        if self.changed_blocks[idx] >= 0 {
             self.changed_blocks[idx] as u32
         } else {
             self.buffer.get_entry(idx)
@@ -272,7 +272,8 @@ impl ChunkSection {
         }
     }
 
-    fn save(&self) -> ChunkSectionData {
+    fn save(&mut self) -> ChunkSectionData {
+        self.flush();
         let longs: Vec<i64> = self
             .buffer
             .data
@@ -325,6 +326,16 @@ impl ChunkSection {
                     .map(|x| x as i32)
                     .collect()
             }),
+        }
+    }
+
+    fn flush(&mut self) {
+        if self.changed {
+            for (i, block) in self.changed_blocks.iter().enumerate() {
+                if *block >= 0 {
+                    self.buffer.set_entry(i, *block as u32);
+                }
+            }
         }
     }
 
@@ -460,9 +471,13 @@ impl Chunk {
         self.block_entities.insert(pos, block_entity);
     }
 
-    pub fn save(&self) -> ChunkData {
+    pub fn save(&mut self) -> ChunkData {
         ChunkData {
-            sections: self.sections.iter().map(|(y, s)| (*y, s.save())).collect(),
+            sections: self
+                .sections
+                .iter_mut()
+                .map(|(y, s)| (*y, s.save()))
+                .collect(),
             block_entities: self.block_entities.clone(),
         }
     }

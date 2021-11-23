@@ -762,6 +762,9 @@ impl Plot {
                 // }
             }
 
+            if self.redpiler.is_active {
+                self.redpiler.flush(&mut self.world);
+            }
             self.world.flush_block_changes();
         } else {
             self.timings.set_ticking(false);
@@ -899,14 +902,14 @@ impl Plot {
         }
     }
 
-    fn save(&self) {
-        let world = &self.world;
+    fn save(&mut self) {
+        let world = &mut self.world;
         let mut file = OpenOptions::new()
             .write(true)
             .create(true)
             .open(format!("./world/plots/p{},{}", world.x, world.z))
             .unwrap();
-        let chunk_data: Vec<ChunkData> = world.chunks.iter().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
             tps: self.tps,
             show_redstone: self.show_redstone,

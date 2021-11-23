@@ -15,11 +15,12 @@ pub struct Node {
     inputs: Vec<Link>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
-    
-    output_power: u8,
+
     state: Block,
     updates: Vec<usize>,
+    output_power: u8,
     comparator_output: u8,
+    changed: bool,
     pending_tick: bool,
 }
 
@@ -42,7 +43,7 @@ impl Node {
 
 impl From<CompileNode> for Node {
     fn from(node: CompileNode) -> Self {
-        let mut n = Node { 
+        let mut n = Node {
             pos: node.pos,
             state: node.state,
             inputs: node.inputs,
@@ -52,6 +53,7 @@ impl From<CompileNode> for Node {
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
+            changed: false,
         };
         n.update_output_power();
         n
@@ -81,156 +83,24 @@ impl DirectBackend {
         });
     }
 
-    fn pending_tick_at(&mut self, node: usize) -> bool {
-        self.nodes[node].pending_tick
-    }
-
-    fn set_node(&mut self, plot: &mut PlotWorld, node_id: usize, new_block: Block, update: bool) {
+    fn set_node(&mut self, node_id: usize, new_block: Block, update: bool) {
         let node = &mut self.nodes[node_id];
         node.state = new_block;
-        plot.set_block(node.pos, new_block);
+        node.changed = true;
         if update {
             node.update_output_power();
             for i in 0..node.updates.len() {
                 let update = self.nodes[node_id].updates[i];
-                self.update_node(plot, update);
+                update_node(&mut self.to_be_ticked, &mut self.nodes, update);
             }
-            self.update_node(plot, node_id);
-        }
-    }
-
-    fn comparator_should_be_powered(
-        &mut self,
-        mode: ComparatorMode,
-        input_strength: u8,
-        power_on_sides: u8,
-    ) -> bool {
-        if input_strength == 0 {
-            false
-        } else if input_strength > power_on_sides {
-            true
-        } else {
-            power_on_sides == input_strength && mode == ComparatorMode::Compare
-        }
-    }
-
-    fn calculate_comparator_output(
-        &mut self,
-        mode: ComparatorMode,
-        input_strength: u8,
-        power_on_sides: u8,
-    ) -> u8 {
-        if mode == ComparatorMode::Subtract {
-            input_strength.saturating_sub(power_on_sides)
-        } else if input_strength >= power_on_sides {
-            input_strength
-        } else {
-            0
-        }
-    }
-
-    fn update_node(&mut self, plot: &mut PlotWorld, node_id: usize) {
-        let node = &self.nodes[node_id];
-
-        let mut input_power = 0;
-        let mut side_input_power = 0;
-        for link in &node.inputs {
-            let power = match link.ty {
-                LinkType::Default => &mut input_power,
-                LinkType::Side => &mut side_input_power,
-            };
-            *power = (*power).max(
-                self.nodes[link.end].output_power
-                    .saturating_sub(link.weight),
-            );
-        }
-
-        let facing_diode = node.facing_diode;
-        let comparator_output = node.comparator_output;
-
-        match node.state {
-            Block::RedstoneRepeater { mut repeater } => {
-                let should_be_locked = side_input_power > 0;
-                if !repeater.locked && should_be_locked {
-                    repeater.locked = true;
-                    self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, false);
-                } else if repeater.locked && !should_be_locked {
-                    repeater.locked = false;
-                    self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, false);
-                }
-
-                if !repeater.locked && !self.pending_tick_at(node_id) {
-                    let should_be_powered = input_power > 0;
-                    if should_be_powered != repeater.powered {
-                        let priority = if facing_diode {
-                            TickPriority::Highest
-                        } else if !should_be_powered {
-                            TickPriority::Higher
-                        } else {
-                            TickPriority::High
-                        };
-                        self.schedule_tick(node_id, repeater.delay as u32, priority);
-                    }
-                }
-            }
-            Block::RedstoneTorch { lit } | Block::RedstoneWallTorch { lit, .. } => {
-                if lit == (input_power > 0) && !self.pending_tick_at(node_id) {
-                    self.schedule_tick(node_id, 1, TickPriority::Normal);
-                }
-            }
-            Block::RedstoneComparator { comparator } => {
-                if self.pending_tick_at(node_id) {
-                    return;
-                }
-                if let Some(far_override) = self.nodes[node_id].comparator_far_input {
-                    if input_power < 15 {
-                        input_power = far_override;
-                    }
-                }
-                let output_power = self.calculate_comparator_output(
-                    comparator.mode,
-                    input_power,
-                    side_input_power,
-                );
-                let old_strength = comparator_output;
-                if output_power != old_strength
-                    || comparator.powered
-                        != self.comparator_should_be_powered(
-                            comparator.mode,
-                            input_power,
-                            side_input_power,
-                        )
-                {
-                    let priority = if facing_diode {
-                        TickPriority::High
-                    } else {
-                        TickPriority::Normal
-                    };
-                    self.schedule_tick(node_id, 1, priority);
-                }
-            }
-            Block::RedstoneLamp { lit } => {
-                let should_be_lit = input_power > 0;
-                if lit && !should_be_lit {
-                    self.schedule_tick(node_id, 2, TickPriority::Normal);
-                } else if !lit && should_be_lit {
-                    self.set_node(plot, node_id, Block::RedstoneLamp { lit: true }, false);
-                }
-            }
-            Block::RedstoneWire { mut wire } => {
-                if wire.power != input_power {
-                    wire.power = input_power;
-                    self.set_node(plot, node_id, Block::RedstoneWire { wire }, false);
-                }
-            }
-            _ => {} // panic!("Node {:?} should not be updated!", node.state),
+            update_node(&mut self.to_be_ticked, &mut self.nodes, node_id);
         }
     }
 }
 
 impl JITBackend for DirectBackend {
     fn reset(&mut self, plot: &mut PlotWorld) {
-        for entry in self.to_be_ticked.drain(..) {
+        for entry in &self.to_be_ticked {
             plot.schedule_tick(
                 self.nodes[entry.node].pos,
                 entry.ticks_left,
@@ -259,11 +129,11 @@ impl JITBackend for DirectBackend {
             Block::StoneButton { mut button } => {
                 button.powered = !button.powered;
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(plot, node_id, Block::StoneButton { button }, true);
+                self.set_node(node_id, Block::StoneButton { button }, true);
             }
             Block::Lever { mut lever } => {
                 lever.powered = !lever.powered;
-                self.set_node(plot, node_id, Block::Lever { lever }, true);
+                self.set_node(node_id, Block::Lever { lever }, true);
             }
             _ => warn!("Tried to use a {:?} redpiler node", node.state),
         }
@@ -274,7 +144,7 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.state {
             Block::StonePressurePlate { .. } => {
-                self.set_node(plot, node_id, Block::StonePressurePlate { powered }, true);
+                self.set_node(node_id, Block::StonePressurePlate { powered }, true);
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.state),
         }
@@ -286,8 +156,15 @@ impl JITBackend for DirectBackend {
         for pending in &mut self.to_be_ticked {
             pending.ticks_left = pending.ticks_left.saturating_sub(1);
         }
-        while self.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
-            let entry = self.to_be_ticked.remove(0);
+
+        let mut i = 0;
+        for _ in 0..self.to_be_ticked.len() {
+            let entry = &self.to_be_ticked[i];
+            if entry.ticks_left != 0 {
+                break;
+            }
+            i += 1;
+
             let node_id = entry.node;
             self.nodes[node_id].pending_tick = false;
             let node = &self.nodes[node_id];
@@ -315,32 +192,30 @@ impl JITBackend for DirectBackend {
                     let should_be_powered = input_power > 0;
                     if repeater.powered && !should_be_powered {
                         repeater.powered = false;
-                        self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
                     } else if !repeater.powered {
                         repeater.powered = true;
-                        self.set_node(plot, node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
                     }
                 }
                 Block::RedstoneTorch { lit } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
-                        self.set_node(plot, node_id, Block::RedstoneTorch { lit: false }, true);
+                        self.set_node(node_id, Block::RedstoneTorch { lit: false }, true);
                     } else if !lit && !should_be_off {
-                        self.set_node(plot, node_id, Block::RedstoneTorch { lit: true }, true);
+                        self.set_node(node_id, Block::RedstoneTorch { lit: true }, true);
                     }
                 }
                 Block::RedstoneWallTorch { lit, facing } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
                         self.set_node(
-                            plot,
                             node_id,
                             Block::RedstoneWallTorch { lit: false, facing },
                             true,
                         );
                     } else if !lit && !should_be_off {
                         self.set_node(
-                            plot,
                             node_id,
                             Block::RedstoneWallTorch { lit: true, facing },
                             true,
@@ -354,15 +229,12 @@ impl JITBackend for DirectBackend {
                         }
                     }
                     let comparator_output = node.comparator_output;
-                    let new_strength = self.calculate_comparator_output(
-                        comparator.mode,
-                        input_power,
-                        side_input_power,
-                    );
+                    let new_strength =
+                        calculate_comparator_output(comparator.mode, input_power, side_input_power);
                     let old_strength = comparator_output;
                     if new_strength != old_strength || comparator.mode == ComparatorMode::Compare {
                         self.nodes[node_id].comparator_output = new_strength;
-                        let should_be_powered = self.comparator_should_be_powered(
+                        let should_be_powered = comparator_should_be_powered(
                             comparator.mode,
                             input_power,
                             side_input_power,
@@ -374,7 +246,6 @@ impl JITBackend for DirectBackend {
                             comparator.powered = true;
                         }
                         self.set_node(
-                            plot,
                             node_id,
                             Block::RedstoneComparator { comparator },
                             true,
@@ -384,18 +255,19 @@ impl JITBackend for DirectBackend {
                 Block::RedstoneLamp { lit } => {
                     let should_be_lit = input_power > 0;
                     if lit && !should_be_lit {
-                        self.set_node(plot, node_id, Block::RedstoneLamp { lit: false }, false);
+                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
                     }
                 }
                 Block::StoneButton { mut button } => {
                     if button.powered {
                         button.powered = false;
-                        self.set_node(plot, node_id, Block::StoneButton { button }, true);
+                        self.set_node(node_id, Block::StoneButton { button }, true);
                     }
                 }
                 _ => warn!("Node {:?} should not be ticked!", node.state),
             }
         }
+        self.to_be_ticked.drain(0..i);
     }
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
@@ -414,6 +286,127 @@ impl JITBackend for DirectBackend {
         }
         // Dot file output
         // println!("{}", self);
+    }
+
+    fn flush(&mut self, plot: &mut PlotWorld) {
+        for node in &mut self.nodes {
+            if node.changed {
+                plot.set_block(node.pos, node.state);
+            }
+        }
+    }
+}
+
+fn set_node(node: &mut Node, new_state: Block) {
+    node.state = new_state;
+    node.changed = true;
+}
+
+fn schedule_tick(
+    to_be_ticked: &mut Vec<RPTickEntry>,
+    node_id: usize,
+    node: &mut Node,
+    delay: u32,
+    priority: TickPriority,
+) {
+    node.pending_tick = true;
+    to_be_ticked.push(RPTickEntry {
+        node: node_id,
+        ticks_left: delay,
+        tick_priority: priority,
+    });
+}
+
+fn update_node(
+    to_be_ticked: &mut Vec<RPTickEntry>,
+    nodes: &mut Vec<Node>,
+    node_id: usize,
+) {
+    let node = &nodes[node_id];
+
+    let mut input_power = 0;
+    let mut side_input_power = 0;
+    for link in &node.inputs {
+        let power = match link.ty {
+            LinkType::Default => &mut input_power,
+            LinkType::Side => &mut side_input_power,
+        };
+        *power = (*power).max(nodes[link.end].output_power.saturating_sub(link.weight));
+    }
+
+    let facing_diode = node.facing_diode;
+    let comparator_output = node.comparator_output;
+
+    let node = &mut nodes[node_id];
+    match node.state {
+        Block::RedstoneRepeater { mut repeater } => {
+            let should_be_locked = side_input_power > 0;
+            if !repeater.locked && should_be_locked {
+                repeater.locked = true;
+                set_node(node, Block::RedstoneRepeater { repeater });
+            } else if repeater.locked && !should_be_locked {
+                repeater.locked = false;
+                set_node(node, Block::RedstoneRepeater { repeater });
+            }
+
+            if !repeater.locked && !node.pending_tick {
+                let should_be_powered = input_power > 0;
+                if should_be_powered != repeater.powered {
+                    let priority = if facing_diode {
+                        TickPriority::Highest
+                    } else if !should_be_powered {
+                        TickPriority::Higher
+                    } else {
+                        TickPriority::High
+                    };
+                    schedule_tick(to_be_ticked, node_id, node, repeater.delay as u32, priority);
+                }
+            }
+        }
+        Block::RedstoneTorch { lit } | Block::RedstoneWallTorch { lit, .. } => {
+            if lit == (input_power > 0) && !node.pending_tick {
+                schedule_tick(to_be_ticked, node_id, node, 1, TickPriority::Normal);
+            }
+        }
+        Block::RedstoneComparator { comparator } => {
+            if node.pending_tick {
+                return;
+            }
+            if let Some(far_override) = node.comparator_far_input {
+                if input_power < 15 {
+                    input_power = far_override;
+                }
+            }
+            let output_power =
+                calculate_comparator_output(comparator.mode, input_power, side_input_power);
+            let old_strength = comparator_output;
+            if output_power != old_strength
+                || comparator.powered
+                    != comparator_should_be_powered(comparator.mode, input_power, side_input_power)
+            {
+                let priority = if facing_diode {
+                    TickPriority::High
+                } else {
+                    TickPriority::Normal
+                };
+                schedule_tick(to_be_ticked, node_id, node, 1, priority);
+            }
+        }
+        Block::RedstoneLamp { lit } => {
+            let should_be_lit = input_power > 0;
+            if lit && !should_be_lit {
+                schedule_tick(to_be_ticked, node_id, node, 2, TickPriority::Normal);
+            } else if !lit && should_be_lit {
+                set_node(node, Block::RedstoneLamp { lit: true });
+            }
+        }
+        Block::RedstoneWire { mut wire } => {
+            if wire.power != input_power {
+                wire.power = input_power;
+                set_node(node, Block::RedstoneWire { wire });
+            }
+        }
+        _ => {} // panic!("Node {:?} should not be updated!", node.state),
     }
 }
 
@@ -452,5 +445,29 @@ impl fmt::Display for DirectBackend {
             // }
         }
         f.write_str("}\n")
+    }
+}
+
+fn comparator_should_be_powered(
+    mode: ComparatorMode,
+    input_strength: u8,
+    power_on_sides: u8,
+) -> bool {
+    if input_strength == 0 {
+        false
+    } else if input_strength > power_on_sides {
+        true
+    } else {
+        power_on_sides == input_strength && mode == ComparatorMode::Compare
+    }
+}
+
+fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_on_sides: u8) -> u8 {
+    if mode == ComparatorMode::Subtract {
+        input_strength.saturating_sub(power_on_sides)
+    } else if input_strength >= power_on_sides {
+        input_strength
+    } else {
+        0
     }
 }
