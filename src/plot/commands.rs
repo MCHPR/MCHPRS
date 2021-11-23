@@ -238,8 +238,8 @@ impl Plot {
                     return false;
                 }
             },
-            "/rtps" => {
-                if args.is_empty() {
+            "/rtps" => match args.as_slice() {
+                ["info"] => {
                     let report = self.timings.generate_report();
                     if let Some(report) = report {
                         self.players[player].send_chat_message(
@@ -258,31 +258,45 @@ impl Plot {
                             )),
                         );
                     }
-
                     return false;
                 }
-                let tps = if let Ok(tps) = args[0].parse::<u32>() {
-                    tps
-                } else {
-                    self.players[player].send_error_message("Unable to parse rtps!");
-                    return false;
-                };
-                if tps > 100000 {
-                    self.players[player]
-                        .send_error_message("The rtps cannot go higher than 100000!");
-                    return false;
+                ["set", ticks] => {
+                    let tps = if let Ok(tps) = ticks.parse::<u32>() {
+                        tps
+                    } else {
+                        self.players[player].send_error_message("Unable to parse rtps!");
+                        return false;
+                    };
+                    if tps > 100000 {
+                        self.players[player]
+                            .send_error_message("The rtps cannot go higher than 100000!");
+                        return false;
+                    }
+                    if tps > 10 {
+                        self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
+                    } else {
+                        self.sleep_time = Duration::from_millis(50);
+                    }
+                    self.timings.set_tps(tps);
+                    self.lag_time = Duration::from_millis(0);
+                    self.tps = tps;
+                    // This won't get set normally when rtps is 0
+                    self.last_update_time = Instant::now();
+                    self.players[player].send_system_message("The rtps was successfully set.");
                 }
-                if tps > 10 {
-                    self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
-                } else {
+                ["reset"] => {
                     self.sleep_time = Duration::from_millis(50);
+                    self.timings.set_tps(10);
+                    self.lag_time = Duration::from_millis(0);
+                    self.tps = 10;
+                    self.last_update_time = Instant::now();
+                    self.players[player].send_system_message("The rtps was successfully reset.");
                 }
-                self.timings.set_tps(tps);
-                self.lag_time = Duration::from_millis(0);
-                self.tps = tps;
-                // This won't get set normally when rtps is 0
-                self.last_update_time = Instant::now();
-                self.players[player].send_system_message("The rtps was successfully set.");
+                _ => {
+                    self.players[player]
+                        .send_error_message("Usage: /rtps [info | reset | set (ticks)]");
+                    return false;
+                }
             }
             "/radv" | "/radvance" => {
                 if args.is_empty() {
@@ -558,18 +572,18 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 12: /rtps
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[13],
+                children: &[13, 61, 63],
                 redirect_node: None,
                 name: Some("rtps"),
                 parser: None,
             },
-            // 13: /rtps [rtps]
+            // 13: /rtps set 
             Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[62],
                 redirect_node: None,
-                name: Some("rtps"),
-                parser: Some(Parser::Integer(0, 100000)),
+                name: Some("set"),
+                parser: None,
             },
             // 14: //pos1
             Node {
@@ -945,6 +959,30 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 children: &[],
                 redirect_node: None,
                 name: Some("/wand"),
+                parser: None,
+            },
+            // 61: /rtps info
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("info"),
+                parser: None,
+            },
+            // 62: /rtps set [ticks]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("ticks"),
+                parser: Some(Parser::Integer(0, 100000)),
+            },
+            // 63: /rtps reset
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("reset"),
                 parser: None,
             },
         ],
