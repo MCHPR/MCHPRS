@@ -7,12 +7,12 @@ use crate::blocks::{
     Block, BlockEntity, BlockFace, BlockFacing, BlockPos, FlipDirection, RotateAmt,
 };
 use crate::chat::{ChatComponentBuilder, ColorCode};
-use crate::player::{Player, PlayerPos};
-use crate::world::storage::PalettedBitBuffer;
-use crate::world::World;
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
+use crate::player::{Player, PlayerPos};
+use crate::world::storage::PalettedBitBuffer;
+use crate::world::World;
 use log::error;
 use rand::Rng;
 use regex::Regex;
@@ -942,18 +942,17 @@ fn worldedit_start_operation(player: &mut Player) -> WorldEditOperation {
 }
 
 fn execute_wand(ctx: CommandExecuteContext<'_>) {
-     let item = ItemStack {
-         count: 1,
-         item_type: Item::WEWand {},
-         nbt: None
+    let item = ItemStack {
+        count: 1,
+        item_type: Item::WEWand {},
+        nbt: None,
     };
     ctx.player.inventory[ctx.player.selected_slot as usize] = Some(item);
     let entity_equipment = CEntityEquipment {
         entity_id: ctx.player.entity_id as i32,
         equipment: vec![CEntityEquipmentEquipment {
             slot: 0,
-            item: ctx.player.inventory
-                [ctx.player.selected_slot as usize]
+            item: ctx.player.inventory[ctx.player.selected_slot as usize]
                 .as_ref()
                 .map(|item| SlotData {
                     item_count: item.count as i8,

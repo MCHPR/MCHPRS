@@ -335,10 +335,12 @@ impl Plot {
                         self.players[player].send_error_message("Unable to parse z coordinate!");
                         return false;
                     }
-                    self.players[player].send_system_message(&format!("Teleporting to ({}, {}, {})", x, y, z));
+                    self.players[player]
+                        .send_system_message(&format!("Teleporting to ({}, {}, {})", x, y, z));
                     self.players[player].teleport(PlayerPos::new(x, y, z));
                 } else if args.len() == 1 {
-                    self.players[player].send_system_message(&format!("Teleporting to {}", args[0]));
+                    self.players[player]
+                        .send_system_message(&format!("Teleporting to {}", args[0]));
                     let uuid = self.players[player].uuid;
                     let player = self.leave_plot(uuid);
                     let _ = self
@@ -385,8 +387,7 @@ impl Plot {
                     let username = self.players[player].username.clone();
                     self.players[player].send_system_message(&format!(
                         "Set flying speed to {} for {}",
-                        speed_arg,
-                        username
+                        speed_arg, username
                     ));
                 } else {
                     self.players[player].send_error_message("Unable to parse speed value");
