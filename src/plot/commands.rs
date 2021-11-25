@@ -13,7 +13,7 @@ use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use bitflags::_core::i32::MAX;
-use log::{debug, info};
+use log::{debug, info, warn};
 use std::lazy::SyncLazy;
 use std::time::{Duration, Instant};
 
@@ -157,6 +157,12 @@ impl Plot {
                 let start_time = Instant::now();
                 let args = args.join(" ");
                 let options = CompilerOptions::parse(&args);
+
+                if options.no_wires {
+                    let msg = "Redpiler optimization is highly unstable and can break builds. Use with caution!";
+                    warn!("{}", msg);
+                    self.players[player].send_system_message(msg);
+                }
 
                 if options.use_worldedit {
                     if self.players[player].first_position.is_none() {
