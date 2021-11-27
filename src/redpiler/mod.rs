@@ -7,6 +7,7 @@ use crate::plot::PlotWorld;
 use crate::world::{TickEntry, World};
 use backend::JITBackend;
 use log::{error, warn};
+use std::any::TypeId;
 use std::collections::{HashMap, VecDeque};
 
 fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
@@ -16,13 +17,13 @@ fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
 type NodeId = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LinkType {
+pub enum LinkType {
     Default,
     Side,
 }
 
 #[derive(Debug, Clone)]
-struct Link {
+pub struct Link {
     ty: LinkType,
     start: NodeId,
     weight: u8,
@@ -521,13 +522,19 @@ impl CompilerOptions {
 pub struct Compiler {
     pub is_active: bool,
     jit: Option<Box<dyn JITBackend>>,
+    jit_type: Option<TypeId>,
 }
 
 impl Compiler {
     /// Use just-in-time compilation with a `JITBackend` such as `CraneliftBackend` or `LLVMBackend`.
     /// Requires recompilation to take effect.
-    pub fn use_jit(&mut self, jit: Box<dyn JITBackend>) {
-        self.jit = Some(jit);
+    pub fn use_jit<T: 'static + JITBackend + Default>(&mut self) {
+        let t = Some(TypeId::of::<T>());
+        if self.jit_type != t {
+            let jit: Box<T> = Default::default();
+            self.jit = Some(jit);
+            self.jit_type = t;
+        }
     }
 
     pub fn compile(
@@ -548,15 +555,14 @@ impl Compiler {
             )
         };
 
-        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.no_wires);
+        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos);
         InputSearch::new(plot, &mut nodes).search();
         self.is_active = true;
 
-        // TODO: Remove this once there is proper backend switching
-        if self.jit.is_none() {
-            let jit: Box<backend::direct::DirectBackend> = Default::default();
-            // let jit: Box<codegen::cranelift::CraneliftBackend> = Default::default();
-            self.use_jit(jit);
+        if options.no_wires {
+            self.use_jit::<backend::optimized::OptimizedBackend>();
+        } else {
+            self.use_jit::<backend::direct::DirectBackend>();
         }
 
         if let Some(jit) = &mut self.jit {
@@ -576,7 +582,10 @@ impl Compiler {
     }
 
     fn backend(&mut self) -> &mut Box<dyn JITBackend> {
-        assert!(self.is_active, "tried to get redpiler backend when inactive");
+        assert!(
+            self.is_active,
+            "tried to get redpiler backend when inactive"
+        );
         if let Some(jit) = &mut self.jit {
             jit
         } else {
@@ -604,7 +613,6 @@ impl Compiler {
         plot: &mut PlotWorld,
         first_pos: BlockPos,
         second_pos: BlockPos,
-        no_wires: bool,
     ) -> Vec<CompileNode> {
         let mut nodes = Vec::new();
         let start_pos = first_pos.min(second_pos);
@@ -623,10 +631,6 @@ impl Compiler {
                     } else {
                         false
                     };
-
-                    if no_wires && matches!(block, Block::RedstoneWire { .. }) {
-                        continue;
-                    }
 
                     if let Some(node) = CompileNode::from_block(pos, block, facing_diode) {
                         nodes.push(node);
