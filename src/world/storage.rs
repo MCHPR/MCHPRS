@@ -504,35 +504,6 @@ impl Chunk {
         }
     }
 
-    pub fn generate(layers: i32, x: i32, z: i32) -> Chunk {
-        let mut chunk = Chunk {
-            sections: BTreeMap::new(),
-            x,
-            z,
-            block_entities: HashMap::new(),
-        };
-
-        for ry in 0..layers {
-            for rx in 0..16 {
-                for rz in 0..16 {
-                    let block_x = (x << 4) | rx;
-                    let block_z = (z << 4) | rz;
-
-                    if block_x % 256 == 0
-                        || block_z % 256 == 0
-                        || (block_x + 1) % 256 == 0
-                        || (block_z + 1) % 256 == 0
-                    {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 4564); // Stone Bricks
-                    } else {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 278); // Sandstone
-                    }
-                }
-            }
-        }
-        chunk
-    }
-
     pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
         let x = self.x;
         let z = self.z;
