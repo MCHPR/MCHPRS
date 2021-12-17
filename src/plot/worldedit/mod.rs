@@ -1143,7 +1143,7 @@ fn paste_clipboard(plot: &mut PlotWorld, cb: &WorldEditClipboard, pos: BlockPos,
 
     let entries = cb.data.entries();
     // I have no clue if these clones are going to cost anything noticeable.
-    'top_loop: for y in y_range.clone() {
+    'top_loop: for y in y_range {
         for z in z_range.clone() {
             for x in x_range.clone() {
                 if i >= entries {
@@ -1401,7 +1401,7 @@ fn execute_stack(ctx: CommandExecuteContext<'_>) {
     ));
 }
 
-fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
+fn execute_undo(ctx: CommandExecuteContext<'_>) {
     if ctx.player.worldedit_undo.is_empty() {
         ctx.player
             .send_error_message("There is nothing left to undo.");
@@ -1428,7 +1428,7 @@ fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
                     y: first_pos.y + clipboard.size_y as i32 - 1,
                     z: first_pos.z + clipboard.size_z as i32 - 1,
                 };
-                create_clipboard(&mut ctx.plot, undo.pos, first_pos, second_pos)
+                create_clipboard(ctx.plot, undo.pos, first_pos, second_pos)
             })
             .collect(),
         ..undo
@@ -1439,7 +1439,7 @@ fn execute_undo(mut ctx: CommandExecuteContext<'_>) {
     ctx.player.worldedit_redo.push(redo);
 }
 
-fn execute_redo(mut ctx: CommandExecuteContext<'_>) {
+fn execute_redo(ctx: CommandExecuteContext<'_>) {
     if ctx.player.worldedit_redo.is_empty() {
         ctx.player
             .send_error_message("There is nothing left to redo.");
@@ -1466,7 +1466,7 @@ fn execute_redo(mut ctx: CommandExecuteContext<'_>) {
                     y: first_pos.y + clipboard.size_y as i32 - 1,
                     z: first_pos.z + clipboard.size_z as i32 - 1,
                 };
-                create_clipboard(&mut ctx.plot, redo.pos, first_pos, second_pos)
+                create_clipboard(ctx.plot, redo.pos, first_pos, second_pos)
             })
             .collect(),
         ..redo

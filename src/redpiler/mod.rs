@@ -576,7 +576,10 @@ impl Compiler {
     }
 
     fn backend(&mut self) -> &mut Box<dyn JITBackend> {
-        assert!(self.is_active, "tried to get redpiler backend when inactive");
+        assert!(
+            self.is_active,
+            "tried to get redpiler backend when inactive"
+        );
         if let Some(jit) = &mut self.jit {
             jit
         } else {
