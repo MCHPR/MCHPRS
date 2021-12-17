@@ -16,7 +16,7 @@ use crate::utils::HyphenatedUUID;
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use log::{debug, warn};
+use log::{debug, warn, error};
 use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -847,6 +847,11 @@ impl Plot {
                 )
             })
             .collect();
+        if chunks.len() != NUM_CHUNKS {
+            error!("This plot has the wrong number of chunks!");
+            let possible_scale = (chunks.len() as f64).sqrt().log2();
+            error!("Note: it most likely came from a server running plot scale {}, this server is running a plot scale of {}", possible_scale, PLOT_SCALE);
+        }
         let world = PlotWorld {
             x,
             z,
