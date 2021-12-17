@@ -85,8 +85,8 @@ impl PlotWorld {
     }
 
     fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - (self.x << (PLOT_SCALE + 4))) >> PLOT_SCALE;
-        let chunk_z = (block_z - (self.z << (PLOT_SCALE + 4))) >> PLOT_SCALE;
+        let chunk_x = (block_x - (self.x * PLOT_BLOCK_WIDTH)) >> 4;
+        let chunk_z = (block_z - (self.z * PLOT_BLOCK_WIDTH)) >> 4;
         ((chunk_x << PLOT_SCALE) + chunk_z).abs() as usize
     }
 
@@ -555,15 +555,12 @@ impl Plot {
     }
 
     fn chunk_in_plot_bounds(plot_x: i32, plot_z: i32, chunk_x: i32, chunk_z: i32) -> bool {
-        chunk_x >= plot_x * PLOT_WIDTH
-            && chunk_x < (plot_x + 1) * PLOT_WIDTH
-            && chunk_z >= plot_z * PLOT_WIDTH
-            && chunk_z < (plot_z + 1) * PLOT_WIDTH
+        let (x, z) = (chunk_x >> PLOT_SCALE, chunk_z >> PLOT_SCALE);
+        plot_x == x && plot_z == z
     }
 
     fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
-        const M: i32 = PLOT_BLOCK_WIDTH;
-        x >= plot_x * M && x < (plot_x + 1) * M && z >= plot_z * M && z < (plot_z + 1) * M
+        Plot::chunk_in_plot_bounds(plot_x, plot_z, x >> 4, z >> 4)
     }
 
     pub fn claim_plot(&mut self, plot_x: i32, plot_z: i32, player: usize) {
@@ -703,8 +700,8 @@ impl Plot {
             if self.locked_players.contains(&player.entity_id) {
                 continue;
             }
-            let pos = player.pos.block_pos();
-            if !Plot::in_plot_bounds(self.world.x, self.world.z, pos.x, pos.z) {
+            let (plot_x, plot_z) = player.pos.plot_pos();
+            if plot_x != self.world.x || plot_z != self.world.z {
                 outside_players.push(player.uuid);
             }
         }
