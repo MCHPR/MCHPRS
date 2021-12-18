@@ -39,11 +39,7 @@ static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
         let mut chunks = Vec::new();
         for chunk_x in 0..16 {
             for chunk_z in 0..16 {
-                chunks.push(Chunk::generate(
-                    8,
-                    chunk_x,
-                    chunk_z,
-                ));
+                chunks.push(Chunk::generate(8, chunk_x, chunk_z));
             }
         }
         let mut world = PlotWorld {

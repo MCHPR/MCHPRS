@@ -9,7 +9,7 @@ use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
-use log::{warn, error};
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -180,7 +180,12 @@ impl Player {
             | ((0x8 << 60) | (0x3 << 76))
     }
 
-    fn from_data(player_data: PlayerData, uuid: u128, username: String, client: PlayerConn) -> Player {
+    fn from_data(
+        player_data: PlayerData,
+        uuid: u128,
+        username: String,
+        client: PlayerConn,
+    ) -> Player {
         // Load inventory
         let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
         for entry in player_data.inventory {
