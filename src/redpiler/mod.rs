@@ -1,4 +1,5 @@
 mod backend;
+mod debug_graph;
 
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
@@ -499,6 +500,7 @@ impl<'a> InputSearch<'a> {
 pub struct CompilerOptions {
     pub use_worldedit: bool,
     pub no_wires: bool,
+    pub export: bool,
 }
 
 impl CompilerOptions {
@@ -509,6 +511,7 @@ impl CompilerOptions {
             match option {
                 "--worldedit" | "-w" => co.use_worldedit = true,
                 "--no-wires" | "-O" => co.no_wires = true,
+                "--export" => co.export = true,
                 // FIXME: use actual error handling
                 _ => warn!("Unrecognized option: {}", option),
             }
@@ -550,6 +553,9 @@ impl Compiler {
 
         let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.no_wires);
         InputSearch::new(plot, &mut nodes).search();
+        if options.export {
+            debug_graph::debug(&nodes);
+        }
         self.is_active = true;
 
         // TODO: Remove this once there is proper backend switching
