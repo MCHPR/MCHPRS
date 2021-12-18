@@ -9,7 +9,7 @@ use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
-use log::warn;
+use log::{warn, error};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -166,11 +166,15 @@ impl Player {
     /// This will load the player from the file. If the file does not exist,
     /// It will be created.
     pub fn load_player(uuid: u128, username: String, client: PlayerConn) -> Player {
-        if let Ok(data) = fs::read(format!("./world/players/{:032x}", uuid)) {
+        let filename = format!("./world/players/{:032x}", uuid);
+        if let Ok(data) = fs::read(&filename) {
             let player_data: PlayerData = match bincode::deserialize(&data) {
                 Ok(data) => data,
                 Err(_) => {
-                    warn!("There was an error loading the player data for {}, player data will be reset.", username);
+                    warn!("There was an error loading the player data for {}, player data will be backed up and reset.", username);
+                    if let Err(err) = fs::rename(&filename, filename.clone() + ".bak") {
+                        error!("Failed to back up player data: {}", err);
+                    }
                     return Player::create_player(uuid, username, client);
                 }
             };
