@@ -52,6 +52,23 @@ pub struct PlayerData {
     gamemode: Gamemode,
 }
 
+impl Default for PlayerData {
+    fn default() -> PlayerData {
+        PlayerData {
+            on_ground: true,
+            flying: false,
+            motion: [0.0, 0.0, 0.0],
+            position: [128.0, 128.0, 128.0],
+            rotation: [0.0, 0.0],
+            inventory: Vec::new(),
+            selected_item_slot: 0,
+            fly_speed: 1.0,
+            walk_speed: 1.0,
+            gamemode: Gamemode::Creative,
+        }
+    }
+}
+
 bitflags! {
     #[derive(Default)]
     pub struct SkinParts: u32 {
@@ -163,6 +180,59 @@ impl Player {
             | ((0x8 << 60) | (0x3 << 76))
     }
 
+    fn from_data(player_data: PlayerData, uuid: u128, username: String, client: PlayerConn) -> Player {
+        // Load inventory
+        let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
+        for entry in player_data.inventory {
+            let nbt = entry
+                .nbt
+                .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
+            inventory[entry.slot as usize] = Some(ItemStack {
+                item_type: Item::from_id(entry.id),
+                count: entry.count as u8,
+                nbt,
+            });
+        }
+        let permissions_cache = CONFIG
+            .luckperms
+            .is_some()
+            .then(|| permissions::load_player_cache(uuid).unwrap());
+        Player {
+            uuid,
+            username,
+            skin_parts: Default::default(),
+            inventory,
+            selected_slot: player_data.selected_item_slot as u32,
+            pos: PlayerPos {
+                x: player_data.position[0],
+                y: player_data.position[1],
+                z: player_data.position[2],
+            },
+            pitch: player_data.rotation[0],
+            yaw: player_data.rotation[1],
+            last_chunk_x: 0,
+            last_chunk_z: 0,
+            entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
+            client,
+            flying: player_data.flying,
+            sprinting: false,
+            crouching: false,
+            gamemode: player_data.gamemode,
+            on_ground: player_data.on_ground,
+            walk_speed: player_data.walk_speed,
+            fly_speed: player_data.fly_speed,
+            last_keep_alive_received: Instant::now(),
+            last_keep_alive_sent: Instant::now(),
+            first_position: None,
+            second_position: None,
+            worldedit_clipboard: None,
+            worldedit_undo: Vec::new(),
+            worldedit_redo: Vec::new(),
+            command_queue: Vec::new(),
+            permissions_cache,
+        }
+    }
+
     /// This will load the player from the file. If the file does not exist,
     /// It will be created.
     pub fn load_player(uuid: u128, username: String, client: PlayerConn) -> Player {
@@ -175,105 +245,13 @@ impl Player {
                     if let Err(err) = fs::rename(&filename, filename.clone() + ".bak") {
                         error!("Failed to back up player data: {}", err);
                     }
-                    return Player::create_player(uuid, username, client);
+                    return Player::from_data(Default::default(), uuid, username, client);
                 }
             };
 
-            // Load inventory
-            let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
-            for entry in player_data.inventory {
-                let nbt = entry
-                    .nbt
-                    .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
-                inventory[entry.slot as usize] = Some(ItemStack {
-                    item_type: Item::from_id(entry.id),
-                    count: entry.count as u8,
-                    nbt,
-                });
-            }
-            let permissions_cache = CONFIG
-                .luckperms
-                .is_some()
-                .then(|| permissions::load_player_cache(uuid).unwrap());
-            Player {
-                uuid,
-                username,
-                skin_parts: Default::default(),
-                inventory,
-                selected_slot: player_data.selected_item_slot as u32,
-                pos: PlayerPos {
-                    x: player_data.position[0],
-                    y: player_data.position[1],
-                    z: player_data.position[2],
-                },
-                pitch: player_data.rotation[0],
-                yaw: player_data.rotation[1],
-                last_chunk_x: 0,
-                last_chunk_z: 0,
-                entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
-                client,
-                flying: player_data.flying,
-                sprinting: false,
-                crouching: false,
-                gamemode: player_data.gamemode,
-                on_ground: player_data.on_ground,
-                walk_speed: player_data.walk_speed,
-                fly_speed: player_data.fly_speed,
-                last_keep_alive_received: Instant::now(),
-                last_keep_alive_sent: Instant::now(),
-                first_position: None,
-                second_position: None,
-                worldedit_clipboard: None,
-                worldedit_undo: Vec::new(),
-                worldedit_redo: Vec::new(),
-                command_queue: Vec::new(),
-                permissions_cache,
-            }
+            Player::from_data(player_data, uuid, username, client)
         } else {
-            Player::create_player(uuid, username, client)
-        }
-    }
-
-    /// Returns the default player struct
-    fn create_player(uuid: u128, username: String, client: PlayerConn) -> Player {
-        let inventory: Vec<Option<ItemStack>> = vec![None; 46];
-        let permissions_cache = CONFIG
-            .luckperms
-            .is_some()
-            .then(|| permissions::load_player_cache(uuid).unwrap());
-        Player {
-            uuid,
-            username,
-            skin_parts: Default::default(),
-            selected_slot: 0,
-            pos: PlayerPos {
-                x: 128f64,
-                y: 128f64,
-                z: 128f64,
-            },
-            last_chunk_x: 8,
-            last_chunk_z: 8,
-            yaw: 0f32,
-            pitch: 0f32,
-            entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
-            client,
-            inventory,
-            flying: false,
-            sprinting: false,
-            crouching: false,
-            gamemode: Gamemode::Creative,
-            fly_speed: 1f32,
-            walk_speed: 1f32,
-            on_ground: true,
-            last_keep_alive_received: Instant::now(),
-            last_keep_alive_sent: Instant::now(),
-            first_position: None,
-            second_position: None,
-            worldedit_clipboard: None,
-            worldedit_undo: Vec::new(),
-            worldedit_redo: Vec::new(),
-            command_queue: Vec::new(),
-            permissions_cache,
+            Player::from_data(Default::default(), uuid, username, client)
         }
     }
 

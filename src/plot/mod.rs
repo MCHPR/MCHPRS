@@ -24,18 +24,64 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::lazy::SyncLazy;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 
-#[derive(Debug, Serialize, Deserialize)]
+static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
+    let template_path = Path::new("./world/plots/pTEMPLATE");
+    if template_path.exists() {
+        PlotData::read_from_file(template_path)
+    } else {
+        let mut chunks = Vec::new();
+        for chunk_x in 0..16 {
+            for chunk_z in 0..16 {
+                chunks.push(Chunk::generate(
+                    8,
+                    chunk_x,
+                    chunk_z,
+                ));
+            }
+        }
+        let mut world = PlotWorld {
+            x: 0,
+            z: 0,
+            chunks,
+            to_be_ticked: Vec::new(),
+            packet_senders: Vec::new(),
+        };
+        let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
+        PlotData {
+            tps: 10,
+            show_redstone: true,
+            chunk_data,
+            pending_ticks: Vec::new(),
+        }
+    }
+});
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PlotData {
     pub tps: u32,
     pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,
+}
+
+impl PlotData {
+    fn read_from_file(path: impl AsRef<Path>) -> PlotData {
+        let data = fs::read(path).unwrap();
+        bincode::deserialize(&data).unwrap()
+    }
+}
+
+impl Default for PlotData {
+    fn default() -> PlotData {
+        EMPTY_PLOT.clone()
+    }
 }
 
 pub struct Plot {
@@ -788,8 +834,8 @@ impl Plot {
         Runtime::new().unwrap()
     }
 
-    fn load_from_file(
-        data: &[u8],
+    fn from_data(
+        plot_data: PlotData,
         x: i32,
         z: i32,
         rx: BusReader<BroadcastMessage>,
@@ -799,7 +845,6 @@ impl Plot {
     ) -> Plot {
         let chunk_x_offset = x << 4;
         let chunk_z_offset = z << 4;
-        let plot_data: PlotData = bincode::deserialize(data).unwrap();
         let chunks: Vec<Chunk> = plot_data
             .chunk_data
             .into_iter()
@@ -853,52 +898,12 @@ impl Plot {
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
     ) -> Plot {
-        if let Ok(data) = fs::read(format!("./world/plots/p{},{}", x, z)) {
-            Plot::load_from_file(&data, x, z, rx, tx, priv_rx, always_running)
-        } else if Path::new("./world/plots/pTEMPLATE").exists() {
-            let data = fs::read("./world/plots/pTEMPLATE").unwrap();
-            Plot::load_from_file(&data, x, z, rx, tx, priv_rx, always_running)
+        let plot_path = format!("./world/plots/p{},{}", x, z);
+        if Path::new(&plot_path).exists() {
+            let data = PlotData::read_from_file(plot_path);
+            Plot::from_data(data, x, z, rx, tx, priv_rx, always_running)
         } else {
-            let chunk_x_offset = x << 4;
-            let chunk_z_offset = z << 4;
-            let mut chunks = Vec::new();
-            for chunk_x in 0..16 {
-                for chunk_z in 0..16 {
-                    chunks.push(Chunk::generate(
-                        8,
-                        chunk_x + chunk_x_offset,
-                        chunk_z + chunk_z_offset,
-                    ));
-                }
-            }
-            let world = PlotWorld {
-                x,
-                z,
-                chunks,
-                to_be_ticked: Vec::new(),
-                packet_senders: Vec::new(),
-            };
-            Plot {
-                last_player_time: Instant::now(),
-                last_update_time: Instant::now(),
-                lag_time: Duration::new(0, 0),
-                sleep_time: Duration::from_millis(50),
-                message_receiver: rx,
-                message_sender: tx,
-                priv_message_receiver: priv_rx,
-                players: Vec::new(),
-                locked_players: HashSet::new(),
-                running: true,
-                show_redstone: true,
-                tps: 10,
-                always_running,
-                redpiler: Default::default(),
-                timings: TimingsMonitor::new(10),
-                owner: database::get_plot_owner(x, z)
-                    .map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
-                async_rt: Plot::create_async_rt(),
-                world,
-            }
+            Plot::from_data(Default::default(), x, z, rx, tx, priv_rx, always_running)
         }
     }
 
