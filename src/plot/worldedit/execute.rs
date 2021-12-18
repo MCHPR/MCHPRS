@@ -52,14 +52,13 @@ pub(super) fn execute_set(ctx: CommandExecuteContext<'_>) {
                 let block_id = pattern.pick().get_id();
 
                 if ctx.plot.set_block_raw(block_pos, block_id) {
-                    operation.update_block(block_pos);
+                    operation.update_block();
                 }
             }
         }
     }
 
     let blocks_updated = operation.blocks_updated();
-    worldedit_send_operation(ctx.plot, operation);
 
     ctx.player.send_worldedit_message(&format!(
         "Operation completed: {} block(s) affected ({:?})",
@@ -90,7 +89,7 @@ pub(super) fn execute_replace(ctx: CommandExecuteContext<'_>) {
                     let block_id = pattern.pick().get_id();
 
                     if ctx.plot.set_block_raw(block_pos, block_id) {
-                        operation.update_block(block_pos);
+                        operation.update_block();
                     }
                 }
             }
@@ -98,7 +97,6 @@ pub(super) fn execute_replace(ctx: CommandExecuteContext<'_>) {
     }
 
     let blocks_updated = operation.blocks_updated();
-    worldedit_send_operation(ctx.plot, operation);
 
     ctx.player.send_worldedit_message(&format!(
         "Operation completed: {} block(s) affected ({:?})",

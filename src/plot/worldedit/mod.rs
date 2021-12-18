@@ -802,14 +802,8 @@ impl WorldEditPattern {
     }
 }
 
-struct ChunkChangedRecord {
-    chunk_x: i32,
-    chunk_z: i32,
-    block_count: usize,
-}
-
 struct WorldEditOperation {
-    pub records: Vec<ChunkChangedRecord>,
+    blocks_updated: usize,
     x_range: RangeInclusive<i32>,
     y_range: RangeInclusive<i32>,
     z_range: RangeInclusive<i32>,
@@ -820,50 +814,24 @@ impl WorldEditOperation {
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
 
-        let mut records: Vec<ChunkChangedRecord> = Vec::new();
-
-        for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
-            for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
-                records.push(ChunkChangedRecord {
-                    chunk_x,
-                    chunk_z,
-                    block_count: 0,
-                });
-            }
-        }
-
         let x_range = start_pos.x..=end_pos.x;
         let y_range = start_pos.y..=end_pos.y;
         let z_range = start_pos.z..=end_pos.z;
+
         WorldEditOperation {
-            records,
+            blocks_updated: 0,
             x_range,
             y_range,
             z_range,
         }
     }
 
-    fn update_block(&mut self, block_pos: BlockPos) {
-        let chunk_x = block_pos.x >> 4;
-        let chunk_z = block_pos.z >> 4;
-
-        if let Some(packet) = self
-            .records
-            .iter_mut()
-            .find(|c| c.chunk_x == chunk_x && c.chunk_z == chunk_z)
-        {
-            packet.block_count += 1;
-        }
+    fn update_block(&mut self) {
+        self.blocks_updated += 1;
     }
 
     fn blocks_updated(&self) -> usize {
-        let mut blocks_updated = 0;
-
-        for record in &self.records {
-            blocks_updated += record.block_count;
-        }
-
-        blocks_updated
+        self.blocks_updated
     }
 
     fn x_range(&self) -> RangeInclusive<i32> {
@@ -913,19 +881,6 @@ fn ray_trace_block(
     }
 
     None
-}
-
-fn worldedit_send_operation(plot: &mut PlotWorld, operation: WorldEditOperation) {
-    for packet in operation.records {
-        let chunk = match plot.get_chunk(packet.chunk_x, packet.chunk_z) {
-            Some(chunk) => chunk,
-            None => continue,
-        };
-        let chunk_data = chunk.encode_packet();
-        for player in &mut plot.packet_senders {
-            player.send_packet(&chunk_data);
-        }
-    }
 }
 
 fn worldedit_start_operation(player: &mut Player) -> WorldEditOperation {
