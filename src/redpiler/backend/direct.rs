@@ -122,7 +122,7 @@ impl JITBackend for DirectBackend {
         self.to_be_ticked.clear();
     }
 
-    fn on_use_block(&mut self, plot: &mut PlotWorld, pos: BlockPos) {
+    fn on_use_block(&mut self, _plot: &mut PlotWorld, pos: BlockPos) {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.state {
@@ -139,7 +139,7 @@ impl JITBackend for DirectBackend {
         }
     }
 
-    fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
+    fn set_pressure_plate(&mut self, _plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.state {
@@ -150,7 +150,7 @@ impl JITBackend for DirectBackend {
         }
     }
 
-    fn tick(&mut self, plot: &mut PlotWorld) {
+    fn tick(&mut self, _plot: &mut PlotWorld) {
         self.to_be_ticked
             .sort_by_key(|e| (e.ticks_left, e.tick_priority));
         for pending in &mut self.to_be_ticked {
@@ -245,11 +245,7 @@ impl JITBackend for DirectBackend {
                         } else if !powered && should_be_powered {
                             comparator.powered = true;
                         }
-                        self.set_node(
-                            node_id,
-                            Block::RedstoneComparator { comparator },
-                            true,
-                        );
+                        self.set_node(node_id, Block::RedstoneComparator { comparator }, true);
                     }
                 }
                 Block::RedstoneLamp { lit } => {
@@ -317,11 +313,7 @@ fn schedule_tick(
     });
 }
 
-fn update_node(
-    to_be_ticked: &mut Vec<RPTickEntry>,
-    nodes: &mut Vec<Node>,
-    node_id: usize,
-) {
+fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut Vec<Node>, node_id: usize) {
     let node = &nodes[node_id];
 
     let mut input_power = 0;

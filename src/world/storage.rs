@@ -521,7 +521,7 @@ impl Chunk {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 struct ChunkSectionData {
     data: Vec<i64>,
     palette: Vec<i32>,
@@ -530,7 +530,7 @@ struct ChunkSectionData {
     entries: usize,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChunkData {
     sections: BTreeMap<u8, ChunkSectionData>,
     block_entities: HashMap<BlockPos, BlockEntity>,

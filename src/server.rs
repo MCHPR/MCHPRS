@@ -93,7 +93,6 @@ pub enum PrivMessage {
 pub struct PlayerJoinInfo {
     pub username: String,
     pub uuid: u128,
-    skin: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -101,9 +100,7 @@ struct PlayerListEntry {
     plot_x: i32,
     plot_z: i32,
     username: String,
-    uuid: u128,
     gamemode: Gamemode,
-    skin: Option<String>,
 }
 
 struct PlotListEntry {
@@ -280,8 +277,6 @@ impl MinecraftServer {
                 plot_z,
                 username: player.username.clone(),
                 gamemode: player.gamemode,
-                uuid: player.uuid,
-                skin: None,
             };
             self.online_players.insert(player.uuid, player_list_entry);
         } else {
@@ -553,7 +548,6 @@ impl MinecraftServer {
                 let player_join_info = PlayerJoinInfo {
                     username: player.username.clone(),
                     uuid: player.uuid,
-                    skin: None,
                 };
                 database::ensure_user(&format!("{:032x}", player.uuid), &player.username);
                 self.broadcaster

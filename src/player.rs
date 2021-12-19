@@ -10,7 +10,7 @@ use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::plot::PLOT_SCALE;
 use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
-use log::warn;
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -51,6 +51,23 @@ pub struct PlayerData {
     fly_speed: f32,
     walk_speed: f32,
     gamemode: Gamemode,
+}
+
+impl Default for PlayerData {
+    fn default() -> PlayerData {
+        PlayerData {
+            on_ground: true,
+            flying: false,
+            motion: [0.0, 0.0, 0.0],
+            position: [128.0, 128.0, 128.0],
+            rotation: [0.0, 0.0],
+            inventory: Vec::new(),
+            selected_item_slot: 0,
+            fly_speed: 1.0,
+            walk_speed: 1.0,
+            gamemode: Gamemode::Creative,
+        }
+    }
 }
 
 bitflags! {
@@ -165,76 +182,24 @@ impl Player {
             | ((0x8 << 60) | (0x3 << 76))
     }
 
-    /// This will load the player from the file. If the file does not exist,
-    /// It will be created.
-    pub fn load_player(uuid: u128, username: String, client: PlayerConn) -> Player {
-        if let Ok(data) = fs::read(format!("./world/players/{:032x}", uuid)) {
-            let player_data: PlayerData = match bincode::deserialize(&data) {
-                Ok(data) => data,
-                Err(_) => {
-                    warn!("There was an error loading the player data for {}, player data will be reset.", username);
-                    return Player::create_player(uuid, username, client);
-                }
-            };
-
-            // Load inventory
-            let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
-            for entry in player_data.inventory {
-                let nbt = entry
-                    .nbt
-                    .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
-                inventory[entry.slot as usize] = Some(ItemStack {
-                    item_type: Item::from_id(entry.id),
-                    count: entry.count as u8,
-                    nbt,
-                });
-            }
-            let permissions_cache = CONFIG
-                .luckperms
-                .is_some()
-                .then(|| permissions::load_player_cache(uuid).unwrap());
-            Player {
-                uuid,
-                username,
-                skin_parts: Default::default(),
-                inventory,
-                selected_slot: player_data.selected_item_slot as u32,
-                pos: PlayerPos {
-                    x: player_data.position[0],
-                    y: player_data.position[1],
-                    z: player_data.position[2],
-                },
-                pitch: player_data.rotation[0],
-                yaw: player_data.rotation[1],
-                last_chunk_x: 0,
-                last_chunk_z: 0,
-                entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
-                client,
-                flying: player_data.flying,
-                sprinting: false,
-                crouching: false,
-                gamemode: player_data.gamemode,
-                on_ground: player_data.on_ground,
-                walk_speed: player_data.walk_speed,
-                fly_speed: player_data.fly_speed,
-                last_keep_alive_received: Instant::now(),
-                last_keep_alive_sent: Instant::now(),
-                first_position: None,
-                second_position: None,
-                worldedit_clipboard: None,
-                worldedit_undo: Vec::new(),
-                worldedit_redo: Vec::new(),
-                command_queue: Vec::new(),
-                permissions_cache,
-            }
-        } else {
-            Player::create_player(uuid, username, client)
+    fn from_data(
+        player_data: PlayerData,
+        uuid: u128,
+        username: String,
+        client: PlayerConn,
+    ) -> Player {
+        // Load inventory
+        let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
+        for entry in player_data.inventory {
+            let nbt = entry
+                .nbt
+                .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
+            inventory[entry.slot as usize] = Some(ItemStack {
+                item_type: Item::from_id(entry.id),
+                count: entry.count as u8,
+                nbt,
+            });
         }
-    }
-
-    /// Returns the default player struct
-    fn create_player(uuid: u128, username: String, client: PlayerConn) -> Player {
-        let inventory: Vec<Option<ItemStack>> = vec![None; 46];
         let permissions_cache = CONFIG
             .luckperms
             .is_some()
@@ -243,26 +208,26 @@ impl Player {
             uuid,
             username,
             skin_parts: Default::default(),
-            selected_slot: 0,
+            inventory,
+            selected_slot: player_data.selected_item_slot as u32,
             pos: PlayerPos {
-                x: 128f64,
-                y: 128f64,
-                z: 128f64,
+                x: player_data.position[0],
+                y: player_data.position[1],
+                z: player_data.position[2],
             },
-            last_chunk_x: 8,
-            last_chunk_z: 8,
-            yaw: 0f32,
-            pitch: 0f32,
+            pitch: player_data.rotation[0],
+            yaw: player_data.rotation[1],
+            last_chunk_x: 0,
+            last_chunk_z: 0,
             entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
             client,
-            inventory,
-            flying: false,
+            flying: player_data.flying,
             sprinting: false,
             crouching: false,
-            gamemode: Gamemode::Creative,
-            fly_speed: 1f32,
-            walk_speed: 1f32,
-            on_ground: true,
+            gamemode: player_data.gamemode,
+            on_ground: player_data.on_ground,
+            walk_speed: player_data.walk_speed,
+            fly_speed: player_data.fly_speed,
             last_keep_alive_received: Instant::now(),
             last_keep_alive_sent: Instant::now(),
             first_position: None,
@@ -272,6 +237,28 @@ impl Player {
             worldedit_redo: Vec::new(),
             command_queue: Vec::new(),
             permissions_cache,
+        }
+    }
+
+    /// This will load the player from the file. If the file does not exist,
+    /// It will be created.
+    pub fn load_player(uuid: u128, username: String, client: PlayerConn) -> Player {
+        let filename = format!("./world/players/{:032x}", uuid);
+        if let Ok(data) = fs::read(&filename) {
+            let player_data: PlayerData = match bincode::deserialize(&data) {
+                Ok(data) => data,
+                Err(_) => {
+                    warn!("There was an error loading the player data for {}, player data will be backed up and reset.", username);
+                    if let Err(err) = fs::rename(&filename, filename.clone() + ".bak") {
+                        error!("Failed to back up player data: {}", err);
+                    }
+                    return Player::from_data(Default::default(), uuid, username, client);
+                }
+            };
+
+            Player::from_data(player_data, uuid, username, client)
+        } else {
+            Player::from_data(Default::default(), uuid, username, client)
         }
     }
 
