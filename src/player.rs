@@ -104,7 +104,7 @@ impl PlayerPos {
     }
 
     pub fn chunk_pos(self) -> (i32, i32) {
-        (self.x as i32 >> 4, self.z as i32 >> 4)
+        (self.x.floor() as i32 >> 4, self.z.floor() as i32 >> 4)
     }
 
     pub fn plot_pos(self) -> (i32, i32) {
