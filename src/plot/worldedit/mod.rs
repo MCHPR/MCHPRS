@@ -982,19 +982,7 @@ fn paste_clipboard(plot: &mut PlotWorld, cb: &WorldEditClipboard, pos: BlockPos,
             }
         }
     }
-    // Calculate the ranges of chunks that might have been modified
-    let chunk_x_range = offset_x >> 4..=(offset_x + cb.size_x as i32) >> 4;
-    let chunk_z_range = offset_z >> 4..=(offset_z + cb.size_z as i32) >> 4;
-    for chunk_x in chunk_x_range {
-        for chunk_z in chunk_z_range.clone() {
-            if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
-                let chunk_data = chunk.encode_packet();
-                for player in &mut plot.packet_senders {
-                    player.send_packet(&chunk_data);
-                }
-            }
-        }
-    }
+
     for (pos, block_entity) in &cb.block_entities {
         let new_pos = BlockPos {
             x: pos.x + offset_x,
