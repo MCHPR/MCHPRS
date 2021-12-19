@@ -16,7 +16,7 @@ use crate::utils::HyphenatedUUID;
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use log::{debug, warn};
+use log::{debug, error, warn};
 use monitor::TimingsMonitor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -31,15 +31,24 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 
+/// The width of a plot (2^n)
+pub const PLOT_SCALE: u32 = 4;
+
+/// The width of a plot counted in chunks
+pub const PLOT_WIDTH: i32 = 2i32.pow(PLOT_SCALE);
+/// The plot width in blocks
+pub const PLOT_BLOCK_WIDTH: i32 = PLOT_WIDTH * 16;
+pub const NUM_CHUNKS: usize = PLOT_WIDTH.pow(2) as usize;
+
 static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
     let template_path = Path::new("./world/plots/pTEMPLATE");
     if template_path.exists() {
         PlotData::read_from_file(template_path)
     } else {
         let mut chunks = Vec::new();
-        for chunk_x in 0..16 {
-            for chunk_z in 0..16 {
-                chunks.push(Chunk::generate(8, chunk_x, chunk_z));
+        for chunk_x in 0..PLOT_WIDTH {
+            for chunk_z in 0..PLOT_WIDTH {
+                chunks.push(Plot::generate_chunk(8, chunk_x, chunk_z));
             }
         }
         let mut world = PlotWorld {
@@ -112,15 +121,15 @@ pub struct PlotWorld {
 
 impl PlotWorld {
     fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
-        let local_x = chunk_x - self.x * 16;
-        let local_z = chunk_z - self.z * 16;
-        (local_x * 16 + local_z).abs() as usize
+        let local_x = chunk_x - self.x * PLOT_WIDTH;
+        let local_z = chunk_z - self.z * PLOT_WIDTH;
+        (local_x * PLOT_WIDTH + local_z).abs() as usize
     }
 
     fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
-        let chunk_x = (block_x - (self.x << 8)) >> 4;
-        let chunk_z = (block_z - (self.z << 8)) >> 4;
-        ((chunk_x << 4) + chunk_z).abs() as usize
+        let chunk_x = (block_x - (self.x * PLOT_BLOCK_WIDTH)) >> 4;
+        let chunk_z = (block_z - (self.z * PLOT_BLOCK_WIDTH)) >> 4;
+        ((chunk_x << PLOT_SCALE) + chunk_z).abs() as usize
     }
 
     fn flush_block_changes(&mut self) {
@@ -142,7 +151,7 @@ impl World for PlotWorld {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
 
         // Check to see if block is within height limit
-        if chunk_index >= 256 || pos.y > 256 || pos.y < 0 {
+        if chunk_index >= NUM_CHUNKS || pos.y > 256 || pos.y < 0 {
             return false;
         }
 
@@ -163,7 +172,7 @@ impl World for PlotWorld {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
 
         // Check to see if block is within height limit
-        if chunk_index >= 256 || pos.y > 256 {
+        if chunk_index >= NUM_CHUNKS || pos.y > 256 {
             return false;
         }
 
@@ -179,7 +188,7 @@ impl World for PlotWorld {
     /// Returns the block state id of the block at `pos`
     fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
+        if chunk_index >= NUM_CHUNKS {
             return 0;
         }
         let chunk = &self.chunks[chunk_index];
@@ -192,7 +201,7 @@ impl World for PlotWorld {
 
     fn delete_block_entity(&mut self, pos: BlockPos) {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
+        if chunk_index >= NUM_CHUNKS {
             return;
         }
         let chunk = &mut self.chunks[chunk_index];
@@ -201,7 +210,7 @@ impl World for PlotWorld {
 
     fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
+        if chunk_index >= NUM_CHUNKS {
             return None;
         }
         let chunk = &self.chunks[chunk_index];
@@ -210,7 +219,7 @@ impl World for PlotWorld {
 
     fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
         let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= 256 {
+        if chunk_index >= NUM_CHUNKS {
             return;
         }
         if let Some(nbt) = block_entity.to_nbt(true) {
@@ -571,8 +580,8 @@ impl Plot {
             .encode();
             player.client.send_packet(&destroy_other_entity);
         }
-        let chunk_offset_x = self.world.x << 4;
-        let chunk_offset_z = self.world.z << 4;
+        let chunk_offset_x = self.world.x << PLOT_SCALE;
+        let chunk_offset_z = self.world.z << PLOT_SCALE;
         for chunk in &self.world.chunks {
             player.client.send_packet(
                 &CUnloadChunk {
@@ -588,14 +597,12 @@ impl Plot {
     }
 
     fn chunk_in_plot_bounds(plot_x: i32, plot_z: i32, chunk_x: i32, chunk_z: i32) -> bool {
-        chunk_x >= plot_x * 16
-            && chunk_x < (plot_x + 1) * 16
-            && chunk_z >= plot_z * 16
-            && chunk_z < (plot_z + 1) * 16
+        let (x, z) = (chunk_x >> PLOT_SCALE, chunk_z >> PLOT_SCALE);
+        plot_x == x && plot_z == z
     }
 
     fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
-        x >= plot_x * 256 && x < (plot_x + 1) * 256 && z >= plot_z * 256 && z < (plot_z + 1) * 256
+        Plot::chunk_in_plot_bounds(plot_x, plot_z, x >> 4, z >> 4)
     }
 
     pub fn claim_plot(&mut self, plot_x: i32, plot_z: i32, player: usize) {
@@ -607,7 +614,11 @@ impl Plot {
     }
 
     pub fn get_center(plot_x: i32, plot_z: i32) -> (f64, f64) {
-        (plot_x as f64 * 256.0 + 128.0, plot_z as f64 * 256.0 + 128.0)
+        const WIDTH: f64 = PLOT_BLOCK_WIDTH as f64;
+        (
+            plot_x as f64 * WIDTH + WIDTH / 2.0,
+            plot_z as f64 * WIDTH + WIDTH / 2.0,
+        )
     }
 
     pub fn get_next_plot(plot_x: i32, plot_z: i32) -> (i32, i32) {
@@ -731,8 +742,8 @@ impl Plot {
             if self.locked_players.contains(&player.entity_id) {
                 continue;
             }
-            let pos = player.pos.block_pos();
-            if !Plot::in_plot_bounds(self.world.x, self.world.z, pos.x, pos.z) {
+            let (plot_x, plot_z) = player.pos.plot_pos();
+            if plot_x != self.world.x || plot_z != self.world.z {
                 outside_players.push(player.uuid);
             }
         }
@@ -830,6 +841,30 @@ impl Plot {
         Runtime::new().unwrap()
     }
 
+    fn generate_chunk(layers: i32, x: i32, z: i32) -> Chunk {
+        let mut chunk = Chunk::empty(x, z);
+
+        for ry in 0..layers {
+            for rx in 0..16 {
+                for rz in 0..16 {
+                    let block_x = (x << 4) | rx;
+                    let block_z = (z << 4) | rz;
+
+                    if block_x % PLOT_BLOCK_WIDTH == 0
+                        || block_z % PLOT_BLOCK_WIDTH == 0
+                        || (block_x + 1) % PLOT_BLOCK_WIDTH == 0
+                        || (block_z + 1) % PLOT_BLOCK_WIDTH == 0
+                    {
+                        chunk.set_block(rx as u32, ry as u32, rz as u32, 4564); // Stone Bricks
+                    } else {
+                        chunk.set_block(rx as u32, ry as u32, rz as u32, 278); // Sandstone
+                    }
+                }
+            }
+        }
+        chunk
+    }
+
     fn from_data(
         plot_data: PlotData,
         x: i32,
@@ -839,20 +874,25 @@ impl Plot {
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
     ) -> Plot {
-        let chunk_x_offset = x << 4;
-        let chunk_z_offset = z << 4;
+        let chunk_x_offset = x << PLOT_SCALE;
+        let chunk_z_offset = z << PLOT_SCALE;
         let chunks: Vec<Chunk> = plot_data
             .chunk_data
             .into_iter()
             .enumerate()
             .map(|(i, c)| {
                 Chunk::load(
-                    chunk_x_offset + i as i32 / 16,
-                    chunk_z_offset + i as i32 % 16,
+                    chunk_x_offset + i as i32 / PLOT_WIDTH,
+                    chunk_z_offset + i as i32 % PLOT_WIDTH,
                     c,
                 )
             })
             .collect();
+        if chunks.len() != NUM_CHUNKS {
+            error!("This plot has the wrong number of chunks!");
+            let possible_scale = (chunks.len() as f64).sqrt().log2();
+            error!("Note: it most likely came from a server running plot scale {}, this server is running a plot scale of {}", possible_scale, PLOT_SCALE);
+        }
         let world = PlotWorld {
             x,
             z,

@@ -7,6 +7,7 @@ use crate::network::packets::SlotData;
 use crate::network::PlayerConn;
 use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
+use crate::plot::PLOT_SCALE;
 use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
 use log::{error, warn};
@@ -107,7 +108,8 @@ impl PlayerPos {
     }
 
     pub fn plot_pos(self) -> (i32, i32) {
-        (self.x as i32 >> 8, self.z as i32 >> 8)
+        let (chunk_x, chunk_z) = self.chunk_pos();
+        (chunk_x >> PLOT_SCALE, chunk_z >> PLOT_SCALE)
     }
 }
 

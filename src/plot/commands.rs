@@ -629,7 +629,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 20: //copy
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[21],
+                children: &[],
                 redirect_node: None,
                 name: Some("/copy"),
                 parser: None,
@@ -645,7 +645,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             // 22: //paste
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[23],
+                children: &[],
                 redirect_node: None,
                 name: Some("/paste"),
                 parser: None,
@@ -654,7 +654,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
                 children: &[],
-                redirect_node: Some(20),
+                redirect_node: Some(22),
                 name: Some("/p"),
                 parser: None,
             },

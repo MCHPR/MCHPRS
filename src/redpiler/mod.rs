@@ -3,7 +3,7 @@ mod backend;
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
 };
-use crate::plot::PlotWorld;
+use crate::plot::{PlotWorld, PLOT_BLOCK_WIDTH};
 use crate::world::{TickEntry, World};
 use backend::JITBackend;
 use log::{error, warn};
@@ -541,10 +541,11 @@ impl Compiler {
         let (first_pos, second_pos) = if options.use_worldedit {
             (first_pos.unwrap(), second_pos.unwrap())
         } else {
+            const W: i32 = PLOT_BLOCK_WIDTH;
             // Get plot corners
             (
-                BlockPos::new(plot.x * 256, 0, plot.z * 256),
-                BlockPos::new((plot.x + 1) * 256 - 1, 255, (plot.z + 1) * 256 - 1),
+                BlockPos::new(plot.x * W, 0, plot.z * W),
+                BlockPos::new((plot.x + 1) * W - 1, 255, (plot.z + 1) * W - 1),
             )
         };
 
