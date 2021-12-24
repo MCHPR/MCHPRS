@@ -57,11 +57,7 @@ impl ItemStack {
                 let list = nbt::Value::List({
                     let mut items = Vec::new();
                     for (slot, items_added) in (0..items_needed).step_by(64).enumerate() {
-                        let count = if items_added > items_needed {
-                            items_added - items_needed
-                        } else {
-                            64
-                        };
+                        let count = (items_needed - items_added).min(64);
                         items.push(nbt::Value::Compound(map! {
                             "Count".to_owned() => nbt::Value::Byte(count as i8),
                             "id".to_owned() => nbt::Value::String("minecraft:redstone".to_owned()),
