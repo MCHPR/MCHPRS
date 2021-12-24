@@ -331,6 +331,7 @@ impl ClientBoundPacket for CWindowItems {
 
 pub struct CSetSlot {
     pub window_id: u8,
+    pub state_id: i32,
     pub slot: i16,
     pub slot_data: Option<SlotData>,
 }
@@ -338,6 +339,9 @@ pub struct CSetSlot {
 impl ClientBoundPacket for CSetSlot {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
+        buf.write_unsigned_byte(self.window_id);
+        buf.write_varint(self.state_id);
+        buf.write_short(self.slot);
         buf.write_slot_data(&self.slot_data);
         PacketEncoder::new(buf, 0x16)
     }
