@@ -3,7 +3,7 @@ use serde::Serialize;
 use std::lazy::SyncLazy;
 
 static URL_REGEX: SyncLazy<Regex> = SyncLazy::new(|| {
-    Regex::new("^(?:(https?)://)?([-\\w_\\.]{2,}\\.[a-z]{2,4})(/\\S*)?$").unwrap()
+    Regex::new("([a-zA-Z0-9§\\-:/]+\\.[a-zA-Z/0-9§\\-:_#]+(\\.[a-zA-Z/0-9.§\\-:#\\?\\+=_]+)?)").unwrap()
 });
 
 fn is_valid_hex(ch: char) -> bool {
@@ -151,6 +151,7 @@ pub struct ChatComponent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<ChatColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "clickEvent")]
     pub click_event: Option<ClickEvent>,
 }
 
@@ -211,7 +212,36 @@ impl ChatComponent {
             cur_component.text.push(c);
         }
         components.push(cur_component);
-        components
+
+        // This code is stinky
+        // Find urls and add click action
+        let mut new_componenets = Vec::with_capacity(components.len());
+        for component in components {
+            let mut last = 0;
+            let text = &component.text;
+            for (index, matched) in text.match_indices(&*URL_REGEX) {
+                if last != index {
+                    let mut new = component.clone();
+                    new.text = String::from(&text[last..index]);
+                    new_componenets.push(new);
+                }
+                let mut new = component.clone();
+                new.text = matched.to_string();
+                new.click_event = Some(ClickEvent {
+                    action: ClickEventType::OpenUrl,
+                    value: matched.to_string()
+                });
+                new_componenets.push(new);
+                last = index + matched.len();
+            }
+            if last < text.len() {
+                let mut new = component.clone();
+                new.text = String::from(&text[last..]);
+                new_componenets.push(new);
+            }
+        }
+
+        new_componenets
     }
 
     fn encode_json(&self) -> String {

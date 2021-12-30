@@ -46,7 +46,7 @@ log = "0.4"
 fern = { version = "0.6", features = ["colored"] }
 chrono = "0.4"
 rand = "0.8"
-regex = "1.4"
+regex = { version = "1.4", features = ["pattern"] }
 backtrace = "0.3"
 rusqlite = { version="0.25", features=["bundled"] }
 anyhow = "1.0"
