@@ -262,10 +262,18 @@ pub(super) fn execute_load(mut ctx: CommandExecuteContext<'_>) {
             ));
         }
         Err(e) => {
+            if let Some(e) = e.downcast_ref::<std::io::Error>() {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    let msg = "The specified schematic file could not be found.";
+                    ctx.player.send_error_message(msg);
+                    return;
+                }
+            }
             error!("There was an error loading a schematic:");
             error!("{}", e);
-            ctx.player
-                .send_error_message("There was an error loading the schematic.");
+            ctx.player.send_error_message(
+                "There was an error loading the schematic. Check console for more details.",
+            );
         }
     }
 }

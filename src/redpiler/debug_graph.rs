@@ -29,7 +29,12 @@ enum ComparatorMode {
     Subtract,
 }
 
-convert_enum!(crate::blocks::ComparatorMode, ComparatorMode, Compare, Subtract);
+convert_enum!(
+    crate::blocks::ComparatorMode,
+    ComparatorMode,
+    Compare,
+    Subtract
+);
 
 #[derive(Serialize)]
 struct Link {
@@ -70,7 +75,9 @@ pub fn debug(graph: &[CompileNode]) {
         let n = Node {
             ty: match node.state {
                 Block::RedstoneRepeater { repeater } => NodeType::Repeater(repeater.delay),
-                Block::RedstoneComparator { comparator } => NodeType::Comparator(comparator.mode.into()),
+                Block::RedstoneComparator { comparator } => {
+                    NodeType::Comparator(comparator.mode.into())
+                }
                 Block::RedstoneTorch { .. } => NodeType::Torch,
                 Block::RedstoneWallTorch { .. } => NodeType::Torch,
                 Block::StoneButton { .. } => NodeType::StoneButton,
@@ -82,11 +89,15 @@ pub fn debug(graph: &[CompileNode]) {
                 block if block.has_comparator_override() => NodeType::Constant,
                 _ => continue,
             },
-            inputs: node.inputs.iter().map(|l| Link {
-                ty: l.ty.into(),
-                to: l.end,
-                weight: l.weight,
-            }).collect(),
+            inputs: node
+                .inputs
+                .iter()
+                .map(|l| Link {
+                    ty: l.ty.into(),
+                    to: l.end,
+                    weight: l.weight,
+                })
+                .collect(),
             updates: node.updates.clone(),
             comparator_far_input: node.comparator_far_input,
             diode_state: match node.state {
@@ -111,6 +122,6 @@ pub fn debug(graph: &[CompileNode]) {
         };
         nodes.push(n);
     }
-    
+
     fs::write("redpiler_graph.bc", bincode::serialize(&nodes).unwrap()).unwrap();
 }
