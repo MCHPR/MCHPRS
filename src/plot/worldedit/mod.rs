@@ -983,6 +983,9 @@ fn paste_clipboard(plot: &mut PlotWorld, cb: &WorldEditClipboard, pos: BlockPos,
         }
     }
 
+    // Send block changes before we send block entity data, otherwise it'll be ignored
+    plot.flush_block_changes();
+
     for (pos, block_entity) in &cb.block_entities {
         let new_pos = BlockPos {
             x: pos.x + offset_x,
