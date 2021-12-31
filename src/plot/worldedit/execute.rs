@@ -1,10 +1,12 @@
 use super::*;
 use crate::blocks::{Block, BlockFace, BlockFacing, BlockPos, FlipDirection, RotateAmt};
 use crate::chat::{ChatComponentBuilder, ColorCode};
+use crate::config::CONFIG;
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::PacketSender;
+use crate::utils::HyphenatedUUID;
 use log::error;
 use schematic::{load_schematic, save_schematic};
 use std::time::Instant;
@@ -248,12 +250,24 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
     }
 }
 
+static SCHEMATI_VALIDATE_REGEX: SyncLazy<Regex> =
+    SyncLazy::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
+
 pub(super) fn execute_load(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let file_name = ctx.arguments[0].unwrap_string();
+    let mut file_name = ctx.arguments[0].unwrap_string().clone();
+    if CONFIG.schemati {
+        if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
+            ctx.player.send_error_message("Filename is invalid");
+            return;
+        }
 
-    let clipboard = load_schematic(file_name);
+        let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
+        file_name.insert_str(0, &prefix);
+    }
+
+    let clipboard = load_schematic(&file_name);
     match clipboard {
         Ok(cb) => {
             ctx.player.worldedit_clipboard = Some(cb);
@@ -282,10 +296,19 @@ pub(super) fn execute_load(mut ctx: CommandExecuteContext<'_>) {
 pub(super) fn execute_save(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let file_name = ctx.arguments[0].unwrap_string();
-    let clipboard = ctx.player.worldedit_clipboard.as_ref().unwrap();
+    let mut file_name = ctx.arguments[0].unwrap_string().clone();
+    if CONFIG.schemati {
+        if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
+            ctx.player.send_error_message("Filename is invalid");
+            return;
+        }
 
-    match save_schematic(file_name, clipboard) {
+        let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
+        file_name.insert_str(0, &prefix);
+    }
+
+    let clipboard = ctx.player.worldedit_clipboard.as_ref().unwrap();
+    match save_schematic(&file_name, clipboard) {
         Ok(_) => {
             ctx.player.send_worldedit_message(&format!(
                 "The schematic was saved sucessfuly. ({:?})",

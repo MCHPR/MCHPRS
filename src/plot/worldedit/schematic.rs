@@ -10,8 +10,9 @@ use itertools::Itertools;
 use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{self, File};
 use std::lazy::SyncLazy;
+use std::path::PathBuf;
 
 macro_rules! nbt_as {
     // I'm not sure if path is the right type here.
@@ -137,6 +138,10 @@ struct Schematic {
 }
 
 pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result<()> {
+    let mut path = PathBuf::from("./schems");
+    path.push(file_name);
+    fs::create_dir_all(path.parent().unwrap())?;
+
     let mut file = File::create("./schems/".to_owned() + file_name)?;
     let size_x = clipboard.size_x;
     let size_y = clipboard.size_y;
