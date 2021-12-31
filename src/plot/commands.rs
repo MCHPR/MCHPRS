@@ -475,7 +475,7 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49, 53, 60,
+                    47, 49, 53, 60, 61,
                 ],
                 redirect_node: None,
                 name: None,
@@ -960,6 +960,22 @@ pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
                 redirect_node: None,
                 name: Some("/wand"),
                 parser: None,
+            },
+            // 61: //save
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[62],
+                redirect_node: None,
+                name: Some("/save"),
+                parser: None,
+            },
+            // 62: //save [filename]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("filename"),
+                parser: Some(Parser::String(0)),
             },
         ],
         root_index: 0,

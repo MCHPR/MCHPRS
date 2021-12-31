@@ -240,6 +240,7 @@ pub enum CDeclareCommandsNodeParser {
     Float(f32, f32),
     BlockPos,
     BlockState,
+    String(i32),
 }
 
 impl CDeclareCommandsNodeParser {
@@ -265,6 +266,10 @@ impl CDeclareCommandsNodeParser {
                 buf.write_byte(3);
                 buf.write_float(*min);
                 buf.write_float(*max);
+            }
+            String(ty) => {
+                buf.write_string(32767, "brigadier:string");
+                buf.write_varint(*ty);
             }
         }
     }
