@@ -1,13 +1,18 @@
 use super::Plot;
 use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos, SignBlockEntity};
+use crate::config::CONFIG;
 use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::SlotData;
 use crate::player::{PacketSender, PlayerPos, SkinParts};
 use crate::server::Message;
+use crate::utils::HyphenatedUUID;
 use crate::world::World;
+use log::error;
 use serde_json::json;
+use std::fs;
+use std::path::PathBuf;
 use std::time::Instant;
 
 impl Plot {
@@ -20,6 +25,54 @@ impl Plot {
 }
 
 impl ServerBoundPacketHandler for Plot {
+    fn handle_tab_complete(&mut self, packet: STabComplete, player_idx: usize) {
+        if !packet.text.starts_with("//load ") {
+            return;
+        }
+
+        let mut path = PathBuf::from("./schems");
+        if CONFIG.schemati {
+            let uuid = self.players[player_idx].uuid;
+            path.push(&HyphenatedUUID(uuid).to_string());
+        }
+
+        let current = &packet.text[7..];
+        let mut res = CTabComplete {
+            id: packet.transaction_id,
+            start: 7,
+            length: current.len() as i32,
+            matches: Vec::new(),
+        };
+
+        let dir = match fs::read_dir(path) {
+            Ok(dir) => dir,
+            Err(err) => {
+                if err.kind() != std::io::ErrorKind::NotFound {
+                    error!("There was an error completing //load");
+                    error!("{}", err.to_string());
+                }
+                return;
+            }
+        };
+
+        for entry in dir {
+            let entry = entry.unwrap();
+            if entry.file_type().unwrap().is_file() {
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                if name.starts_with(current) {
+                    let m = CTabCompleteMatch {
+                        match_: name.to_string(),
+                        tooltip: None,
+                    };
+                    res.matches.push(m);
+                }
+            }
+        }
+
+        self.players[player_idx].send_packet(&res.encode());
+    }
+
     fn handle_keep_alive(&mut self, _keep_alive: SKeepAlive, player_idx: usize) {
         self.players[player_idx].last_keep_alive_received = Instant::now();
     }

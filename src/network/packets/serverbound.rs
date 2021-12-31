@@ -7,6 +7,7 @@ pub trait ServerBoundPacketHandler {
     fn handle_login_start(&mut self, _packet: SLoginStart, _player_idx: usize) {}
     fn handle_chat_message(&mut self, _packet: SChatMessage, _player_idx: usize) {}
     fn handle_client_settings(&mut self, _packet: SClientSettings, _player_idx: usize) {}
+    fn handle_tab_complete(&mut self, _packet: STabComplete, _player_idx: usize) {}
     fn handle_plugin_message(&mut self, _packet: SPluginMessage, _player_idx: usize) {}
     fn handle_keep_alive(&mut self, _packet: SKeepAlive, _player_idx: usize) {}
     fn handle_player_position(&mut self, _packet: SPlayerPosition, _player_idx: usize) {}
@@ -162,6 +163,24 @@ impl ServerBoundPacket for SClientSettings {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_client_settings(*self, player_idx);
+    }
+}
+
+pub struct STabComplete {
+    pub transaction_id: i32,
+    pub text: String,
+}
+
+impl ServerBoundPacket for STabComplete {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        Ok(STabComplete {
+            transaction_id: decoder.read_varint()?,
+            text: decoder.read_string()?,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_tab_complete(*self, player_idx);
     }
 }
 

@@ -232,6 +232,37 @@ impl ClientBoundPacket for CChatMessage {
     }
 }
 
+pub struct CTabCompleteMatch {
+    pub match_: String,
+    pub tooltip: Option<String>,
+}
+
+pub struct CTabComplete {
+    pub id: i32,
+    pub start: i32,
+    pub length: i32,
+    pub matches: Vec<CTabCompleteMatch>,
+}
+
+impl ClientBoundPacket for CTabComplete {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.id);
+        buf.write_varint(self.start);
+        buf.write_varint(self.length);
+        buf.write_varint(self.matches.len() as i32);
+        for m in &self.matches {
+            buf.write_string(32767, &m.match_);
+            buf.write_bool(m.tooltip.is_some());
+            if let Some(tooltip) = &m.tooltip {
+                buf.write_string(32767, tooltip);
+            }
+        }
+
+        PacketEncoder::new(buf, 0x11)
+    }
+}
+
 pub enum CDeclareCommandsNodeParser {
     Entity(i8),
     Vec2,
@@ -281,6 +312,7 @@ pub struct CDeclareCommandsNode<'a> {
     pub redirect_node: Option<i32>,
     pub name: Option<&'static str>,
     pub parser: Option<CDeclareCommandsNodeParser>,
+    pub suggestions_type: Option<&'static str>,
 }
 
 pub struct CDeclareCommands<'a> {
@@ -306,6 +338,9 @@ impl<'a> ClientBoundPacket for CDeclareCommands<'a> {
             }
             if let Some(parser) = &node.parser {
                 parser.write(&mut buf);
+            }
+            if let Some(suggesstions_type) = node.suggestions_type {
+                buf.write_string(32767, suggesstions_type);
             }
         }
         buf.write_varint(self.root_index);

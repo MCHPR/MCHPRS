@@ -91,6 +91,7 @@ fn read_decompressed<T: PacketDecoderExt>(
         _ => match packet_id {
             0x03 => Box::new(SChatMessage::decode(reader)?),
             0x05 => Box::new(SClientSettings::decode(reader)?),
+            0x06 => Box::new(STabComplete::decode(reader)?),
             0x0A => Box::new(SPluginMessage::decode(reader)?),
             0x0F => Box::new(SKeepAlive::decode(reader)?),
             0x11 => Box::new(SPlayerPosition::decode(reader)?),
