@@ -373,7 +373,7 @@ impl MinecraftServer {
             coordinate_scale: 1.0,
             piglin_safe: 0,
             logical_height: 256,
-            infiniburn: "".to_owned(),
+            infiniburn: "minecraft:infiniburn_overworld".to_owned(),
         };
 
         let join_game = CJoinGame {
