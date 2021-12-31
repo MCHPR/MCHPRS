@@ -5,7 +5,7 @@ mod schematic;
 
 use super::{Plot, PlotWorld};
 use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos};
-use crate::player::{Player, PlayerPos};
+use crate::player::{PacketSender, Player, PlayerPos};
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
 use execute::*;

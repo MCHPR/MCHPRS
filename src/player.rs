@@ -3,8 +3,8 @@ use crate::chat::ChatComponent;
 use crate::config::CONFIG;
 use crate::items::{InventoryEntry, Item, ItemStack};
 use crate::network::packets::clientbound::*;
-use crate::network::packets::SlotData;
-use crate::network::PlayerConn;
+use crate::network::packets::{PacketEncoder, SlotData};
+use crate::network::{PlayerConn, PlayerPacketSender};
 use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::plot::PLOT_SCALE;
@@ -384,48 +384,14 @@ impl Player {
         self.client.send_packet(&chat_message);
     }
 
-    /// Sends the `ChatMessage` packet containing the raw json data.
-    /// Position 1: system message (chat box)
-    pub fn send_raw_system_message(&mut self, message: String) {
-        let chat_message = CChatMessage {
-            message,
-            sender: 0,
-            position: 1,
-        }
-        .encode();
-        self.client.send_packet(&chat_message);
-    }
-
     /// Sends a raw chat message to the player
     pub fn send_chat_message(&mut self, sender: u128, message: &[ChatComponent]) {
         let json = json!({ "text": "", "extra": message }).to_string();
         self.send_raw_chat(sender, json);
     }
 
-    /// Sends the player a yellow system message (`message` is not in json format)
-    pub fn send_system_message(&mut self, message: &str) {
-        self.send_raw_system_message(
-            json!({
-                "text": message,
-                "color": "yellow"
-            })
-            .to_string(),
-        );
-    }
-
     pub fn send_no_permission_message(&mut self) {
         self.send_error_message("You do not have permission to perform this action.");
-    }
-
-    /// Sends the player a red system message (`message` is not in json format)
-    pub fn send_error_message(&mut self, message: &str) {
-        self.send_raw_system_message(
-            json!({
-                "text": message,
-                "color": "red"
-            })
-            .to_string(),
-        );
     }
 
     /// Sends the player a light purple system message (`message` is not in json format)
@@ -554,5 +520,55 @@ impl Player {
         }
         .encode();
         self.client.send_packet(&set_slot);
+    }
+}
+
+pub trait PacketSender {
+    fn send_packet(&self, data: &PacketEncoder);
+
+    /// Sends the `ChatMessage` packet containing the raw json data.
+    /// Position 1: system message (chat box)
+    fn send_raw_system_message(&self, message: String) {
+        let chat_message = CChatMessage {
+            message,
+            sender: 0,
+            position: 1,
+        }
+        .encode();
+        self.send_packet(&chat_message);
+    }
+
+    /// Sends the player a red system message (`message` is not in json format)
+    fn send_error_message(&self, message: &str) {
+        self.send_raw_system_message(
+            json!({
+                "text": message,
+                "color": "red"
+            })
+            .to_string(),
+        );
+    }
+
+    /// Sends the player a yellow system message (`message` is not in json format)
+    fn send_system_message(&self, message: &str) {
+        self.send_raw_system_message(
+            json!({
+                "text": message,
+                "color": "yellow"
+            })
+            .to_string(),
+        );
+    }
+}
+
+impl PacketSender for PlayerPacketSender {
+    fn send_packet(&self, data: &PacketEncoder) {
+        self.send_packet(data);
+    }
+}
+
+impl PacketSender for Player {
+    fn send_packet(&self, data: &PacketEncoder) {
+        self.client.send_packet(data);
     }
 }

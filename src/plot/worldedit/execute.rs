@@ -4,6 +4,7 @@ use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::items::{Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
+use crate::player::PacketSender;
 use log::error;
 use schematic::{load_schematic, save_schematic};
 use std::time::Instant;

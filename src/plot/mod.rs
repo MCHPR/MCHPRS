@@ -9,7 +9,7 @@ use crate::chat::ChatComponent;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::network::PlayerPacketSender;
-use crate::player::{EntityId, Gamemode, Player, PlayerPos};
+use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;

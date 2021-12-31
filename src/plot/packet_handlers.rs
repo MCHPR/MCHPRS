@@ -4,7 +4,7 @@ use crate::items::{Item, ItemStack, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::SlotData;
-use crate::player::{PlayerPos, SkinParts};
+use crate::player::{PacketSender, PlayerPos, SkinParts};
 use crate::server::Message;
 use crate::world::World;
 use serde_json::json;

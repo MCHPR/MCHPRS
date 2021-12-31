@@ -11,9 +11,9 @@ use crate::network::packets::serverbound::{
     SHandshake, SLoginStart, SPing, SRequest, ServerBoundPacketHandler,
 };
 use crate::network::packets::{PacketEncoderExt, SlotData};
-use crate::network::{NetworkServer, NetworkState};
+use crate::network::{NetworkServer, NetworkState, PlayerPacketSender};
 use crate::permissions;
-use crate::player::{Gamemode, Player};
+use crate::player::{Gamemode, PacketSender, Player};
 use crate::plot::commands::DECLARE_COMMANDS;
 use crate::plot::{self, database, Plot};
 use crate::utils::HyphenatedUUID;
@@ -51,9 +51,9 @@ pub enum Message {
     /// This message is sent to the server thread when a plot unloads itself.
     PlotUnload(i32, i32),
     /// This message is sent to the server thread when a player runs /whitelist add.
-    WhitelistAdd(u128, String),
+    WhitelistAdd(u128, String, PlayerPacketSender),
     /// This message is sent to the server thread when a player runs /whitelist remove.
-    WhitelistRemove(u128),
+    WhitelistRemove(u128, PlayerPacketSender),
     /// This message is sent to the server thread when a player runs /stop.
     Shutdown,
 }
@@ -324,6 +324,7 @@ impl MinecraftServer {
         clients[client_idx].set_compressed(true);
 
         if let Some(whitelist) = &self.whitelist {
+            // uuid will only be present if bungeecord is enabled in config
             let whitelisted = if let Some(uuid) = clients[client_idx].uuid {
                 whitelist.iter().any(|entry| entry.uuid.0 == uuid)
             } else {
@@ -621,8 +622,10 @@ impl MinecraftServer {
                 self.broadcaster
                     .broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
             }
-            Message::WhitelistAdd(uuid, username) => {
+            Message::WhitelistAdd(uuid, username, sender) => {
                 if let Some(whitelist) = &mut self.whitelist {
+                    let msg = format!("{} was sucessfully added to the whitelist.", &username);
+                    sender.send_system_message(&msg);
                     let uuid = HyphenatedUUID(uuid);
                     debug!("Added to whitelist: {} ({})", &username, uuid.to_string());
 
@@ -630,16 +633,34 @@ impl MinecraftServer {
                         name: username,
                         uuid,
                     });
+                } else {
+                    sender.send_error_message("Whitelist is not enabled!");
                 }
             }
-            Message::WhitelistRemove(uuid) => {
+            Message::WhitelistRemove(uuid, sender) => {
                 if let Some(whitelist) = &mut self.whitelist {
-                    debug!(
-                        "Removed from whitelist: {}",
-                        HyphenatedUUID(uuid).to_string()
-                    );
-
-                    whitelist.retain(|entry| entry.uuid.0 != uuid);
+                    let mut found = false;
+                    whitelist.retain(|entry| {
+                        let matches = entry.uuid.0 == uuid;
+                        if matches {
+                            let msg = format!(
+                                "{} was sucessfully removed from the whitelist.",
+                                &entry.name
+                            );
+                            sender.send_system_message(&msg);
+                            debug!(
+                                "Removed from whitelist: {}",
+                                HyphenatedUUID(uuid).to_string()
+                            );
+                            found = true;
+                        }
+                        !matches
+                    });
+                    if !found {
+                        sender.send_error_message("That player is not whitelisted on this server.");
+                    }
+                } else {
+                    sender.send_error_message("Whitelist is not enabled!");
                 }
             }
         }

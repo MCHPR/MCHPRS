@@ -3,7 +3,8 @@ use serde::Serialize;
 use std::lazy::SyncLazy;
 
 static URL_REGEX: SyncLazy<Regex> = SyncLazy::new(|| {
-    Regex::new("([a-zA-Z0-9§\\-:/]+\\.[a-zA-Z/0-9§\\-:_#]+(\\.[a-zA-Z/0-9.§\\-:#\\?\\+=_]+)?)").unwrap()
+    Regex::new("([a-zA-Z0-9§\\-:/]+\\.[a-zA-Z/0-9§\\-:_#]+(\\.[a-zA-Z/0-9.§\\-:#\\?\\+=_]+)?)")
+        .unwrap()
 });
 
 fn is_valid_hex(ch: char) -> bool {
@@ -229,7 +230,7 @@ impl ChatComponent {
                 new.text = matched.to_string();
                 new.click_event = Some(ClickEvent {
                     action: ClickEventType::OpenUrl,
-                    value: matched.to_string()
+                    value: matched.to_string(),
                 });
                 new_componenets.push(new);
                 last = index + matched.len();

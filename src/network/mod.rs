@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
 
+#[derive(Debug)]
 pub struct PlayerPacketSender {
     stream: Option<TcpStream>,
 }

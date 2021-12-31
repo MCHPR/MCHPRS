@@ -7,7 +7,8 @@ use crate::network::packets::clientbound::{
     ClientBoundPacket,
 };
 use crate::network::packets::PacketEncoder;
-use crate::player::{Gamemode, PlayerPos};
+use crate::network::PlayerPacketSender;
+use crate::player::{Gamemode, PacketSender, PlayerPos};
 use crate::plot::PlotWorld;
 use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
@@ -213,10 +214,15 @@ impl Plot {
                 ["add", username] => {
                     let username = username.to_string();
                     let sender = self.message_sender.clone();
+                    let packet_sender = PlayerPacketSender::new(&self.players[player].client);
                     self.async_rt.spawn(async move {
                         match PlayerProfile::lookup_by_username(&username).await {
                             Ok(profile) => sender
-                                .send(Message::WhitelistAdd(profile.uuid.0, profile.username))
+                                .send(Message::WhitelistAdd(
+                                    profile.uuid.0,
+                                    profile.username,
+                                    packet_sender,
+                                ))
                                 .unwrap(),
                             Err(_) => {
                                 debug!("Failed to look up profile for username {:?}", username)
@@ -227,10 +233,11 @@ impl Plot {
                 ["remove", username] => {
                     let username = username.to_string();
                     let sender = self.message_sender.clone();
+                    let packet_sender = PlayerPacketSender::new(&self.players[player].client);
                     self.async_rt.spawn(async move {
                         match PlayerProfile::lookup_by_username(&username).await {
                             Ok(profile) => sender
-                                .send(Message::WhitelistRemove(profile.uuid.0))
+                                .send(Message::WhitelistRemove(profile.uuid.0, packet_sender))
                                 .unwrap(),
                             Err(_) => {
                                 debug!("Failed to look up profile for username {:?}", username)
