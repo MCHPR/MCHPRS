@@ -823,14 +823,17 @@ impl ClientBoundPacket for CPlayerPositionAndLook {
     }
 }
 
-pub struct CDestroyEntity {
-    pub entity_id: i32,
+pub struct CDestroyEntities {
+    pub entity_ids: Vec<i32>,
 }
 
-impl ClientBoundPacket for CDestroyEntity {
+impl ClientBoundPacket for CDestroyEntities {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_varint(self.entity_id);
+        buf.write_varint(self.entity_ids.len() as i32);
+        for &entity_id in &self.entity_ids {
+            buf.write_varint(entity_id);
+        }
         PacketEncoder::new(buf, 0x3A)
     }
 }

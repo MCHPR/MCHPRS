@@ -560,8 +560,8 @@ impl Plot {
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
-        let destroy_entity = CDestroyEntity {
-            entity_id: entity_id as i32,
+        let destroy_entity = CDestroyEntities {
+            entity_ids: vec![entity_id as i32],
         }
         .encode();
         for player in &mut self.players {
@@ -573,13 +573,13 @@ impl Plot {
         let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
         self.world.packet_senders.remove(player_idx);
         let player = self.players.remove(player_idx);
-        for player in &self.players {
-            let destroy_other_entity = CDestroyEntity {
-                entity_id: player.entity_id as i32,
-            }
-            .encode();
-            player.client.send_packet(&destroy_other_entity);
+
+        let destroy_other_entities = CDestroyEntities {
+            entity_ids: self.players.iter().map(|p| p.entity_id as i32).collect(),
         }
+        .encode();
+        player.client.send_packet(&destroy_other_entities);
+
         let chunk_offset_x = self.world.x << PLOT_SCALE;
         let chunk_offset_z = self.world.z << PLOT_SCALE;
         for chunk in &self.world.chunks {
