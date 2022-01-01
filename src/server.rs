@@ -355,7 +355,7 @@ impl MinecraftServer {
 
         let client = clients.remove(client_idx);
 
-        let mut player = Player::load_player(uuid, username, client.into());
+        let player = Player::load_player(uuid, username, client.into());
 
         let dimension = CJoinGameDimensionElement {
             natural: 1,
@@ -581,7 +581,7 @@ impl MinecraftServer {
             Message::Shutdown => {
                 self.graceful_shutdown();
             }
-            Message::PlayerTeleportOther(mut player, other_username) => {
+            Message::PlayerTeleportOther(player, other_username) => {
                 let username_lower = other_username.to_lowercase();
                 if let Some((_, other_player)) = self
                     .online_players

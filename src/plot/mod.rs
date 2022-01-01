@@ -370,7 +370,7 @@ impl Plot {
         false
     }
 
-    fn enter_plot(&mut self, mut player: Player) {
+    fn enter_plot(&mut self, player: Player) {
         self.save();
         let spawn_player = CSpawnPlayer {
             entity_id: player.entity_id as i32,

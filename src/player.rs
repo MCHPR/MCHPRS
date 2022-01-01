@@ -374,7 +374,7 @@ impl Player {
 
     /// Sends the `ChatMessage` packet containing the raw json data.
     /// Position 0: chat (chat box)
-    pub fn send_raw_chat(&mut self, sender: u128, message: String) {
+    pub fn send_raw_chat(&self, sender: u128, message: String) {
         let chat_message = CChatMessage {
             message,
             sender,
@@ -385,17 +385,17 @@ impl Player {
     }
 
     /// Sends a raw chat message to the player
-    pub fn send_chat_message(&mut self, sender: u128, message: &[ChatComponent]) {
+    pub fn send_chat_message(&self, sender: u128, message: &[ChatComponent]) {
         let json = json!({ "text": "", "extra": message }).to_string();
         self.send_raw_chat(sender, json);
     }
 
-    pub fn send_no_permission_message(&mut self) {
+    pub fn send_no_permission_message(&self) {
         self.send_error_message("You do not have permission to perform this action.");
     }
 
     /// Sends the player a light purple system message (`message` is not in json format)
-    pub fn send_worldedit_message(&mut self, message: &str) {
+    pub fn send_worldedit_message(&self, message: &str) {
         self.send_raw_system_message(
             json!({
                 "text": message,
@@ -423,7 +423,7 @@ impl Player {
         self.worldedit_send_cui(&format!("p|1|{}|{}|{}|0", pos.x, pos.y, pos.z));
     }
 
-    pub fn worldedit_send_cui(&mut self, message: &str) {
+    pub fn worldedit_send_cui(&self, message: &str) {
         let cui_plugin_message = CPluginMessage {
             channel: String::from("worldedit:cui"),
             data: Vec::from(message.as_bytes()),
@@ -433,12 +433,12 @@ impl Player {
     }
 
     /// Sends the player the disconnect packet, it is still up to the player to end the network stream.
-    pub fn kick(&mut self, reason: String) {
+    pub fn kick(&self, reason: String) {
         let disconnect = CDisconnect { reason }.encode();
         self.client.send_packet(&disconnect);
     }
 
-    pub fn update_player_abilities(&mut self) {
+    pub fn update_player_abilities(&self) {
         let player_abilities = CPlayerAbilities {
             flags: 0x0D | ((self.flying as u8) << 1),
             fly_speed: 0.05 * self.fly_speed,
@@ -472,7 +472,7 @@ impl Player {
         }
     }
 
-    pub fn open_container(&mut self, inventory: &[InventoryEntry], container_type: ContainerType) {
+    pub fn open_container(&self, inventory: &[InventoryEntry], container_type: ContainerType) {
         let mut slots: Vec<Option<SlotData>> =
             (0..container_type.num_slots()).map(|_| None).collect();
         for entry in inventory {
