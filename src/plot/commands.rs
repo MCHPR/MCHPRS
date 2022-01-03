@@ -424,8 +424,11 @@ impl Plot {
                     return false;
                 }
                 let slot = self.players[player].selected_slot + 36;
-                let item = self.players[player].inventory[slot as usize].as_ref().unwrap();
-                self.players[player].send_system_message(&item.item_type.get_id().to_string());
+                let item = self.players[player].inventory[slot as usize].as_ref();
+                if item.is_some() {
+
+                    self.players[player].send_system_message(&item.unwrap().item_type.get_id().to_string());
+                }
             }
             "/container" => {
                 if args.len() != 2 {

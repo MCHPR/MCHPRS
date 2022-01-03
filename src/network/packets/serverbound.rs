@@ -90,6 +90,7 @@ impl ServerBoundPacket for SRequest {
     }
 }
 
+
 pub struct SPing {
     pub payload: i64,
 }

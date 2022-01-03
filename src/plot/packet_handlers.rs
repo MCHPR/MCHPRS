@@ -434,8 +434,10 @@ impl ServerBoundPacketHandler for Plot {
             if let Some(item) = item_in_hand {
                 let has_permission = self.players[player].has_permission("worldedit.selection.pos");
                 if item.item_type == (Item::WEWand {}) && has_permission {
+                    self.players[player].send_worldedit_message("2");
                     self.send_block_change(block_pos, block.get_id());
                     if let Some(pos) = self.players[player].first_position {
+                        self.players[player].send_worldedit_message("3");
                         if pos == block_pos {
                             return;
                         }
