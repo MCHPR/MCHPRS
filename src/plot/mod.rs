@@ -40,6 +40,8 @@ pub const PLOT_WIDTH: i32 = 2i32.pow(PLOT_SCALE);
 pub const PLOT_BLOCK_WIDTH: i32 = PLOT_WIDTH * 16;
 pub const NUM_CHUNKS: usize = PLOT_WIDTH.pow(2) as usize;
 
+pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
+
 static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
     let template_path = Path::new("./world/plots/pTEMPLATE");
     if template_path.exists() {
@@ -99,7 +101,10 @@ pub struct Plot {
     tps: u32,
     last_update_time: Instant,
     lag_time: Duration,
+    /// The last time a player was in this plot
     last_player_time: Instant,
+    /// The last time the world changes were sent to the player 
+    last_world_send_time: Instant,
     sleep_time: Duration,
     running: bool,
     show_redstone: bool,
@@ -818,7 +823,12 @@ impl Plot {
             if self.redpiler.is_active {
                 self.redpiler.flush(&mut self.world);
             }
-            self.world.flush_block_changes();
+            let now = Instant::now();
+            let time_since_last_world_send = now - self.last_world_send_time;
+            if time_since_last_world_send > WORLD_SEND_RATE {
+                self.last_world_send_time = now;
+                self.world.flush_block_changes();
+            }
         } else {
             self.timings.set_ticking(false);
             // Unload plot after 600 seconds unless the plot should be always loaded
@@ -903,6 +913,7 @@ impl Plot {
         Plot {
             last_player_time: Instant::now(),
             last_update_time: Instant::now(),
+            last_world_send_time: Instant::now(),
             lag_time: Duration::new(0, 0),
             sleep_time: Duration::from_micros(
                 1_000_000u64
