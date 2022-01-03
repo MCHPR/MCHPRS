@@ -310,6 +310,12 @@ items! {
         from_id(_id): 586 => {},
         block: true,
     },
+    TripwireHook {
+        props: {},
+        get_id: 604,
+        from_id(_id): 604 => {},
+        block: true,
+    },
     StoneButton {
         props: {},
         get_id: 609,

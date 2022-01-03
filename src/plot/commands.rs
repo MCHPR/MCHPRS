@@ -418,6 +418,15 @@ impl Plot {
                 };
                 self.change_player_gamemode(player, gamemode);
             }
+            "/whatamiholding" => {
+                if args.len() != 0 {
+                    self.players[player].send_error_message("Usage: /whatamiholding");
+                    return false;
+                }
+                let slot = self.players[player].selected_slot + 36;
+                let item = self.players[player].inventory[slot as usize].as_ref().unwrap();
+                self.players[player].send_system_message(&item.item_type.get_id().to_string());
+            }
             "/container" => {
                 if args.len() != 2 {
                     self.players[player].send_error_message("Usage: /container [type] [power]");

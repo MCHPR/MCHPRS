@@ -18,6 +18,7 @@ impl Block {
         dust_power: bool,
     ) -> u8 {
         match self {
+
             Block::RedstoneTorch { lit: true } => 15,
             Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
             Block::RedstoneBlock {} => 15,
@@ -161,7 +162,6 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     }
     power
 }
-
 #[derive(Copy, Clone, Debug, PartialEq, BlockProperty, BlockTransform)]
 pub struct RedstoneRepeater {
     pub delay: u8,
