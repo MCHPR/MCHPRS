@@ -1,4 +1,5 @@
 pub mod commands;
+mod data;
 pub mod database;
 mod monitor;
 mod packet_handlers;
@@ -16,15 +17,14 @@ use crate::utils::HyphenatedUUID;
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
+use data::PlotData;
 use log::{debug, error, warn};
 use monitor::TimingsMonitor;
-use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::fs::{self, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::Write;
-use std::lazy::SyncLazy;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -42,55 +42,6 @@ pub const NUM_CHUNKS: usize = PLOT_WIDTH.pow(2) as usize;
 
 pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 
-static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
-    let template_path = Path::new("./world/plots/pTEMPLATE");
-    if template_path.exists() {
-        PlotData::read_from_file(template_path)
-    } else {
-        let mut chunks = Vec::new();
-        for chunk_x in 0..PLOT_WIDTH {
-            for chunk_z in 0..PLOT_WIDTH {
-                chunks.push(Plot::generate_chunk(8, chunk_x, chunk_z));
-            }
-        }
-        let mut world = PlotWorld {
-            x: 0,
-            z: 0,
-            chunks,
-            to_be_ticked: Vec::new(),
-            packet_senders: Vec::new(),
-        };
-        let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
-        PlotData {
-            tps: 10,
-            show_redstone: true,
-            chunk_data,
-            pending_ticks: Vec::new(),
-        }
-    }
-});
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PlotData {
-    pub tps: u32,
-    pub show_redstone: bool,
-    pub chunk_data: Vec<ChunkData>,
-    pub pending_ticks: Vec<TickEntry>,
-}
-
-impl PlotData {
-    fn read_from_file(path: impl AsRef<Path>) -> PlotData {
-        let data = fs::read(path).unwrap();
-        bincode::deserialize(&data).unwrap()
-    }
-}
-
-impl Default for PlotData {
-    fn default() -> PlotData {
-        EMPTY_PLOT.clone()
-    }
-}
-
 pub struct Plot {
     message_receiver: BusReader<BroadcastMessage>,
     message_sender: Sender<Message>,
@@ -103,7 +54,7 @@ pub struct Plot {
     lag_time: Duration,
     /// The last time a player was in this plot
     last_player_time: Instant,
-    /// The last time the world changes were sent to the player 
+    /// The last time the world changes were sent to the player
     last_world_send_time: Instant,
     sleep_time: Duration,
     running: bool,
