@@ -17,12 +17,12 @@ pub(super) fn execute_wand(ctx: CommandExecuteContext<'_>) {
         item_type: Item::WEWand {},
         nbt: None,
     };
-    ctx.player.inventory[ctx.player.selected_slot as usize] = Some(item);
+    ctx.player.inventory[(ctx.player.selected_slot + 36) as usize] = Some(item);
     let entity_equipment = CEntityEquipment {
         entity_id: ctx.player.entity_id as i32,
         equipment: vec![CEntityEquipmentEquipment {
             slot: 0,
-            item: ctx.player.inventory[ctx.player.selected_slot as usize]
+            item: ctx.player.inventory[(ctx.player.selected_slot + 36) as usize]
                 .as_ref()
                 .map(|item| SlotData {
                     item_count: item.count as i8,
