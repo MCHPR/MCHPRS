@@ -103,6 +103,7 @@ These are the commands that are currently implemented:
 | `//paste` | `//v` | Paste the clipboard's contents |
 | `//undo` | None | Undoes the last action (from history) |
 | `//redo` | None | Redoes the last action (from history) |
+| `//rstack` | None | Stack with more options, Refer to [RedstoneTools](https://github.com/paulikauro/RedstoneTools) |
 | `//stack` | `//s` | Repeat the contents of the selection |
 | `//move` | None | Move the contents of the selection |
 | `//count` | None | Counts the number of blocks matching a mask |
