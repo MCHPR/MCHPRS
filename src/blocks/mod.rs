@@ -879,6 +879,12 @@ impl Block {
                     facing: face.to_direction(),
                 },
             },
+            Item::TripwireHook {} => match context.block_face {
+                BlockFace::Bottom | BlockFace::Top => Block::Air {},
+                direction => Block::TripwireHook {
+                    direction: direction.to_direction(),
+                }
+            }
             Item::StoneButton {} => {
                 let button_face = match context.block_face {
                     BlockFace::Top => ButtonFace::Floor,
@@ -1127,6 +1133,10 @@ impl Block {
             }
             Block::RedstoneWallTorch { facing, .. } | Block::WallSign { facing, .. } => {
                 let parent_block = world.get_block(pos.offset(facing.opposite().block_face()));
+                parent_block.is_cube()
+            }
+            Block::TripwireHook { direction, ..} => {
+                let parent_block = world.get_block(pos.offset(direction.opposite().block_face()));
                 parent_block.is_cube()
             }
             Block::Lever { lever } => match lever.face {
