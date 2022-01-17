@@ -172,7 +172,9 @@ impl BlockEntity {
             fullness_sum += count as f32 / item_type.map_or(64, Item::max_stack_size) as f32;
         }
         Some(BlockEntity::Container {
-            comparator_override: (1.0 + (fullness_sum / num_slots as f32) * 14.0).floor() as u8,
+            comparator_override: (if fullness_sum > 0.0 { 1.0 } else { 0.0 }
+                + (fullness_sum / num_slots as f32) * 14.0)
+                .floor() as u8,
             inventory,
             ty,
         })
