@@ -1033,8 +1033,8 @@ impl Drop for Plot {
                 );
             }
 
-            for index in 0..self.players.len() {
-                let uuid = self.players[index-1].uuid;
+            while !self.players.is_empty() {
+                let uuid = self.players[0].uuid;
                 let player = self.leave_plot(uuid);
                 self.message_sender
                     .send(Message::PlayerLeavePlot(player))
