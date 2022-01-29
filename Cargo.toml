@@ -22,9 +22,6 @@ include = [
 # MCHPRS runs far too slow without any optimizations to even be usable for testing
 opt-level = 1
 
-[badges]
-travis-ci = { repository = "StackDoubleFlow/MCHPRS" }
-
 [dev-dependencies]
 criterion = "0.3"
 
