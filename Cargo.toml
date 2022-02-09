@@ -18,8 +18,9 @@ include = [
     "Cargo.toml",
 ]
 
-[badges]
-travis-ci = { repository = "StackDoubleFlow/MCHPRS" }
+[profile.dev]
+# MCHPRS runs far too slow without any optimizations to even be usable for testing
+opt-level = 1
 
 [dev-dependencies]
 criterion = "0.3"
