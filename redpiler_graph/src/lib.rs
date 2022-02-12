@@ -10,26 +10,26 @@ pub struct BlockPos {
     pub z: i32,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum LinkType {
     Default,
     Side,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum ComparatorMode {
     Compare,
     Subtract,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Link {
     pub ty: LinkType,
     pub weight: u8,
     pub to: NodeId,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum NodeType {
     Repeater(u8),
     Comparator(ComparatorMode),
@@ -42,7 +42,7 @@ pub enum NodeType {
     Wire,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct Node {
     pub ty: NodeType,
     pub inputs: Vec<Link>,
