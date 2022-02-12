@@ -1,7 +1,7 @@
-use super::{CompileNode, NodeId};
-use crate::blocks::{Block, BlockPos};
-use serde::Serialize;
+use super::CompileNode;
+use crate::blocks::Block;
 use std::fs;
+use redpiler_graph::{LinkType, ComparatorMode, Link, NodeType, Node, BlockPos, serialize};
 
 macro_rules! convert_enum {
     ($src:path, $dst:ident, $($variant:ident),*) => {
@@ -15,59 +15,13 @@ macro_rules! convert_enum {
     }
 }
 
-#[derive(Serialize)]
-enum LinkType {
-    Default,
-    Side,
-}
-
 convert_enum!(super::LinkType, LinkType, Default, Side);
-
-#[derive(Serialize)]
-enum ComparatorMode {
-    Compare,
-    Subtract,
-}
-
 convert_enum!(
     crate::blocks::ComparatorMode,
     ComparatorMode,
     Compare,
     Subtract
 );
-
-#[derive(Serialize)]
-struct Link {
-    pub ty: LinkType,
-    pub weight: u8,
-    pub to: NodeId,
-}
-
-#[derive(Serialize)]
-enum NodeType {
-    Repeater(u8),
-    Comparator(ComparatorMode),
-    Torch,
-    StoneButton,
-    StonePressurePlate,
-    Lamp,
-    Lever,
-    Constant,
-    Wire,
-}
-
-#[derive(Serialize)]
-struct Node {
-    pub ty: NodeType,
-    pub inputs: Vec<Link>,
-    pub updates: Vec<NodeId>,
-    pub facing_diode: bool,
-    pub comparator_far_input: Option<u8>,
-    pub output_power: u8,
-    /// Comparator powered / Repeater locked
-    pub diode_state: bool,
-    pub pos: BlockPos,
-}
 
 pub fn debug(graph: &[CompileNode]) {
     let mut nodes = Vec::new();
@@ -118,10 +72,14 @@ pub fn debug(graph: &[CompileNode]) {
                 s if s.has_comparator_override() => node.comparator_output,
                 _ => 0,
             },
-            pos: node.pos,
+            pos: BlockPos {
+                x: node.pos.x,
+                y: node.pos.y,
+                z: node.pos.z,
+            },
         };
         nodes.push(n);
     }
 
-    fs::write("redpiler_graph.bc", bincode::serialize(&nodes).unwrap()).unwrap();
+    fs::write("redpiler_graph.bc", serialize(nodes.as_slice()).unwrap()).unwrap();
 }

@@ -1242,6 +1242,7 @@ dependencies = [
  "mysql",
  "rand",
  "rayon",
+ "redpiler_graph",
  "regex",
  "reqwest",
  "rusqlite",
@@ -1762,6 +1763,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8383f39639269cde97d255a32bdb68c047337295414940c68bdd30c2e13203ff"
 dependencies = [
  "bitflags",
+]
+
+[[package]]
+name = "redpiler_graph"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "serde",
 ]
 
 [[package]]

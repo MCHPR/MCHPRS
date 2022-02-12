@@ -1,5 +1,5 @@
 [workspace]
-members = ["proc_macros"]
+members = ["proc_macros", "redpiler_graph"]
 
 [package]
 name = "mchprs"
@@ -61,6 +61,7 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 reqwest = { version = "0.11", features = ["json"] }
 itertools = "0.10"
 impls = "1"
+redpiler_graph = { path = "./redpiler_graph" }
 
 [features]
 jit_cranelift = ["cranelift", "cranelift-jit", "cranelift-module"]
