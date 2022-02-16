@@ -16,9 +16,7 @@ macro_rules! impl_simple_default {
         $(
             impl ConfigSerializeDefault for $type {
                 fn fix_config(self, name: &str, doc: &mut Document) {
-                    if doc[name].is_none() {
-                        doc[name] = value(self);
-                    }
+                    doc.entry(name).or_insert_with(|| value(self));
                 }
             }
         )*
