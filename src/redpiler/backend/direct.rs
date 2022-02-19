@@ -289,6 +289,7 @@ impl JITBackend for DirectBackend {
             if node.changed {
                 plot.set_block(node.pos, node.state);
             }
+            node.changed = false;
         }
     }
 }
