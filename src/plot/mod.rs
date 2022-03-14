@@ -933,7 +933,7 @@ impl Plot {
 
         while self.running {
             // Fast path, for super high RTPS
-            if self.sleep_time <= Duration::from_millis(5) {
+            if self.sleep_time <= Duration::from_millis(5) && self.players.len() > 0 {
                 self.update();
                 thread::yield_now();
                 continue;
