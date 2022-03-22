@@ -71,5 +71,6 @@ gen_config! {
     bungeecord: bool = false,
     whitelist: bool = false,
     schemati: bool = false,
-    luckperms: Option<PermissionsConfig> = None
+    luckperms: Option<PermissionsConfig> = None,
+    block_in_hitbox: bool = true
 }
