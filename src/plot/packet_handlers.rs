@@ -236,12 +236,14 @@ impl ServerBoundPacketHandler for Plot {
             if cancelled {
                 cancel(self);
             }
+            self.world.flush_block_changes();
             return;
         }
 
         let block = self.world.get_block(block_pos);
         if !self.players[player].crouching {
             block.on_use(&mut self.world, &mut self.players[player], block_pos, None);
+            self.world.flush_block_changes();
         }
     }
 
@@ -461,6 +463,7 @@ impl ServerBoundPacketHandler for Plot {
             self.reset_redpiler();
 
             block.destroy(&mut self.world, block_pos);
+            self.world.flush_block_changes();
 
             let effect = CEffect {
                 effect_id: 2001,

@@ -4,6 +4,7 @@ use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPo
 use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
+use crate::config::CONFIG;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ActionResult {
@@ -99,7 +100,11 @@ impl ItemStack {
         let use_pos = context.block_pos;
         let use_block = plot.world.get_block(use_pos);
         let block_pos = context.block_pos.offset(context.block_face);
-
+        let mut top_pos = plot.players[context.player_idx].pos.block_pos();
+        top_pos.y = top_pos.y + 1;
+        if (block_pos == plot.players[context.player_idx].pos.block_pos() || block_pos == top_pos) && !CONFIG.block_in_hitbox {
+            return false;
+        }
         let can_place =
             self.item_type.is_block() && plot.world.get_block(block_pos).can_place_block_in();
 
@@ -310,12 +315,6 @@ items! {
         from_id(_id): 586 => {},
         block: true,
     },
-    TripwireHook {
-        props: {},
-        get_id: 604,
-        from_id(_id): 604 => {},
-        block: true,
-    },
     StoneButton {
         props: {},
         get_id: 609,
@@ -338,6 +337,12 @@ items! {
         props: {},
         get_id: 595,
         from_id(_id): 595 => {},
+        block: true,
+    },
+    TripwireHook {
+        props: {},
+        get_id: 604,
+        from_id(_id): 604 => {},
         block: true,
     },
     Terracotta {

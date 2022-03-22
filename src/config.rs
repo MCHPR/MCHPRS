@@ -16,9 +16,7 @@ macro_rules! impl_simple_default {
         $(
             impl ConfigSerializeDefault for $type {
                 fn fix_config(self, name: &str, doc: &mut Document) {
-                    if doc[name].is_none() {
-                        doc[name] = value(self);
-                    }
+                    doc.entry(name).or_insert_with(|| value(self));
                 }
             }
         )*
@@ -73,5 +71,6 @@ gen_config! {
     bungeecord: bool = false,
     whitelist: bool = false,
     schemati: bool = false,
-    luckperms: Option<PermissionsConfig> = None
+    luckperms: Option<PermissionsConfig> = None,
+    block_in_hitbox: bool = true
 }
