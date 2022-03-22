@@ -99,7 +99,11 @@ impl ItemStack {
         let use_pos = context.block_pos;
         let use_block = plot.world.get_block(use_pos);
         let block_pos = context.block_pos.offset(context.block_face);
-
+        let mut top_pos = plot.players[context.player_idx].pos.block_pos();
+        top_pos.y = top_pos.y + 1;
+        if (block_pos == plot.players[context.player_idx].pos.block_pos() || block_pos == top_pos) && !CONFIG.block_in_hitbox {
+            return false;
+        }
         let can_place =
             self.item_type.is_block() && plot.world.get_block(block_pos).can_place_block_in();
 
