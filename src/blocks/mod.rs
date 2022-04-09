@@ -268,7 +268,7 @@ pub struct BlockPos {
 }
 
 impl BlockPos {
-    pub fn new(x: i32, y: i32, z: i32) -> BlockPos {
+    pub const fn new(x: i32, y: i32, z: i32) -> BlockPos {
         BlockPos { x, y, z }
     }
 

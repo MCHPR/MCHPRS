@@ -522,11 +522,15 @@ impl CompilerOptions {
 
 #[derive(Default)]
 pub struct Compiler {
-    pub is_active: bool,
+    is_active: bool,
     jit: Option<Box<dyn JITBackend>>,
 }
 
 impl Compiler {
+    pub fn is_active(&self) -> bool {
+        self.is_active
+    }
+
     /// Use just-in-time compilation with a `JITBackend` such as `CraneliftBackend` or `LLVMBackend`.
     /// Requires recompilation to take effect.
     pub fn use_jit(&mut self, jit: Box<dyn JITBackend>) {

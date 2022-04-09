@@ -29,6 +29,10 @@ criterion = "0.3"
 name = "bitbuffer"
 harness = false
 
+[[bench]]
+name = "chungus"
+harness = false
+
 [dependencies]
 mchprs_proc_macros = { path = "./proc_macros" }
 toml = "0.5"

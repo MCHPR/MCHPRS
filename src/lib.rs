@@ -3,16 +3,16 @@
 
 #[macro_use]
 mod utils;
-mod blocks;
+pub mod blocks;
 mod chat;
 mod config;
 mod items;
 mod network;
 mod permissions;
 mod player;
-mod plot;
+pub mod plot;
 mod profile;
-mod redpiler;
+pub mod redpiler;
 pub mod server;
 pub mod world;
 

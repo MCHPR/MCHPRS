@@ -1,5 +1,5 @@
 pub mod commands;
-mod data;
+pub mod data;
 pub mod database;
 mod monitor;
 mod packet_handlers;
@@ -70,9 +70,9 @@ pub struct Plot {
 pub struct PlotWorld {
     pub x: i32,
     pub z: i32,
-    chunks: Vec<Chunk>,
-    to_be_ticked: Vec<TickEntry>,
-    packet_senders: Vec<PlayerPacketSender>,
+    pub chunks: Vec<Chunk>,
+    pub to_be_ticked: Vec<TickEntry>,
+    pub packet_senders: Vec<PlayerPacketSender>,
 }
 
 impl PlotWorld {
@@ -225,7 +225,7 @@ impl World for PlotWorld {
 impl Plot {
     fn tick(&mut self) {
         self.timings.tick();
-        if self.redpiler.is_active {
+        if self.redpiler.is_active() {
             self.redpiler.tick(&mut self.world);
             return;
         }
@@ -299,7 +299,7 @@ impl Plot {
     }
 
     fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
-        if self.redpiler.is_active {
+        if self.redpiler.is_active() {
             self.redpiler
                 .set_pressure_plate(&mut self.world, pos, powered);
             return;
@@ -509,7 +509,7 @@ impl Plot {
 
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
     fn reset_redpiler(&mut self) {
-        if self.redpiler.is_active {
+        if self.redpiler.is_active() {
             debug!("Discarding redpiler");
             self.redpiler.reset(&mut self.world);
         }
@@ -759,7 +759,7 @@ impl Plot {
                 // let ticks = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
                 self.last_update_time = Instant::now();
                 while self.lag_time >= dur_per_tick {
-                    if self.timings.is_running_behind() && !self.redpiler.is_active {
+                    if self.timings.is_running_behind() && !self.redpiler.is_active() {
                         self.start_redpiler(Default::default(), None, None);
                     }
                     self.tick();
@@ -771,7 +771,7 @@ impl Plot {
                 // }
             }
 
-            if self.redpiler.is_active {
+            if self.redpiler.is_active() {
                 self.redpiler.flush(&mut self.world);
             }
             let now = Instant::now();
@@ -1005,6 +1005,7 @@ impl Drop for Plot {
         }
 
         self.reset_redpiler();
+        self.world.chunks.iter_mut().for_each(|chunk| chunk.compress());
         self.save();
         let world = &self.world;
         self.message_sender

@@ -1,7 +1,7 @@
 use super::CompileNode;
 use crate::blocks::Block;
+use redpiler_graph::{serialize, BlockPos, ComparatorMode, Link, LinkType, Node, NodeType};
 use std::fs;
-use redpiler_graph::{LinkType, ComparatorMode, Link, NodeType, Node, BlockPos, serialize};
 
 macro_rules! convert_enum {
     ($src:path, $dst:ident, $($variant:ident),*) => {
