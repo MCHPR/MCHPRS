@@ -70,6 +70,6 @@ gen_config! {
     max_players: i64 = 99999,
     bungeecord: bool = false,
     whitelist: bool = false,
-    schemati: bool = false,
+    schemati: bool = true,
     luckperms: Option<PermissionsConfig> = None
 }
