@@ -17,6 +17,19 @@ use bitflags::_core::i32::MAX;
 use log::{debug, info, warn};
 use std::lazy::SyncLazy;
 use std::time::{Duration, Instant};
+use std::str::FromStr;
+use std::ops::Add;
+
+// Parses a relative or absolute coordinate relative to a reference coordinate
+fn parse_relative_coord<F: FromStr + Add + Add<Output = F>>(coord: &str, ref_coord: F) -> Result<F, <F as FromStr>::Err> {
+    if coord == "~" {
+        Ok(ref_coord)
+    } else if coord.starts_with("~") {
+        coord[1..].parse::<F>().map(|x| ref_coord + x)
+    } else {
+        coord.parse::<F>()
+    }
+}
 
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
@@ -112,22 +125,22 @@ impl Plot {
                     return;
                 }
 
-                let plot_x;
-                let plot_z;
-                if let Ok(x_arg) = args[0].parse() {
-                    plot_x = x_arg;
+                let new_plot_x;
+                let new_plot_z;
+                if let Ok(x_arg) = parse_relative_coord(args[0], plot_x) {
+                    new_plot_x = x_arg;
                 } else {
                     self.players[player].send_error_message("Unable to parse x coordinate!");
                     return;
                 }
-                if let Ok(z_arg) = args[1].parse() {
-                    plot_z = z_arg;
+                if let Ok(z_arg) = parse_relative_coord(args[1], plot_z) {
+                    new_plot_z = z_arg;
                 } else {
                     self.players[player].send_error_message("Unable to parse z coordinate!");
                     return;
                 }
 
-                let center = Plot::get_center(plot_x, plot_z);
+                let center = Plot::get_center(new_plot_x, new_plot_z);
                 self.players[player].teleport(PlayerPos::new(center.0, 64.0, center.1));
             }
             "lock" => {
@@ -321,22 +334,23 @@ impl Plot {
             }
             "/teleport" | "/tp" => {
                 if args.len() == 3 {
+                    let player_pos = self.players[player].pos;
                     let x;
                     let y;
                     let z;
-                    if let Ok(x_arg) = args[0].parse::<f64>() {
+                    if let Ok(x_arg) = parse_relative_coord(args[0], player_pos.x) {
                         x = x_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse x coordinate!");
                         return false;
                     }
-                    if let Ok(y_arg) = args[1].parse::<f64>() {
+                    if let Ok(y_arg) = parse_relative_coord(args[1], player_pos.y) {
                         y = y_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse y coordinate!");
                         return false;
                     }
-                    if let Ok(z_arg) = args[2].parse::<f64>() {
+                    if let Ok(z_arg) = parse_relative_coord(args[2], player_pos.z) {
                         z = z_arg;
                     } else {
                         self.players[player].send_error_message("Unable to parse z coordinate!");
