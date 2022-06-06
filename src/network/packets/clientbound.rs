@@ -955,6 +955,20 @@ impl ClientBoundPacket for CUpdateViewPosition {
     }
 }
 
+pub struct CDisplayScoreboard {
+    pub position: u8,
+    pub score_name: String,
+}
+
+impl ClientBoundPacket for CDisplayScoreboard {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_byte(self.position as i8);
+        buf.write_string(16, &self.score_name);
+        PacketEncoder::new(buf, 0x4C)
+    }
+}
+
 pub struct CEntityMetadataEntry {
     pub index: u8,
     pub metadata_type: i32,
@@ -1000,6 +1014,46 @@ impl ClientBoundPacket for CEntityEquipment {
         }
 
         PacketEncoder::new(buf, 0x50)
+    }
+}
+
+pub struct CScoreboardObjective {
+    pub objective_name: String,
+    pub mode: u8,
+    pub objective_value: String,
+    pub ty: u32,
+}
+
+impl ClientBoundPacket for CScoreboardObjective {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_string(16, &self.objective_name);
+        buf.write_byte(self.mode as i8);
+        if self.mode == 0 || self.mode == 2 {
+            buf.write_string(32767, &self.objective_value);
+            buf.write_varint(self.ty as i32);
+        }
+        PacketEncoder::new(buf, 0x53)
+    }
+}
+
+pub struct CUpdateScore {
+    pub entity_name: String,
+    pub action: u8,
+    pub objective_name: String,
+    pub value: u32,
+}
+
+impl ClientBoundPacket for CUpdateScore {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_string(40, &self.entity_name);
+        buf.write_byte(self.action as i8);
+        buf.write_string(16, &self.objective_name);
+        if self.action != 1 {
+            buf.write_varint(self.value as i32);
+        }
+        PacketEncoder::new(buf, 0x56)
     }
 }
 

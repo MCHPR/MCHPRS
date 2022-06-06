@@ -3,6 +3,7 @@ pub mod data;
 pub mod database;
 mod monitor;
 mod packet_handlers;
+mod scoreboard;
 pub mod worldedit;
 
 use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos};
@@ -20,6 +21,7 @@ use bus::BusReader;
 use data::PlotData;
 use log::{debug, error, warn};
 use monitor::TimingsMonitor;
+use scoreboard::RedpilerState;
 use serde_json::json;
 use std::cmp::Ordering;
 use std::collections::HashSet;
@@ -30,6 +32,8 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
+
+use self::scoreboard::Scoreboard;
 
 /// The width of a plot (2^n)
 pub const PLOT_SCALE: u32 = 4;
@@ -65,6 +69,7 @@ pub struct Plot {
     owner: Option<u128>,
     async_rt: Runtime,
     pub world: PlotWorld,
+    scoreboard: Scoreboard,
 }
 
 pub struct PlotWorld {
@@ -418,6 +423,7 @@ impl Plot {
         self.world
             .packet_senders
             .push(PlayerPacketSender::new(&player.client));
+        self.scoreboard.display(&player);
         self.players.push(player);
         self.update_view_pos_for_player(self.players.len() - 1, true);
     }
@@ -495,6 +501,11 @@ impl Plot {
         self.players[player_idx].last_chunk_z = chunk_z;
     }
 
+    fn update_redpiler_state(&mut self, state: RedpilerState) {
+        self.scoreboard.set_redpiler_state(state);
+        self.scoreboard.update(&self.players);
+    }
+
     fn start_redpiler(
         &mut self,
         options: CompilerOptions,
@@ -503,8 +514,10 @@ impl Plot {
     ) {
         debug!("Starting redpiler");
         let ticks = self.world.to_be_ticked.drain(..).collect();
+        self.update_redpiler_state(RedpilerState::Compiling);
         self.redpiler
             .compile(&mut self.world, options, first_pos, second_pos, ticks);
+        self.update_redpiler_state(RedpilerState::Running);
     }
 
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
@@ -512,6 +525,7 @@ impl Plot {
         if self.redpiler.is_active() {
             debug!("Discarding redpiler");
             self.redpiler.reset(&mut self.world);
+            self.update_redpiler_state(RedpilerState::Stopped);
         }
     }
 
@@ -549,6 +563,7 @@ impl Plot {
         }
         self.destroy_entity(player.entity_id);
         self.locked_players.remove(&player.entity_id);
+        self.scoreboard.remove_player(&player);
         player
     }
 
@@ -743,6 +758,7 @@ impl Plot {
         for player_idx in 0..self.players.len() {
             self.handle_packets_for_player(player_idx);
         }
+        self.scoreboard.update(&self.players);
     }
 
     fn update(&mut self) {
@@ -884,6 +900,7 @@ impl Plot {
             timings: TimingsMonitor::new(plot_data.tps),
             owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
             async_rt: Plot::create_async_rt(),
+            scoreboard: Default::default(),
             world,
         }
     }
