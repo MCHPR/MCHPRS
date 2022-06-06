@@ -116,6 +116,7 @@ These are the commands that are currently implemented:
 | `//shift` | None | Shift the selection area |
 | `//flip` | `//f` | Flip the contents of the clipboard across the origin |
 | `//rotate` | `//r` | Rotate the contents of the clipboard |
+| `//update` | None | Updates all blocks in the selection |
 | `//help` | None | Displays help for WorldEdit commands |
 
 ## Acknowledgments

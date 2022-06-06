@@ -640,6 +640,13 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             permission_node: "redstonetools.rstack",
             ..Default::default()
         },
+        "/update" => WorldeditCommand {
+            execute_fn: execute_update,
+            description: "Updates all blocks in the selection",
+            permission_node: "mchprs.we.update",
+            requires_positions: true,
+            ..Default::default()
+        },
         "/help" => WorldeditCommand {
             arguments: &[
                 argument!("command", String, "Command to retrieve help for"),

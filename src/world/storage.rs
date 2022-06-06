@@ -504,7 +504,9 @@ impl Chunk {
     }
 
     pub fn compress(&mut self) {
-        self.sections.values_mut().for_each(|section| section.compress());
+        self.sections
+            .values_mut()
+            .for_each(|section| section.compress());
     }
 
     pub fn empty(x: i32, z: i32) -> Chunk {

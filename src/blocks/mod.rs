@@ -1025,7 +1025,7 @@ impl Block {
         }
     }
 
-    fn update(self, world: &mut impl World, pos: BlockPos) {
+    pub fn update(self, world: &mut impl World, pos: BlockPos) {
         match self {
             Block::RedstoneWire { wire } => {
                 wire.on_neighbor_updated(world, pos);
@@ -1173,7 +1173,7 @@ impl Block {
         }
     }
 
-    fn change(self, world: &mut impl World, pos: BlockPos, direction: BlockFace) {
+    pub fn change(self, world: &mut impl World, pos: BlockPos, direction: BlockFace) {
         if !self.is_valid_position(world, pos) {
             self.destroy(world, pos);
             return;

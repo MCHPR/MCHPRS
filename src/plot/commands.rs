@@ -16,12 +16,15 @@ use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use log::{debug, info, warn};
 use std::lazy::SyncLazy;
-use std::time::{Duration, Instant};
-use std::str::FromStr;
 use std::ops::Add;
+use std::str::FromStr;
+use std::time::{Duration, Instant};
 
 // Parses a relative or absolute coordinate relative to a reference coordinate
-fn parse_relative_coord<F: FromStr + Add + Add<Output = F>>(coord: &str, ref_coord: F) -> Result<F, <F as FromStr>::Err> {
+fn parse_relative_coord<F: FromStr + Add + Add<Output = F>>(
+    coord: &str,
+    ref_coord: F,
+) -> Result<F, <F as FromStr>::Err> {
     if coord == "~" {
         Ok(ref_coord)
     } else if coord.starts_with("~") {

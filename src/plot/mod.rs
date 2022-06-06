@@ -1005,7 +1005,10 @@ impl Drop for Plot {
         }
 
         self.reset_redpiler();
-        self.world.chunks.iter_mut().for_each(|chunk| chunk.compress());
+        self.world
+            .chunks
+            .iter_mut()
+            .for_each(|chunk| chunk.compress());
         self.save();
         let world = &self.world;
         self.message_sender

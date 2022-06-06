@@ -2,11 +2,11 @@ use std::path::Path;
 use std::time::Instant;
 
 use criterion::*;
-use mchprs::plot::data::PlotData;
-use mchprs::plot::{PLOT_WIDTH, PlotWorld};
 use mchprs::blocks::BlockPos;
-use mchprs::world::storage::Chunk;
+use mchprs::plot::data::PlotData;
+use mchprs::plot::{PlotWorld, PLOT_WIDTH};
 use mchprs::redpiler::{Compiler, CompilerOptions};
+use mchprs::world::storage::Chunk;
 
 const START_BUTTON: BlockPos = BlockPos::new(187, 99, 115);
 
@@ -17,13 +17,7 @@ fn load_world(path: impl AsRef<Path>) -> PlotWorld {
         .chunk_data
         .into_iter()
         .enumerate()
-        .map(|(i, c)| {
-            Chunk::load(
-                i as i32 / PLOT_WIDTH,
-                i as i32 % PLOT_WIDTH,
-                c,
-            )
-        })
+        .map(|(i, c)| Chunk::load(i as i32 / PLOT_WIDTH, i as i32 % PLOT_WIDTH, c))
         .collect();
     PlotWorld {
         x: 0,
@@ -58,7 +52,7 @@ fn mandelbrot_full(_c: &mut Criterion) {
     if !run {
         return;
     }
-    
+
     println!("Running full chungus mandelbrot, this can take a while!");
     let (mut world, mut compiler) = init_compiler();
     let start = Instant::now();
