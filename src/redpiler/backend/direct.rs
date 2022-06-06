@@ -314,7 +314,7 @@ fn schedule_tick(
     });
 }
 
-fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut Vec<Node>, node_id: usize) {
+fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id: usize) {
     let node = &nodes[node_id];
 
     let mut input_power = 0;

@@ -79,13 +79,13 @@ impl PlotWorld {
     fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
         let local_x = chunk_x - self.x * PLOT_WIDTH;
         let local_z = chunk_z - self.z * PLOT_WIDTH;
-        (local_x * PLOT_WIDTH + local_z).abs() as usize
+        (local_x * PLOT_WIDTH + local_z).unsigned_abs() as usize
     }
 
     fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
         let chunk_x = (block_x - (self.x * PLOT_BLOCK_WIDTH)) >> 4;
         let chunk_z = (block_z - (self.z * PLOT_BLOCK_WIDTH)) >> 4;
-        ((chunk_x << PLOT_SCALE) + chunk_z).abs() as usize
+        ((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize
     }
 
     fn flush_block_changes(&mut self) {
@@ -933,7 +933,7 @@ impl Plot {
 
         while self.running {
             // Fast path, for super high RTPS
-            if self.sleep_time <= Duration::from_millis(5) && self.players.len() > 0 {
+            if self.sleep_time <= Duration::from_millis(5) && !self.players.is_empty() {
                 self.update();
                 thread::yield_now();
                 continue;

@@ -27,8 +27,8 @@ fn parse_relative_coord<F: FromStr + Add + Add<Output = F>>(
 ) -> Result<F, <F as FromStr>::Err> {
     if coord == "~" {
         Ok(ref_coord)
-    } else if coord.starts_with("~") {
-        coord[1..].parse::<F>().map(|x| ref_coord + x)
+    } else if let Some(offset_str) = coord.strip_prefix('~') {
+        offset_str.parse::<F>().map(|x| ref_coord + x)
     } else {
         coord.parse::<F>()
     }
