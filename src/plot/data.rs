@@ -26,6 +26,20 @@ impl Tps {
             Tps::Unlimited => Duration::ZERO,
         }
     }
+
+    pub fn from_data(data: u32) -> Tps {
+        match data {
+            u32::MAX => Tps::Unlimited,
+            tps => Tps::Limited(tps),
+        }
+    }
+
+    pub fn to_data(self) -> u32 {
+        match self {
+            Tps::Unlimited => u32::MAX,
+            Tps::Limited(tps) => tps,
+        }
+    }
 }
 
 impl fmt::Display for Tps {
@@ -57,7 +71,7 @@ static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
         };
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         PlotData {
-            tps: Tps::Limited(10),
+            tps: Tps::Limited(10).to_data(),
             show_redstone: true,
             chunk_data,
             pending_ticks: Vec::new(),
@@ -67,7 +81,7 @@ static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PlotData {
-    pub tps: Tps,
+    pub tps: u32,
     pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,

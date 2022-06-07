@@ -892,12 +892,13 @@ impl Plot {
             to_be_ticked: plot_data.pending_ticks,
             packet_senders: Vec::new(),
         };
+        let tps = Tps::from_data(plot_data.tps);
         Plot {
             last_player_time: Instant::now(),
             last_update_time: Instant::now(),
             last_world_send_time: Instant::now(),
             lag_time: Duration::new(0, 0),
-            sleep_time: plot_data.tps.sleep_time(),
+            sleep_time: tps.sleep_time(),
             last_nspt: Duration::from_millis(15),
             message_receiver: rx,
             message_sender: tx,
@@ -906,10 +907,10 @@ impl Plot {
             locked_players: HashSet::new(),
             running: true,
             show_redstone: plot_data.show_redstone,
-            tps: plot_data.tps,
+            tps,
             always_running,
             redpiler: Default::default(),
-            timings: TimingsMonitor::new(plot_data.tps),
+            timings: TimingsMonitor::new(tps),
             owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
             async_rt: Plot::create_async_rt(),
             scoreboard: Default::default(),
@@ -943,7 +944,7 @@ impl Plot {
             .unwrap();
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
-            tps: self.tps,
+            tps: self.tps.to_data(),
             show_redstone: self.show_redstone,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
