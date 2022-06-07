@@ -80,6 +80,7 @@ impl CompileNode {
                 | Block::RedstoneBlock { .. }
                 | Block::RedstoneLamp { .. }
                 | Block::StonePressurePlate { .. }
+                | Block::IronTrapdoor { .. }
         );
 
         if is_node || block.has_comparator_override() {
@@ -420,7 +421,7 @@ impl<'a> InputSearch<'a> {
                 let inputs = self.search_wire(id, node.pos, LinkType::Default, 0);
                 self.nodes[id].inputs = inputs;
             }
-            Block::RedstoneLamp { .. } => {
+            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
                 let mut inputs = Vec::new();
                 for face in &BlockFace::values() {
                     let neighbor_pos = node.pos.offset(*face);

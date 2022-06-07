@@ -687,6 +687,48 @@ impl BlockProperty for BlockColorVariant {
     fn decode(&mut self, _props: &HashMap<&str, &str>, _name: &str) {}
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TrapdoorHalf {
+    Top,
+    Bottom,
+}
+
+impl TrapdoorHalf {
+    pub fn get_id(self) -> u32 {
+        self as u32
+    }
+
+    pub fn from_id(id: u32) -> TrapdoorHalf {
+        use TrapdoorHalf::*;
+        match id {
+            0 => Top,
+            1 => Bottom,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl ToString for TrapdoorHalf {
+    fn to_string(&self) -> String {
+        match self {
+            TrapdoorHalf::Top => "top".to_owned(),
+            TrapdoorHalf::Bottom => "bottom".to_owned(),
+        }
+    }
+}
+
+impl FromStr for TrapdoorHalf {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "top" => TrapdoorHalf::Top,
+            "bottom" => TrapdoorHalf::Bottom,
+            _ => return Err(()),
+        })
+    }
+}
+
 impl Block {
     pub fn has_block_entity(self) -> bool {
         matches!(
@@ -1054,6 +1096,21 @@ impl Block {
                     world.schedule_tick(pos, 2, TickPriority::Normal);
                 } else if !lit && should_be_lit {
                     world.set_block(pos, Block::RedstoneLamp { lit: true });
+                }
+            }
+            Block::IronTrapdoor {
+                powered,
+                facing,
+                half,
+            } => {
+                let should_be_powered = Block::redstone_lamp_should_be_lit(world, pos);
+                if powered != should_be_powered {
+                    let new_block = Block::IronTrapdoor {
+                        facing,
+                        half,
+                        powered: should_be_powered,
+                    };
+                    world.set_block(pos, new_block);
                 }
             }
             _ => {}
@@ -2210,6 +2267,33 @@ blocks! {
         },
         solid: true,
         cube: true,
+    },
+    IronTrapdoor {
+        props: {
+            facing: BlockFacing,
+            half: TrapdoorHalf,
+            powered: bool
+        },
+        get_id: {
+            facing.get_id() * 16
+                + half.get_id() * 8
+                + !powered as u32 * 6
+                + 7788
+        },
+        from_id_offset: 7788,
+        from_id(id): 7788..=7850 => {
+            facing: BlockFacing::from_id(id >> 4),
+            half: TrapdoorHalf::from_id((id >> 3) & 1),
+            powered: ((id >> 1) & 1) == 0
+        },
+        from_names(_name): {
+            "iron_trapdoor" => {
+                facing: Default::default(),
+                half: TrapdoorHalf::Bottom,
+                powered: false
+            }
+        },
+        get_name: "iron_trapdoor",
     },
     Unknown {
         props: {

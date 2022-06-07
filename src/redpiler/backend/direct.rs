@@ -393,6 +393,21 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id:
                 set_node(node, Block::RedstoneLamp { lit: true });
             }
         }
+        Block::IronTrapdoor {
+            facing,
+            half,
+            powered,
+        } => {
+            let should_be_powered = input_power > 0;
+            if powered != should_be_powered {
+                let new_block = Block::IronTrapdoor {
+                    facing,
+                    half,
+                    powered: should_be_powered,
+                };
+                set_node(node, new_block);
+            }
+        }
         Block::RedstoneWire { mut wire } => {
             if wire.power != input_power {
                 wire.power = input_power;
