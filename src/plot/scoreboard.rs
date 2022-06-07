@@ -1,4 +1,4 @@
-use crate::chat::{ChatColor, ChatComponentBuilder, ColorCode};
+use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::network::packets::clientbound::{
     CDisplayScoreboard, CScoreboardObjective, CUpdateScore, ClientBoundPacket,
 };
