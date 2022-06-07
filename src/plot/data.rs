@@ -2,9 +2,40 @@ use super::{Plot, PlotWorld, PLOT_WIDTH};
 use crate::world::storage::ChunkData;
 use crate::world::TickEntry;
 use serde::{Deserialize, Serialize};
-use std::fs;
 use std::lazy::SyncLazy;
 use std::path::Path;
+use std::time::Duration;
+use std::{fmt, fs};
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum Tps {
+    Limited(u32),
+    Unlimited,
+}
+
+impl Tps {
+    pub fn sleep_time(self) -> Duration {
+        match self {
+            Tps::Limited(tps) => {
+                if tps > 10 {
+                    Duration::from_micros(1_000_000 / tps as u64)
+                } else {
+                    Duration::from_millis(50)
+                }
+            }
+            Tps::Unlimited => Duration::ZERO,
+        }
+    }
+}
+
+impl fmt::Display for Tps {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Tps::Limited(tps) => write!(f, "{}", tps),
+            Tps::Unlimited => write!(f, "unlimited"),
+        }
+    }
+}
 
 static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
     let template_path = Path::new("./world/plots/pTEMPLATE");
@@ -26,7 +57,7 @@ static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
         };
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         PlotData {
-            tps: 10,
+            tps: Tps::Limited(10),
             show_redstone: true,
             chunk_data,
             pending_ticks: Vec::new(),
@@ -36,7 +67,7 @@ static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PlotData {
-    pub tps: u32,
+    pub tps: Tps,
     pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,

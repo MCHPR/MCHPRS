@@ -9,6 +9,7 @@ use crate::network::packets::clientbound::{
 use crate::network::packets::PacketEncoder;
 use crate::network::PlayerPacketSender;
 use crate::player::{Gamemode, PacketSender, PlayerPos};
+use crate::plot::data::Tps;
 use crate::plot::PlotWorld;
 use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
@@ -290,22 +291,22 @@ impl Plot {
 
                     return false;
                 }
+
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
-                    tps
+                    if tps > 100000 {
+                        self.players[player]
+                            .send_error_message("The rtps cannot go higher than 100000!");
+                        return false;
+                    }
+                    Tps::Limited(tps)
+                } else if args[0] == "unlimited" {
+                    Tps::Unlimited
                 } else {
                     self.players[player].send_error_message("Unable to parse rtps!");
                     return false;
                 };
-                if tps > 100000 {
-                    self.players[player]
-                        .send_error_message("The rtps cannot go higher than 100000!");
-                    return false;
-                }
-                if tps > 10 {
-                    self.sleep_time = Duration::from_micros(1_000_000 / tps as u64);
-                } else {
-                    self.sleep_time = Duration::from_millis(50);
-                }
+
+                self.sleep_time = tps.sleep_time();
                 self.timings.set_tps(tps);
                 self.lag_time = Duration::from_millis(0);
                 self.tps = tps;

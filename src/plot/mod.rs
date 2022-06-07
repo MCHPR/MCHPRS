@@ -18,7 +18,7 @@ use crate::utils::HyphenatedUUID;
 use crate::world::storage::{Chunk, ChunkData};
 use crate::world::{TickEntry, TickPriority, World};
 use bus::BusReader;
-use data::PlotData;
+use data::{PlotData, Tps};
 use log::{debug, error, warn};
 use monitor::TimingsMonitor;
 use scoreboard::RedpilerState;
@@ -53,9 +53,10 @@ pub struct Plot {
     // It's kinda dumb making this pub but it would be too much work to do it differently.
     pub players: Vec<Player>,
     locked_players: HashSet<EntityId>,
-    tps: u32,
+    tps: Tps,
     last_update_time: Instant,
     lag_time: Duration,
+    last_nspt: Duration,
     /// The last time a player was in this plot
     last_player_time: Instant,
     /// The last time the world changes were sent to the player
@@ -768,23 +769,37 @@ impl Plot {
         if !self.players.is_empty() {
             self.timings.set_ticking(true);
             self.last_player_time = Instant::now();
-            if self.tps != 0 {
-                let dur_per_tick = Duration::from_micros(1_000_000 / self.tps as u64);
-                let elapsed_time = self.last_update_time.elapsed();
-                self.lag_time += elapsed_time;
-                // let ticks = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
-                self.last_update_time = Instant::now();
-                while self.lag_time >= dur_per_tick {
-                    if self.timings.is_running_behind() && !self.redpiler.is_active() {
-                        self.start_redpiler(Default::default(), None, None);
+            match self.tps {
+                Tps::Limited(tps) if tps != 0 => {
+                    let dur_per_tick = Duration::from_micros(1_000_000 / tps as u64);
+                    let elapsed_time = self.last_update_time.elapsed();
+                    self.lag_time += elapsed_time;
+                    // let ticks = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
+                    self.last_update_time = Instant::now();
+                    let mut ticks = 0;
+                    while self.lag_time >= dur_per_tick {
+                        if self.timings.is_running_behind() && !self.redpiler.is_active() {
+                            self.start_redpiler(Default::default(), None, None);
+                        }
+                        self.tick();
+                        self.lag_time -= dur_per_tick;
+                        ticks += 1;
                     }
-                    self.tick();
-                    self.lag_time -= dur_per_tick;
+                    if ticks > 0 {
+                        self.last_nspt = (Instant::now() - self.last_update_time) / ticks;
+                    }
                 }
-
-                // if ticks > 0 {
-                //     println!("nspt: {}", (Instant::now() - self.last_update_time).as_nanos() / ticks)
-                // }
+                Tps::Unlimited => {
+                    self.last_update_time = Instant::now();
+                    let batch_size =
+                        Duration::from_millis(15).as_nanos() / self.last_nspt.as_nanos();
+                    let batch_size = batch_size.min(50000) as u32;
+                    for _ in 0..batch_size {
+                        self.tick();
+                    }
+                    self.last_nspt = (Instant::now() - self.last_update_time) / batch_size;
+                }
+                _ => {}
             }
 
             if self.redpiler.is_active() {
@@ -882,11 +897,8 @@ impl Plot {
             last_update_time: Instant::now(),
             last_world_send_time: Instant::now(),
             lag_time: Duration::new(0, 0),
-            sleep_time: Duration::from_micros(
-                1_000_000u64
-                    .checked_div((plot_data.tps as u64).max(20))
-                    .unwrap_or(0),
-            ),
+            sleep_time: plot_data.tps.sleep_time(),
+            last_nspt: Duration::from_millis(15),
             message_receiver: rx,
             message_sender: tx,
             priv_message_receiver: priv_rx,
