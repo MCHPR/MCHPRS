@@ -8,6 +8,7 @@ pub mod worldedit;
 
 use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos};
 use crate::chat::ChatComponent;
+use crate::config::CONFIG;
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::network::PlayerPacketSender;
@@ -461,7 +462,7 @@ impl Plot {
     }
 
     pub fn update_view_pos_for_player(&mut self, player_idx: usize, force_load: bool) {
-        let view_distance = 8;
+        let view_distance = CONFIG.view_distance as i32;
         let (chunk_x, chunk_z) = self.players[player_idx].pos.chunk_pos();
         let last_chunk_x = self.players[player_idx].last_chunk_x;
         let last_chunk_z = self.players[player_idx].last_chunk_z;
