@@ -1548,6 +1548,17 @@ blocks! {
         transparent: true,
         cube: true,
     },
+    Glowstone {
+        props: {},
+        get_id: 4082,
+        from_id(_id): 4082 => {},
+        from_names(_name): {
+            "glowstone" => {}
+        },
+        get_name: "glowstone",
+        transparent: true,
+        cube: true,
+    },
     RedstoneWire {
         props: {
             wire: RedstoneWire
