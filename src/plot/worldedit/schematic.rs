@@ -11,8 +11,8 @@ use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::sync::LazyLock;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 macro_rules! nbt_as {
     // I'm not sure if path is the right type here.

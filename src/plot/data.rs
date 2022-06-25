@@ -2,8 +2,8 @@ use super::{Plot, PlotWorld, PLOT_WIDTH};
 use crate::world::storage::ChunkData;
 use crate::world::TickEntry;
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
 use std::path::Path;
+use std::sync::LazyLock;
 use std::time::Duration;
 use std::{fmt, fs};
 

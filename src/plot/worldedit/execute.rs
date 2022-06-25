@@ -2,7 +2,7 @@ use super::*;
 use crate::blocks::{Block, BlockFace, BlockFacing, BlockPos, FlipDirection, RotateAmt};
 use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::config::CONFIG;
-use crate::items::{Item, ItemStack};
+use crate::items::{InventoryEntry, Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::SlotData;
 use crate::player::PacketSender;
@@ -929,6 +929,78 @@ pub(super) fn execute_update(ctx: CommandExecuteContext<'_>) {
 
     ctx.player.send_worldedit_message(&format!(
         "Your selection was updated sucessfully. ({:?})",
+        start_time.elapsed()
+    ));
+}
+
+pub(super) fn execute_replace_container(ctx: CommandExecuteContext<'_>) {
+    let start_time = Instant::now();
+
+    let from = ctx.arguments[0].unwrap_container_type();
+    let to = ctx.arguments[1].unwrap_container_type();
+
+    let new_block = match to {
+        ContainerType::Furnace => Block::Furnace {},
+        ContainerType::Barrel => Block::Barrel {},
+        ContainerType::Hopper => Block::Hopper {},
+    };
+    let slots = to.num_slots() as u32;
+
+    let operation = worldedit_start_operation(ctx.player);
+    for x in operation.x_range() {
+        for y in operation.y_range() {
+            for z in operation.z_range() {
+                let pos = BlockPos::new(x, y, z);
+                let block = ctx.plot.get_block(pos);
+
+                if !matches!(
+                    block,
+                    Block::Furnace {} | Block::Barrel {} | Block::Hopper {}
+                ) {
+                    continue;
+                }
+                let block_entity = ctx.plot.get_block_entity(pos);
+                if let Some(BlockEntity::Container {
+                    comparator_override,
+                    ty,
+                    ..
+                }) = block_entity
+                {
+                    if *ty != from {
+                        continue;
+                    }
+                    let ss = *comparator_override;
+
+                    let items_needed = match ss {
+                        0 => 0,
+                        15 => slots * 64,
+                        _ => ((32 * slots * ss as u32) as f32 / 7.0 - 1.0).ceil() as u32,
+                    } as usize;
+                    let mut inventory = Vec::new();
+                    for (slot, items_added) in (0..items_needed).step_by(64).enumerate() {
+                        let count = (items_needed - items_added).min(64);
+                        inventory.push(InventoryEntry {
+                            id: Item::Redstone {}.get_id(),
+                            slot: slot as i8,
+                            count: count as i8,
+                            nbt: None,
+                        });
+                    }
+
+                    let new_entity = BlockEntity::Container {
+                        comparator_override: ss,
+                        inventory,
+                        ty: to,
+                    };
+                    ctx.plot.set_block_entity(pos, new_entity);
+                    ctx.plot.set_block(pos, new_block);
+                }
+            }
+        }
+    }
+
+    ctx.player.send_worldedit_message(&format!(
+        "Your selection was replaced sucessfully. ({:?})",
         start_time.elapsed()
     ));
 }
