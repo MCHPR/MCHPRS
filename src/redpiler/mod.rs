@@ -499,8 +499,7 @@ impl<'a> InputSearch<'a> {
 
 #[derive(Default)]
 pub struct CompilerOptions {
-    pub use_worldedit: bool,
-    pub no_wires: bool,
+    pub optimize: bool,
     pub export: bool,
 }
 
@@ -510,8 +509,7 @@ impl CompilerOptions {
         let options = str.split_whitespace();
         for option in options {
             match option {
-                "--worldedit" | "-w" => co.use_worldedit = true,
-                "--no-wires" | "-O" => co.no_wires = true,
+                "--no-wires" | "-O" => co.optimize = true,
                 "--export" => co.export = true,
                 // FIXME: use actual error handling
                 _ => warn!("Unrecognized option: {}", option),
@@ -542,22 +540,14 @@ impl Compiler {
         &mut self,
         plot: &mut PlotWorld,
         options: CompilerOptions,
-        first_pos: Option<BlockPos>,
-        second_pos: Option<BlockPos>,
         ticks: Vec<TickEntry>,
     ) {
-        let (first_pos, second_pos) = if options.use_worldedit {
-            (first_pos.unwrap(), second_pos.unwrap())
-        } else {
-            const W: i32 = PLOT_BLOCK_WIDTH;
-            // Get plot corners
-            (
-                BlockPos::new(plot.x * W, 0, plot.z * W),
-                BlockPos::new((plot.x + 1) * W - 1, 255, (plot.z + 1) * W - 1),
-            )
-        };
+        const W: i32 = PLOT_BLOCK_WIDTH;
+        // Get plot corners
+        let first_pos = BlockPos::new(plot.x * W, 0, plot.z * W);
+        let second_pos = BlockPos::new((plot.x + 1) * W - 1, 255, (plot.z + 1) * W - 1);
 
-        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.no_wires);
+        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.optimize);
         InputSearch::new(plot, &mut nodes).search();
         if options.export {
             debug_graph::debug(&nodes);

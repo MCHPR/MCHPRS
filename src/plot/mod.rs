@@ -425,7 +425,7 @@ impl Plot {
         self.world
             .packet_senders
             .push(PlayerPacketSender::new(&player.client));
-        self.scoreboard.display(&player);
+        self.scoreboard.add_player(&player);
         self.players.push(player);
         self.update_view_pos_for_player(self.players.len() - 1, true);
     }
@@ -503,23 +503,16 @@ impl Plot {
         self.players[player_idx].last_chunk_z = chunk_z;
     }
 
-    fn update_redpiler_state(&mut self, state: RedpilerState) {
-        self.scoreboard.set_redpiler_state(state);
-        self.scoreboard.update(&self.players);
-    }
-
-    fn start_redpiler(
-        &mut self,
-        options: CompilerOptions,
-        first_pos: Option<BlockPos>,
-        second_pos: Option<BlockPos>,
-    ) {
+    fn start_redpiler(&mut self, options: CompilerOptions) {
         debug!("Starting redpiler");
         let ticks = self.world.to_be_ticked.drain(..).collect();
-        self.update_redpiler_state(RedpilerState::Compiling);
-        self.redpiler
-            .compile(&mut self.world, options, first_pos, second_pos, ticks);
-        self.update_redpiler_state(RedpilerState::Running);
+        self.scoreboard
+            .set_redpiler_state(&self.players, RedpilerState::Compiling);
+        self.scoreboard
+            .set_redpiler_options(&self.players, &options);
+        self.redpiler.compile(&mut self.world, options, ticks);
+        self.scoreboard
+            .set_redpiler_state(&self.players, RedpilerState::Running);
     }
 
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
@@ -527,7 +520,10 @@ impl Plot {
         if self.redpiler.is_active() {
             debug!("Discarding redpiler");
             self.redpiler.reset(&mut self.world);
-            self.update_redpiler_state(RedpilerState::Stopped);
+            self.scoreboard
+                .set_redpiler_state(&self.players, RedpilerState::Stopped);
+            self.scoreboard
+                .set_redpiler_options(&self.players, &Default::default())
         }
     }
 
@@ -760,7 +756,6 @@ impl Plot {
         for player_idx in 0..self.players.len() {
             self.handle_packets_for_player(player_idx);
         }
-        self.scoreboard.update(&self.players);
     }
 
     fn update(&mut self) {
@@ -780,7 +775,7 @@ impl Plot {
                     let mut ticks = 0;
                     while self.lag_time >= dur_per_tick {
                         if self.timings.is_running_behind() && !self.redpiler.is_active() {
-                            self.start_redpiler(Default::default(), None, None);
+                            self.start_redpiler(Default::default());
                         }
                         self.tick();
                         self.lag_time -= dur_per_tick;
