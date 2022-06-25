@@ -501,6 +501,7 @@ impl<'a> InputSearch<'a> {
 pub struct CompilerOptions {
     pub optimize: bool,
     pub export: bool,
+    pub io_only: bool,
 }
 
 impl CompilerOptions {
@@ -510,7 +511,8 @@ impl CompilerOptions {
         for option in options {
             match option {
                 "--no-wires" | "-O" => co.optimize = true,
-                "--export" => co.export = true,
+                "--export" | "-E" => co.export = true,
+                "--io-only" | "-I" => co.io_only = true,
                 // FIXME: use actual error handling
                 _ => warn!("Unrecognized option: {}", option),
             }
@@ -572,7 +574,7 @@ impl Compiler {
         if self.is_active {
             self.is_active = false;
             if let Some(jit) = &mut self.jit {
-                jit.reset(plot)
+                jit.reset(plot, self.options.io_only)
             }
         }
 
@@ -620,7 +622,8 @@ impl Compiler {
     }
 
     pub fn flush(&mut self, plot: &mut PlotWorld) {
-        self.backend().flush(plot);
+        let io_only = self.options.io_only;
+        self.backend().flush(plot, io_only);
     }
 
     fn identify_nodes(
