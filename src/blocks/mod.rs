@@ -2022,7 +2022,7 @@ blocks! {
         from_names(_name): {
             "smooth_stone_slab" => {}
         },
-        get_name: "smooth_stone_slab",
+        get_name: "smooth_stone_slab[type=top]",
         transparent: true,
         cube: true,
     },
