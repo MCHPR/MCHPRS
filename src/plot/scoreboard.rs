@@ -132,6 +132,9 @@ impl Scoreboard {
         if options.export {
             flags.push("§b- export");
         }
+        if options.io_only {
+            flags.push("§b- io only");
+        }
 
         if !flags.is_empty() {
             new_lines.push("§7Flags:".to_string());
