@@ -72,11 +72,12 @@ gen_config! {
     bungeecord: bool = false,
     whitelist: bool = false,
 <<<<<<< HEAD
-    schemati: bool = false,
+    schemati: bool = true,
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true
 =======
-    schemati: bool = true,
-    luckperms: Option<PermissionsConfig> = None
->>>>>>> 3bb62c48fc311a75ad3c8ba0929044d7fa3cb4b4
+    schemati: bool = false,
+    luckperms: Option<PermissionsConfig> = None,
+    block_in_hitbox:bool = true
+>>>>>>> ed56ab479ffc42cdc364b0b608d9b9d1f6306592
 }

@@ -4,7 +4,7 @@ use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPo
 use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
-
+use crate::config::CONFIG; 
 #[derive(PartialEq, Copy, Clone)]
 pub enum ActionResult {
     Success,
