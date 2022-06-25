@@ -16,7 +16,7 @@ use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use log::{debug, info, warn};
-use std::lazy::SyncLazy;
+use std::sync::LazyLock;
 use std::ops::Add;
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -486,7 +486,7 @@ bitflags! {
 // For more information, see https://wiki.vg/Command_Data
 /// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
-pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
+pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
     CDeclareCommands {
         nodes: &[
             // 0: Root Node

@@ -13,7 +13,7 @@ use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt;
-use std::lazy::SyncLazy;
+use std::sync::LazyLock;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 
@@ -420,7 +420,7 @@ impl Default for WorldeditCommand {
     }
 }
 
-static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::new(|| {
+static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::new(|| {
     map! {
         "up" => WorldeditCommand {
             execute_fn: execute_up,
@@ -666,7 +666,7 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
     }
 });
 
-static ALIASES: SyncLazy<HashMap<&'static str, &'static str>> = SyncLazy::new(|| {
+static ALIASES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     map! {
         "u" => "up",
         "/1" => "/pos1",
@@ -739,7 +739,7 @@ impl FromStr for WorldEditPattern {
     fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(',') {
-            static RE: SyncLazy<Regex> = SyncLazy::new(|| {
+            static RE: LazyLock<Regex> = LazyLock::new(|| {
                 Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap()
             });
 
