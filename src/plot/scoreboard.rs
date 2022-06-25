@@ -3,6 +3,7 @@ use crate::network::packets::clientbound::{
     CDisplayScoreboard, CScoreboardObjective, CUpdateScore, ClientBoundPacket,
 };
 use crate::player::{PacketSender, Player};
+use crate::redpiler::CompilerOptions;
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
 pub enum RedpilerState {
@@ -24,31 +25,69 @@ impl RedpilerState {
 
 #[derive(Default)]
 pub struct Scoreboard {
-    status_changed: Option<RedpilerState>,
-
-    redpiler_state: RedpilerState,
+    current_state: Vec<String>,
 }
 
 impl Scoreboard {
-    fn make_update_packet(&self) -> CUpdateScore {
+    fn make_update_packet(&self, line: usize) -> CUpdateScore {
         CUpdateScore {
-            entity_name: self.redpiler_state.to_str().to_string(),
+            entity_name: self.current_state[line].clone(),
             action: 0,
             objective_name: "redpiler_status".to_string(),
-            value: 1,
+            value: (self.current_state.len() - line) as u32,
         }
     }
 
-    fn make_removal_packet(&self, old_status: RedpilerState) -> CUpdateScore {
+    fn make_removal_packet(&self, line: usize) -> CUpdateScore {
         CUpdateScore {
-            entity_name: old_status.to_str().to_string(),
+            entity_name: self.current_state[line].clone(),
             action: 1,
             objective_name: "redpiler_status".to_string(),
             value: 0,
         }
     }
 
-    pub fn display(&self, player: &Player) {
+    fn set_lines(&mut self, players: &[Player], lines: Vec<String>) {
+        for line in 0..self.current_state.len() {
+            let removal_packet = self.make_removal_packet(line).encode();
+            players.iter().for_each(|p| p.send_packet(&removal_packet));
+        }
+
+        self.current_state = lines;
+
+        for line in 0..self.current_state.len() {
+            let update_packet = self.make_update_packet(line).encode();
+            players.iter().for_each(|p| p.send_packet(&update_packet));
+        }
+    }
+
+    fn set_line(&mut self, players: &[Player], line: usize, text: String) {
+        if line == self.current_state.len() {
+            self.current_state.push(text);
+        } else {
+            let removal_packet = self.make_removal_packet(line).encode();
+            players.iter().for_each(|p| p.send_packet(&removal_packet));
+
+            self.current_state[line] = text;
+        }
+
+        let update_packet = self.make_update_packet(line).encode();
+        players.iter().for_each(|p| p.send_packet(&update_packet));
+    }
+
+    fn truncate(&mut self, players: &[Player], new_len: usize) {
+        if self.current_state.len() <= new_len {
+            return;
+        }
+
+        for line in new_len..self.current_state.len() {
+            let removal_packet = self.make_removal_packet(line).encode();
+            players.iter().for_each(|p| p.send_packet(&removal_packet));
+        }
+        self.current_state.truncate(new_len);
+    }
+
+    pub fn add_player(&self, player: &Player) {
         player.send_packet(
             &CScoreboardObjective {
                 objective_name: "redpiler_status".into(),
@@ -68,34 +107,36 @@ impl Scoreboard {
             }
             .encode(),
         );
-        player.send_packet(&self.make_update_packet().encode());
-    }
-
-    pub fn update(&mut self, players: &[Player]) {
-        let old_status = match self.status_changed {
-            Some(old_status) => old_status,
-            None => return,
-        };
-        self.status_changed = None;
-
-        let removal_packet = self.make_removal_packet(old_status).encode();
-        let update_packet = self.make_update_packet().encode();
-
-        for player in players {
-            player.send_packet(&removal_packet);
-            player.send_packet(&update_packet);
-        }
-    }
-
-    pub fn set_redpiler_state(&mut self, state: RedpilerState) {
-        if state != self.redpiler_state {
-            self.status_changed = Some(self.redpiler_state);
-            self.redpiler_state = state;
+        for i in 0..self.current_state.len() {
+            player.send_packet(&self.make_update_packet(i).encode());
         }
     }
 
     pub fn remove_player(&mut self, player: &Player) {
-        let removal_packet = self.make_removal_packet(self.redpiler_state).encode();
-        player.send_packet(&removal_packet);
+        for i in 0..self.current_state.len() {
+            player.send_packet(&self.make_removal_packet(i).encode());
+        }
+    }
+
+    pub fn set_redpiler_state(&mut self, players: &[Player], state: RedpilerState) {
+        self.set_line(players, 0, state.to_str().to_string());
+    }
+
+    pub fn set_redpiler_options(&mut self, players: &[Player], options: &CompilerOptions) {
+        let mut new_lines = vec![self.current_state[0].clone()];
+
+        let mut flags = Vec::new();
+        if options.optimize {
+            flags.push("§b- optimize");
+        }
+        if options.export {
+            flags.push("§b- export");
+        }
+
+        if !flags.is_empty() {
+            new_lines.push("§7Flags:".to_string());
+            new_lines.extend(flags.iter().map(|s| s.to_string()));
+        }
+        self.set_lines(players, new_lines);
     }
 }

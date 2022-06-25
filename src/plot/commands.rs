@@ -176,26 +176,14 @@ impl Plot {
                 let args = args.join(" ");
                 let options = CompilerOptions::parse(&args);
 
-                if options.no_wires {
+                if options.optimize {
                     let msg = "Redpiler optimization is highly unstable and can break builds. Use with caution!";
                     warn!("{}", msg);
                     self.players[player].send_system_message(msg);
                 }
 
-                if options.use_worldedit {
-                    if self.players[player].first_position.is_none() {
-                        return;
-                    }
-                    if self.players[player].second_position.is_none() {
-                        return;
-                    }
-                }
-
-                let pos1 = self.players[player].first_position;
-                let pos2 = self.players[player].second_position;
-
                 self.reset_redpiler();
-                self.start_redpiler(options, pos1, pos2);
+                self.start_redpiler(options);
 
                 debug!("Compile took {:?}", start_time.elapsed());
             }
