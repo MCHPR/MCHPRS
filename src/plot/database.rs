@@ -1,6 +1,5 @@
 use rusqlite::{params, Connection};
-use std::sync::LazyLock;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{LazyLock, Mutex, MutexGuard};
 
 static CONN: LazyLock<Mutex<Connection>> = LazyLock::new(|| {
     Mutex::new(Connection::open("./world/plots.db").expect("Error opening plot database!"))

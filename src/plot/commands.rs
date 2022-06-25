@@ -16,9 +16,9 @@ use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use log::{debug, info, warn};
-use std::sync::LazyLock;
 use std::ops::Add;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 // Parses a relative or absolute coordinate relative to a reference coordinate
@@ -449,11 +449,9 @@ impl Plot {
                     return false;
                 };
 
-                let container_ty = match args[0] {
-                    "barrel" => ContainerType::Barrel,
-                    "furnace" => ContainerType::Furnace,
-                    "hopper" => ContainerType::Hopper,
-                    _ => {
+                let container_ty = match args[0].parse() {
+                    Ok(ty) => ty,
+                    Err(()) => {
                         self.players[player].send_error_message(
                             "Container type must be one of [barrel, furnace, hopper]",
                         );
