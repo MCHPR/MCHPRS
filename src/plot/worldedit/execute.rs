@@ -250,8 +250,8 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
     }
 }
 
-static SCHEMATI_VALIDATE_REGEX: SyncLazy<Regex> =
-    SyncLazy::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
+static SCHEMATI_VALIDATE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
 
 pub(super) fn execute_load(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();

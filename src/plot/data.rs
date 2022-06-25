@@ -2,7 +2,7 @@ use super::{Plot, PlotWorld, PLOT_WIDTH};
 use crate::world::storage::ChunkData;
 use crate::world::TickEntry;
 use serde::{Deserialize, Serialize};
-use std::lazy::SyncLazy;
+use std::sync::LazyLock;
 use std::path::Path;
 use std::time::Duration;
 use std::{fmt, fs};
@@ -51,7 +51,7 @@ impl fmt::Display for Tps {
     }
 }
 
-static EMPTY_PLOT: SyncLazy<PlotData> = SyncLazy::new(|| {
+static EMPTY_PLOT: LazyLock<PlotData> = LazyLock::new(|| {
     let template_path = Path::new("./world/plots/pTEMPLATE");
     if template_path.exists() {
         PlotData::read_from_file(template_path)

@@ -2,10 +2,10 @@ use crate::permissions::PermissionsConfig;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
-use std::lazy::SyncLazy;
+use std::sync::LazyLock;
 use toml_edit::{value, Document};
 
-pub static CONFIG: SyncLazy<ServerConfig> = SyncLazy::new(|| ServerConfig::load("Config.toml"));
+pub static CONFIG: LazyLock<ServerConfig> = LazyLock::new(|| ServerConfig::load("Config.toml"));
 
 trait ConfigSerializeDefault {
     fn fix_config(self, name: &str, doc: &mut Document);
