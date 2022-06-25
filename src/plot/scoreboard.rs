@@ -75,18 +75,6 @@ impl Scoreboard {
         players.iter().for_each(|p| p.send_packet(&update_packet));
     }
 
-    fn truncate(&mut self, players: &[Player], new_len: usize) {
-        if self.current_state.len() <= new_len {
-            return;
-        }
-
-        for line in new_len..self.current_state.len() {
-            let removal_packet = self.make_removal_packet(line).encode();
-            players.iter().for_each(|p| p.send_packet(&removal_packet));
-        }
-        self.current_state.truncate(new_len);
-    }
-
     pub fn add_player(&self, player: &Player) {
         player.send_packet(
             &CScoreboardObjective {
