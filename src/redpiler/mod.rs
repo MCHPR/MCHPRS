@@ -4,7 +4,7 @@ mod debug_graph;
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
 };
-use crate::plot::{PlotWorld, PLOT_BLOCK_WIDTH};
+use crate::plot::PlotWorld;
 use crate::world::{TickEntry, World};
 use backend::JITBackend;
 use log::{error, warn};
@@ -523,6 +523,7 @@ impl CompilerOptions {
 pub struct Compiler {
     is_active: bool,
     jit: Option<Box<dyn JITBackend>>,
+    options: CompilerOptions,
 }
 
 impl Compiler {
@@ -542,10 +543,7 @@ impl Compiler {
         options: CompilerOptions,
         ticks: Vec<TickEntry>,
     ) {
-        const W: i32 = PLOT_BLOCK_WIDTH;
-        // Get plot corners
-        let first_pos = BlockPos::new(plot.x * W, 0, plot.z * W);
-        let second_pos = BlockPos::new((plot.x + 1) * W - 1, 255, (plot.z + 1) * W - 1);
+        let (first_pos, second_pos) = plot.get_corners();
 
         let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.optimize);
         InputSearch::new(plot, &mut nodes).search();
@@ -566,6 +564,8 @@ impl Compiler {
         } else {
             error!("Cannot compile without JIT variant selected");
         }
+
+        self.options = options;
     }
 
     pub fn reset(&mut self, plot: &mut PlotWorld) {
@@ -575,6 +575,24 @@ impl Compiler {
                 jit.reset(plot)
             }
         }
+
+        if self.options.optimize {
+            let (first_pos, second_pos) = plot.get_corners();
+            let start_pos = first_pos.min(second_pos);
+            let end_pos = first_pos.max(second_pos);
+            for y in start_pos.y..=end_pos.y {
+                for z in start_pos.z..=end_pos.z {
+                    for x in start_pos.x..=end_pos.x {
+                        let pos = BlockPos::new(x, y, z);
+                        let block = plot.get_block(pos);
+                        if matches!(block, Block::RedstoneWire { .. }) {
+                            block.update(plot, pos);
+                        }
+                    }
+                }
+            }
+        }
+        self.options = Default::default();
     }
 
     fn backend(&mut self) -> &mut Box<dyn JITBackend> {
