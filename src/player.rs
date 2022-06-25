@@ -329,7 +329,7 @@ impl Player {
     }
 
     pub fn get_direction(&self) -> BlockDirection {
-        match ((self.yaw / 90.0 + 0.5).floor() as i32 & 3).abs() as u32 {
+        match ((self.yaw / 90.0 + 0.5).floor() as i32 & 3).unsigned_abs() {
             0 => BlockDirection::South,
             1 => BlockDirection::West,
             2 => BlockDirection::North,

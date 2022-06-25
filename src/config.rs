@@ -68,9 +68,10 @@ gen_config! {
     motd: String = "Minecraft High Performance Redstone Server".to_string(),
     chat_format: String = "<{username}> {message}".to_string(),
     max_players: i64 = 99999,
+    view_distance: i64 = 8,
     bungeecord: bool = false,
     whitelist: bool = false,
-    schemati: bool = false,
+    schemati: bool = true,
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true
 }

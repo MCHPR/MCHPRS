@@ -298,6 +298,14 @@ impl ChunkSection {
         }
     }
 
+    fn compress(&mut self) {
+        let mut new_buffer: PalettedBitBuffer = Default::default();
+        for i in 0..4096 {
+            new_buffer.set_entry(i, self.buffer.get_entry(i));
+        }
+        self.buffer = new_buffer;
+    }
+
     fn new() -> ChunkSection {
         ChunkSection {
             buffer: Default::default(),
@@ -493,6 +501,12 @@ impl Chunk {
                 .collect(),
             block_entities: chunk_data.block_entities,
         }
+    }
+
+    pub fn compress(&mut self) {
+        self.sections
+            .values_mut()
+            .for_each(|section| section.compress());
     }
 
     pub fn empty(x: i32, z: i32) -> Chunk {

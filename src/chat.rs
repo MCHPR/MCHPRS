@@ -245,7 +245,7 @@ impl ChatComponent {
         new_componenets
     }
 
-    fn encode_json(&self) -> String {
+    pub fn encode_json(&self) -> String {
         serde_json::to_string(self).unwrap()
     }
 }

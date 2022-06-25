@@ -15,5 +15,5 @@ fn bitbuffer_write(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bitbuffer_write, bitbuffer_read);
-criterion_main!(benches);
+criterion_group!(bitbuffer, bitbuffer_write, bitbuffer_read);
+criterion_main!(bitbuffer);

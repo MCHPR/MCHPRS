@@ -314,7 +314,7 @@ fn schedule_tick(
     });
 }
 
-fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut Vec<Node>, node_id: usize) {
+fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id: usize) {
     let node = &nodes[node_id];
 
     let mut input_power = 0;
@@ -391,6 +391,21 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut Vec<Node>, node_
                 schedule_tick(to_be_ticked, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
                 set_node(node, Block::RedstoneLamp { lit: true });
+            }
+        }
+        Block::IronTrapdoor {
+            facing,
+            half,
+            powered,
+        } => {
+            let should_be_powered = input_power > 0;
+            if powered != should_be_powered {
+                let new_block = Block::IronTrapdoor {
+                    facing,
+                    half,
+                    powered: should_be_powered,
+                };
+                set_node(node, new_block);
             }
         }
         Block::RedstoneWire { mut wire } => {
