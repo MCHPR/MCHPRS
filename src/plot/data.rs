@@ -7,7 +7,7 @@ use std::path::Path;
 use std::time::Duration;
 use std::{fmt, fs};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tps {
     Limited(u32),
     Unlimited,
