@@ -968,7 +968,9 @@ impl Plot {
             // Fast path, for super high RTPS
             if self.sleep_time <= Duration::from_millis(5) && !self.players.is_empty() {
                 self.update();
-                thread::yield_now();
+                if self.tps != Tps::Unlimited {
+                    thread::yield_now();
+                }
                 continue;
             }
 
