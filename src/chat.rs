@@ -1,8 +1,8 @@
 use regex::Regex;
 use serde::Serialize;
-use std::lazy::SyncLazy;
+use std::sync::LazyLock;
 
-static URL_REGEX: SyncLazy<Regex> = SyncLazy::new(|| {
+static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new("([a-zA-Z0-9§\\-:/]+\\.[a-zA-Z/0-9§\\-:_#]+(\\.[a-zA-Z/0-9.§\\-:#\\?\\+=_]+)?)")
         .unwrap()
 });

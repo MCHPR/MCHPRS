@@ -16,9 +16,9 @@ use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use log::{debug, info, warn};
-use std::lazy::SyncLazy;
 use std::ops::Add;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
 // Parses a relative or absolute coordinate relative to a reference coordinate
@@ -176,26 +176,14 @@ impl Plot {
                 let args = args.join(" ");
                 let options = CompilerOptions::parse(&args);
 
-                if options.no_wires {
+                if options.optimize {
                     let msg = "Redpiler optimization is highly unstable and can break builds. Use with caution!";
                     warn!("{}", msg);
                     self.players[player].send_system_message(msg);
                 }
 
-                if options.use_worldedit {
-                    if self.players[player].first_position.is_none() {
-                        return;
-                    }
-                    if self.players[player].second_position.is_none() {
-                        return;
-                    }
-                }
-
-                let pos1 = self.players[player].first_position;
-                let pos2 = self.players[player].second_position;
-
                 self.reset_redpiler();
-                self.start_redpiler(options, pos1, pos2);
+                self.start_redpiler(options);
 
                 debug!("Compile took {:?}", start_time.elapsed());
             }
@@ -449,11 +437,9 @@ impl Plot {
                     return false;
                 };
 
-                let container_ty = match args[0] {
-                    "barrel" => ContainerType::Barrel,
-                    "furnace" => ContainerType::Furnace,
-                    "hopper" => ContainerType::Hopper,
-                    _ => {
+                let container_ty = match args[0].parse() {
+                    Ok(ty) => ty,
+                    Err(()) => {
                         self.players[player].send_error_message(
                             "Container type must be one of [barrel, furnace, hopper]",
                         );
@@ -486,7 +472,7 @@ bitflags! {
 // For more information, see https://wiki.vg/Command_Data
 /// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
-pub static DECLARE_COMMANDS: SyncLazy<PacketEncoder> = SyncLazy::new(|| {
+pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
     CDeclareCommands {
         nodes: &[
             // 0: Root Node

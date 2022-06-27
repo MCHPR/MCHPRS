@@ -9,6 +9,16 @@ use log::warn;
 use std::collections::HashMap;
 use std::fmt;
 
+fn is_io_block(block: Block) -> bool {
+    matches!(
+        block,
+        Block::RedstoneLamp { .. }
+            | Block::Lever { .. }
+            | Block::StoneButton { .. }
+            | Block::StonePressurePlate { .. }
+    )
+}
+
 #[derive(Debug, Clone)]
 pub struct Node {
     pos: BlockPos,
@@ -99,7 +109,7 @@ impl DirectBackend {
 }
 
 impl JITBackend for DirectBackend {
-    fn reset(&mut self, plot: &mut PlotWorld) {
+    fn reset(&mut self, plot: &mut PlotWorld, io_only: bool) {
         for entry in &self.to_be_ticked {
             plot.schedule_tick(
                 self.nodes[entry.node].pos,
@@ -114,6 +124,10 @@ impl JITBackend for DirectBackend {
                     output_strength: node.comparator_output,
                 };
                 plot.set_block_entity(node.pos, block_entity);
+            }
+
+            if io_only && !is_io_block(node.state) {
+                plot.set_block(node.pos, node.state);
             }
         }
 
@@ -284,9 +298,9 @@ impl JITBackend for DirectBackend {
         // println!("{}", self);
     }
 
-    fn flush(&mut self, plot: &mut PlotWorld) {
+    fn flush(&mut self, plot: &mut PlotWorld, io_only: bool) {
         for node in &mut self.nodes {
-            if node.changed {
+            if node.changed && (!io_only || is_io_block(node.state)) {
                 plot.set_block(node.pos, node.state);
             }
             node.changed = false;

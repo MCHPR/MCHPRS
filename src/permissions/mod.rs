@@ -4,9 +4,9 @@ use anyhow::{anyhow, Context, Result};
 use mysql::prelude::*;
 use mysql::{OptsBuilder, Pool, PooledConn, Row};
 use serde::{Deserialize, Serialize};
-use std::lazy::SyncOnceCell;
+use std::sync::OnceLock;
 
-static POOL: SyncOnceCell<Pool> = SyncOnceCell::new();
+static POOL: OnceLock<Pool> = OnceLock::new();
 
 fn conn() -> Result<PooledConn> {
     Ok(POOL
