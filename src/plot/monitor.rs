@@ -1,9 +1,50 @@
+use super::data::Tps;
 use log::warn;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+
+#[derive(Default)]
+struct AtomicTps {
+    tps: AtomicU32,
+    unlimited: AtomicBool,
+}
+
+impl AtomicTps {
+    fn from_tps(tps: Tps) -> Self {
+        match tps {
+            Tps::Limited(tps) => AtomicTps {
+                tps: AtomicU32::new(tps),
+                unlimited: AtomicBool::new(false),
+            },
+            Tps::Unlimited => AtomicTps {
+                tps: AtomicU32::new(0),
+                unlimited: AtomicBool::new(true),
+            },
+        }
+    }
+
+    fn update(&self, tps: Tps) {
+        match tps {
+            Tps::Limited(tps) => {
+                self.tps.store(tps, Ordering::SeqCst);
+                self.unlimited.store(false, Ordering::SeqCst);
+            }
+            Tps::Unlimited => self.unlimited.store(true, Ordering::SeqCst),
+        }
+    }
+}
+
+struct MonitorData {
+    tps: AtomicTps,
+    ticks_passed: Arc<AtomicU32>,
+    too_slow: AtomicBool,
+    ticking: AtomicBool,
+    running: AtomicBool,
+    timings_record: Mutex<Vec<u32>>,
+}
 
 #[derive(Debug)]
 pub struct TimingsReport {
@@ -14,44 +55,29 @@ pub struct TimingsReport {
 }
 
 pub struct TimingsMonitor {
-    running: Arc<AtomicBool>,
-    tps: Arc<AtomicU32>,
-    ticks_passed: Arc<AtomicU32>,
-    too_slow: Arc<AtomicBool>,
-    ticking: Arc<AtomicBool>,
-    timings_record: Arc<Mutex<Vec<u32>>>,
+    data: Arc<MonitorData>,
     monitor_thread: Option<JoinHandle<()>>,
 }
 
 impl TimingsMonitor {
-    pub fn new(tps: u32) -> TimingsMonitor {
-        let tps = Arc::new(AtomicU32::new(tps));
-        let ticks_passed = Default::default();
-        let running = Arc::new(AtomicBool::new(true));
-        let too_slow = Default::default();
-        let ticking = Default::default();
-        let timings_record = Default::default();
-        let monitor_thread = Some(Self::run_thread(
-            &running,
-            &tps,
-            &ticks_passed,
-            &too_slow,
-            &ticking,
-            &timings_record,
-        ));
+    pub fn new(tps: Tps) -> TimingsMonitor {
+        let data = Arc::new(MonitorData {
+            ticks_passed: Default::default(),
+            running: AtomicBool::new(true),
+            too_slow: Default::default(),
+            ticking: Default::default(),
+            timings_record: Default::default(),
+            tps: AtomicTps::from_tps(tps),
+        });
+        let monitor_thread = Some(Self::run_thread(data.clone()));
         TimingsMonitor {
-            running,
-            tps,
-            ticks_passed,
-            too_slow,
-            ticking,
-            timings_record,
+            data,
             monitor_thread,
         }
     }
 
     pub fn stop(&mut self) {
-        self.running.store(false, Ordering::SeqCst);
+        self.data.running.store(false, Ordering::SeqCst);
         if let Some(handle) = self.monitor_thread.take() {
             if handle.join().is_err() {
                 warn!("Failed to join monitor thread handle");
@@ -60,7 +86,7 @@ impl TimingsMonitor {
     }
 
     pub fn generate_report(&self) -> Option<TimingsReport> {
-        let records = self.timings_record.lock().unwrap();
+        let records = self.data.timings_record.lock().unwrap();
         if records.is_empty() {
             return None;
         }
@@ -90,57 +116,43 @@ impl TimingsMonitor {
         })
     }
 
-    pub fn set_tps(&self, new_tps: u32) {
-        self.tps.store(new_tps, Ordering::SeqCst);
-        self.too_slow.store(false, Ordering::SeqCst);
+    pub fn set_tps(&self, new_tps: Tps) {
+        self.data.tps.update(new_tps);
+        self.data.too_slow.store(false, Ordering::SeqCst);
     }
 
     pub fn tick(&self) {
-        self.ticks_passed.fetch_add(1, Ordering::SeqCst);
+        self.data.ticks_passed.fetch_add(1, Ordering::SeqCst);
     }
 
     pub fn is_running_behind(&self) -> bool {
-        self.too_slow.load(Ordering::SeqCst)
+        self.data.too_slow.load(Ordering::SeqCst)
     }
 
     pub fn set_ticking(&self, ticking: bool) {
-        self.ticking.store(ticking, Ordering::Relaxed);
+        self.data.ticking.store(ticking, Ordering::Relaxed);
     }
 
-    fn run_thread(
-        running: &Arc<AtomicBool>,
-        tps: &Arc<AtomicU32>,
-        ticks_passed: &Arc<AtomicU32>,
-        too_slow: &Arc<AtomicBool>,
-        ticking: &Arc<AtomicBool>,
-        timings_record: &Arc<Mutex<Vec<u32>>>,
-    ) -> JoinHandle<()> {
-        // Put this stuff in a struct?
-        let running = Arc::clone(running);
-        let tps = Arc::clone(tps);
-        let ticks_count = Arc::clone(ticks_passed);
-        let too_slow = Arc::clone(too_slow);
-        let ticking = Arc::clone(ticking);
-        let timings_record = Arc::clone(timings_record);
-        let mut last_tps = tps.load(Ordering::SeqCst);
+    fn run_thread(data: Arc<MonitorData>) -> JoinHandle<()> {
         thread::spawn(move || {
-            let mut last_ticks_count = ticks_count.load(Ordering::SeqCst);
-            let mut was_ticking_before = ticking.load(Ordering::SeqCst);
+            let mut last_tps = data.tps.tps.load(Ordering::SeqCst);
+            let mut last_ticks_count = data.ticks_passed.load(Ordering::SeqCst);
+            let mut was_ticking_before = data.ticking.load(Ordering::SeqCst);
             loop {
                 thread::sleep(Duration::from_millis(500));
-                if !running.load(Ordering::SeqCst) {
+                if !data.running.load(Ordering::SeqCst) {
                     return;
                 }
 
-                let tps = tps.load(Ordering::SeqCst);
-                let ticking = ticking.load(Ordering::SeqCst);
+                let tps = data.tps.tps.load(Ordering::SeqCst);
+                let ticking = data.ticking.load(Ordering::SeqCst);
                 if !(ticking && was_ticking_before) || tps != last_tps {
                     was_ticking_before = ticking;
                     last_tps = tps;
                     continue;
                 }
 
-                let ticks_count = ticks_count.load(Ordering::SeqCst);
+                let ticks_count = data.ticks_passed.load(Ordering::SeqCst);
                 if ticks_count == 0 {
                     continue;
                 }
@@ -148,20 +160,21 @@ impl TimingsMonitor {
                 let ticks_passed = ticks_count - last_ticks_count;
 
                 // 5% threshold
-                if ticks_passed < (tps / 2) * 95 / 100 {
-                    too_slow.store(true, Ordering::SeqCst);
+                if data.tps.unlimited.load(Ordering::SeqCst) || ticks_passed < (tps / 2) * 95 / 100
+                {
+                    data.too_slow.store(true, Ordering::SeqCst);
                     // warn!(
                     //     "running behind by {} ticks",
                     //     ((tps / 2) * 95 / 100) - ticks_passed
                     // );
                 } else {
-                    too_slow.store(false, Ordering::SeqCst);
+                    data.too_slow.store(false, Ordering::SeqCst);
                 }
 
                 // The timings record will only go back 15 minutes.
                 // This means that, with the 500ms interval, the timings record will
                 // have a max size of 1800 entries.
-                let mut timings_record = timings_record.lock().unwrap();
+                let mut timings_record = data.timings_record.lock().unwrap();
                 if timings_record.len() == 1800 {
                     timings_record.pop();
                 }
@@ -176,6 +189,6 @@ impl TimingsMonitor {
 impl Drop for TimingsMonitor {
     fn drop(&mut self) {
         // Joining the thread in drop is a bad idea so we just let it detach
-        self.running.store(false, Ordering::SeqCst);
+        self.data.running.store(false, Ordering::SeqCst);
     }
 }

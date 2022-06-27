@@ -6,6 +6,7 @@ use crate::plot::Plot;
 use crate::world::World;
 use crate::config::CONFIG;
 
+
 #[derive(PartialEq, Copy, Clone)]
 pub enum ActionResult {
     Success,

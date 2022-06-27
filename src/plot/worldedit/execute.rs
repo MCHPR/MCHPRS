@@ -913,6 +913,26 @@ pub(super) fn execute_rstack(ctx: CommandExecuteContext<'_>) {
     ));
 }
 
+pub(super) fn execute_update(ctx: CommandExecuteContext<'_>) {
+    let start_time = Instant::now();
+
+    let operation = worldedit_start_operation(ctx.player);
+    for x in operation.x_range() {
+        for y in operation.y_range() {
+            for z in operation.z_range() {
+                let block_pos = BlockPos::new(x, y, z);
+                let block = ctx.plot.get_block(block_pos);
+                block.update(ctx.plot, block_pos);
+            }
+        }
+    }
+
+    ctx.player.send_worldedit_message(&format!(
+        "Your selection was updated sucessfully. ({:?})",
+        start_time.elapsed()
+    ));
+}
+
 pub(super) fn execute_unimplemented(_ctx: CommandExecuteContext<'_>) {
     unimplemented!("Unimplimented worldedit command");
 }

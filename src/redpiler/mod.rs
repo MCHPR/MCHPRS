@@ -80,6 +80,7 @@ impl CompileNode {
                 | Block::RedstoneBlock { .. }
                 | Block::RedstoneLamp { .. }
                 | Block::StonePressurePlate { .. }
+                | Block::IronTrapdoor { .. }
         );
 
         if is_node || block.has_comparator_override() {
@@ -420,7 +421,7 @@ impl<'a> InputSearch<'a> {
                 let inputs = self.search_wire(id, node.pos, LinkType::Default, 0);
                 self.nodes[id].inputs = inputs;
             }
-            Block::RedstoneLamp { .. } => {
+            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
                 let mut inputs = Vec::new();
                 for face in &BlockFace::values() {
                     let neighbor_pos = node.pos.offset(*face);
@@ -522,11 +523,15 @@ impl CompilerOptions {
 
 #[derive(Default)]
 pub struct Compiler {
-    pub is_active: bool,
+    is_active: bool,
     jit: Option<Box<dyn JITBackend>>,
 }
 
 impl Compiler {
+    pub fn is_active(&self) -> bool {
+        self.is_active
+    }
+
     /// Use just-in-time compilation with a `JITBackend` such as `CraneliftBackend` or `LLVMBackend`.
     /// Requires recompilation to take effect.
     pub fn use_jit(&mut self, jit: Box<dyn JITBackend>) {

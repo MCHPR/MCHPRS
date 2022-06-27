@@ -15,6 +15,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::lazy::SyncLazy;
 use std::ops::RangeInclusive;
+use std::str::FromStr;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
 // The command is not handled if it is not found in the worldedit commands and alias lists.
@@ -640,6 +641,13 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
             permission_node: "redstonetools.rstack",
             ..Default::default()
         },
+        "/update" => WorldeditCommand {
+            execute_fn: execute_update,
+            description: "Updates all blocks in the selection",
+            permission_node: "mchprs.we.update",
+            requires_positions: true,
+            ..Default::default()
+        },
         "/help" => WorldeditCommand {
             arguments: &[
                 argument!("command", String, "Command to retrieve help for"),
@@ -725,8 +733,10 @@ pub struct WorldEditPattern {
     pub parts: Vec<WorldEditPatternPart>,
 }
 
-impl WorldEditPattern {
-    pub fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
+impl FromStr for WorldEditPattern {
+    type Err = PatternParseError;
+
+    fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(',') {
             static RE: SyncLazy<Regex> = SyncLazy::new(|| {
@@ -770,7 +780,9 @@ impl WorldEditPattern {
 
         Ok(pattern)
     }
+}
 
+impl WorldEditPattern {
     pub fn matches(&self, block: Block) -> bool {
         let block_id = block.get_id();
         self.parts.iter().any(|part| part.block_id == block_id)

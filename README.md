@@ -41,7 +41,7 @@ MCHPRS will generate a `Config.toml` file in the current working directory when 
 
 ### LuckPerms
 
-MCHPRS has basic support for LuckPerms with MySQL or MariaDB remote database storage. This implementation has no commands or interface and would have to be manged through LuckPerms running on a proxy (`/lpb`) or other server (`/lp`) 
+MCHPRS has basic support for LuckPerms with MySQL or MariaDB remote database storage. This implementation has no commands or interface and would have to be manged through LuckPerms running on a proxy (`/lpb`) or other server (`/lp`)
 
 To use LuckPerms, append this to your `Config.toml`:
 
@@ -67,6 +67,7 @@ server_context = "global"
 | `/rtps [rtps]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two game ticks in a redstone tick) |
 | `/radvance [ticks]` | `/radv` | Advances the plot by `[ticks]` redstone ticks. |
 | `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
+| `/teleport [x] [y] [z]` | `/tp` | Teleports you to `[x] [y] [z]`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
 | `/speed [speed]` | None | Sets your flyspeed. |
 | `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
 | `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
@@ -82,7 +83,7 @@ These are the commands that are currently implemented:
 | `/plot auto` | `/p a` | Automatically finds an unclaimed plot and claims. |
 | `/plot middle` | None | Teleports you to the center of the plot you are in. |
 | `/plot visit [player]` | `/p v` | Teleports you to a player's plot. |
-| `/plot tp [x] [z]` | `/p v` | Teleports you to a plot at (x, z). |
+| `/plot tp [x] [z]` | `/p v` | Teleports you to the plot at `[x] [y]`. Supports relative coordinates. |
 | `/plot lock` | None | Locks the player into the plot so moving outside of the plot bounds does not transfer you to other plots. |
 | `/plot unlock` | None | Reverses the locking done by `/plot lock`. |
 
@@ -115,6 +116,7 @@ These are the commands that are currently implemented:
 | `//shift` | None | Shift the selection area |
 | `//flip` | `//f` | Flip the contents of the clipboard across the origin |
 | `//rotate` | `//r` | Rotate the contents of the clipboard |
+| `//update` | None | Updates all blocks in the selection |
 | `//help` | None | Displays help for WorldEdit commands |
 
 ## Acknowledgments
