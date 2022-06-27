@@ -4,7 +4,7 @@ mod debug_graph;
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
 };
-use crate::plot::{PlotWorld, PLOT_BLOCK_WIDTH};
+use crate::plot::PlotWorld;
 use crate::world::{TickEntry, World};
 use backend::JITBackend;
 use log::{error, warn};
@@ -499,9 +499,9 @@ impl<'a> InputSearch<'a> {
 
 #[derive(Default)]
 pub struct CompilerOptions {
-    pub use_worldedit: bool,
-    pub no_wires: bool,
+    pub optimize: bool,
     pub export: bool,
+    pub io_only: bool,
 }
 
 impl CompilerOptions {
@@ -510,9 +510,9 @@ impl CompilerOptions {
         let options = str.split_whitespace();
         for option in options {
             match option {
-                "--worldedit" | "-w" => co.use_worldedit = true,
-                "--no-wires" | "-O" => co.no_wires = true,
-                "--export" => co.export = true,
+                "--no-wires" | "-O" => co.optimize = true,
+                "--export" | "-E" => co.export = true,
+                "--io-only" | "-I" => co.io_only = true,
                 // FIXME: use actual error handling
                 _ => warn!("Unrecognized option: {}", option),
             }
@@ -525,6 +525,7 @@ impl CompilerOptions {
 pub struct Compiler {
     is_active: bool,
     jit: Option<Box<dyn JITBackend>>,
+    options: CompilerOptions,
 }
 
 impl Compiler {
@@ -542,22 +543,11 @@ impl Compiler {
         &mut self,
         plot: &mut PlotWorld,
         options: CompilerOptions,
-        first_pos: Option<BlockPos>,
-        second_pos: Option<BlockPos>,
         ticks: Vec<TickEntry>,
     ) {
-        let (first_pos, second_pos) = if options.use_worldedit {
-            (first_pos.unwrap(), second_pos.unwrap())
-        } else {
-            const W: i32 = PLOT_BLOCK_WIDTH;
-            // Get plot corners
-            (
-                BlockPos::new(plot.x * W, 0, plot.z * W),
-                BlockPos::new((plot.x + 1) * W - 1, 255, (plot.z + 1) * W - 1),
-            )
-        };
+        let (first_pos, second_pos) = plot.get_corners();
 
-        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.no_wires);
+        let mut nodes = Compiler::identify_nodes(plot, first_pos, second_pos, options.optimize);
         InputSearch::new(plot, &mut nodes).search();
         if options.export {
             debug_graph::debug(&nodes);
@@ -576,15 +566,35 @@ impl Compiler {
         } else {
             error!("Cannot compile without JIT variant selected");
         }
+
+        self.options = options;
     }
 
     pub fn reset(&mut self, plot: &mut PlotWorld) {
         if self.is_active {
             self.is_active = false;
             if let Some(jit) = &mut self.jit {
-                jit.reset(plot)
+                jit.reset(plot, self.options.io_only)
             }
         }
+
+        if self.options.optimize {
+            let (first_pos, second_pos) = plot.get_corners();
+            let start_pos = first_pos.min(second_pos);
+            let end_pos = first_pos.max(second_pos);
+            for y in start_pos.y..=end_pos.y {
+                for z in start_pos.z..=end_pos.z {
+                    for x in start_pos.x..=end_pos.x {
+                        let pos = BlockPos::new(x, y, z);
+                        let block = plot.get_block(pos);
+                        if matches!(block, Block::RedstoneWire { .. }) {
+                            block.update(plot, pos);
+                        }
+                    }
+                }
+            }
+        }
+        self.options = Default::default();
     }
 
     fn backend(&mut self) -> &mut Box<dyn JITBackend> {
@@ -612,7 +622,8 @@ impl Compiler {
     }
 
     pub fn flush(&mut self, plot: &mut PlotWorld) {
-        self.backend().flush(plot);
+        let io_only = self.options.io_only;
+        self.backend().flush(plot, io_only);
     }
 
     fn identify_nodes(

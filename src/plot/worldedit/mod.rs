@@ -4,7 +4,7 @@ mod execute;
 mod schematic;
 
 use super::{Plot, PlotWorld};
-use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos};
+use crate::blocks::{Block, BlockEntity, BlockFacing, BlockPos, ContainerType};
 use crate::player::{PacketSender, Player, PlayerPos};
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
@@ -13,9 +13,9 @@ use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt;
-use std::lazy::SyncLazy;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
 // The command is not handled if it is not found in the worldedit commands and alias lists.
@@ -188,6 +188,7 @@ enum ArgumentType {
     Mask,
     Pattern,
     String,
+    ContainerType,
 }
 
 #[derive(Debug, Clone)]
@@ -198,6 +199,7 @@ enum Argument {
     Pattern(WorldEditPattern),
     Mask(WorldEditPattern),
     String(String),
+    ContainerType(ContainerType),
 }
 
 impl Argument {
@@ -240,6 +242,13 @@ impl Argument {
         match self {
             Argument::String(val) => val,
             _ => panic!("Argument was not a String"),
+        }
+    }
+
+    fn unwrap_container_type(&self) -> ContainerType {
+        match self {
+            Argument::ContainerType(val) => *val,
+            _ => panic!("Container type must be one of [barrel, furnace, hopper]"),
         }
     }
 
@@ -337,6 +346,13 @@ impl Argument {
 
                 Ok(Argument::DirectionVector(vec))
             }
+            ArgumentType::ContainerType => match arg.parse::<ContainerType>() {
+                Ok(ty) => Ok(Argument::ContainerType(ty)),
+                Err(_) => Err(ArgumentParseError::new(
+                    arg_type,
+                    "error parsing container type",
+                )),
+            },
         }
     }
 }
@@ -420,7 +436,7 @@ impl Default for WorldeditCommand {
     }
 }
 
-static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::new(|| {
+static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::new(|| {
     map! {
         "up" => WorldeditCommand {
             execute_fn: execute_up,
@@ -662,11 +678,22 @@ static COMMANDS: SyncLazy<HashMap<&'static str, WorldeditCommand>> = SyncLazy::n
            description: "Gives a WorldEdit wand",
            permission_node: "worldedit.wand",
            ..Default::default()
+        },
+        "/replacecontainer" => WorldeditCommand {
+            arguments: &[
+                argument!("from", ContainerType, "The container type to replace"),
+                argument!("to", ContainerType, "The container type to replace with"),
+            ],
+           execute_fn: execute_replace_container,
+           description: "Replaces all container types in the selection",
+           permission_node: "mchprs.we.replacecontainer",
+           requires_positions: true,
+           ..Default::default()
         }
     }
 });
 
-static ALIASES: SyncLazy<HashMap<&'static str, &'static str>> = SyncLazy::new(|| {
+static ALIASES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     map! {
         "u" => "up",
         "/1" => "/pos1",
@@ -682,7 +709,8 @@ static ALIASES: SyncLazy<HashMap<&'static str, &'static str>> = SyncLazy::new(||
         "/f" => "/flip",
         "/h1" => "/hpos1",
         "/h2" => "/hpos2",
-        "/rs" => "/rstack"
+        "/rs" => "/rstack",
+        "/rc" => "/replacecontainer"
     }
 });
 
@@ -739,7 +767,7 @@ impl FromStr for WorldEditPattern {
     fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(',') {
-            static RE: SyncLazy<Regex> = SyncLazy::new(|| {
+            static RE: LazyLock<Regex> = LazyLock::new(|| {
                 Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap()
             });
 

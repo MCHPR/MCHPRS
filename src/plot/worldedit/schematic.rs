@@ -11,8 +11,8 @@ use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fs::{self, File};
-use std::lazy::SyncLazy;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 macro_rules! nbt_as {
     // I'm not sure if path is the right type here.
@@ -26,8 +26,8 @@ macro_rules! nbt_as {
 }
 
 fn parse_block(str: &str) -> Option<Block> {
-    static RE: SyncLazy<Regex> =
-        SyncLazy::new(|| Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap());
+    static RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"minecraft:([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap());
     let captures = RE.captures(str)?;
     let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
     if let Some(properties_match) = captures.get(2) {

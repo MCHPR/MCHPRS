@@ -74,11 +74,24 @@ pub struct SignBlockEntity {
     pub rows: [String; 4],
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ContainerType {
     Furnace,
     Barrel,
     Hopper,
+}
+
+impl FromStr for ContainerType {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "barrel" => ContainerType::Barrel,
+            "furnace" => ContainerType::Furnace,
+            "hopper" => ContainerType::Hopper,
+            _ => return Err(()),
+        })
+    }
 }
 
 impl ToString for ContainerType {
@@ -2018,7 +2031,7 @@ blocks! {
         from_names(_name): {
             "smooth_stone_slab" => {}
         },
-        get_name: "smooth_stone_slab",
+        get_name: "smooth_stone_slab[type=top]",
         transparent: true,
         cube: true,
     },
