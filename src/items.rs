@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::blocks::{Block, BlockColorVariant, BlockDirection, BlockFace, BlockPos, ContainerType};
+use crate::config::CONFIG;
 use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
@@ -103,7 +104,9 @@ impl ItemStack {
         let block_pos = context.block_pos.offset(context.block_face);
         let mut top_pos = plot.players[context.player_idx].pos.block_pos();
         top_pos.y = top_pos.y + 1;
-        if (block_pos == plot.players[context.player_idx].pos.block_pos() || block_pos == top_pos) && !CONFIG.block_in_hitbox {
+        if (block_pos == plot.players[context.player_idx].pos.block_pos() || block_pos == top_pos)
+            && !CONFIG.block_in_hitbox
+        {
             return false;
         }
         let can_place =
