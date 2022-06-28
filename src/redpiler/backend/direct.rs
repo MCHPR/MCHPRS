@@ -16,6 +16,7 @@ fn is_io_block(block: Block) -> bool {
             | Block::Lever { .. }
             | Block::StoneButton { .. }
             | Block::StonePressurePlate { .. }
+            | Block::IronTrapdoor { .. }
     )
 }
 
