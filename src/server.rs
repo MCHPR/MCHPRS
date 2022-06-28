@@ -437,7 +437,7 @@ impl MinecraftServer {
             world_name: "mchprs:world".to_owned(),
             hashed_seed: 0,
             max_players: 0,
-            view_distance: 8,
+            view_distance: CONFIG.view_distance as i32,
             reduced_debug_info: false,
             enable_respawn_screen: false,
             is_debug: false,
