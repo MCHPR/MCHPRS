@@ -796,7 +796,7 @@ impl Plot {
                     self.last_update_time = Instant::now();
                     let batch_size =
                         Duration::from_millis(15).as_nanos() / self.last_nspt.as_nanos();
-                    let batch_size = batch_size.min(50000) as u32;
+                    let batch_size = batch_size.min(50000).max(1) as u32;
                     for _ in 0..batch_size {
                         self.tick();
                     }
