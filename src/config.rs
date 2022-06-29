@@ -71,7 +71,7 @@ gen_config! {
     view_distance: i64 = 8,
     bungeecord: bool = false,
     whitelist: bool = false,
-    schemati: bool = true,
+    schemati: bool = false,
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true
 }

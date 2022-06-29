@@ -257,12 +257,12 @@ pub(super) fn execute_load(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let mut file_name = ctx.arguments[0].unwrap_string().clone();
+    if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
+        ctx.player.send_error_message("Filename is invalid");
+        return;
+    }
+    
     if CONFIG.schemati {
-        if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
-            ctx.player.send_error_message("Filename is invalid");
-            return;
-        }
-
         let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
         file_name.insert_str(0, &prefix);
     }
@@ -297,12 +297,12 @@ pub(super) fn execute_save(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
     let mut file_name = ctx.arguments[0].unwrap_string().clone();
+    if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
+        ctx.player.send_error_message("Filename is invalid");
+        return;
+    }
+    
     if CONFIG.schemati {
-        if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
-            ctx.player.send_error_message("Filename is invalid");
-            return;
-        }
-
         let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
         file_name.insert_str(0, &prefix);
     }
