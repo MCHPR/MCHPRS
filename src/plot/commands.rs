@@ -1,5 +1,4 @@
 use super::{database, worldedit, Plot};
-use crate::blocks::ContainerType;
 use crate::chat::ChatComponent;
 use crate::items::ItemStack;
 use crate::network::packets::clientbound::{

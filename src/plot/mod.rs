@@ -48,29 +48,37 @@ pub const NUM_CHUNKS: usize = PLOT_WIDTH.pow(2) as usize;
 pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 
 pub struct Plot {
+    pub world: PlotWorld,
+    pub players: Vec<Player>,
+    pub redpiler: Compiler,
+
+    // Thread communication
     message_receiver: BusReader<BroadcastMessage>,
     message_sender: Sender<Message>,
     priv_message_receiver: Receiver<PrivMessage>,
-    // It's kinda dumb making this pub but it would be too much work to do it differently.
-    pub players: Vec<Player>,
+
     locked_players: HashSet<EntityId>,
+
+    // Timings
     tps: Tps,
     last_update_time: Instant,
     lag_time: Duration,
     last_nspt: Duration,
+    timings: TimingsMonitor,
     /// The last time a player was in this plot
     last_player_time: Instant,
     /// The last time the world changes were sent to the player
     last_world_send_time: Instant,
+    /// The duration we should sleep for after every update
     sleep_time: Duration,
+    /// When this is false, the update loop will end and the thread will stop.
+    /// This will be set to false if no players are on the plot for a certain amount of time.
     running: bool,
-    show_redstone: bool,
+    /// If true, the plot will remain running even if no players are on for a long time.
     always_running: bool,
-    pub redpiler: Compiler,
-    timings: TimingsMonitor,
+    
     owner: Option<u128>,
     async_rt: Runtime,
-    pub world: PlotWorld,
     scoreboard: Scoreboard,
 }
 
@@ -909,7 +917,6 @@ impl Plot {
             players: Vec::new(),
             locked_players: HashSet::new(),
             running: true,
-            show_redstone: plot_data.show_redstone,
             tps,
             always_running,
             redpiler: Default::default(),
@@ -948,7 +955,7 @@ impl Plot {
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         let encoded: Vec<u8> = bincode::serialize(&PlotData {
             tps: self.tps.to_data(),
-            show_redstone: self.show_redstone,
+            show_redstone: true,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
         })
