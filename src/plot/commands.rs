@@ -323,6 +323,14 @@ impl Plot {
                     start_time.elapsed()
                 ));
             }
+            "/toggleautorp" => {
+                self.auto_redpiler = !self.auto_redpiler;
+                if self.auto_redpiler {
+                    self.players[player].send_system_message("Automatic redpiler compilation has been enabled.");
+                } else {
+                    self.players[player].send_system_message("Automatic redpiler compilation has been disabled.");
+                }
+            }
             "/teleport" | "/tp" => {
                 if args.len() == 3 {
                     let player_pos = self.players[player].pos;
