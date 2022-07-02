@@ -648,6 +648,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
                 argument!("spacing", UnsignedInteger, "The spacing between each selection", 2),
                 argument!("direction", DirectionVector, "The direction to stack")
             ],
+            requires_positions: true,
             flags: &[
                 flag!('a', None, "Include air blocks"),
                 flag!('e', None, "Expand selection")
