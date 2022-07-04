@@ -24,6 +24,7 @@ pub enum ComparatorMode {
 
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 pub struct Link {
+    pub ty: LinkType,
     pub weight: u8,
     pub to: NodeId,
 }
