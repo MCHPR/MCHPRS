@@ -15,7 +15,6 @@ macro_rules! convert_enum {
     }
 }
 
-convert_enum!(super::LinkType, LinkType, Default, Side);
 convert_enum!(
     crate::blocks::ComparatorMode,
     ComparatorMode,
@@ -47,7 +46,6 @@ pub fn debug(graph: &[CompileNode]) {
                 .inputs
                 .iter()
                 .map(|l| Link {
-                    ty: l.ty.into(),
                     to: l.end,
                     weight: l.weight,
                 })
