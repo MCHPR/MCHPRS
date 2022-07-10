@@ -87,8 +87,8 @@ pub enum ChatColor {
 #[serde(rename_all = "snake_case")]
 enum ClickEventType {
     OpenUrl,
-    RunCommand,
-    SuggestCommand,
+    // RunCommand,
+    // SuggestCommand,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -114,11 +114,6 @@ impl ChatComponentBuilder {
             ..Default::default()
         };
         Self { component }
-    }
-
-    pub fn color(mut self, color: ChatColor) -> Self {
-        self.component.color = Some(color);
-        self
     }
 
     pub fn color_code(mut self, color: ColorCode) -> Self {

@@ -33,7 +33,7 @@ fn init_compiler() -> (PlotWorld, Compiler) {
     let mut compiler: Compiler = Default::default();
 
     let options = CompilerOptions::parse("-O");
-    compiler.compile(&mut world, options, None, None, Vec::new());
+    compiler.compile(&mut world, options, Vec::new());
     compiler.on_use_block(&mut world, START_BUTTON);
     (world, compiler)
 }
