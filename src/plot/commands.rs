@@ -454,6 +454,13 @@ impl Plot {
                     }
                 };
 
+                if power > 15 || power < 1 {
+                    self.players[player].send_error_message(
+                        "Container power must be greater than 0 and lower than 15!",
+                    );
+                    return false;
+                }
+
                 let item = ItemStack::container_with_ss(container_ty, power);
                 let slot = 36 + self.players[player].selected_slot;
                 self.players[player].set_inventory_slot(slot, Some(item));
