@@ -510,7 +510,7 @@ impl CompilerOptions {
         let options = str.split_whitespace();
         for option in options {
             match option {
-                "--no-wires" | "-O" => co.optimize = true,
+                "--optimize" | "-O" => co.optimize = true,
                 "--export" | "-E" => co.export = true,
                 "--io-only" | "-I" => co.io_only = true,
                 // FIXME: use actual error handling

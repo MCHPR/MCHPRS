@@ -71,6 +71,9 @@ server_context = "global"
 | `/speed [speed]` | None | Sets your flyspeed. |
 | `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
 | `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
+| `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. Available flags: --io-only --optimize --export (or in short: -I -O -E) |
+| `/redpiler reset` | `/rp r` | Stops redpiler. |
+| `/toggleautorp` | None | Toggles automatic redpiler compilation. |
 | `/stop` | None | Stops the server. |
 
 ### Plot Ownership
@@ -105,7 +108,7 @@ These are the commands that are currently implemented:
 | `//paste` | `//v` | Paste the clipboard's contents |
 | `//undo` | None | Undoes the last action (from history) |
 | `//redo` | None | Redoes the last action (from history) |
-| `//rstack` | None | Stack with more options, Refer to [RedstoneTools](https://github.com/paulikauro/RedstoneTools) |
+| `//rstack` | `//rs` | Stack with more options, Refer to [RedstoneTools](https://github.com/paulikauro/RedstoneTools) |
 | `//stack` | `//s` | Repeat the contents of the selection |
 | `//move` | None | Move the contents of the selection |
 | `//count` | None | Counts the number of blocks matching a mask |

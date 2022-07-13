@@ -402,6 +402,11 @@ impl Plot {
                             .send_error_message("Silly child, you can't have a negative flyspeed");
                         return false;
                     }
+                    if speed_arg > 10.0 {
+                        self.players[player]
+                            .send_error_message("For performance reasons player speed cannot be higher than 10.");
+                        return false;
+                    }
                     self.players[player].fly_speed = speed_arg;
                     self.players[player].update_player_abilities();
                     let username = self.players[player].username.clone();
