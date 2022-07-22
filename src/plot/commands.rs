@@ -326,9 +326,11 @@ impl Plot {
             "/toggleautorp" => {
                 self.auto_redpiler = !self.auto_redpiler;
                 if self.auto_redpiler {
-                    self.players[player].send_system_message("Automatic redpiler compilation has been enabled.");
+                    self.players[player]
+                        .send_system_message("Automatic redpiler compilation has been enabled.");
                 } else {
-                    self.players[player].send_system_message("Automatic redpiler compilation has been disabled.");
+                    self.players[player]
+                        .send_system_message("Automatic redpiler compilation has been disabled.");
                 }
             }
             "/teleport" | "/tp" => {
@@ -399,7 +401,18 @@ impl Plot {
                 if let Ok(speed_arg) = args[0].parse::<f32>() {
                     if speed_arg < 0.0 {
                         self.players[player]
-                            .send_error_message("Silly child, you can't have a negative flyspeed");
+                            .send_error_message("Silly child, you can't have a negative flyspeed!");
+                        return false;
+                    }
+                    if speed_arg > 10.0 {
+                        self.players[player].send_error_message(
+                            "For performance reasons player speed cannot be higher than 10.",
+                        );
+                        return false;
+                    }
+                    if speed_arg.is_nan() {
+                        self.players[player]
+                            .send_error_message("You can't set your speed to NaN or -NaN.");
                         return false;
                     }
                     self.players[player].fly_speed = speed_arg;
@@ -453,6 +466,13 @@ impl Plot {
                         return false;
                     }
                 };
+
+                if power > 15 || power < 1 {
+                    self.players[player].send_error_message(
+                        "Container power must be greater than 0 and lower than 15!",
+                    );
+                    return false;
+                }
 
                 let item = ItemStack::container_with_ss(container_ty, power);
                 let slot = 36 + self.players[player].selected_slot;

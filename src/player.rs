@@ -311,6 +311,13 @@ impl Player {
             self.send_keep_alive();
         }
 
+        // Prevent from locking player position at Infinity or NaN
+        if !self.pos.x.is_finite() || !self.pos.y.is_finite() || !self.pos.z.is_finite() {
+            self.pos.x = 128.0;
+            self.pos.y = 128.0;
+            self.pos.z = 128.0;
+        }
+
         let (chunk_x, chunk_z) = self.pos.chunk_pos();
         chunk_x != self.last_chunk_x || chunk_z != self.last_chunk_z
     }
@@ -357,6 +364,12 @@ impl Player {
     }
 
     pub fn teleport(&mut self, pos: PlayerPos) {
+        // Prevent from teleporting to Infinity or NaN
+        if !pos.x.is_finite() || !pos.y.is_finite() || !pos.z.is_finite() {
+            self.send_error_message("We just saved you from a game crash, don't try it again!");
+            return;
+        }
+
         let player_position_and_look = CPlayerPositionAndLook {
             x: pos.x,
             y: pos.y,

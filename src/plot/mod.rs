@@ -77,7 +77,7 @@ pub struct Plot {
     /// If true, the plot will remain running even if no players are on for a long time.
     always_running: bool,
     auto_redpiler: bool,
-    
+
     owner: Option<u128>,
     async_rt: Runtime,
     scoreboard: Scoreboard,
@@ -790,7 +790,10 @@ impl Plot {
                     self.last_update_time = Instant::now();
                     let mut ticks = 0;
                     while self.lag_time >= dur_per_tick {
-                        if self.timings.is_running_behind() && !self.redpiler.is_active() && self.auto_redpiler {
+                        if self.timings.is_running_behind()
+                            && !self.redpiler.is_active()
+                            && self.auto_redpiler
+                        {
                             self.start_redpiler(Default::default());
                         }
                         self.tick();
@@ -806,8 +809,7 @@ impl Plot {
                         self.start_redpiler(Default::default());
                     }
                     self.last_update_time = Instant::now();
-                    let batch_size =
-                        WORLD_SEND_RATE.as_nanos() / self.last_nspt.as_nanos();
+                    let batch_size = WORLD_SEND_RATE.as_nanos() / self.last_nspt.as_nanos();
                     let batch_size = batch_size.min(50000).max(1) as u32;
                     for _ in 0..batch_size {
                         self.tick();

@@ -261,7 +261,7 @@ pub(super) fn execute_load(mut ctx: CommandExecuteContext<'_>) {
         ctx.player.send_error_message("Filename is invalid");
         return;
     }
-    
+
     if CONFIG.schemati {
         let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
         file_name.insert_str(0, &prefix);
@@ -301,7 +301,7 @@ pub(super) fn execute_save(ctx: CommandExecuteContext<'_>) {
         ctx.player.send_error_message("Filename is invalid");
         return;
     }
-    
+
     if CONFIG.schemati {
         let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
         file_name.insert_str(0, &prefix);
