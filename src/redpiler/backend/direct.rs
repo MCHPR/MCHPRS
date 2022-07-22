@@ -3,7 +3,7 @@
 use super::JITBackend;
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::plot::PlotWorld;
-use crate::redpiler::{CompileNode, Link, LinkType};
+use crate::redpiler::{CompileNode, Link};
 use crate::world::{TickEntry, TickPriority, World};
 use log::warn;
 use std::collections::HashMap;
@@ -24,6 +24,7 @@ fn is_io_block(block: Block) -> bool {
 pub struct Node {
     pos: BlockPos,
     inputs: Vec<Link>,
+    side_inputs: Vec<Link>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
@@ -58,6 +59,7 @@ impl From<CompileNode> for Node {
             pos: node.pos,
             state: node.state,
             inputs: node.inputs,
+            side_inputs: node.side_inputs,
             updates: node.updates,
             output_power: 0,
             comparator_output: node.comparator_output,
@@ -185,13 +187,16 @@ impl JITBackend for DirectBackend {
             let node = &self.nodes[node_id];
 
             let mut input_power = 0u8;
-            let mut side_input_power = 0u8;
             for link in &node.inputs {
-                let power = match link.ty {
-                    LinkType::Default => &mut input_power,
-                    LinkType::Side => &mut side_input_power,
-                };
-                *power = (*power).max(
+                input_power = input_power.max(
+                    self.nodes[link.end]
+                        .output_power
+                        .saturating_sub(link.weight),
+                );
+            }
+            let mut side_input_power = 0u8;
+            for link in &node.side_inputs {
+                side_input_power = side_input_power.max(
                     self.nodes[link.end]
                         .output_power
                         .saturating_sub(link.weight),
@@ -332,14 +337,21 @@ fn schedule_tick(
 fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id: usize) {
     let node = &nodes[node_id];
 
-    let mut input_power = 0;
-    let mut side_input_power = 0;
+    let mut input_power = 0u8;
     for link in &node.inputs {
-        let power = match link.ty {
-            LinkType::Default => &mut input_power,
-            LinkType::Side => &mut side_input_power,
-        };
-        *power = (*power).max(nodes[link.end].output_power.saturating_sub(link.weight));
+        input_power = input_power.max(
+            nodes[link.end]
+                .output_power
+                .saturating_sub(link.weight),
+        );
+    }
+    let mut side_input_power = 0u8;
+    for link in &node.side_inputs {
+        side_input_power = side_input_power.max(
+            nodes[link.end]
+                .output_power
+                .saturating_sub(link.weight),
+        );
     }
 
     let facing_diode = node.facing_diode;
@@ -453,14 +465,17 @@ impl fmt::Display for DirectBackend {
                 node.pos.z
             )?;
             for link in &node.inputs {
-                let color = match link.ty {
-                    LinkType::Default => "",
-                    LinkType::Side => ",color=\"blue\"",
-                };
                 write!(
                     f,
-                    "n{}->n{}[label=\"{}\"{}];",
-                    link.end, link.start, link.weight, color
+                    "n{}->n{}[label=\"{}\"];",
+                    link.end, link.start, link.weight
+                )?;
+            }
+            for link in &node.side_inputs {
+                write!(
+                    f,
+                    "n{}->n{}[label=\"{}\",color=\"blue\"];",
+                    link.end, link.start, link.weight
                 )?;
             }
             // for update in &node.updates {

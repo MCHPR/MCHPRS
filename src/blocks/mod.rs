@@ -359,7 +359,7 @@ impl std::fmt::Display for BlockPos {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockDirection {
     North,
     South,
@@ -495,7 +495,7 @@ impl Default for BlockDirection {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockFace {
     Bottom,
     Top,
@@ -519,7 +519,7 @@ impl BlockFace {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockFacing {
     North,
     East,
@@ -645,7 +645,7 @@ impl BlockFace {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockColorVariant {
     White = 0,
     Orange = 1,
@@ -1360,7 +1360,7 @@ macro_rules! blocks {
             }
         ),*
     ) => {
-        #[derive(Clone, Copy, Debug, PartialEq)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
         pub enum Block {
             $(
                 $name {

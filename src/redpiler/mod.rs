@@ -16,24 +16,16 @@ fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
 
 type NodeId = usize;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum LinkType {
-    Default,
-    Side,
-}
-
 #[derive(Debug, Clone)]
 struct Link {
-    ty: LinkType,
     start: NodeId,
     weight: u8,
     end: NodeId,
 }
 
 impl Link {
-    fn new(ty: LinkType, start: NodeId, weight: u8, end: NodeId) -> Link {
+    fn new(start: NodeId, weight: u8, end: NodeId) -> Link {
         Link {
-            ty,
             start,
             weight,
             end,
@@ -46,6 +38,7 @@ pub struct CompileNode {
     pos: BlockPos,
     state: Block,
     inputs: Vec<Link>,
+    side_inputs: Vec<Link>,
     updates: Vec<NodeId>,
     comparator_output: u8,
     container_overriding: bool,
@@ -59,6 +52,7 @@ impl CompileNode {
             pos,
             state,
             inputs: vec![],
+            side_inputs: vec![],
             updates: vec![],
             comparator_output: 0,
             container_overriding: false,
@@ -155,7 +149,6 @@ impl<'a> InputSearch<'a> {
         block: Block,
         side: BlockFace,
         pos: BlockPos,
-        link_ty: LinkType,
         distance: u8,
         start_node: NodeId,
         search_wire: bool,
@@ -166,7 +159,7 @@ impl<'a> InputSearch<'a> {
                 let pos = pos.offset(*side);
                 let block = self.plot.get_block(pos);
                 if self.provides_strong_power(block, *side) {
-                    res.push(Link::new(link_ty, start_node, distance, self.pos_map[&pos]));
+                    res.push(Link::new(start_node, distance, self.pos_map[&pos]));
                 }
 
                 if let Block::RedstoneWire { wire } = block {
@@ -175,7 +168,7 @@ impl<'a> InputSearch<'a> {
                     }
                     match side {
                         BlockFace::Top => {
-                            res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                            res.append(&mut self.search_wire(start_node, pos, distance));
                         }
                         BlockFace::Bottom => {}
                         _ => {
@@ -187,7 +180,7 @@ impl<'a> InputSearch<'a> {
                                     .is_none()
                             {
                                 res.append(
-                                    &mut self.search_wire(start_node, pos, link_ty, distance),
+                                    &mut self.search_wire(start_node, pos, distance),
                                 );
                             }
                         }
@@ -195,11 +188,11 @@ impl<'a> InputSearch<'a> {
                 }
             }
         } else if self.provides_weak_power(block, side) {
-            res.push(Link::new(link_ty, start_node, distance, self.pos_map[&pos]));
+            res.push(Link::new(start_node, distance, self.pos_map[&pos]));
         } else if let Block::RedstoneWire { wire } = block {
             match side {
                 BlockFace::Top => {
-                    res.append(&mut self.search_wire(start_node, pos, link_ty, distance))
+                    res.append(&mut self.search_wire(start_node, pos, distance))
                 }
                 BlockFace::Bottom => {}
                 _ => {
@@ -210,7 +203,7 @@ impl<'a> InputSearch<'a> {
                             .get_current_side(direction.opposite())
                             .is_none()
                     {
-                        res.append(&mut self.search_wire(start_node, pos, link_ty, distance));
+                        res.append(&mut self.search_wire(start_node, pos, distance));
                     }
                 }
             }
@@ -222,7 +215,6 @@ impl<'a> InputSearch<'a> {
         &self,
         start_node: NodeId,
         root_pos: BlockPos,
-        link_ty: LinkType,
         mut distance: u8,
     ) -> Vec<Link> {
         let mut res = Vec::new();
@@ -248,7 +240,6 @@ impl<'a> InputSearch<'a> {
                     neighbor,
                     *side,
                     neighbor_pos,
-                    link_ty,
                     distance,
                     start_node,
                     false,
@@ -298,7 +289,6 @@ impl<'a> InputSearch<'a> {
             input_block,
             facing.block_face(),
             input_pos,
-            LinkType::Default,
             0,
             id,
             true,
@@ -314,7 +304,7 @@ impl<'a> InputSearch<'a> {
         let side_pos = pos.offset(side.block_face());
         let side_block = self.plot.get_block(side_pos);
         if side_block.is_diode() && self.provides_weak_power(side_block, side.block_face()) {
-            Some(Link::new(LinkType::Side, id, 0, self.pos_map[&side_pos]))
+            Some(Link::new(id, 0, self.pos_map[&side_pos]))
         } else {
             None
         }
@@ -329,9 +319,9 @@ impl<'a> InputSearch<'a> {
         let side_pos = pos.offset(side.block_face());
         let side_block = self.plot.get_block(side_pos);
         if side_block.is_diode() && self.provides_weak_power(side_block, side.block_face()) {
-            vec![Link::new(LinkType::Side, id, 0, self.pos_map[&side_pos])]
+            vec![Link::new(id, 0, self.pos_map[&side_pos])]
         } else if matches!(side_block, Block::RedstoneWire { .. }) {
-            self.search_wire(id, side_pos, LinkType::Side, 0)
+            self.search_wire(id, side_pos, 0)
         } else {
             vec![]
         }
@@ -346,7 +336,6 @@ impl<'a> InputSearch<'a> {
                     bottom_block,
                     BlockFace::Top,
                     bottom_pos,
-                    LinkType::Default,
                     0,
                     id,
                     true,
@@ -360,7 +349,6 @@ impl<'a> InputSearch<'a> {
                     wall_block,
                     facing.opposite().block_face(),
                     wall_pos,
-                    LinkType::Default,
                     0,
                     id,
                     true,
@@ -371,15 +359,15 @@ impl<'a> InputSearch<'a> {
                 let facing = comparator.facing;
 
                 let mut inputs = self.search_diode_inputs(id, node.pos, facing);
-                inputs.append(&mut self.search_comparator_side(id, node.pos, facing.rotate()));
-                inputs.append(&mut self.search_comparator_side(id, node.pos, facing.rotate_ccw()));
+                let mut side_inputs = Vec::new();
+                side_inputs.append(&mut self.search_comparator_side(id, node.pos, facing.rotate()));
+                side_inputs.append(&mut self.search_comparator_side(id, node.pos, facing.rotate_ccw()));
 
                 let input_pos = node.pos.offset(facing.block_face());
                 let input_block = self.plot.get_block(input_pos);
                 if input_block.has_comparator_override() {
                     self.nodes[id].container_overriding = true;
                     inputs.push(Link::new(
-                        LinkType::Default,
                         id,
                         0,
                         self.pos_map[&input_pos],
@@ -404,21 +392,24 @@ impl<'a> InputSearch<'a> {
 
                 self.nodes[id].comparator_output = output_strength;
                 self.nodes[id].inputs = inputs;
+                self.nodes[id].side_inputs = side_inputs;
             }
             Block::RedstoneRepeater { repeater } => {
                 let facing = repeater.facing;
 
-                let mut inputs = self.search_diode_inputs(id, node.pos, facing);
+                let inputs = self.search_diode_inputs(id, node.pos, facing);
+                let mut side_inputs = Vec::new();
                 if let Some(l) = self.search_repeater_side(id, node.pos, facing.rotate()) {
-                    inputs.push(l);
+                    side_inputs.push(l);
                 }
                 if let Some(l) = self.search_repeater_side(id, node.pos, facing.rotate_ccw()) {
-                    inputs.push(l);
+                    side_inputs.push(l);
                 }
                 self.nodes[id].inputs = inputs;
+                self.nodes[id].side_inputs = side_inputs;
             }
             Block::RedstoneWire { .. } => {
-                let inputs = self.search_wire(id, node.pos, LinkType::Default, 0);
+                let inputs = self.search_wire(id, node.pos, 0);
                 self.nodes[id].inputs = inputs;
             }
             Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
@@ -430,7 +421,6 @@ impl<'a> InputSearch<'a> {
                         neighbor_block,
                         *face,
                         neighbor_pos,
-                        LinkType::Default,
                         0,
                         id,
                         true,
@@ -457,12 +447,12 @@ impl<'a> InputSearch<'a> {
 
         // Dedup links
         let nodes = self.nodes.clone();
-        for (i, node) in nodes.into_iter().enumerate() {
+        for (i, node) in nodes.iter().enumerate() {
             let mut links: Vec<Link> = Vec::new();
             for link in node.inputs.clone() {
                 let mut exists = false;
                 for l in &mut links {
-                    if l.end == link.end && l.ty == link.ty {
+                    if l.end == link.end {
                         exists = true;
                         if link.weight < l.weight {
                             l.weight = link.weight;
@@ -476,13 +466,31 @@ impl<'a> InputSearch<'a> {
             }
             self.nodes[i].inputs = links;
         }
+        for (i, node) in nodes.iter().enumerate() {
+            let mut links: Vec<Link> = Vec::new();
+            for link in node.side_inputs.clone() {
+                let mut exists = false;
+                for l in &mut links {
+                    if l.end == link.end {
+                        exists = true;
+                        if link.weight < l.weight {
+                            l.weight = link.weight;
+                        }
+                    }
+                }
+
+                if !exists && link.weight < 15 {
+                    links.push(link);
+                }
+            }
+            self.nodes[i].side_inputs = links;
+        }
 
         // Remove other inputs to comparators with a comparator overriding container input.
         for (i, mut node) in self.nodes.clone().into_iter().enumerate() {
             if node.container_overriding {
                 node.inputs.retain(|link| {
-                    link.ty != LinkType::Default
-                        || self.nodes[link.end].state.has_comparator_override()
+                    self.nodes[link.end].state.has_comparator_override()
                 });
                 self.nodes[i] = node;
             }
@@ -490,7 +498,7 @@ impl<'a> InputSearch<'a> {
 
         // Create update links
         for (id, node) in self.nodes.clone().into_iter().enumerate() {
-            for input_node in node.inputs {
+            for input_node in node.inputs.into_iter().chain(node.side_inputs.into_iter()) {
                 self.nodes[input_node.end].updates.push(id);
             }
         }

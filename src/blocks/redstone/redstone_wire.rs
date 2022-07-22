@@ -22,7 +22,7 @@ impl Block {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RedstoneWireSide {
     Up,
     Side,
@@ -83,7 +83,7 @@ impl RedstoneWireSide {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty)]
 pub struct RedstoneWire {
     pub north: RedstoneWireSide,
     pub south: RedstoneWireSide,
