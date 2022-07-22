@@ -1,7 +1,7 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 use super::JITBackend;
-use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
+use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode, Observer};
 use crate::plot::PlotWorld;
 use crate::redpiler::{CompileNode, Link, LinkType};
 use crate::world::{TickEntry, TickPriority, World};
@@ -45,6 +45,7 @@ impl Node {
             Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
             Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
             Block::RedstoneBlock {} => 15,
+            Block::Observer { observer } => if observer.powered {13} else {0},
             Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
             s if s.has_comparator_override() => self.comparator_output,
             _ => 0,

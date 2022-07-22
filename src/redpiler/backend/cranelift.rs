@@ -311,6 +311,7 @@ impl<'a> FunctionTranslator<'a> {
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
+            Block::Observer { .. } => {},
             Block::RedstoneLamp { .. } => self.translate_redstone_lamp_update(backend),
             _ => {} // state => warn!("Trying to compile node with state {:?}", state),
         }
@@ -330,6 +331,7 @@ impl<'a> FunctionTranslator<'a> {
             Block::Lever { .. } => {}
             Block::StoneButton { .. } => {}
             Block::RedstoneBlock { .. } => {}
+            Block::Observer { .. } => {},
             Block::RedstoneLamp { .. } => self.translate_redstone_lamp_tick(backend),
             _ => {} // state => warn!("Trying to compile node with state {:?}", state),
         }
@@ -1009,6 +1011,7 @@ impl JITBackend for CraneliftBackend {
                 Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
                 Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
                 Block::RedstoneBlock {} => 15,
+                Block::Observer {} => 15,
                 Block::RedstoneLamp { lit } => lit.then(|| 15).unwrap_or(0),
                 _ => 0,
             };

@@ -33,6 +33,7 @@ pub struct Link {
 pub enum NodeType {
     Repeater(u8),
     Comparator(ComparatorMode),
+    Observer,
     Torch,
     StoneButton,
     StonePressurePlate,

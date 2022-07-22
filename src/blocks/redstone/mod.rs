@@ -3,11 +3,13 @@ mod redstone_wire;
 pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 
 use crate::blocks::{
-    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty, BlockTransform,
+    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty, BlockTransform, self,
 };
 use crate::world::{TickPriority, World};
 use std::cmp;
 use std::str::FromStr;
+
+use super::BlockFacing;
 
 impl Block {
     fn get_weak_power(
@@ -21,6 +23,10 @@ impl Block {
             Block::RedstoneTorch { lit: true } => 15,
             Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
             Block::RedstoneBlock {} => 15,
+            Block::Observer { observer } => {
+                println!("weak power observer: {:?}, {:?}", observer, side.facing());
+                if observer.facing == side.facing() && observer.powered {13} else {0}
+            },
             Block::StonePressurePlate { powered: true } => 15,
             Block::Lever { lever } if lever.powered => 15,
             Block::StoneButton { button } if button.powered => 15,
@@ -68,6 +74,7 @@ impl Block {
         match self {
             Block::RedstoneTorch { lit: true } if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch { lit: true, .. } if side == BlockFace::Bottom => 15,
+            Block::Observer { .. } => self.get_weak_power(world, pos, side, dust_power),
             Block::Lever { lever } => match side {
                 BlockFace::Top if lever.face == LeverFace::Floor && lever.powered => 15,
                 BlockFace::Bottom if lever.face == LeverFace::Ceiling && lever.powered => 15,
@@ -153,13 +160,84 @@ impl Block {
 fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDirection) -> u8 {
     let input_pos = pos.offset(facing.block_face());
     let input_block = world.get_block(input_pos);
+    
     let mut power = input_block.get_redstone_power(world, input_pos, facing.block_face());
+    if let Block::Observer { observer } = input_block {
+        println!("diode strength from {:?}, {:?}, solid: {}", input_block, power, input_block.is_solid());
+    }
     if power == 0 {
         if let Block::RedstoneWire { wire } = input_block {
             power = wire.power;
         }
     }
     power
+}
+
+#[derive(Copy, Clone, Debug, BlockProperty, BlockTransform)]
+pub struct Observer {
+    pub facing: BlockFacing,
+    pub powered: bool
+}
+
+impl Default for Observer {
+    fn default() -> Self {
+        Self { facing: Default::default(), powered: false}
+    }
+}
+
+impl PartialEq for Observer {
+    fn eq(&self, other: &Self) -> bool {
+        self.facing == other.facing && self.powered == other.powered
+    }
+}
+
+impl Observer {
+    pub(super) fn new(
+        facing: BlockFacing,
+        powered: bool,
+    ) -> Self {
+        Self {
+            facing,
+            powered,
+        }
+    }
+    // TODO: add something like source pos to update() arguments so we can filter the updates
+    pub fn update(mut self, world: &mut impl World, pos: BlockPos){
+        if world.pending_tick_at(pos) {
+            return;
+        }
+        let input_pos = self.facing.offset_pos(pos, 1);
+        let input_block_id = world.get_block_raw(input_pos);
+        println!("update {:?} {:?} <- {:?}: {:?}", pos, self, input_block_id, Block::from_id(input_block_id));
+        world.schedule_tick(pos, 1, TickPriority::Normal);
+    }
+    
+    pub fn tick(mut self, world: &mut impl World, pos: BlockPos) {
+        if self.powered {
+            let input_pos = self.facing.offset_pos(pos, 1);
+        } else {
+            world.schedule_tick(pos, 1, TickPriority::Normal);
+            
+        }
+        self.powered = !self.powered;
+        
+        
+        world.set_block(pos, Block::Observer { observer: self });
+        
+
+        for direction in &BlockFace::values() {
+            let neighbor_pos = pos.offset(*direction);
+            let block = world.get_block(neighbor_pos);
+            block.update(world, neighbor_pos);
+        }
+
+        println!("tick {:?}, {:?}", pos, self);
+        // for direction in &BlockFace::values() {
+        //     let neighbor_pos = pos.offset(*direction);
+        //     let block = world.get_block(neighbor_pos);
+        //     block.update(world, neighbor_pos);
+        // }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, BlockProperty, BlockTransform)]
@@ -264,6 +342,7 @@ impl RedstoneRepeater {
 
         if !self.locked && !world.pending_tick_at(pos) {
             let should_be_powered = self.should_be_powered(world, pos);
+            println!("Power is {:?} and should be {:?}", self.powered, should_be_powered);
             if should_be_powered != self.powered {
                 self.schedule_tick(world, pos, should_be_powered);
             }

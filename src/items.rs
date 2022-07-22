@@ -121,6 +121,10 @@ impl ItemStack {
             return false;
         }
 
+        if !can_place {
+            println!("can't place: {:?}", self.item_type);
+        }
+
         if can_place {
             let block =
                 Block::get_state_for_placement(&plot.world, block_pos, self.item_type, &context);
@@ -331,6 +335,12 @@ items! {
         props: {},
         get_id: 587,
         from_id(_id): 587 => {},
+        block: true,
+    },
+    Observer {
+        props: {},
+        get_id: 594,
+        from_id(_id): 594 => {},
         block: true,
     },
     Hopper {

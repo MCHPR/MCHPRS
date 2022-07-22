@@ -28,6 +28,7 @@ enum NodeType {
     StoneButton,
     Lamp,
     RedstoneBlock,
+    Observer,
     Container,
     Lever,
 }
@@ -65,6 +66,7 @@ impl From<CompileNode> for Node {
                 Block::StoneButton { .. } => NodeType::StoneButton,
                 Block::RedstoneLamp { .. } => NodeType::Lamp,
                 Block::RedstoneBlock { .. } => NodeType::RedstoneBlock,
+                Block::Observer { .. } => NodeType::Observer,
                 Block::Lever { .. } => NodeType::Lever,
                 block if block.has_comparator_override() => NodeType::Container,
                 _ => unreachable!(),
@@ -82,6 +84,7 @@ impl From<CompileNode> for Node {
                 Block::RedstoneLamp { lit } => lit,
                 Block::Lever { lever } => lever.powered,
                 Block::RedstoneBlock {} => true,
+                Block::Observer {} => true,
                 Block::RedstoneWire { .. } => false,
                 block if block.has_comparator_override() => false,
                 _ => unreachable!(),

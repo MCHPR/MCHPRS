@@ -78,6 +78,7 @@ impl CompileNode {
                 | Block::Lever { .. }
                 | Block::StoneButton { .. }
                 | Block::RedstoneBlock { .. }
+                | Block::Observer { .. }
                 | Block::RedstoneLamp { .. }
                 | Block::StonePressurePlate { .. }
                 | Block::IronTrapdoor { .. }
@@ -116,6 +117,7 @@ impl<'a> InputSearch<'a> {
             Block::RedstoneTorch { .. } => true,
             Block::RedstoneWallTorch { facing, .. } if facing.block_face() != side => true,
             Block::RedstoneBlock {} => true,
+            Block::Observer { observer } => observer.facing == side.facing(),
             Block::Lever { .. } => true,
             Block::StoneButton { .. } => true,
             Block::StonePressurePlate { .. } => true,

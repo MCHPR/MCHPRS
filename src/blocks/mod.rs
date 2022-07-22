@@ -517,6 +517,16 @@ impl BlockFace {
             _ => BlockFace::West,
         }
     }
+    pub fn facing(&self) -> BlockFacing {
+        match self {
+            BlockFace::Bottom => BlockFacing::Down,
+            BlockFace::Top    => BlockFacing::Up   ,
+            BlockFace::North  => BlockFacing::North,
+            BlockFace::South  => BlockFacing::South,
+            BlockFace::West   => BlockFacing::West ,
+            BlockFace::East   => BlockFacing::East ,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -573,6 +583,29 @@ impl BlockFacing {
             South => West,
             West => North,
             other => other,
+        }
+    }
+    
+    pub fn opposite(self) -> BlockFacing {
+        use BlockFacing::*;
+        match self {
+            North => South,
+            South => North,
+            East => West,
+            West => East,
+            Up => Down,
+            Down => Up,
+        }
+    }
+
+    pub fn block_face(self) -> BlockFace {
+        match self {
+            BlockFacing::North  => BlockFace::North,
+            BlockFacing::South  => BlockFace::South,
+            BlockFacing::East   => BlockFace::East,
+            BlockFacing::West   => BlockFace::West,
+            BlockFacing::Up     => BlockFace::Top,
+            BlockFacing::Down   => BlockFace::Bottom,
         }
     }
 
@@ -959,6 +992,10 @@ impl Block {
                 lit: Block::redstone_lamp_should_be_lit(world, pos),
             },
             Item::RedstoneBlock {} => Block::RedstoneBlock {},
+            Item::Observer {} => {
+                let facing: BlockFacing = context.player_direction.block_facing(); 
+                Block::Observer { observer: Observer::new(facing, false) }
+            },
             Item::Hopper {} => Block::Hopper {},
             Item::Terracotta {} => Block::Terracotta {},
             Item::ColoredTerracotta { color } => Block::ColoredTerracotta { color },
@@ -1090,6 +1127,9 @@ impl Block {
                     world.schedule_tick(pos, 1, TickPriority::Normal);
                 }
             }
+            Block::Observer { observer } => {
+                observer.update(world, pos);
+            }
             Block::RedstoneWallTorch { lit, facing } => {
                 if lit == Block::wall_torch_should_be_off(world, pos, facing)
                     && !world.pending_tick_at(pos)
@@ -1148,6 +1188,10 @@ impl Block {
                     Block::update_surrounding_blocks(world, pos);
                 }
             }
+            Block::Observer { observer } => {
+                observer.tick(world, pos);
+            }
+
             Block::RedstoneWallTorch { lit, facing } => {
                 let should_be_off = Block::wall_torch_should_be_off(world, pos, facing);
                 if lit && should_be_off {
@@ -1826,7 +1870,7 @@ blocks! {
             }
         },
         get_name: "redstone_lamp",
-        solid: true,
+        transparent: true,
         cube: true,
     },
     TripwireHook {
@@ -1888,20 +1932,23 @@ blocks! {
     },
     Observer {
         props: {
-            facing: BlockFacing
+            observer: Observer
         },
-        get_id: (facing.get_id() << 1) + 9510,
+        get_id: (if observer.powered {0} else {1}) + (observer.facing.get_id() << 1) + 9510,
         from_id_offset: 9510,
         from_id(id): 9510..=9521 => {
-            facing: BlockFacing::from_id(id >> 1)
+            observer: Observer::new(
+                BlockFacing::from_id(id >> 1),
+                id & 1 == 0
+            )
         },
         from_names(_name): {
             "observer" => {
-                facing: Default::default()
+                observer: Default::default()
             }
         },
         get_name: "observer",
-        solid: true,
+        transparent: true,
         cube: true,
     },
     SeaPickle {
