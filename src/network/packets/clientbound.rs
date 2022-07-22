@@ -359,7 +359,7 @@ impl ClientBoundPacket for CSetSlot {
         } else {
             buf.write_bool(false);
         }
-        PacketEncoder::new(buf, 0x15)
+        PacketEncoder::new(buf, 0x16)
     }
 }
 
