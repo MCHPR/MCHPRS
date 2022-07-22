@@ -42,7 +42,7 @@ pub enum NodeType {
     Wire,
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Node {
     pub ty: NodeType,
     pub inputs: Vec<Link>,

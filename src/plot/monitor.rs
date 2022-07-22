@@ -95,6 +95,8 @@ impl TimingsMonitor {
         let mut ticks_1m = 0;
         let mut ticks_5m = 0;
         let mut ticks_15m = 0;
+        // TODO: https://github.com/rust-lang/rust-clippy/issues/8987
+        #[allow(clippy::significant_drop_in_scrutinee)]
         for (i, ticks) in records.iter().enumerate() {
             if i < 20 {
                 ticks_10s += *ticks;

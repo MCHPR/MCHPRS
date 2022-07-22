@@ -1071,6 +1071,30 @@ impl ClientBoundPacket for CTimeUpdate {
     }
 }
 
+pub struct CSoundEffect {
+    pub sound_id: i32,
+    pub sound_category: i32,
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub volume: f32,
+    pub pitch: f32,
+}
+
+impl ClientBoundPacket for CSoundEffect {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.sound_id);
+        buf.write_varint(self.sound_category);
+        buf.write_int(self.x);
+        buf.write_int(self.y);
+        buf.write_int(self.z);
+        buf.write_float(self.volume);
+        buf.write_float(self.pitch);
+        PacketEncoder::new(buf, 0x5C)
+    }
+}
+
 pub struct CEntityTeleport {
     pub entity_id: i32,
     pub x: f64,

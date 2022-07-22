@@ -162,7 +162,7 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     power
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, BlockProperty, BlockTransform)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, BlockProperty, BlockTransform)]
 pub struct RedstoneRepeater {
     pub delay: u8,
     pub facing: BlockDirection,
@@ -288,7 +288,7 @@ impl RedstoneRepeater {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ComparatorMode {
     Compare,
     Subtract,
@@ -345,7 +345,7 @@ impl Default for ComparatorMode {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty, BlockTransform)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty, BlockTransform)]
 pub struct RedstoneComparator {
     pub facing: BlockDirection,
     pub mode: ComparatorMode,
@@ -502,7 +502,7 @@ impl RedstoneComparator {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum LeverFace {
     Floor,
     Wall,
@@ -557,7 +557,7 @@ impl Default for LeverFace {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty, BlockTransform)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty, BlockTransform)]
 pub struct Lever {
     pub face: LeverFace,
     pub facing: BlockDirection,
@@ -574,7 +574,7 @@ impl Lever {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ButtonFace {
     Floor,
     Wall,
@@ -629,7 +629,7 @@ impl Default for ButtonFace {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Default, BlockProperty, BlockTransform)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty, BlockTransform)]
 pub struct StoneButton {
     pub face: ButtonFace,
     pub facing: BlockDirection,
