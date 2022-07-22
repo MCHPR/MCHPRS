@@ -31,7 +31,7 @@ impl PlayerPacketSender {
 }
 
 /// The minecraft protocol has these 4 different states.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum NetworkState {
     Handshake,
     Status,
