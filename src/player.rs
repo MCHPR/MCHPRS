@@ -311,8 +311,11 @@ impl Player {
             self.send_keep_alive();
         }
 
+        // Prevent from locking player position at Infinity or NaN
         if !self.pos.x.is_finite() || !self.pos.y.is_finite() || !self.pos.z.is_finite() {
-            self.pos.x = 128.0; self.pos.y = 128.0; self.pos.z = 128.0;
+            self.pos.x = 128.0;
+            self.pos.y = 128.0;
+            self.pos.z = 128.0;
         }
 
         let (chunk_x, chunk_z) = self.pos.chunk_pos();

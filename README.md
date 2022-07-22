@@ -86,7 +86,7 @@ These are the commands that are currently implemented:
 | `/plot auto` | `/p a` | Automatically finds an unclaimed plot and claims. |
 | `/plot middle` | None | Teleports you to the center of the plot you are in. |
 | `/plot visit [player]` | `/p v` | Teleports you to a player's plot. |
-| `/plot tp [x] [z]` | `/p tp` | Teleports you to the plot at `[x] [y]`. Supports relative coordinates. |
+| `/plot tp [x] [z]` | None | Teleports you to the plot at `[x] [y]`. Supports relative coordinates. |
 | `/plot lock` | None | Locks the player into the plot so moving outside of the plot bounds does not transfer you to other plots. |
 | `/plot unlock` | None | Reverses the locking done by `/plot lock`. |
 

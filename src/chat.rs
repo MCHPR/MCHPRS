@@ -116,6 +116,11 @@ impl ChatComponentBuilder {
         Self { component }
     }
 
+    /* pub fn color(mut self, color: ChatColor) -> Self {
+        self.component.color = Some(color);
+        self
+    } */
+
     pub fn color_code(mut self, color: ColorCode) -> Self {
         self.component.color = Some(ChatColor::ColorCode(color));
         self

@@ -326,9 +326,11 @@ impl Plot {
             "/toggleautorp" => {
                 self.auto_redpiler = !self.auto_redpiler;
                 if self.auto_redpiler {
-                    self.players[player].send_system_message("Automatic redpiler compilation has been enabled.");
+                    self.players[player]
+                        .send_system_message("Automatic redpiler compilation has been enabled.");
                 } else {
-                    self.players[player].send_system_message("Automatic redpiler compilation has been disabled.");
+                    self.players[player]
+                        .send_system_message("Automatic redpiler compilation has been disabled.");
                 }
             }
             "/teleport" | "/tp" => {
@@ -403,13 +405,14 @@ impl Plot {
                         return false;
                     }
                     if speed_arg > 10.0 {
-                        self.players[player]
-                            .send_error_message("For performance reasons player speed cannot be higher than 10.");
+                        self.players[player].send_error_message(
+                            "For performance reasons player speed cannot be higher than 10.",
+                        );
                         return false;
                     }
                     if speed_arg.is_nan() {
                         self.players[player]
-                            .send_error_message("pls stop");
+                            .send_error_message("You can't set your speed to NaN or -NaN.");
                         return false;
                     }
                     self.players[player].fly_speed = speed_arg;
