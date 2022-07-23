@@ -24,6 +24,7 @@ pub struct UseOnBlockContext {
     pub player_crouching: bool,
     pub player_direction: BlockDirection,
     pub player_yaw: f32,
+    pub player_pitch: f32,
     /// The index of the player in the plot's player array
     pub player_idx: usize,
 }
@@ -119,10 +120,6 @@ impl ItemStack {
                 .is_success()
         {
             return false;
-        }
-
-        if !can_place {
-            println!("can't place: {:?}", self.item_type);
         }
 
         if can_place {

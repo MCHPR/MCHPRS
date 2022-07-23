@@ -630,6 +630,7 @@ impl RedstoneWireTurbo {
     }
 
     fn propagate_changes(&mut self, world: &mut impl World, upd1: NodeId, layer: u32) {
+        let pos = self.nodes[upd1.index].pos;
         if self.nodes[upd1.index].neighbors.is_none() {
             self.identify_neighbors(world, upd1);
         }
@@ -640,7 +641,7 @@ impl RedstoneWireTurbo {
 
         for neighbor_id in &neighbors[0..24] {
             let neighbor = &mut self.nodes[neighbor_id.index];
-            if layer1 > neighbor.layer {
+            if layer1 > neighbor.layer && neighbor.state.accepts_update_from(neighbor.pos, pos) {
                 neighbor.layer = layer1;
                 self.update_queue[1].push(*neighbor_id);
             }
@@ -650,7 +651,7 @@ impl RedstoneWireTurbo {
 
         for neighbor_id in &neighbors[0..4] {
             let neighbor = &mut self.nodes[neighbor_id.index];
-            if layer2 > neighbor.layer {
+            if layer2 > neighbor.layer && neighbor.state.accepts_update_from(neighbor.pos, pos) {
                 neighbor.layer = layer2;
                 self.update_queue[2].push(*neighbor_id);
             }
@@ -670,7 +671,7 @@ impl RedstoneWireTurbo {
                     // This only works because updating any other block than a wire will
                     // never change the state of the block. If that changes in the future,
                     // the cached state will need to be updated
-                    block => Block::update(block, world, self.nodes[node_id.index].pos),
+                    block => Block::update(block, world, self.nodes[node_id.index].pos, None),
                 }
             }
 

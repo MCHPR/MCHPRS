@@ -1,7 +1,7 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 use super::JITBackend;
-use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode, Observer};
+use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::plot::PlotWorld;
 use crate::redpiler::{CompileNode, Link, LinkType};
 use crate::world::{TickEntry, TickPriority, World};

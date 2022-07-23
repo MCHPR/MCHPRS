@@ -590,7 +590,7 @@ impl Compiler {
                         let pos = BlockPos::new(x, y, z);
                         let block = plot.get_block(pos);
                         if matches!(block, Block::RedstoneWire { .. }) {
-                            block.update(plot, pos);
+                            block.update(plot, pos, None);
                         }
                     }
                 }

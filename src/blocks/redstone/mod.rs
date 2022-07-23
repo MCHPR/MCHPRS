@@ -3,7 +3,7 @@ mod redstone_wire;
 pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 
 use crate::blocks::{
-    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty, BlockTransform, self,
+    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty, BlockTransform,
 };
 use crate::world::{TickPriority, World};
 use std::cmp;
@@ -23,10 +23,7 @@ impl Block {
             Block::RedstoneTorch { lit: true } => 15,
             Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
             Block::RedstoneBlock {} => 15,
-            Block::Observer { observer } => {
-                println!("weak power observer: {:?}, {:?}", observer, side.facing());
-                if observer.facing == side.facing() && observer.powered {13} else {0}
-            },
+            Block::Observer { observer } if observer.facing == side.facing() && observer.powered => 15,
             Block::StonePressurePlate { powered: true } => 15,
             Block::Lever { lever } if lever.powered => 15,
             Block::StoneButton { button } if button.powered => 15,
@@ -162,9 +159,6 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     let input_block = world.get_block(input_pos);
     
     let mut power = input_block.get_redstone_power(world, input_pos, facing.block_face());
-    if let Block::Observer { observer } = input_block {
-        println!("diode strength from {:?}, {:?}, solid: {}", input_block, power, input_block.is_solid());
-    }
     if power == 0 {
         if let Block::RedstoneWire { wire } = input_block {
             power = wire.power;
@@ -201,23 +195,28 @@ impl Observer {
             powered,
         }
     }
-    // TODO: add something like source pos to update() arguments so we can filter the updates
-    pub fn update(mut self, world: &mut impl World, pos: BlockPos){
+
+    pub fn accepts_update_from(self, pos: BlockPos, source: BlockPos) -> bool {
+        return self.facing.offset_pos(pos, 1) == source; 
+    }
+
+    pub fn update(self, world: &mut impl World, pos: BlockPos, source: Option<BlockPos>){
         if world.pending_tick_at(pos) {
             return;
         }
+        if self.powered {
+            world.schedule_tick(pos, 1, TickPriority::Normal);
+            return;
+        }
         let input_pos = self.facing.offset_pos(pos, 1);
-        let input_block_id = world.get_block_raw(input_pos);
-        println!("update {:?} {:?} <- {:?}: {:?}", pos, self, input_block_id, Block::from_id(input_block_id));
-        world.schedule_tick(pos, 1, TickPriority::Normal);
+        if source.map_or(true, |src| src == input_pos) {
+            world.schedule_tick(pos, 1, TickPriority::Normal);
+        }
     }
     
     pub fn tick(mut self, world: &mut impl World, pos: BlockPos) {
-        if self.powered {
-            let input_pos = self.facing.offset_pos(pos, 1);
-        } else {
+        if !self.powered {
             world.schedule_tick(pos, 1, TickPriority::Normal);
-            
         }
         self.powered = !self.powered;
         
@@ -228,15 +227,17 @@ impl Observer {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
         }
 
-        println!("tick {:?}, {:?}", pos, self);
-        // for direction in &BlockFace::values() {
-        //     let neighbor_pos = pos.offset(*direction);
-        //     let block = world.get_block(neighbor_pos);
-        //     block.update(world, neighbor_pos);
-        // }
+        let front_pos = self.facing.offset_pos(pos, -1);
+        if world.get_block(front_pos).is_solid() {
+            for direction in &BlockFace::values() {
+                let neighbor_pos = front_pos.offset(*direction);
+                let block = world.get_block(neighbor_pos);
+                block.update(world, neighbor_pos, Some(pos));
+            }
+        }
     }
 }
 
@@ -304,13 +305,20 @@ impl RedstoneRepeater {
     }
 
     fn on_state_change(self, world: &mut impl World, pos: BlockPos) {
+        for direction in &BlockFace::values() {
+            let neighbor_pos = pos.offset(*direction);
+            let block = world.get_block(neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
+        }
+
+
         let front_pos = pos.offset(self.facing.opposite().block_face());
-        let front_block = world.get_block(front_pos);
-        front_block.update(world, front_pos);
+        // let front_block = world.get_block(front_pos);
+        // front_block.update(world, front_pos, Some(pos));
         for direction in &BlockFace::values() {
             let neighbor_pos = front_pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
         }
     }
 
@@ -342,7 +350,7 @@ impl RedstoneRepeater {
 
         if !self.locked && !world.pending_tick_at(pos) {
             let should_be_powered = self.should_be_powered(world, pos);
-            println!("Power is {:?} and should be {:?}", self.powered, should_be_powered);
+            // println!("Power is {:?} and should be {:?}", self.powered, should_be_powered);
             if should_be_powered != self.powered {
                 self.schedule_tick(world, pos, should_be_powered);
             }
@@ -519,11 +527,11 @@ impl RedstoneComparator {
     fn on_state_change(self, world: &mut impl World, pos: BlockPos) {
         let front_pos = pos.offset(self.facing.opposite().block_face());
         let front_block = world.get_block(front_pos);
-        front_block.update(world, front_pos);
+        front_block.update(world, front_pos, Some(pos));
         for direction in &BlockFace::values() {
             let neighbor_pos = front_pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
         }
     }
 

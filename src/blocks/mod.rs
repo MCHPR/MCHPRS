@@ -993,7 +993,13 @@ impl Block {
             },
             Item::RedstoneBlock {} => Block::RedstoneBlock {},
             Item::Observer {} => {
-                let facing: BlockFacing = context.player_direction.block_facing(); 
+                let facing: BlockFacing = if context.player_pitch > 45. {
+                    BlockFacing::Down
+                } else if context.player_pitch < -45. {
+                    BlockFacing::Up
+                } else {
+                    context.player_direction.block_facing()
+                };
                 Block::Observer { observer: Observer::new(facing, false) }
             },
             Item::Hopper {} => Block::Hopper {},
@@ -1117,7 +1123,14 @@ impl Block {
         }
     }
 
-    pub fn update(self, world: &mut impl World, pos: BlockPos) {
+    pub fn accepts_update_from(self, pos: BlockPos, source: BlockPos) -> bool {
+        match self {
+            Block::Observer { observer } => observer.accepts_update_from(pos, source),
+            _ => true
+        }
+    }
+
+    pub fn update(self, world: &mut impl World, pos: BlockPos, source: Option<BlockPos>) {
         match self {
             Block::RedstoneWire { wire } => {
                 wire.on_neighbor_updated(world, pos);
@@ -1128,7 +1141,7 @@ impl Block {
                 }
             }
             Block::Observer { observer } => {
-                observer.update(world, pos);
+                observer.update(world, pos, source);
             }
             Block::RedstoneWallTorch { lit, facing } => {
                 if lit == Block::wall_torch_should_be_off(world, pos, facing)
@@ -1149,6 +1162,11 @@ impl Block {
                     world.schedule_tick(pos, 2, TickPriority::Normal);
                 } else if !lit && should_be_lit {
                     world.set_block(pos, Block::RedstoneLamp { lit: true });
+                    for direction in &BlockFace::values() {
+                        let neighbor_pos = pos.offset(*direction);
+                        let block = world.get_block(neighbor_pos);
+                        block.update(world, neighbor_pos, Some(pos));
+                    }
                 }
             }
             Block::IronTrapdoor {
@@ -1206,6 +1224,11 @@ impl Block {
                 let should_be_lit = Block::redstone_lamp_should_be_lit(world, pos);
                 if lit && !should_be_lit {
                     world.set_block(pos, Block::RedstoneLamp { lit: false });
+                    for direction in &BlockFace::values() {
+                        let neighbor_pos = pos.offset(*direction);
+                        let block = world.get_block(neighbor_pos);
+                        block.update(world, neighbor_pos, Some(pos));
+                    }
                 }
             }
             Block::StoneButton { mut button } => {
@@ -1304,11 +1327,11 @@ impl Block {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
             for n_direction in &BlockFace::values() {
                 let n_neighbor_pos = neighbor_pos.offset(*n_direction);
                 let block = world.get_block(n_neighbor_pos);
-                block.update(world, n_neighbor_pos);
+                block.update(world, n_neighbor_pos, Some(pos));
             }
         }
     }
@@ -1317,17 +1340,17 @@ impl Block {
         for direction in &BlockFace::values() {
             let neighbor_pos = pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
 
             // Also update diagonal blocks
 
             let up_pos = neighbor_pos.offset(BlockFace::Top);
             let up_block = world.get_block(up_pos);
-            up_block.update(world, up_pos);
+            up_block.update(world, up_pos, Some(pos));
 
             let down_pos = neighbor_pos.offset(BlockFace::Bottom);
             let down_block = world.get_block(down_pos);
-            down_block.update(world, down_pos);
+            down_block.update(world, down_pos, Some(pos));
         }
     }
 
@@ -1870,7 +1893,7 @@ blocks! {
             }
         },
         get_name: "redstone_lamp",
-        transparent: true,
+        solid: true,
         cube: true,
     },
     TripwireHook {
