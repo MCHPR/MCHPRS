@@ -411,8 +411,8 @@ items! {
     },
     Barrel {
         props: {},
-        get_id: 1042,
-        from_id(_id): 1042 => {},
+        get_id: 1043,
+        from_id(_id): 1043 => {},
         block: true,
     },
     Target {
