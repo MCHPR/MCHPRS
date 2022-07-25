@@ -128,12 +128,13 @@ impl<'a> InputSearch<'a> {
             _ => false,
         }
     }
-
+    
     fn provides_strong_power(&self, block: Block, side: BlockFace) -> bool {
         match block {
             Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
             Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
             Block::StonePressurePlate { .. } if side == BlockFace::Top => true,
+            Block::Observer { .. } => self.provides_weak_power(block, side),
             Block::Lever { lever } => match side {
                 BlockFace::Top if lever.face == LeverFace::Floor => true,
                 BlockFace::Bottom if lever.face == LeverFace::Ceiling => true,
@@ -417,6 +418,21 @@ impl<'a> InputSearch<'a> {
                 if let Some(l) = self.search_repeater_side(id, node.pos, facing.rotate_ccw()) {
                     inputs.push(l);
                 }
+                self.nodes[id].inputs = inputs;
+            }
+            Block::Observer { observer } => {
+                let mut inputs: Vec<Link> = Vec::new();
+                let input_pos = node.pos.offset(observer.facing.block_face());
+                if let Some(&input_node) = self.pos_map.get(&input_pos) {
+                    let input_block = self.nodes[input_node].state;
+                    match input_block {
+                        Block::RedstoneWire { .. } => {inputs.append(
+                            &mut self.search_wire(input_node, input_pos, LinkType::Default, 0)
+                        );}
+                        _ => {inputs.push(Link::new(LinkType::Default, id, 0, input_node));}
+                    }
+                }
+
                 self.nodes[id].inputs = inputs;
             }
             Block::RedstoneWire { .. } => {

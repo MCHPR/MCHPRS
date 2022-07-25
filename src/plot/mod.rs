@@ -790,8 +790,8 @@ impl Plot {
                     self.last_update_time = Instant::now();
                     let mut ticks = 0;
                     while self.lag_time >= dur_per_tick {
-                        if self.timings.is_running_behind() && !self.redpiler.is_active() && self.auto_redpiler {
-                            // self.start_redpiler(Default::default());
+                        if !self.redpiler.is_active() && self.auto_redpiler {
+                            self.start_redpiler(Default::default());
                         }
                         self.tick();
                         self.lag_time -= dur_per_tick;
@@ -803,7 +803,7 @@ impl Plot {
                 }
                 Tps::Unlimited => {
                     if !self.redpiler.is_active() && self.auto_redpiler {
-                        // self.start_redpiler(Default::default());
+                        self.start_redpiler(Default::default());
                     }
                     self.last_update_time = Instant::now();
                     let batch_size =
