@@ -9,6 +9,8 @@ use crate::world::{TickPriority, World};
 use std::cmp;
 use std::str::FromStr;
 
+use super::BlockFacing;
+
 impl Block {
     fn get_weak_power(
         self,
@@ -21,6 +23,7 @@ impl Block {
             Block::RedstoneTorch { lit: true } => 15,
             Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
             Block::RedstoneBlock {} => 15,
+            Block::Observer { observer } if observer.facing == side.facing() && observer.powered => 15,
             Block::StonePressurePlate { powered: true } => 15,
             Block::Lever { lever } if lever.powered => 15,
             Block::StoneButton { button } if button.powered => 15,
@@ -68,6 +71,7 @@ impl Block {
         match self {
             Block::RedstoneTorch { lit: true } if side == BlockFace::Bottom => 15,
             Block::RedstoneWallTorch { lit: true, .. } if side == BlockFace::Bottom => 15,
+            Block::Observer { .. } => self.get_weak_power(world, pos, side, dust_power),
             Block::Lever { lever } => match side {
                 BlockFace::Top if lever.face == LeverFace::Floor && lever.powered => 15,
                 BlockFace::Bottom if lever.face == LeverFace::Ceiling && lever.powered => 15,
@@ -163,6 +167,74 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, BlockProperty, BlockTransform)]
+pub struct Observer {
+    pub facing: BlockFacing,
+    pub powered: bool
+}
+
+impl Default for Observer {
+    fn default() -> Self {
+        Self { facing: Default::default(), powered: false}
+    }
+}
+
+impl Observer {
+    pub(super) fn new(
+        facing: BlockFacing,
+        powered: bool,
+    ) -> Self {
+        Self {
+            facing,
+            powered,
+        }
+    }
+
+    pub fn accepts_update_from(self, pos: BlockPos, source: BlockPos) -> bool {
+        return self.facing.offset_pos(pos, 1) == source; 
+    }
+
+    pub fn update(self, world: &mut impl World, pos: BlockPos, source: Option<BlockPos>){
+        if world.pending_tick_at(pos) {
+            return;
+        }
+        if self.powered {
+            world.schedule_tick(pos, 1, TickPriority::Normal);
+            return;
+        }
+        let input_pos = self.facing.offset_pos(pos, 1);
+        if source.map_or(true, |src| src == input_pos) {
+            world.schedule_tick(pos, 1, TickPriority::Normal);
+        }
+    }
+    
+    pub fn tick(mut self, world: &mut impl World, pos: BlockPos) {
+        if !self.powered {
+            world.schedule_tick(pos, 1, TickPriority::Normal);
+        }
+        self.powered = !self.powered;
+        
+        
+        world.set_block(pos, Block::Observer { observer: self });
+        
+
+        for direction in &BlockFace::values() {
+            let neighbor_pos = pos.offset(*direction);
+            let block = world.get_block(neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
+        }
+
+        let front_pos = self.facing.offset_pos(pos, -1);
+        if world.get_block(front_pos).is_solid() {
+            for direction in &BlockFace::values() {
+                let neighbor_pos = front_pos.offset(*direction);
+                let block = world.get_block(neighbor_pos);
+                block.update(world, neighbor_pos, Some(pos));
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, BlockProperty, BlockTransform)]
 pub struct RedstoneRepeater {
     pub delay: u8,
     pub facing: BlockDirection,
@@ -226,13 +298,18 @@ impl RedstoneRepeater {
     }
 
     fn on_state_change(self, world: &mut impl World, pos: BlockPos) {
+        for direction in &BlockFace::values() {
+            let neighbor_pos = pos.offset(*direction);
+            let block = world.get_block(neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
+        }
+
+
         let front_pos = pos.offset(self.facing.opposite().block_face());
-        let front_block = world.get_block(front_pos);
-        front_block.update(world, front_pos);
         for direction in &BlockFace::values() {
             let neighbor_pos = front_pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
         }
     }
 
@@ -440,11 +517,11 @@ impl RedstoneComparator {
     fn on_state_change(self, world: &mut impl World, pos: BlockPos) {
         let front_pos = pos.offset(self.facing.opposite().block_face());
         let front_block = world.get_block(front_pos);
-        front_block.update(world, front_pos);
+        front_block.update(world, front_pos, Some(pos));
         for direction in &BlockFace::values() {
             let neighbor_pos = front_pos.offset(*direction);
             let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
+            block.update(world, neighbor_pos, Some(pos));
         }
     }
 

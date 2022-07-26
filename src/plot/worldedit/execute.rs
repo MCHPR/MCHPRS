@@ -922,7 +922,7 @@ pub(super) fn execute_update(ctx: CommandExecuteContext<'_>) {
             for z in operation.z_range() {
                 let block_pos = BlockPos::new(x, y, z);
                 let block = ctx.plot.get_block(block_pos);
-                block.update(ctx.plot, block_pos);
+                block.update(ctx.plot, block_pos, None);
             }
         }
     }

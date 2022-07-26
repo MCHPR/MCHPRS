@@ -45,6 +45,7 @@ impl Node {
             Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
             Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
             Block::RedstoneBlock {} => 15,
+            Block::Observer { observer } => if observer.powered {15} else {0},
             Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
             s if s.has_comparator_override() => self.comparator_output,
             _ => 0,
@@ -105,6 +106,17 @@ impl DirectBackend {
                 update_node(&mut self.to_be_ticked, &mut self.nodes, update);
             }
             update_node(&mut self.to_be_ticked, &mut self.nodes, node_id);
+        }
+    }
+
+    fn set_node_and_update_neighbors(&mut self, node_id: usize, new_block: Block) {
+        let node = &mut self.nodes[node_id];
+        node.state = new_block;
+        node.changed = true;
+        node.update_output_power();
+        for i in 0..node.updates.len() {
+            let update = self.nodes[node_id].updates[i];
+            update_node(&mut self.to_be_ticked, &mut self.nodes, update);
         }
     }
 }
@@ -213,6 +225,14 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
                     }
                 }
+                Block::Observer { mut observer } => {
+                    if !observer.powered {
+                        self.schedule_tick(node_id, 1, TickPriority::Normal);
+                    }
+
+                    observer.powered = !observer.powered;
+                    self.set_node_and_update_neighbors(node_id, Block::Observer { observer });
+                }
                 Block::RedstoneTorch { lit } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
@@ -266,7 +286,7 @@ impl JITBackend for DirectBackend {
                 Block::RedstoneLamp { lit } => {
                     let should_be_lit = input_power > 0;
                     if lit && !should_be_lit {
-                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
+                        self.set_node_and_update_neighbors(node_id, Block::RedstoneLamp { lit: false });
                     }
                 }
                 Block::StoneButton { mut button } => {
@@ -312,6 +332,17 @@ impl JITBackend for DirectBackend {
 fn set_node(node: &mut Node, new_state: Block) {
     node.state = new_state;
     node.changed = true;
+}
+fn set_node_and_update_neighbors(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id: usize, new_state: Block) {
+    let node = &mut nodes[node_id];
+    node.state = new_state;
+    node.changed = true;
+    // Not strictly needed as this function is only called by blocks that have no redstone output
+    node.update_output_power(); 
+    for i in 0..node.updates.len() {
+        let update = nodes[node_id].updates[i];
+        update_node(to_be_ticked, nodes, update);
+    }
 }
 
 fn schedule_tick(
@@ -371,6 +402,11 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id:
                 }
             }
         }
+        Block::Observer { .. } => {
+            if  !node.pending_tick {
+                schedule_tick(to_be_ticked, node_id, node, 1, TickPriority::Normal)
+            }
+        }
         Block::RedstoneTorch { lit } | Block::RedstoneWallTorch { lit, .. } => {
             if lit == (input_power > 0) && !node.pending_tick {
                 schedule_tick(to_be_ticked, node_id, node, 1, TickPriority::Normal);
@@ -405,7 +441,7 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id:
             if lit && !should_be_lit {
                 schedule_tick(to_be_ticked, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
-                set_node(node, Block::RedstoneLamp { lit: true });
+                set_node_and_update_neighbors(to_be_ticked, nodes, node_id, Block::RedstoneLamp { lit: true });
             }
         }
         Block::IronTrapdoor {
