@@ -26,8 +26,6 @@ use scoreboard::RedpilerState;
 use serde_json::json;
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
@@ -945,7 +943,7 @@ impl Plot {
     ) -> Plot {
         let plot_path = format!("./world/plots/p{},{}", x, z);
         if Path::new(&plot_path).exists() {
-            let data = PlotData::read_from_file(plot_path);
+            let data = PlotData::read_from_file(plot_path).unwrap();
             Plot::from_data(data, x, z, rx, tx, priv_rx, always_running)
         } else {
             Plot::from_data(Default::default(), x, z, rx, tx, priv_rx, always_running)
@@ -954,21 +952,15 @@ impl Plot {
 
     fn save(&mut self) {
         let world = &mut self.world;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(format!("./world/plots/p{},{}", world.x, world.z))
-            .unwrap();
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
-        let encoded: Vec<u8> = bincode::serialize(&PlotData {
+        let data = PlotData {
             tps: self.tps.to_data(),
             show_redstone: true,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
-        })
-        .unwrap();
-        file.write_all(&encoded).unwrap();
-        file.sync_data().unwrap();
+        };
+        data.save_to_file(format!("./world/plots/p{},{}", world.x, world.z))
+            .unwrap();
     }
 
     fn run(&mut self, initial_player: Option<Player>) {

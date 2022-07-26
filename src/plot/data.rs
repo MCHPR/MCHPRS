@@ -1,11 +1,16 @@
 use super::{Plot, PlotWorld, PLOT_WIDTH};
 use crate::world::storage::ChunkData;
 use crate::world::TickEntry;
+use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fs::{File, OpenOptions};
+use std::io::{Read, Write};
 use std::path::Path;
 use std::sync::LazyLock;
 use std::time::Duration;
-use std::{fmt, fs};
+
+static PLOT_MAGIC: &[u8; 8] = b"\x86MCHPRS\x00";
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tps {
@@ -54,7 +59,7 @@ impl fmt::Display for Tps {
 static EMPTY_PLOT: LazyLock<PlotData> = LazyLock::new(|| {
     let template_path = Path::new("./world/plots/pTEMPLATE");
     if template_path.exists() {
-        PlotData::read_from_file(template_path)
+        PlotData::read_from_file(template_path).expect("failed to read template plot")
     } else {
         let mut chunks = Vec::new();
         for chunk_x in 0..PLOT_WIDTH {
@@ -88,9 +93,25 @@ pub struct PlotData {
 }
 
 impl PlotData {
-    pub fn read_from_file(path: impl AsRef<Path>) -> PlotData {
-        let data = fs::read(path).unwrap();
-        bincode::deserialize(&data).unwrap()
+    pub fn read_from_file(path: impl AsRef<Path>) -> Result<PlotData> {
+        let mut file = File::open(path)?;
+
+        let mut magic = [0; 8];
+        file.read_exact(&mut magic)?;
+        if &magic != PLOT_MAGIC {
+            // TODO: convert plot data
+            bail!("plot data header incorrect");
+        }
+
+        Ok(bincode::deserialize_from(file)?)
+    }
+
+    pub fn save_to_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        let mut file = OpenOptions::new().write(true).create(true).open(path)?;
+        file.write_all(PLOT_MAGIC)?;
+        bincode::serialize_into(&file, self)?;
+        file.sync_data()?;
+        Ok(())
     }
 }
 
