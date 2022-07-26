@@ -217,12 +217,20 @@ impl PalettedBitBuffer {
     }
 
     fn encode_packet(&self) -> PalettedContainer {
-        PalettedContainer {
-            bits_per_entry: self.data.bits_per_entry as u8,
-            data_array: self.data.longs.clone(),
-            palette: self
-                .use_palette
-                .then(|| self.palette.clone().into_iter().map(|x| x as i32).collect()),
+        if self.use_palette && self.palette.len() == 1 {
+            PalettedContainer {
+                bits_per_entry: 0,
+                data_array: vec![0],
+                palette: Some(vec![self.palette[0] as i32]),
+            }
+        } else {
+            PalettedContainer {
+                bits_per_entry: self.data.bits_per_entry as u8,
+                data_array: self.data.longs.clone(),
+                palette: self
+                    .use_palette
+                    .then(|| self.palette.clone().into_iter().map(|x| x as i32).collect()),
+            }
         }
     }
 }
@@ -430,6 +438,31 @@ impl Chunk {
             chunk_z: self.z,
             heightmaps,
             block_entities,
+        }
+        .encode()
+    }
+
+    pub fn encode_emtpy_packet(x: i32, z: i32) -> PacketEncoder {
+        CChunkData {
+            chunk_sections: (0..16)
+                .map(|_| CChunkDataSection {
+                    block_count: 0,
+                    block_states: PalettedContainer {
+                        bits_per_entry: 0,
+                        data_array: vec![0],
+                        palette: Some(vec![0]),
+                    },
+                    biomes: PalettedContainer {
+                        bits_per_entry: 0,
+                        data_array: vec![0],
+                        palette: Some(vec![0]),
+                    },
+                })
+                .collect(),
+            chunk_x: x,
+            chunk_z: z,
+            heightmaps: nbt::Blob::new(),
+            block_entities: vec![],
         }
         .encode()
     }

@@ -470,7 +470,7 @@ impl Plot {
             if !Plot::chunk_in_plot_bounds(self.world.x, self.world.z, chunk_x, chunk_z) {
                 self.players[player_idx]
                     .client
-                    .send_packet(&Chunk::empty(chunk_x, chunk_z).encode_packet());
+                    .send_packet(&Chunk::encode_emtpy_packet(chunk_x, chunk_z));
             } else {
                 let chunk_data = self.world.chunks
                     [self.world.get_chunk_index_for_chunk(chunk_x, chunk_z)]

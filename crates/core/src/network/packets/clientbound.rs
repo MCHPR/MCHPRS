@@ -536,7 +536,7 @@ impl ClientBoundPacket for CChunkData {
         // These will all be zeros
 
         // Trust Edges
-        buf.write_bool(false); // TODO: what should this really be?
+        buf.write_bool(true);
 
         // Sky Light Mask
         buf.write_varint(0);
