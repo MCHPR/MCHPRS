@@ -311,6 +311,10 @@ impl Plot {
         let old_block = old.block_pos();
         let new_block = new.block_pos();
 
+        if new_block.y < 0 || old_block.y < 0 {
+            return;
+        }
+
         if let Block::StonePressurePlate { powered: true } = self.world.get_block(old_block) {
             if !self.are_players_on_block(old_block) {
                 self.set_pressure_plate(old_block, false);
