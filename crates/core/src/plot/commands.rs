@@ -467,7 +467,7 @@ impl Plot {
                     }
                 };
 
-                if power > 15 || power < 1 {
+                if !(1..=15).contains(&power) {
                     self.players[player].send_error_message(
                         "Container power must be greater than 0 and lower than 15!",
                     );
