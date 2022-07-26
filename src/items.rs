@@ -21,6 +21,7 @@ impl ActionResult {
 pub struct UseOnBlockContext {
     pub block_pos: BlockPos,
     pub block_face: BlockFace,
+    pub cursor_y: f32,
     pub player_crouching: bool,
     pub player_direction: BlockDirection,
     pub player_yaw: f32,
@@ -438,6 +439,12 @@ items! {
         props: {},
         get_id: 221,
         from_id(_id): 221 => {},
+        block: true,
+    },
+    IronTrapdoor {
+        props: {},
+        get_id: 640,
+        from_id(_id): 640 => {},
         block: true,
     },
     Unknown {

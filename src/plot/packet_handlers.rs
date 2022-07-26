@@ -227,6 +227,7 @@ impl ServerBoundPacketHandler for Plot {
                 UseOnBlockContext {
                     block_face,
                     block_pos,
+                    cursor_y: player_block_placement.cursor_y,
                     player_crouching: self.players[player].crouching,
                     player_direction: self.players[player].get_direction(),
                     player_yaw: self.players[player].yaw,

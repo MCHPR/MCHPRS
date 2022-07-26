@@ -495,6 +495,12 @@ impl Default for BlockDirection {
     }
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct BlockFaceLocation {
+    pub x: f32,
+    pub y: f32,
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockFace {
     Bottom,
@@ -1028,7 +1034,14 @@ impl Block {
             Item::StainedGlass { color } => Block::StainedGlass { color },
             Item::SmoothStoneSlab {} => Block::SmoothStoneSlab {},
             Item::QuartzSlab {} => Block::QuartzSlab {},
-            _ => Block::Air {},
+            Item::IronTrapdoor {} => {
+                match context.block_face {
+                    BlockFace::Bottom => Block::IronTrapdoor { facing: context.player_direction.block_facing(), half: TrapdoorHalf::Top, powered: false },
+                    BlockFace::Top => Block::IronTrapdoor { facing: context.player_direction.block_facing(), half: TrapdoorHalf::Bottom, powered: false },
+                    _ => Block::IronTrapdoor { facing: context.block_face.facing(), half: if context.cursor_y > 0.5 {TrapdoorHalf::Top} else {TrapdoorHalf::Bottom} , powered: false }
+                }
+            },
+            _ => Block::Air {}
         };
         if block.is_valid_position(world, pos) {
             block
