@@ -1,5 +1,5 @@
 [workspace]
-members = ["proc_macros", "redpiler_graph"]
+members = ["crates/proc_macros", "crates/redpiler_graph"]
 
 [package]
 name = "mchprs"
@@ -22,50 +22,5 @@ include = [
 # MCHPRS runs far too slow without any optimizations to even be usable for testing
 opt-level = 1
 
-[dev-dependencies]
-criterion = "0.3"
-
-[[bench]]
-name = "bitbuffer"
-harness = false
-
-[[bench]]
-name = "chungus"
-harness = false
-
 [dependencies]
-mchprs_proc_macros = { path = "./proc_macros" }
-toml = "0.5"
-flate2 = "1"
-byteorder = "1.4"
-# hematite-nbt = "0.5"
-hematite-nbt = { git = "https://github.com/PistonDevelopers/hematite_nbt" }
-bitflags = "1.2"
-serde = "1"
-serde_json = "1.0"
-md5 = "0.7"
-bus = "2.2"
-bincode = "1.3"
-ctrlc = { version = "3.1", features = ["termination"] }
-log = "0.4"
-fern = { version = "0.6", features = ["colored"] }
-chrono = "0.4"
-rand = "0.8"
-regex = { version = "1.4", features = ["pattern"] }
-backtrace = "0.3"
-rusqlite = { version="0.27", features=["bundled"] }
-anyhow = "1.0"
-rayon = "1.5"
-cranelift = { version = "0.77", optional = true }
-cranelift-jit  = { version = "0.77", optional = true }
-cranelift-module  = { version = "0.77", optional = true }
-toml_edit = "0.14"
-mysql = "22"
-tokio = { version = "1", features = ["rt-multi-thread"] }
-reqwest = { version = "0.11", features = ["json"] }
-itertools = "0.10"
-impls = "1"
-redpiler_graph = { path = "./redpiler_graph" }
-
-[features]
-jit_cranelift = ["cranelift", "cranelift-jit", "cranelift-module"]
+mchprs_server = { path = "./crates/server" }
