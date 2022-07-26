@@ -1035,13 +1035,11 @@ impl Block {
             Item::SmoothStoneSlab {} => Block::SmoothStoneSlab {},
             Item::QuartzSlab {} => Block::QuartzSlab {},
             Item::IronTrapdoor {} => {
-                let block = match context.block_face {
+                match context.block_face {
                     BlockFace::Bottom => Block::IronTrapdoor { facing: context.player_direction.opposite(), half: TrapdoorHalf::Top, powered: false },
                     BlockFace::Top => Block::IronTrapdoor { facing: context.player_direction.opposite(), half: TrapdoorHalf::Bottom, powered: false },
                     _ => Block::IronTrapdoor { facing: context.block_face.to_direction(), half: if context.cursor_y > 0.5 {TrapdoorHalf::Top} else {TrapdoorHalf::Bottom} , powered: false }
-                };
-                println!("place {:?}", block);
-                block
+                }
             },
             _ => Block::Air {}
         };
