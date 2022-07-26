@@ -145,7 +145,8 @@ pub struct SClientSettings {
     pub chat_colors: bool,
     pub displayed_skin_parts: u8,
     pub main_hand: i32,
-    pub disable_text_filtering: bool,
+    pub enable_text_filtering: bool,
+    pub allow_server_listings: bool,
 }
 
 impl ServerBoundPacket for SClientSettings {
@@ -157,7 +158,8 @@ impl ServerBoundPacket for SClientSettings {
             chat_colors: decoder.read_bool()?,
             displayed_skin_parts: decoder.read_unsigned_byte()?,
             main_hand: decoder.read_varint()?,
-            disable_text_filtering: decoder.read_bool()?,
+            enable_text_filtering: decoder.read_bool()?,
+            allow_server_listings: decoder.read_bool()?,
         })
     }
 

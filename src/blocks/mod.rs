@@ -138,6 +138,19 @@ pub enum BlockEntity {
 }
 
 impl BlockEntity {
+    /// The protocol id for the block entity
+    pub fn ty(&self) -> i32 {
+        match self {
+            BlockEntity::Comparator { .. } => 17,
+            BlockEntity::Container { ty, .. } => match ty {
+                ContainerType::Furnace => 0,
+                ContainerType::Barrel => 25,
+                ContainerType::Hopper => 16,
+            },
+            BlockEntity::Sign(_) => 7,
+        }
+    }
+
     fn load_container(slots_nbt: &[nbt::Value], ty: ContainerType) -> Option<BlockEntity> {
         use nbt::Value;
         let num_slots = ty.num_slots();

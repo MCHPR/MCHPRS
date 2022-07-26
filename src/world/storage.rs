@@ -1,10 +1,12 @@
 use crate::blocks::{BlockEntity, BlockPos};
 use crate::network::packets::clientbound::{
-    C3BMultiBlockChangeRecord, CChunkData, CChunkDataSection, CMultiBlockChange, ClientBoundPacket,
+    C3BMultiBlockChangeRecord, CChunkData, CChunkDataBlockEntity, CChunkDataSection,
+    CMultiBlockChange, ClientBoundPacket,
 };
-use crate::network::packets::PacketEncoder;
+use crate::network::packets::{PacketEncoder, PalettedContainer};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
+use std::convert::TryInto;
 use std::mem;
 
 #[derive(Clone)]
@@ -114,16 +116,19 @@ pub struct PalettedBitBuffer {
     palette: Vec<u32>,
     max_entries: u32,
     use_palette: bool,
+    /// 9 for block states, 4 for biomes
+    direct_threshold: u64,
 }
 
 impl PalettedBitBuffer {
-    pub fn with_entries(entries: usize) -> PalettedBitBuffer {
+    pub fn new(entries: usize, direct_threshold: u64) -> PalettedBitBuffer {
         let palette = vec![0];
         PalettedBitBuffer {
             data: BitBuffer::create(4, entries),
             palette,
             max_entries: 16,
             use_palette: true,
+            direct_threshold,
         }
     }
 
@@ -132,12 +137,14 @@ impl PalettedBitBuffer {
         bits_per_entry: u8,
         longs: Vec<u64>,
         palette: Vec<u32>,
+        direct_threshold: u64,
     ) -> PalettedBitBuffer {
         PalettedBitBuffer {
             data: BitBuffer::load(entries, bits_per_entry, longs),
             palette,
             use_palette: bits_per_entry < 9,
             max_entries: 1 << bits_per_entry,
+            direct_threshold,
         }
     }
 
@@ -147,9 +154,9 @@ impl PalettedBitBuffer {
             "The buffer should never resizing if it's already using global palette"
         );
         let old_bits_per_entry = self.data.bits_per_entry;
-        // It is more efficient to use the global palette when the bits reaches 9
+        // It is more efficient to use the global palette when the bits reaches the treshold
         // As of 1.16, the global palette requires 15 bits
-        let new_bits = if old_bits_per_entry + 1 >= 9 {
+        let new_bits = if old_bits_per_entry + 1 >= self.direct_threshold {
             self.max_entries = 1 << 15;
             self.use_palette = false;
             15
@@ -206,11 +213,15 @@ impl PalettedBitBuffer {
     pub fn entries(&self) -> usize {
         self.data.entries
     }
-}
 
-impl Default for PalettedBitBuffer {
-    fn default() -> Self {
-        Self::with_entries(4096)
+    fn encode_packet(&self) -> PalettedContainer {
+        PalettedContainer {
+            bits_per_entry: self.data.bits_per_entry as u8,
+            data_array: self.data.longs.clone(),
+            palette: self
+                .use_palette
+                .then(|| self.palette.clone().into_iter().map(|x| x as i32).collect()),
+        }
     }
 }
 
@@ -257,7 +268,8 @@ impl ChunkSection {
         let loaded_longs = data.data.into_iter().map(|x| x as u64).collect();
         let bits_per_entry = data.bits_per_block as u8;
         let palette = data.palette.into_iter().map(|x| x as u32).collect();
-        let buffer = PalettedBitBuffer::load(data.entries, bits_per_entry, loaded_longs, palette);
+        let buffer =
+            PalettedBitBuffer::load(data.entries, bits_per_entry, loaded_longs, palette, 9);
         ChunkSection {
             buffer,
             block_count: data.block_count as u32,
@@ -299,41 +311,22 @@ impl ChunkSection {
     }
 
     fn compress(&mut self) {
-        let mut new_buffer: PalettedBitBuffer = Default::default();
+        let mut new_buffer = PalettedBitBuffer::new(4096, 9);
         for i in 0..4096 {
             new_buffer.set_entry(i, self.buffer.get_entry(i));
         }
         self.buffer = new_buffer;
     }
 
-    fn new() -> ChunkSection {
-        ChunkSection {
-            buffer: Default::default(),
-            block_count: 0,
-            multi_block: CMultiBlockChange {
-                chunk_x: 0,
-                chunk_y: 0,
-                chunk_z: 0,
-                records: Vec::new(),
-            },
-            changed_blocks: [-1; 16 * 16 * 16],
-            changed: false,
-        }
-    }
-
     fn encode_packet(&self) -> CChunkDataSection {
         CChunkDataSection {
-            bits_per_block: self.buffer.data.bits_per_entry as u8,
             block_count: self.block_count as i16,
-            data_array: self.buffer.data.longs.clone(),
-            palette: self.buffer.use_palette.then(|| {
-                self.buffer
-                    .palette
-                    .clone()
-                    .into_iter()
-                    .map(|x| x as i32)
-                    .collect()
-            }),
+            block_states: self.buffer.encode_packet(),
+            biomes: PalettedContainer {
+                bits_per_entry: 0,
+                data_array: vec![],
+                palette: Some(vec![0]),
+            },
         }
     }
 
@@ -370,8 +363,25 @@ impl ChunkSection {
     }
 }
 
+impl Default for ChunkSection {
+    fn default() -> ChunkSection {
+        ChunkSection {
+            buffer: PalettedBitBuffer::new(4096, 9),
+            block_count: 0,
+            multi_block: CMultiBlockChange {
+                chunk_x: 0,
+                chunk_y: 0,
+                chunk_z: 0,
+                records: Vec::new(),
+            },
+            changed_blocks: [-1; 16 * 16 * 16],
+            changed: false,
+        }
+    }
+}
+
 pub struct Chunk {
-    pub sections: BTreeMap<u8, ChunkSection>,
+    pub sections: [ChunkSection; 16],
     pub x: i32,
     pub z: i32,
     pub block_entities: HashMap<BlockPos, BlockEntity>,
@@ -388,9 +398,7 @@ impl Chunk {
         }
 
         let mut chunk_sections = Vec::new();
-        let mut bitmask = 0;
-        for (section_y, section) in &self.sections {
-            bitmask |= 1 << section_y;
+        for section in &self.sections {
             chunk_sections.push(section.encode_packet());
         }
         let mut heightmaps = nbt::Blob::new();
@@ -403,27 +411,22 @@ impl Chunk {
             .insert("MOTION_BLOCKING", heightmap_longs)
             .unwrap();
         let mut block_entities = Vec::new();
-        self.block_entities
-            .iter()
-            .map(|(pos, block_entity)| {
-                block_entity
-                    .to_nbt(true)
-                    .map(|mut nbt| {
-                        let _ = nbt.insert("x", nbt::Value::Int(pos.x + (self.x << 4)));
-                        let _ = nbt.insert("y", nbt::Value::Int(pos.y as i32));
-                        let _ = nbt.insert("z", nbt::Value::Int(pos.z + (self.z << 4)));
-                        nbt
-                    })
-                    .map(|blob| block_entities.push(blob))
-            })
-            .for_each(drop);
+        for (pos, block_entity) in &self.block_entities {
+            if let Some(nbt) = block_entity.to_nbt(true) {
+                block_entities.push(CChunkDataBlockEntity {
+                    x: pos.x as i8,
+                    z: pos.z as i8,
+                    y: pos.y as i16,
+                    data: nbt,
+                    ty: block_entity.ty(),
+                })
+            }
+        }
         CChunkData {
-            biomes: vec![0; 1024],
             chunk_sections,
             chunk_x: self.x,
             chunk_z: self.z,
             heightmaps,
-            primary_bit_mask: vec![bitmask],
             block_entities,
         }
         .encode()
@@ -431,11 +434,11 @@ impl Chunk {
 
     fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
         let mut top_most = 0;
-        for (section_y, section) in &self.sections {
+        for (section_y, section) in self.sections.iter().enumerate() {
             for y in (0..16).rev() {
                 let block_state = section.get_block(x, y, z);
-                if block_state != 0 && top_most < y + *section_y as u32 * 16 {
-                    top_most = *section_y as u32 * 16;
+                if block_state != 0 && top_most < y + section_y as u32 * 16 {
+                    top_most = section_y as u32 * 16;
                 }
             }
         }
@@ -444,27 +447,15 @@ impl Chunk {
 
     /// Sets a block in the chunk. Returns true if a block was changed.
     pub fn set_block(&mut self, x: u32, y: u32, z: u32, block_id: u32) -> bool {
-        let section_y = (y >> 4) as u8;
-        if let Some(section) = self.sections.get_mut(&section_y) {
-            section.set_block(x, y & 0xF, z, block_id)
-        } else if block_id != 0 {
-            let mut section = ChunkSection::new();
-            section.set_block(x, y & 0xF, z, block_id);
-            self.sections.insert(section_y, section);
-            true
-        } else {
-            // The block was air so a new chunk section does not need to be created.
-            false
-        }
+        let section_y = (y >> 4) as usize;
+        let section = &mut self.sections[section_y];
+        section.set_block(x, y & 0xF, z, block_id)
     }
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
-        let section_y = (y / 16) as u8;
-        if let Some(section) = self.sections.get(&section_y) {
-            section.get_block(x, y & 0xF, z)
-        } else {
-            0
-        }
+        let section_y = (y / 16) as usize;
+        let section = &self.sections[section_y];
+        section.get_block(x, y & 0xF, z)
     }
 
     pub fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
@@ -484,8 +475,10 @@ impl Chunk {
             sections: self
                 .sections
                 .iter_mut()
-                .map(|(y, s)| (*y, s.save()))
-                .collect(),
+                .map(|s| s.save())
+                .collect::<Vec<_>>()
+                .try_into()
+                .unwrap(),
             block_entities: self.block_entities.clone(),
         }
     }
@@ -494,24 +487,25 @@ impl Chunk {
         Chunk {
             x,
             z,
-            sections: chunk_data
-                .sections
-                .into_iter()
-                .map(|(y, cs)| (y, ChunkSection::load(cs)))
-                .collect(),
+            sections: IntoIterator::into_iter(chunk_data.sections)
+                .map(ChunkSection::load)
+                .collect::<Vec<_>>()
+                .try_into()
+                .map_err(|_| ())
+                .unwrap(),
             block_entities: chunk_data.block_entities,
         }
     }
 
     pub fn compress(&mut self) {
         self.sections
-            .values_mut()
+            .iter_mut()
             .for_each(|section| section.compress());
     }
 
     pub fn empty(x: i32, z: i32) -> Chunk {
         Chunk {
-            sections: BTreeMap::new(),
+            sections: Default::default(),
             x,
             z,
             block_entities: HashMap::new(),
@@ -521,15 +515,18 @@ impl Chunk {
     pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
         let x = self.x;
         let z = self.z;
-        self.sections.iter_mut().filter_map(move |(y, section)| {
-            section
-                .changed
-                .then(move || section.multi_block(x, *y as u32, z))
-        })
+        self.sections
+            .iter_mut()
+            .enumerate()
+            .filter_map(move |(y, section)| {
+                section
+                    .changed
+                    .then(move || section.multi_block(x, y as u32, z))
+            })
     }
 
     pub fn reset_multi_blocks(&mut self) {
-        for section in self.sections.values_mut() {
+        for section in &mut self.sections {
             section.multi_block.records.clear();
         }
     }
@@ -546,6 +543,6 @@ struct ChunkSectionData {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChunkData {
-    sections: BTreeMap<u8, ChunkSectionData>,
+    sections: [ChunkSectionData; 16],
     block_entities: HashMap<BlockPos, BlockEntity>,
 }

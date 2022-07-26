@@ -28,9 +28,9 @@ use std::fs::{self, File};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 
-pub const MC_VERSION: &str = "1.17.1";
-pub const MC_DATA_VERSION: i32 = 2730;
-pub const PROTOCOL_VERSION: i32 = 756;
+pub const MC_VERSION: &str = "1.18.2";
+pub const MC_DATA_VERSION: i32 = 2975;
+pub const PROTOCOL_VERSION: i32 = 758;
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
@@ -374,7 +374,7 @@ impl MinecraftServer {
             coordinate_scale: 1.0,
             piglin_safe: 0,
             logical_height: 256,
-            infiniburn: "minecraft:infiniburn_overworld".to_owned(),
+            infiniburn: "#minecraft:infiniburn_overworld".to_owned(),
         };
 
         let join_game = CJoinGame {
@@ -386,7 +386,7 @@ impl MinecraftServer {
             world_names: vec!["mchprs:world".to_owned()],
             dimension_codec: CJoinGameDimensionCodec {
                 dimensions: map! {
-                    "mchprs:world".to_owned() => dimension.clone()
+                    "mchprs:dimension".to_owned() => dimension.clone()
                 },
                 biomes: map! {
                     "mchprs:plot".to_owned() => CJoinGameBiomeElement {
@@ -409,8 +409,7 @@ impl MinecraftServer {
                         downfall: 0.5,
                         category: "none".to_owned(),
                     },
-                    // TODO: This was needed previously because of a bug in the client renderer,
-                    // it may not be needed anymore
+                    // Apparently the client NEEDS this to exist
                     "minecraft:plains".to_owned() => CJoinGameBiomeElement {
                         precipitation: "none".to_owned(),
                         effects: CJoinGameBiomeEffects {
@@ -438,6 +437,7 @@ impl MinecraftServer {
             hashed_seed: 0,
             max_players: 0,
             view_distance: CONFIG.view_distance as i32,
+            simulation_distance: CONFIG.view_distance as i32,
             reduced_debug_info: false,
             enable_respawn_screen: false,
             is_debug: false,

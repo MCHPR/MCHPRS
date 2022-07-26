@@ -1,4 +1,4 @@
-use super::{PacketEncoder, PacketEncoderExt, SlotData};
+use super::{PacketEncoder, PacketEncoderExt, PalettedContainer, SlotData};
 use crate::player::Gamemode;
 use crate::utils::NBTMap;
 use serde::Serialize;
@@ -186,7 +186,7 @@ pub struct CBlockEntityData {
     pub x: i32,
     pub y: i32,
     pub z: i32,
-    pub action: u8,
+    pub ty: i32,
     pub nbt: nbt::Blob,
 }
 
@@ -194,7 +194,7 @@ impl ClientBoundPacket for CBlockEntityData {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_position(self.x, self.y, self.z);
-        buf.write_unsigned_byte(self.action);
+        buf.write_varint(self.ty);
         buf.write_nbt_blob(&self.nbt);
         PacketEncoder::new(buf, 0x0A)
     }
@@ -462,19 +462,24 @@ impl ClientBoundPacket for CKeepAlive {
 
 pub struct CChunkDataSection {
     pub block_count: i16,
-    pub bits_per_block: u8,
-    pub palette: Option<Vec<i32>>,
-    pub data_array: Vec<u64>,
+    pub block_states: PalettedContainer,
+    pub biomes: PalettedContainer,
+}
+
+pub struct CChunkDataBlockEntity {
+    pub x: i8,
+    pub z: i8,
+    pub y: i16,
+    pub ty: i32,
+    pub data: nbt::Blob,
 }
 
 pub struct CChunkData {
     pub chunk_x: i32,
     pub chunk_z: i32,
-    pub primary_bit_mask: Vec<i64>,
     pub heightmaps: nbt::Blob,
-    pub biomes: Vec<i32>,
     pub chunk_sections: Vec<CChunkDataSection>,
-    pub block_entities: Vec<nbt::Blob>,
+    pub block_entities: Vec<CChunkDataBlockEntity>,
 }
 
 impl ClientBoundPacket for CChunkData {
@@ -482,30 +487,38 @@ impl ClientBoundPacket for CChunkData {
         let mut buf = Vec::new();
         buf.write_int(self.chunk_x);
         buf.write_int(self.chunk_z);
-        buf.write_varint(self.primary_bit_mask.len() as i32);
-        for long in &self.primary_bit_mask {
-            buf.write_long(*long);
-        }
-        let mut heightmaps = Vec::new();
-        self.heightmaps.to_writer(&mut heightmaps).unwrap();
-        buf.write_bytes(&heightmaps);
-        buf.write_varint(self.biomes.len() as i32);
-        for biome in &self.biomes {
-            buf.write_varint(*biome);
-        }
+        buf.write_nbt_blob(&self.heightmaps);
         let mut data = Vec::new();
         for chunk_section in &self.chunk_sections {
             data.write_short(chunk_section.block_count);
-            data.write_unsigned_byte(chunk_section.bits_per_block);
-            if let Some(palette) = &chunk_section.palette {
-                data.write_varint(palette.len() as i32);
-                for palette_entry in palette {
-                    data.write_varint(*palette_entry);
+            let containers = [&chunk_section.block_states, &chunk_section.biomes];
+            for container in containers {
+                data.write_unsigned_byte(container.bits_per_entry);
+
+                // Palette
+                if container.bits_per_entry == 0 {
+                    // Single valued palette
+                    let palette = container
+                        .palette
+                        .as_ref()
+                        .expect("container with 0 bits per entry should have palette");
+                    let item = *palette.first().expect(
+                        "container with 0 bits per entry should have palette with one entry",
+                    );
+                    data.write_varint(item);
+                } else if let Some(palette) = &container.palette {
+                    // Indirect palette
+                    data.write_varint(palette.len() as i32);
+                    for palette_entry in palette {
+                        data.write_varint(*palette_entry);
+                    }
                 }
-            }
-            data.write_varint(chunk_section.data_array.len() as i32);
-            for long in &chunk_section.data_array {
-                data.write_long(*long as i64);
+
+                // Data Array
+                data.write_varint(container.data_array.len() as i32);
+                for long in &container.data_array {
+                    data.write_long(*long as i64);
+                }
             }
         }
         buf.write_varint(data.len() as i32);
@@ -513,8 +526,34 @@ impl ClientBoundPacket for CChunkData {
         // Number of block entities
         buf.write_varint(self.block_entities.len() as i32);
         for block_entity in &self.block_entities {
-            buf.write_nbt_blob(block_entity);
+            buf.write_byte((block_entity.x << 4) | block_entity.z);
+            buf.write_short(block_entity.y);
+            buf.write_varint(0); // TODO: block entity type
+            buf.write_nbt_blob(&block_entity.data);
         }
+
+        // We don't do lighting because we have max ambient light
+        // These will all be zeros
+
+        // Trust Edges
+        buf.write_bool(false); // TODO: what should this really be?
+
+        // Sky Light Mask
+        buf.write_varint(0);
+        // Block Light Mask
+        buf.write_varint(0);
+        // Empty Sky Light Mask
+        buf.write_varint(1);
+        buf.write_long(0x3FFFF);
+        // Empty Block Light Mask
+        buf.write_varint(1);
+        buf.write_long(0x3FFFF);
+
+        // Sky Light array count
+        buf.write_varint(0);
+        // Block Light array count
+        buf.write_varint(0);
+
         PacketEncoder::new(buf, 0x22)
     }
 }
@@ -632,6 +671,7 @@ pub struct CJoinGame {
     pub hashed_seed: i64,
     pub max_players: i32,
     pub view_distance: i32,
+    pub simulation_distance: i32,
     pub reduced_debug_info: bool,
     pub enable_respawn_screen: bool,
     pub is_debug: bool,
@@ -655,6 +695,7 @@ impl ClientBoundPacket for CJoinGame {
         buf.write_long(self.hashed_seed);
         buf.write_varint(self.max_players);
         buf.write_varint(self.view_distance);
+        buf.write_varint(self.simulation_distance);
         buf.write_boolean(self.reduced_debug_info);
         buf.write_boolean(self.enable_respawn_screen);
         buf.write_boolean(self.is_debug);
@@ -1067,7 +1108,7 @@ impl ClientBoundPacket for CTimeUpdate {
         let mut buf = Vec::new();
         buf.write_long(self.world_age);
         buf.write_long(self.time_of_day);
-        PacketEncoder::new(buf, 0x58)
+        PacketEncoder::new(buf, 0x59)
     }
 }
 
@@ -1091,7 +1132,7 @@ impl ClientBoundPacket for CSoundEffect {
         buf.write_int(self.z);
         buf.write_float(self.volume);
         buf.write_float(self.pitch);
-        PacketEncoder::new(buf, 0x5C)
+        PacketEncoder::new(buf, 0x5D)
     }
 }
 
@@ -1115,6 +1156,6 @@ impl ClientBoundPacket for CEntityTeleport {
         buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x61)
+        PacketEncoder::new(buf, 0x62)
     }
 }

@@ -205,7 +205,7 @@ impl World for PlotWorld {
                 y: pos.y,
                 z: pos.z,
                 // For now the only nbt we send to the client is sign data
-                action: 9,
+                ty: block_entity.ty(),
                 nbt,
             }
             .encode();

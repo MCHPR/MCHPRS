@@ -64,7 +64,7 @@ pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
         .iter()
         .map(|b| *b as u8)
         .collect();
-    let mut data = PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize);
+    let mut data = PalettedBitBuffer::new((size_x * size_y * size_z) as usize, 9);
     let mut i = 0;
     for y_offset in (0..size_y).map(|y| y * size_z * size_x) {
         for z_offset in (0..size_z).map(|z| z * size_x) {

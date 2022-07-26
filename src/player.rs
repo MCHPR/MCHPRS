@@ -83,7 +83,7 @@ bitflags! {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct PlayerPos {
     pub x: f64,
     pub y: f64,

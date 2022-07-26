@@ -949,7 +949,7 @@ fn create_clipboard(
         size_x,
         size_y,
         size_z,
-        data: PalettedBitBuffer::with_entries((size_x * size_y * size_z) as usize),
+        data: PalettedBitBuffer::new((size_x * size_y * size_z) as usize, 9),
         block_entities: HashMap::new(),
     };
     let mut i = 0;

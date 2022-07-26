@@ -564,7 +564,7 @@ pub(super) fn execute_flip(mut ctx: CommandExecuteContext<'_>) {
         pos
     };
 
-    let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
+    let mut newcpdata = PalettedBitBuffer::new((volume) as usize, 9);
 
     let mut c_x = 0;
     let mut c_y = 0;
@@ -674,7 +674,7 @@ pub(super) fn execute_rotate(mut ctx: CommandExecuteContext<'_>) {
         },
     };
 
-    let mut newcpdata = PalettedBitBuffer::with_entries((volume) as usize);
+    let mut newcpdata = PalettedBitBuffer::new((volume) as usize, 9);
 
     let mut c_x = 0;
     let mut c_y = 0;

@@ -20,6 +20,13 @@ pub struct SlotData {
     pub nbt: Option<nbt::Blob>,
 }
 
+#[derive(Debug)]
+pub struct PalettedContainer {
+    pub bits_per_entry: u8,
+    pub palette: Option<Vec<i32>>,
+    pub data_array: Vec<u64>,
+}
+
 pub type DecodeResult<T> = std::result::Result<T, PacketDecodeError>;
 
 #[derive(Debug)]
