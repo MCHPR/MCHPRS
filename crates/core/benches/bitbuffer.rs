@@ -1,5 +1,5 @@
 use criterion::*;
-use mchprs::world::storage::BitBuffer;
+use mchprs_core::world::storage::BitBuffer;
 
 fn bitbuffer_read(c: &mut Criterion) {
     let buffer = BitBuffer::create(black_box(13), 8192);

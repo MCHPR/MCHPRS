@@ -2,16 +2,16 @@ use std::path::Path;
 use std::time::Instant;
 
 use criterion::*;
-use mchprs::blocks::BlockPos;
-use mchprs::plot::data::PlotData;
-use mchprs::plot::{PlotWorld, PLOT_WIDTH};
-use mchprs::redpiler::{Compiler, CompilerOptions};
-use mchprs::world::storage::Chunk;
+use mchprs_core::blocks::BlockPos;
+use mchprs_core::plot::data::PlotData;
+use mchprs_core::plot::{PlotWorld, PLOT_WIDTH};
+use mchprs_core::redpiler::{Compiler, CompilerOptions};
+use mchprs_core::world::storage::Chunk;
 
 const START_BUTTON: BlockPos = BlockPos::new(187, 99, 115);
 
 fn load_world(path: impl AsRef<Path>) -> PlotWorld {
-    let data = PlotData::read_from_file(path);
+    let data = PlotData::read_from_file(path).unwrap();
 
     let chunks: Vec<Chunk> = data
         .chunk_data

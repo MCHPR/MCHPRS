@@ -1227,19 +1227,11 @@ checksum = "a3e378b66a060d48947b590737b30a1be76706c8dd7b8ba0f2fe3989c68a853f"
 name = "mchprs"
 version = "0.3.0"
 dependencies = [
- "mchprs_server",
+ "mchprs_core",
 ]
 
 [[package]]
-name = "mchprs_proc_macros"
-version = "0.1.0"
-dependencies = [
- "quote",
- "syn",
-]
-
-[[package]]
-name = "mchprs_server"
+name = "mchprs_core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1274,6 +1266,14 @@ dependencies = [
  "tokio",
  "toml",
  "toml_edit",
+]
+
+[[package]]
+name = "mchprs_proc_macros"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]

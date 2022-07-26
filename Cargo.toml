@@ -23,4 +23,4 @@ include = [
 opt-level = 1
 
 [dependencies]
-mchprs_server = { path = "./crates/server" }
+mchprs_core = { path = "./crates/core" }

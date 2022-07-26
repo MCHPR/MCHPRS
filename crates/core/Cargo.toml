@@ -1,5 +1,5 @@
 [package]
-name = "mchprs_server"
+name = "mchprs_core"
 version = "0.1.0"
 edition = "2021"
 
