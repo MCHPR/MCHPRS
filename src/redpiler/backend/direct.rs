@@ -286,7 +286,7 @@ impl JITBackend for DirectBackend {
                 Block::RedstoneLamp { lit } => {
                     let should_be_lit = input_power > 0;
                     if lit && !should_be_lit {
-                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
+                        self.set_node_and_update_neighbors(node_id, Block::RedstoneLamp { lit: false });
                     }
                 }
                 Block::StoneButton { mut button } => {
@@ -332,6 +332,17 @@ impl JITBackend for DirectBackend {
 fn set_node(node: &mut Node, new_state: Block) {
     node.state = new_state;
     node.changed = true;
+}
+fn set_node_and_update_neighbors(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id: usize, new_state: Block) {
+    let node = &mut nodes[node_id];
+    node.state = new_state;
+    node.changed = true;
+    // Not strictly needed as this function is only called by blocks that have no redstone output
+    node.update_output_power(); 
+    for i in 0..node.updates.len() {
+        let update = nodes[node_id].updates[i];
+        update_node(to_be_ticked, nodes, update);
+    }
 }
 
 fn schedule_tick(
@@ -430,7 +441,7 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id:
             if lit && !should_be_lit {
                 schedule_tick(to_be_ticked, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
-                set_node(node, Block::RedstoneLamp { lit: true });
+                set_node_and_update_neighbors(to_be_ticked, nodes, node_id, Block::RedstoneLamp { lit: true });
             }
         }
         Block::IronTrapdoor {
