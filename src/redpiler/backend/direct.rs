@@ -316,7 +316,7 @@ impl JITBackend for DirectBackend {
             }
         }
         // Dot file output
-        println!("{}", self);
+        // println!("{}", self);
     }
 
     fn flush(&mut self, plot: &mut PlotWorld, io_only: bool) {
