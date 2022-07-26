@@ -1,11 +1,11 @@
 mod redstone_wire;
 
-pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
-
 use crate::blocks::{
     Block, BlockDirection, BlockEntity, BlockFace, BlockPos, BlockProperty, BlockTransform,
 };
-use crate::world::{TickPriority, World};
+use crate::world::World;
+use mchprs_world::TickPriority;
+pub use redstone_wire::{RedstoneWire, RedstoneWireSide};
 use std::cmp;
 use std::str::FromStr;
 

@@ -1,5 +1,5 @@
-use super::data::Tps;
 use log::warn;
+use mchprs_save_data::plot_data::Tps;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;

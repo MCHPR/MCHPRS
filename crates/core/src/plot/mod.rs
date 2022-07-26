@@ -1,12 +1,12 @@
 pub mod commands;
-pub mod data;
+mod data;
 pub mod database;
 mod monitor;
 mod packet_handlers;
 mod scoreboard;
 pub mod worldedit;
 
-use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos};
+use crate::blocks::Block;
 use crate::chat::ChatComponent;
 use crate::config::CONFIG;
 use crate::network::packets::clientbound::*;
@@ -16,11 +16,15 @@ use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
-use crate::world::storage::{Chunk, ChunkData};
-use crate::world::{TickEntry, TickPriority, World};
+use crate::world::storage::Chunk;
+use crate::world::World;
+use anyhow::Context;
 use bus::BusReader;
-use data::{PlotData, Tps};
 use log::{debug, error, warn};
+use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::{BlockFace, BlockPos};
+use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps};
+use mchprs_world::{TickEntry, TickPriority};
 use monitor::TimingsMonitor;
 use scoreboard::RedpilerState;
 use serde_json::json;
@@ -32,6 +36,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 
+use self::data::sleep_time_for_tps;
 use self::scoreboard::Scoreboard;
 
 /// The width of a plot (2^n)
@@ -907,13 +912,13 @@ impl Plot {
             to_be_ticked: plot_data.pending_ticks,
             packet_senders: Vec::new(),
         };
-        let tps = Tps::from_data(plot_data.tps);
+        let tps = plot_data.tps;
         Plot {
             last_player_time: Instant::now(),
             last_update_time: Instant::now(),
             last_world_send_time: Instant::now(),
             lag_time: Duration::new(0, 0),
-            sleep_time: tps.sleep_time(),
+            sleep_time: sleep_time_for_tps(tps),
             last_nspt: Duration::from_millis(15),
             message_receiver: rx,
             message_sender: tx,
@@ -943,10 +948,12 @@ impl Plot {
     ) -> Plot {
         let plot_path = format!("./world/plots/p{},{}", x, z);
         if Path::new(&plot_path).exists() {
-            let data = PlotData::read_from_file(plot_path).unwrap();
+            let data = data::load_plot(plot_path)
+                .with_context(|| format!("error loading plot {},{}", x, z))
+                .unwrap();
             Plot::from_data(data, x, z, rx, tx, priv_rx, always_running)
         } else {
-            Plot::from_data(Default::default(), x, z, rx, tx, priv_rx, always_running)
+            Plot::from_data(data::empty_plot(), x, z, rx, tx, priv_rx, always_running)
         }
     }
 
@@ -954,7 +961,7 @@ impl Plot {
         let world = &mut self.world;
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         let data = PlotData {
-            tps: self.tps.to_data(),
+            tps: self.tps,
             show_redstone: true,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),

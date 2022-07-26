@@ -3,9 +3,9 @@ pub mod cranelift;
 pub mod direct;
 // pub mod par_direct;
 
-use crate::blocks::BlockPos;
 use crate::plot::PlotWorld;
-use crate::world::TickEntry;
+use mchprs_blocks::BlockPos;
+use mchprs_world::TickEntry;
 
 use super::CompileNode;
 

@@ -1,6 +1,5 @@
-use super::{database, worldedit, Plot};
+use super::{database, worldedit, Plot, PlotWorld};
 use crate::chat::ChatComponent;
-use crate::items::ItemStack;
 use crate::network::packets::clientbound::{
     CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
     ClientBoundPacket,
@@ -8,13 +7,14 @@ use crate::network::packets::clientbound::{
 use crate::network::packets::PacketEncoder;
 use crate::network::PlayerPacketSender;
 use crate::player::{Gamemode, PacketSender, PlayerPos};
-use crate::plot::data::Tps;
-use crate::plot::PlotWorld;
+use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use log::{debug, info, warn};
+use mchprs_blocks::items::ItemStack;
+use mchprs_save_data::plot_data::Tps;
 use std::ops::Add;
 use std::str::FromStr;
 use std::sync::LazyLock;
@@ -293,7 +293,7 @@ impl Plot {
                     return false;
                 };
 
-                self.sleep_time = tps.sleep_time();
+                self.sleep_time = sleep_time_for_tps(tps);
                 self.timings.set_tps(tps);
                 self.lag_time = Duration::from_millis(0);
                 self.tps = tps;

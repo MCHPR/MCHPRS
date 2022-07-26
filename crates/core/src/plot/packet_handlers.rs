@@ -1,7 +1,7 @@
 use super::Plot;
-use crate::blocks::{Block, BlockEntity, BlockFace, BlockPos, SignBlockEntity};
+use crate::blocks::Block;
 use crate::config::CONFIG;
-use crate::items::{Item, ItemStack, UseOnBlockContext};
+use crate::items::{self, UseOnBlockContext};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::serverbound::*;
 use crate::network::packets::SlotData;
@@ -10,6 +10,9 @@ use crate::server::Message;
 use crate::utils::HyphenatedUUID;
 use crate::world::World;
 use log::error;
+use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntity};
+use mchprs_blocks::items::{Item, ItemStack};
+use mchprs_blocks::{BlockFace, BlockPos};
 use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
@@ -222,7 +225,8 @@ impl ServerBoundPacketHandler for Plot {
         }
 
         if let Some(item) = item_in_hand {
-            let cancelled = item.use_on_block(
+            let cancelled = items::use_item_on_block(
+                &item,
                 self,
                 UseOnBlockContext {
                     block_face,

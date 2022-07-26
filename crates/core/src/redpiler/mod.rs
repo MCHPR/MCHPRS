@@ -1,13 +1,14 @@
 mod backend;
 mod debug_graph;
 
-use crate::blocks::{
-    Block, BlockDirection, BlockEntity, BlockFace, BlockPos, ButtonFace, LeverFace,
-};
+use crate::blocks::{Block, ButtonFace, LeverFace};
 use crate::plot::PlotWorld;
-use crate::world::{TickEntry, World};
+use crate::world::World;
 use backend::JITBackend;
 use log::{error, warn};
+use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_world::TickEntry;
 use std::collections::{HashMap, VecDeque};
 
 fn is_wire(world: &dyn World, pos: BlockPos) -> bool {

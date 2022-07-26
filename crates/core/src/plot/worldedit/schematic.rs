@@ -2,11 +2,13 @@
 //! https://github.com/SpongePowered/Schematic-Specification/blob/master/versions/schematic-2.md
 
 use super::WorldEditClipboard;
-use crate::blocks::{Block, BlockEntity, BlockPos};
+use crate::blocks::Block;
 use crate::server::MC_DATA_VERSION;
 use crate::world::storage::PalettedBitBuffer;
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
+use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::BlockPos;
 use regex::Regex;
 use serde::Serialize;
 use std::collections::HashMap;

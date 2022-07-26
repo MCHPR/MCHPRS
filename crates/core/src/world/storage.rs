@@ -1,10 +1,12 @@
-use crate::blocks::{BlockEntity, BlockPos};
+use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::BlockPos;
+use mchprs_save_data::plot_data::{ChunkData, ChunkSectionData};
+
 use crate::network::packets::clientbound::{
     C3BMultiBlockChangeRecord, CChunkData, CChunkDataBlockEntity, CChunkDataSection,
     CMultiBlockChange, ClientBoundPacket,
 };
 use crate::network::packets::{PacketEncoder, PalettedContainer};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::mem;
@@ -530,19 +532,4 @@ impl Chunk {
             section.multi_block.records.clear();
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
-struct ChunkSectionData {
-    data: Vec<i64>,
-    palette: Vec<i32>,
-    bits_per_block: i8,
-    block_count: i32,
-    entries: usize,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ChunkData {
-    sections: [ChunkSectionData; 16],
-    block_entities: HashMap<BlockPos, BlockEntity>,
 }

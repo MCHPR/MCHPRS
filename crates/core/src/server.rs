@@ -21,6 +21,7 @@ use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{debug, error, info, warn};
+use mchprs_utils::map;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;

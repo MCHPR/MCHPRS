@@ -1231,6 +1231,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mchprs_blocks"
+version = "0.1.0"
+dependencies = [
+ "hematite-nbt",
+ "mchprs_proc_macros",
+ "mchprs_utils",
+ "serde",
+]
+
+[[package]]
 name = "mchprs_core"
 version = "0.1.0"
 dependencies = [
@@ -1252,7 +1262,11 @@ dependencies = [
  "impls",
  "itertools",
  "log",
+ "mchprs_blocks",
  "mchprs_proc_macros",
+ "mchprs_save_data",
+ "mchprs_utils",
+ "mchprs_world",
  "md5",
  "mysql",
  "rand",
@@ -1274,6 +1288,30 @@ version = "0.1.0"
 dependencies = [
  "quote",
  "syn",
+]
+
+[[package]]
+name = "mchprs_save_data"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "byteorder",
+ "mchprs_blocks",
+ "mchprs_world",
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "mchprs_utils"
+version = "0.1.0"
+
+[[package]]
+name = "mchprs_world"
+version = "0.1.0"
+dependencies = [
+ "mchprs_blocks",
+ "serde",
 ]
 
 [[package]]

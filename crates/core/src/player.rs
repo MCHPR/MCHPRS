@@ -1,7 +1,5 @@
-use crate::blocks::{BlockDirection, BlockFacing, BlockPos, ContainerType};
 use crate::chat::ChatComponent;
 use crate::config::CONFIG;
-use crate::items::{InventoryEntry, Item, ItemStack};
 use crate::network::packets::clientbound::*;
 use crate::network::packets::{PacketEncoder, SlotData};
 use crate::network::{PlayerConn, PlayerPacketSender};
@@ -11,6 +9,9 @@ use crate::plot::PLOT_SCALE;
 use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
 use log::{error, warn};
+use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
+use mchprs_blocks::items::{Item, ItemStack};
+use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;

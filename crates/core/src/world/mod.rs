@@ -1,7 +1,9 @@
 pub mod storage;
 
-use crate::blocks::{Block, BlockEntity, BlockPos};
-use serde::{Deserialize, Serialize};
+use crate::blocks::Block;
+use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::BlockPos;
+use mchprs_world::TickPriority;
 use storage::Chunk;
 
 pub trait World {
@@ -44,19 +46,4 @@ pub trait World {
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool;
 
     fn is_cursed(&self) -> bool;
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TickPriority {
-    Highest,
-    Higher,
-    High,
-    Normal,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TickEntry {
-    pub ticks_left: u32,
-    pub tick_priority: TickPriority,
-    pub pos: BlockPos,
 }

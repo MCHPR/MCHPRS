@@ -24,3 +24,6 @@ opt-level = 1
 
 [dependencies]
 mchprs_core = { path = "./crates/core" }
+
+[patch.crates-io]
+hematite-nbt = { git = "https://github.com/PistonDevelopers/hematite_nbt" }

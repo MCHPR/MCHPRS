@@ -1,0 +1,12 @@
+[package]
+name = "mchprs_blocks"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = "1"
+hematite-nbt = "0.5"
+mchprs_utils = { path = "../utils" }
+mchprs_proc_macros = { path = "../proc_macros" }

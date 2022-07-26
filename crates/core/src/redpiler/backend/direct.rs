@@ -1,11 +1,14 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 use super::JITBackend;
-use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
+use crate::blocks::{Block, ComparatorMode};
 use crate::plot::PlotWorld;
 use crate::redpiler::{CompileNode, Link, LinkType};
-use crate::world::{TickEntry, TickPriority, World};
+use crate::world::World;
 use log::warn;
+use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::BlockPos;
+use mchprs_world::{TickEntry, TickPriority};
 use std::collections::HashMap;
 use std::fmt;
 
