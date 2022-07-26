@@ -495,12 +495,6 @@ impl Default for BlockDirection {
     }
 }
 
-#[derive(Copy, Clone, Debug)]
-pub struct BlockFaceLocation {
-    pub x: f32,
-    pub y: f32,
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum BlockFace {
     Bottom,
