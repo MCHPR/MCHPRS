@@ -456,7 +456,7 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id:
                     half,
                     powered: should_be_powered,
                 };
-                set_node(node, new_block);
+                set_node_and_update_neighbors(to_be_ticked, nodes, node_id, new_block);
             }
         }
         Block::RedstoneWire { mut wire } => {
