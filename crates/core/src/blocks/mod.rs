@@ -1286,9 +1286,9 @@ blocks! {
         props: {
             pickles: u8
         },
-        get_id: ((pickles - 1) << 1) as u32 + 9890,
-        from_id_offset: 9890,
-        from_id(id): 9890..=9897 => {
+        get_id: ((pickles - 1) << 1) as u32 + 9891,
+        from_id_offset: 9891,
+        from_id(id): 9891..=9897 => {
             pickles: (id >> 1) as u8 + 1
         },
         from_names(_name): {
