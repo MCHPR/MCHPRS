@@ -6,7 +6,7 @@ RUN apt-get update \
 
 RUN git clone https://github.com/MCHPR/MCHPRS.git
 WORKDIR ./MCHPRS
-RUN sed -i 's/pub const PLOT_SCALE: u32 = 4/pub const PLOT_SCALE: u32 = 5/g' src/plot/mod.rs
+RUN sed -i 's/pub const PLOT_SCALE: u32 = 4/pub const PLOT_SCALE: u32 = 5/g' crates/core/src/plot/mod.rs
 RUN cargo install --path . \
     && cargo clean
 
