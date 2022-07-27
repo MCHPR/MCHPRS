@@ -101,10 +101,13 @@ impl PlotWorld {
         (local_x * PLOT_WIDTH + local_z).unsigned_abs() as usize
     }
 
-    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> usize {
+    fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> Option<usize> {
         let chunk_x = (block_x - (self.x * PLOT_BLOCK_WIDTH)) >> 4;
         let chunk_z = (block_z - (self.z * PLOT_BLOCK_WIDTH)) >> 4;
-        ((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize
+        if chunk_x >= PLOT_WIDTH || chunk_z >= PLOT_WIDTH {
+            return None;
+        }
+        Some(((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize)
     }
 
     fn flush_block_changes(&mut self) {
@@ -128,12 +131,15 @@ impl PlotWorld {
 }
 
 impl World for PlotWorld {
-    /// Sets a block in storage without sending a block change packet to the client. Returns true if a block was changed.
+    /// Sets a block in storage. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
+        let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
+            Some(idx) => idx,
+            None => return false,
+        };
 
         // Check to see if block is within height limit
-        if chunk_index >= NUM_CHUNKS || pos.y > 256 || pos.y < 0 {
+        if pos.y > 256 || pos.y < 0 {
             return false;
         }
 
@@ -147,32 +153,17 @@ impl World for PlotWorld {
     }
 
     /// Sets the block at `pos`.
-    /// If the block was changed it will be sent to all players
-    /// and the function will return true.
     fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
         let block_id = Block::get_id(block);
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-
-        // Check to see if block is within height limit
-        if chunk_index >= NUM_CHUNKS || pos.y > 256 {
-            return false;
-        }
-
-        let chunk = &mut self.chunks[chunk_index];
-        chunk.set_block(
-            (pos.x & 0xF) as u32,
-            pos.y as u32,
-            (pos.z & 0xF) as u32,
-            block_id,
-        )
+        self.set_block_raw(pos, block_id)
     }
 
     /// Returns the block state id of the block at `pos`
     fn get_block_raw(&self, pos: BlockPos) -> u32 {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= NUM_CHUNKS {
-            return 0;
-        }
+        let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
+            Some(idx) => idx,
+            None => return 0,
+        };
         let chunk = &self.chunks[chunk_index];
         chunk.get_block((pos.x & 0xF) as u32, pos.y as u32, (pos.z & 0xF) as u32)
     }
@@ -182,28 +173,28 @@ impl World for PlotWorld {
     }
 
     fn delete_block_entity(&mut self, pos: BlockPos) {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= NUM_CHUNKS {
-            return;
-        }
+        let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
+            Some(idx) => idx,
+            None => return,
+        };
         let chunk = &mut self.chunks[chunk_index];
         chunk.delete_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF));
     }
 
     fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= NUM_CHUNKS {
-            return None;
-        }
+        let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
+            Some(idx) => idx,
+            None => return None,
+        };
         let chunk = &self.chunks[chunk_index];
         chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
 
     fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
-        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z);
-        if chunk_index >= NUM_CHUNKS {
-            return;
-        }
+        let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
+            Some(idx) => idx,
+            None => return,
+        };
         if let Some(nbt) = block_entity.to_nbt(true) {
             let block_entity_data = CBlockEntityData {
                 x: pos.x,
