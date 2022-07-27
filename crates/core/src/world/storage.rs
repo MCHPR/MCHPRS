@@ -301,7 +301,8 @@ impl ChunkSection {
 
     fn save(&mut self) -> Option<ChunkSectionData> {
         self.flush();
-        if self.buffer.use_palette && self.buffer.palette.len() == 1 && self.buffer.palette[0] == 0 {
+        if self.buffer.use_palette && self.buffer.palette.len() == 1 && self.buffer.palette[0] == 0
+        {
             // chunk section is completely air
             return None;
         }

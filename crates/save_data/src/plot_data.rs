@@ -1,3 +1,7 @@
+mod fixer;
+
+use self::fixer::FixInfo;
+use byteorder::{LittleEndian, ReadBytesExt};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
@@ -9,6 +13,8 @@ use std::path::Path;
 use std::{fmt, io};
 use thiserror::Error;
 
+const VERSION: u32 = 0;
+
 #[derive(Error, Debug)]
 pub enum PlotLoadError {
     #[error("plot data deserialization error")]
@@ -17,11 +23,23 @@ pub enum PlotLoadError {
     #[error("invalid plot data header")]
     InvalidHeader,
 
-    #[error("plot data version {0} too new too be loaded")]
+    #[error("plot data version {0} too new to be loaded")]
     TooNew(u32),
+
+    #[error("plot data version {0} failed to be converted")]
+    ConversionFailed(u32),
 
     #[error(transparent)]
     Io(#[from] io::Error),
+}
+
+impl From<PlotSaveError> for PlotLoadError {
+    fn from(e: PlotSaveError) -> Self {
+        match e {
+            PlotSaveError::Serialize(err) => err.into(),
+            PlotSaveError::Io(err) => err.into(),
+        }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -68,20 +86,27 @@ impl fmt::Display for Tps {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PlotData {
     pub tps: Tps,
-    pub show_redstone: bool,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,
 }
 
 impl PlotData {
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<PlotData, PlotLoadError> {
-        let mut file = File::open(path)?;
+        let mut file = File::open(&path)?;
 
         let mut magic = [0; 8];
         file.read_exact(&mut magic)?;
         if &magic != PLOT_MAGIC {
-            // TODO: convert plot data
-            return Err(PlotLoadError::InvalidHeader);
+            return fixer::try_fix(path, FixInfo::InvalidHeader)?
+                .ok_or(PlotLoadError::InvalidHeader);
+        }
+
+        let version = file.read_u32::<LittleEndian>()?;
+        // if version < VERSION {
+        //     return fixer::try_fix(path, FixInfo::OldVersion(version))?.ok_or(PlotLoadError::ConversionFailed(version));
+        // }
+        if version > VERSION {
+            return Err(PlotLoadError::TooNew(version));
         }
 
         Ok(bincode::deserialize_from(file)?)

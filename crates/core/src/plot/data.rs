@@ -54,7 +54,6 @@ static EMPTY_PLOT: LazyLock<PlotData> = LazyLock::new(|| {
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         PlotData {
             tps: Tps::Limited(10),
-            show_redstone: true,
             chunk_data,
             pending_ticks: Vec::new(),
         }

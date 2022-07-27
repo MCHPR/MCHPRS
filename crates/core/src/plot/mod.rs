@@ -966,7 +966,6 @@ impl Plot {
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
         let data = PlotData {
             tps: self.tps,
-            show_redstone: true,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
         };
