@@ -1,9 +1,9 @@
 use crate::chat::{ChatComponentBuilder, ColorCode};
-use crate::network::packets::clientbound::{
-    CDisplayScoreboard, CScoreboardObjective, CUpdateScore, ClientBoundPacket,
-};
 use crate::player::{PacketSender, Player};
 use crate::redpiler::CompilerOptions;
+use mchprs_network::packets::clientbound::{
+    CDisplayScoreboard, CScoreboardObjective, CUpdateScore, ClientBoundPacket,
+};
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
 pub enum RedpilerState {

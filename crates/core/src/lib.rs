@@ -7,7 +7,6 @@ pub mod blocks;
 mod chat;
 mod config;
 mod items;
-mod network;
 mod permissions;
 mod player;
 pub mod plot;

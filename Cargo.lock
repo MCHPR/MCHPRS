@@ -1257,12 +1257,12 @@ dependencies = [
  "criterion",
  "ctrlc",
  "fern",
- "flate2",
  "hematite-nbt",
  "impls",
  "itertools",
  "log",
  "mchprs_blocks",
+ "mchprs_network",
  "mchprs_proc_macros",
  "mchprs_save_data",
  "mchprs_utils",
@@ -1280,6 +1280,17 @@ dependencies = [
  "tokio",
  "toml",
  "toml_edit",
+]
+
+[[package]]
+name = "mchprs_network"
+version = "0.1.0"
+dependencies = [
+ "byteorder",
+ "flate2",
+ "hematite-nbt",
+ "log",
+ "serde",
 ]
 
 [[package]]

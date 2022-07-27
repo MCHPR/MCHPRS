@@ -1,3 +1,4 @@
+mod nbt_map;
 pub mod packets;
 
 use log::warn;

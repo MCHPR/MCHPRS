@@ -3,9 +3,9 @@ use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 
 use crate::blocks::Block;
 use crate::config::CONFIG;
-use crate::network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use crate::plot::Plot;
 use crate::world::World;
+use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum ActionResult {

@@ -1,5 +1,5 @@
 use super::{PacketEncoder, PacketEncoderExt, PalettedContainer, SlotData};
-use crate::utils::NBTMap;
+use crate::nbt_map::NBTMap;
 use serde::Serialize;
 use std::collections::HashMap;
 

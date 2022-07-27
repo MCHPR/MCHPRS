@@ -1,17 +1,5 @@
 use crate::chat::ChatComponent;
 use crate::config::CONFIG;
-use crate::network::packets::clientbound::{
-    CDisconnectLogin, CHeldItemChange, CJoinGame, CJoinGameBiomeEffects,
-    CJoinGameBiomeEffectsMoodSound, CJoinGameBiomeElement, CJoinGameDimensionCodec,
-    CJoinGameDimensionElement, CLoginSuccess, CPlayerInfo, CPlayerInfoAddPlayer,
-    CPlayerPositionAndLook, CPluginMessage, CPong, CResponse, CSetCompression, CTimeUpdate,
-    CWindowItems, ClientBoundPacket,
-};
-use crate::network::packets::serverbound::{
-    SHandshake, SLoginStart, SPing, SRequest, ServerBoundPacketHandler,
-};
-use crate::network::packets::{PacketEncoderExt, SlotData};
-use crate::network::{NetworkServer, NetworkState, PlayerPacketSender};
 use crate::permissions;
 use crate::player::{Gamemode, PacketSender, Player};
 use crate::plot::commands::DECLARE_COMMANDS;
@@ -21,6 +9,18 @@ use backtrace::Backtrace;
 use bus::Bus;
 use fern::colors::{Color, ColoredLevelConfig};
 use log::{debug, error, info, warn};
+use mchprs_network::packets::clientbound::{
+    CDisconnectLogin, CHeldItemChange, CJoinGame, CJoinGameBiomeEffects,
+    CJoinGameBiomeEffectsMoodSound, CJoinGameBiomeElement, CJoinGameDimensionCodec,
+    CJoinGameDimensionElement, CLoginSuccess, CPlayerInfo, CPlayerInfoAddPlayer,
+    CPlayerPositionAndLook, CPluginMessage, CPong, CResponse, CSetCompression, CTimeUpdate,
+    CWindowItems, ClientBoundPacket,
+};
+use mchprs_network::packets::serverbound::{
+    SHandshake, SLoginStart, SPing, SRequest, ServerBoundPacketHandler,
+};
+use mchprs_network::packets::{PacketEncoderExt, SlotData};
+use mchprs_network::{NetworkServer, NetworkState, PlayerPacketSender};
 use mchprs_utils::map;
 use serde::{Deserialize, Serialize};
 use serde_json::json;

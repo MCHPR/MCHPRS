@@ -2,14 +2,14 @@ use super::*;
 use crate::blocks::{Block, FlipDirection, RotateAmt};
 use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::config::CONFIG;
-use crate::network::packets::clientbound::*;
-use crate::network::packets::SlotData;
 use crate::player::PacketSender;
 use crate::utils::HyphenatedUUID;
 use log::error;
 use mchprs_blocks::block_entities::InventoryEntry;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockFacing, BlockPos};
+use mchprs_network::packets::clientbound::*;
+use mchprs_network::packets::SlotData;
 use schematic::{load_schematic, save_schematic};
 use std::time::Instant;
 

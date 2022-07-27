@@ -2,11 +2,11 @@ use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_save_data::plot_data::{ChunkData, ChunkSectionData};
 
-use crate::network::packets::clientbound::{
+use mchprs_network::packets::clientbound::{
     C3BMultiBlockChangeRecord, CChunkData, CChunkDataBlockEntity, CChunkDataSection,
     CMultiBlockChange, ClientBoundPacket,
 };
-use crate::network::packets::{PacketEncoder, PalettedContainer};
+use mchprs_network::packets::{PacketEncoder, PalettedContainer};
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::mem;

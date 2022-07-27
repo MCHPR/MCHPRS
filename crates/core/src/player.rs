@@ -1,8 +1,5 @@
 use crate::chat::ChatComponent;
 use crate::config::CONFIG;
-use crate::network::packets::clientbound::*;
-use crate::network::packets::{PacketEncoder, SlotData};
-use crate::network::{PlayerConn, PlayerPacketSender};
 use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::plot::PLOT_SCALE;
@@ -12,6 +9,9 @@ use log::{error, warn};
 use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
+use mchprs_network::packets::clientbound::*;
+use mchprs_network::packets::{PacketEncoder, SlotData};
+use mchprs_network::{PlayerConn, PlayerPacketSender};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;

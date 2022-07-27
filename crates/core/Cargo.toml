@@ -19,7 +19,6 @@ harness = false
 [dependencies]
 mchprs_proc_macros = { path = "../proc_macros" }
 toml = "0.5"
-flate2 = "1"
 byteorder = "1.4"
 hematite-nbt = "0.5"
 bitflags = "1.2"
@@ -52,6 +51,7 @@ mchprs_save_data = { path = "../save_data" }
 mchprs_blocks = { path = "../blocks" }
 mchprs_world = { path = "../world" }
 mchprs_utils = { path = "../utils" }
+mchprs_network = { path = "../network" }
 
 [features]
 jit_cranelift = ["cranelift", "cranelift-jit", "cranelift-module"]
