@@ -311,7 +311,7 @@ impl Plot {
         let old_block = old.block_pos();
         let new_block = new.block_pos();
 
-        if new_block.y < 0 || old_block.y < 0 {
+        if !(0..256).contains(&new_block.y) || !(0..256).contains(&old_block.y) {
             return;
         }
 
