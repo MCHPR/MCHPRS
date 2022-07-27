@@ -274,7 +274,12 @@ impl ChunkSection {
         changed
     }
 
-    fn load(data: ChunkSectionData) -> ChunkSection {
+    fn load(data: Option<ChunkSectionData>) -> ChunkSection {
+        let data = match data {
+            Some(data) => data,
+            None => return Default::default(),
+        };
+
         let loaded_longs = data.data.into_iter().map(|x| x as u64).collect();
         let bits_per_entry = data.bits_per_block as u8;
         let palette = data.palette.into_iter().map(|x| x as u32).collect();
@@ -294,8 +299,13 @@ impl ChunkSection {
         }
     }
 
-    fn save(&mut self) -> ChunkSectionData {
+    fn save(&mut self) -> Option<ChunkSectionData> {
         self.flush();
+        if self.buffer.use_palette && self.buffer.palette.len() == 1 && self.buffer.palette[0] == 0 {
+            // chunk section is completely air
+            return None;
+        }
+
         let longs: Vec<i64> = self
             .buffer
             .data
@@ -311,13 +321,13 @@ impl ChunkSection {
             .into_iter()
             .map(|x| x as i32)
             .collect();
-        ChunkSectionData {
+        Some(ChunkSectionData {
             data: longs,
             palette,
             bits_per_block: self.buffer.data.bits_per_entry as i8,
             block_count: self.block_count as i32,
             entries: self.buffer.entries(),
-        }
+        })
     }
 
     fn compress(&mut self) {
