@@ -26,4 +26,4 @@ opt-level = 1
 mchprs_core = { path = "./crates/core" }
 
 [patch.crates-io]
-hematite-nbt = { git = "https://github.com/PistonDevelopers/hematite_nbt" }
+hematite-nbt = { git = "https://github.com/StackDoubleFlow/hematite_nbt" }

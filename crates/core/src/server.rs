@@ -387,10 +387,10 @@ impl MinecraftServer {
             world_names: vec!["mchprs:world".to_owned()],
             dimension_codec: CJoinGameDimensionCodec {
                 dimensions: map! {
-                    "mchprs:dimension".to_owned() => dimension.clone()
+                    "mchprs:dimension" => dimension.clone()
                 },
                 biomes: map! {
-                    "mchprs:plot".to_owned() => CJoinGameBiomeElement {
+                    "mchprs:plot" => CJoinGameBiomeElement {
                         precipitation: "none".to_owned(),
                         effects: CJoinGameBiomeEffects {
                             sky_color: 0x7BA4FF,
@@ -411,7 +411,7 @@ impl MinecraftServer {
                         category: "none".to_owned(),
                     },
                     // Apparently the client NEEDS this to exist
-                    "minecraft:plains".to_owned() => CJoinGameBiomeElement {
+                    "minecraft:plains" => CJoinGameBiomeElement {
                         precipitation: "none".to_owned(),
                         effects: CJoinGameBiomeEffects {
                             sky_color: 7907327,

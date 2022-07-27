@@ -193,30 +193,28 @@ impl BlockEntity {
         use nbt::Value;
         match self {
             BlockEntity::Sign(sign) => Some({
-                let mut blob = nbt::Blob::new();
                 let [r1, r2, r3, r4] = sign.rows.clone();
-                let _ = blob.insert("Text1", Value::String(r1));
-                let _ = blob.insert("Text2", Value::String(r2));
-                let _ = blob.insert("Text3", Value::String(r3));
-                let _ = blob.insert("Text4", Value::String(r4));
-                let _ = blob.insert("id", Value::String("minecraft:sign".to_owned()));
-                blob
+                nbt::Blob::with_content(map! {
+                    "Text1" => Value::String(r1),
+                    "Text2" => Value::String(r2),
+                    "Text3" => Value::String(r3),
+                    "Text4" => Value::String(r4),
+                    "id" => Value::String("minecraft:sign".to_owned())
+                })
             }),
             BlockEntity::Comparator { output_strength } => Some({
-                let mut blob = nbt::Blob::new();
-                let _ = blob.insert("OutputSignal", Value::Int(*output_strength as i32));
-                let _ = blob.insert("id", Value::String("minecraft:comparator".to_owned()));
-                blob
+                nbt::Blob::with_content(map! {
+                    "OutputSignal" => Value::Int(*output_strength as i32),
+                    "id" => Value::String("minecraft:comparator".to_owned())
+                })
             }),
             BlockEntity::Container { inventory, ty, .. } => Some({
-                let mut blob = nbt::Blob::new();
-                let _ = blob.insert("id", Value::String(ty.to_string()));
                 let mut items = Vec::new();
                 for entry in inventory {
                     let nbt = map! {
-                        "Count".to_owned() => nbt::Value::Byte(entry.count),
-                        "id".to_owned() => nbt::Value::String("minecraft:".to_string() + Item::from_id(entry.id).get_name()),
-                        "Slot".to_owned() => nbt::Value::Byte(entry.slot)
+                        "Count" => nbt::Value::Byte(entry.count),
+                        "id" => nbt::Value::String("minecraft:".to_string() + Item::from_id(entry.id).get_name()),
+                        "Slot" => nbt::Value::Byte(entry.slot)
                     };
                     // TODO: item nbt data in containers
                     // if let Some(tag) = &entry.nbt {
@@ -224,8 +222,10 @@ impl BlockEntity {
                     // }
                     items.push(nbt::Value::Compound(nbt));
                 }
-                let _ = blob.insert("Items", Value::List(items));
-                blob
+                nbt::Blob::with_content(map! {
+                    "id" => Value::String(ty.to_string()),
+                    "Items" => Value::List(items)
+                })
             }),
         }
     }

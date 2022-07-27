@@ -28,26 +28,25 @@ impl ItemStack {
         let nbt = match items_needed {
             0 => None,
             _ => Some({
-                let mut nbt = nbt::Blob::new();
                 let list = nbt::Value::List({
                     let mut items = Vec::new();
                     for (slot, items_added) in (0..items_needed).step_by(64).enumerate() {
                         let count = (items_needed - items_added).min(64);
                         items.push(nbt::Value::Compound(map! {
-                            "Count".to_owned() => nbt::Value::Byte(count as i8),
-                            "id".to_owned() => nbt::Value::String("minecraft:redstone".to_owned()),
-                            "Slot".to_owned() => nbt::Value::Byte(slot as i8)
+                            "Count" => nbt::Value::Byte(count as i8),
+                            "id" => nbt::Value::String("minecraft:redstone".to_owned()),
+                            "Slot" => nbt::Value::Byte(slot as i8)
                         }));
                     }
                     items
                 });
 
-                let tag = nbt::Value::Compound(map! {
-                    "Items".to_owned() => list,
-                    "Id".to_owned() => nbt::Value::String(container_ty.to_string())
-                });
-                nbt.insert("BlockEntityTag", tag).unwrap();
-                nbt
+                nbt::Blob::with_content(map! {
+                    "BlockEntityTag" => nbt::Value::Compound(map! {
+                        "Items" => list,
+                        "Id" => nbt::Value::String(container_ty.to_string())
+                    })
+                })
             }),
         };
 
