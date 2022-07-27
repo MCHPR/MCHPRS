@@ -1,7 +1,7 @@
 mod fixer;
 
 use self::fixer::FixInfo;
-use byteorder::{LittleEndian, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
@@ -116,6 +116,7 @@ impl PlotData {
         let mut file = OpenOptions::new().write(true).create(true).open(path)?;
 
         file.write_all(PLOT_MAGIC)?;
+        file.write_u32::<LittleEndian>(VERSION);
         bincode::serialize_into(&file, self)?;
         file.sync_data()?;
         Ok(())
