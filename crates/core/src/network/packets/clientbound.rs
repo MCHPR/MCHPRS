@@ -528,7 +528,7 @@ impl ClientBoundPacket for CChunkData {
         for block_entity in &self.block_entities {
             buf.write_byte((block_entity.x << 4) | block_entity.z);
             buf.write_short(block_entity.y);
-            buf.write_varint(0); // TODO: block entity type
+            buf.write_varint(block_entity.ty);
             buf.write_nbt_blob(&block_entity.data);
         }
 
