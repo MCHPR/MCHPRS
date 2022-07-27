@@ -151,6 +151,8 @@ impl<'a> InputSearch<'a> {
         }
     }
 
+    // unfortunate
+    #[allow(clippy::too_many_arguments)]
     fn get_redstone_links(
         &self,
         block: Block,
