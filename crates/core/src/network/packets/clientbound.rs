@@ -1,5 +1,4 @@
 use super::{PacketEncoder, PacketEncoderExt, PalettedContainer, SlotData};
-use crate::player::Gamemode;
 use crate::utils::NBTMap;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -830,7 +829,7 @@ pub struct CPlayerInfoAddPlayer {
 pub enum CPlayerInfo {
     AddPlayer(Vec<CPlayerInfoAddPlayer>),
     RemovePlayer(Vec<u128>),
-    UpdateGamemode(u128, Gamemode),
+    UpdateGamemode(u128, i32),
 }
 
 impl ClientBoundPacket for CPlayerInfo {
@@ -864,7 +863,7 @@ impl ClientBoundPacket for CPlayerInfo {
                 buf.write_varint(1);
                 buf.write_varint(1);
                 buf.write_uuid(*uuid);
-                buf.write_varint(gamemode.get_id() as i32);
+                buf.write_varint(*gamemode);
             }
             CPlayerInfo::RemovePlayer(uuids) => {
                 buf.write_varint(4);

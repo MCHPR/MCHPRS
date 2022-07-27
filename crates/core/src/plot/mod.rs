@@ -699,7 +699,7 @@ impl Plot {
                     return;
                 }
                 BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode) => {
-                    let player_info = CPlayerInfo::UpdateGamemode(uuid, gamemode).encode();
+                    let player_info = CPlayerInfo::UpdateGamemode(uuid, gamemode.get_id()).encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }

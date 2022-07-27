@@ -30,7 +30,7 @@ pub enum Gamemode {
 }
 
 impl Gamemode {
-    pub fn get_id(self) -> u32 {
+    pub fn get_id(self) -> i32 {
         match self {
             Gamemode::Creative => 1,
             Gamemode::Spectator => 3,
