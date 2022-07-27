@@ -57,7 +57,7 @@ pub fn use_item_on_block(item: &ItemStack, plot: &mut Plot, context: UseOnBlockC
         return false;
     }
 
-    if can_place {
+    if can_place && (0..256).contains(&block_pos.y) {
         let block =
             Block::get_state_for_placement(&plot.world, block_pos, item.item_type, &context);
 

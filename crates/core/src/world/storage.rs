@@ -500,8 +500,10 @@ impl Chunk {
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
         let section_y = (y / 16) as usize;
-        let section = &self.sections[section_y];
-        section.get_block(x, y & 0xF, z)
+        match self.sections.get(section_y) {
+            Some(section) => section.get_block(x, y & 0xF, z),
+            None => 0,
+        }
     }
 
     pub fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
