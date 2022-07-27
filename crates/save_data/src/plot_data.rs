@@ -116,7 +116,7 @@ impl PlotData {
         let mut file = OpenOptions::new().write(true).create(true).open(path)?;
 
         file.write_all(PLOT_MAGIC)?;
-        file.write_u32::<LittleEndian>(VERSION);
+        file.write_u32::<LittleEndian>(VERSION)?;
         bincode::serialize_into(&file, self)?;
         file.sync_data()?;
         Ok(())
