@@ -37,7 +37,9 @@ pub fn try_fix(data: &[u8]) -> Option<PlotData> {
             .map(|chunk| {
                 let mut sections: [Option<ChunkSectionData>; 16] = Default::default();
                 for (y, section) in chunk.sections.into_iter() {
-                    sections[y as usize] = Some(section);
+                    if (y as usize) < sections.len() {
+                        sections[y as usize] = Some(section);
+                    }
                 }
                 ChunkData {
                     sections,
