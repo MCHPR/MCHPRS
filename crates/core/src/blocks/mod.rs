@@ -6,7 +6,7 @@ use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::items::Item;
 use mchprs_blocks::{
-    BlockColorVariant, BlockDirection, BlockFace, BlockFacing, BlockPos, BlockProperty,
+    BlockColorVariant, BlockDirection, BlockFace, BlockFacing, BlockPos, BlockProperty, SignType,
 };
 use mchprs_proc_macros::BlockTransform;
 use mchprs_world::TickPriority;
@@ -358,12 +358,12 @@ impl Block {
             Item::Sign { sign_type } => match context.block_face {
                 BlockFace::Bottom => Block::Air {},
                 BlockFace::Top => Block::Sign {
-                    sign_type,
+                    sign_type: SignType(sign_type),
                     rotation: (((180.0 + context.player_yaw) * 16.0 / 360.0) + 0.5).floor() as u32
                         & 15,
                 },
                 _ => Block::WallSign {
-                    sign_type,
+                    sign_type: SignType(sign_type),
                     facing: context.block_face.to_direction(),
                 },
             },
@@ -981,42 +981,42 @@ blocks! {
     },
     WallSign {
         props: {
-            sign_type: u32,
+            sign_type: SignType,
             facing: BlockDirection
         },
-        get_id: (sign_type << 3) + (facing.get_id() << 1) + 3803,
+        get_id: (sign_type.0 << 3) + (facing.get_id() << 1) + 3803,
         from_id_offset: 3803,
         from_id(id): 3803..=3849 => {
-            sign_type: id >> 3,
+            sign_type: SignType(id >> 3),
             facing: BlockDirection::from_id((id & 0b110) >> 1)
         },
         from_names(_name): {
             "oak_wall_sign" => {
-                sign_type: 0,
+                sign_type: SignType(0),
                 facing: Default::default()
             },
             "spruce_wall_sign" => {
-                sign_type: 1,
+                sign_type: SignType(1),
                 facing: Default::default()
             },
             "birch_wall_sign" => {
-                sign_type: 2,
+                sign_type: SignType(2),
                 facing: Default::default()
             },
             "jungle_wall_sign" => {
-                sign_type: 3,
+                sign_type: SignType(3),
                 facing: Default::default()
             },
             "acacia_wall_sign" => {
-                sign_type: 4,
+                sign_type: SignType(4),
                 facing: Default::default()
             },
             "dark_oak_wall_sign" => {
-                sign_type: 5,
+                sign_type: SignType(5),
                 facing: Default::default()
             }
         },
-        get_name: match sign_type {
+        get_name: match sign_type.0 {
             0 => "oak_wall_sign",
             1 => "spruce_wall_sign",
             2 => "birch_wall_sign",
@@ -1074,42 +1074,42 @@ blocks! {
     },
     Sign {
         props: {
-            sign_type: u32,
+            sign_type: SignType,
             rotation: u32
         },
-        get_id: (sign_type << 5) + (rotation << 1) + 3439,
+        get_id: (sign_type.0 << 5) + (rotation << 1) + 3439,
         from_id_offset: 3439,
         from_id(id): 3439..=3629 => {
-            sign_type: id >> 5,
+            sign_type: SignType(id >> 5),
             rotation: (id & 0b11110) >> 1
         },
         from_names(_name): {
             "oak_sign" => {
-                sign_type: 0,
+                sign_type: SignType(0),
                 rotation: 0
             },
             "spruce_sign" => {
-                sign_type: 1,
+                sign_type: SignType(1),
                 rotation: 0
             },
             "birch_sign" => {
-                sign_type: 2,
+                sign_type: SignType(2),
                 rotation: 0
             },
             "jungle_sign" => {
-                sign_type: 3,
+                sign_type: SignType(3),
                 rotation: 0
             },
             "acacia_sign" => {
-                sign_type: 4,
+                sign_type: SignType(4),
                 rotation: 0
             },
             "dark_oak_sign" => {
-                sign_type: 5,
+                sign_type: SignType(5),
                 rotation: 0
             }
         },
-        get_name: match sign_type {
+        get_name: match sign_type.0 {
             0 => "oak_sign",
             1 => "spruce_sign",
             2 => "birch_sign",

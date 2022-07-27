@@ -428,3 +428,12 @@ impl Default for BlockFacing {
         BlockFacing::West
     }
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub struct SignType(pub u32);
+
+impl BlockProperty for SignType {
+    // Don't encode
+    fn encode(self, _props: &mut HashMap<&'static str, String>, _name: &'static str) {}
+    fn decode(&mut self, _props: &HashMap<&str, &str>, _name: &str) {}
+}
