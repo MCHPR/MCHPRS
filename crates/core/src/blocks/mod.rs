@@ -280,7 +280,7 @@ impl Block {
         world: &impl World,
         pos: BlockPos,
         item: Item,
-        context: &UseOnBlockContext,
+        context: &UseOnBlockContext<'_>,
     ) -> Block {
         let block = match item {
             Item::Stone {} => Block::Stone {},
@@ -299,7 +299,7 @@ impl Block {
                 let facing = if lever_face == LeverFace::Wall {
                     context.block_face.to_direction()
                 } else {
-                    context.player_direction
+                    context.player.get_direction()
                 };
                 Block::Lever {
                     lever: Lever::new(lever_face, facing, false),
@@ -327,7 +327,7 @@ impl Block {
                 let facing = if button_face == ButtonFace::Wall {
                     context.block_face.to_direction()
                 } else {
-                    context.player_direction
+                    context.player.get_direction()
                 };
                 Block::StoneButton {
                     button: StoneButton::new(button_face, facing, false),
@@ -345,12 +345,12 @@ impl Block {
                 repeater: RedstoneRepeater::get_state_for_placement(
                     world,
                     pos,
-                    context.player_direction.opposite(),
+                    context.player.get_direction().opposite(),
                 ),
             },
             Item::Comparator {} => Block::RedstoneComparator {
                 comparator: RedstoneComparator::new(
-                    context.player_direction.opposite(),
+                    context.player.get_direction().opposite(),
                     ComparatorMode::Compare,
                     false,
                 ),
@@ -359,7 +359,7 @@ impl Block {
                 BlockFace::Bottom => Block::Air {},
                 BlockFace::Top => Block::Sign {
                     sign_type: SignType(sign_type),
-                    rotation: (((180.0 + context.player_yaw) * 16.0 / 360.0) + 0.5).floor() as u32
+                    rotation: (((180.0 + context.player.yaw) * 16.0 / 360.0) + 0.5).floor() as u32
                         & 15,
                 },
                 _ => Block::WallSign {
