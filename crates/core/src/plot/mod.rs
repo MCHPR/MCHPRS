@@ -523,6 +523,9 @@ impl Plot {
         self.redpiler.compile(&mut self.world, options, ticks);
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Running);
+        
+        self.lag_time = Duration::ZERO;
+        self.last_update_time = Instant::now();
     }
 
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
@@ -779,23 +782,43 @@ impl Plot {
                 Tps::Limited(tps) if tps != 0 => {
                     let dur_per_tick = Duration::from_micros(1_000_000 / tps as u64);
                     let elapsed_time = self.last_update_time.elapsed();
-                    self.lag_time += elapsed_time;
-                    // let ticks = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
                     self.last_update_time = Instant::now();
-                    let mut ticks = 0;
-                    while self.lag_time >= dur_per_tick {
-                        if self.timings.is_running_behind()
-                            && !self.redpiler.is_active()
-                            && self.auto_redpiler
-                        {
-                            self.start_redpiler(Default::default());
+                    self.lag_time += elapsed_time;
+                    if self.lag_time > dur_per_tick {
+                        let batch_size = self.lag_time.as_micros() as u64 / dur_per_tick.as_micros() as u64;
+                        // Limit the batch size to however many ticks we can fit inside the world send rate. 
+                        let batch_size = batch_size.min(WORLD_SEND_RATE.as_micros() as u64 / self.last_nspt.as_nanos() as u64);
+                        // 50000 here is arbitrary. We just need a number that's not too high so we actually
+                        // get around to sending block updates.
+                        let batch_size = batch_size.min(50000).max(1);
+                        if !self.redpiler.is_active() && self.auto_redpiler {
+                            let mut ticks_completed = batch_size;
+                            for i in 0..batch_size {
+                                // If we're running behind, just stop right here and we can start redpiler
+                                if self.timings.is_running_behind() {
+                                    ticks_completed = i;
+                                    break;
+                                }
+                                self.tick();
+                            }
+                            if ticks_completed > 0 {
+                                self.last_nspt = (Instant::now() - self.last_update_time) / ticks_completed as u32;
+                            }
+                            // Check if we stopped early, and if so, start redpiler
+                            if ticks_completed != batch_size {
+                                self.start_redpiler(Default::default());
+                            } else {
+                                self.lag_time -= dur_per_tick * batch_size as u32;
+                            }
+                            dbg!(self.last_nspt, batch_size, self.lag_time, dur_per_tick);
+                        } else {
+                            // Redpiler is either already running or will not be automatically started,
+                            // so there's nothing special to do here, just run the batch
+                            for _ in 0..batch_size {
+                                self.tick();
+                            }
+                            self.lag_time -= dur_per_tick * batch_size as u32;
                         }
-                        self.tick();
-                        self.lag_time -= dur_per_tick;
-                        ticks += 1;
-                    }
-                    if ticks > 0 {
-                        self.last_nspt = (Instant::now() - self.last_update_time) / ticks;
                     }
                 }
                 Tps::Unlimited => {

@@ -1,9 +1,8 @@
+use crate::items::Item;
 use mchprs_utils::{map, nbt_unwrap_val};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::str::FromStr;
-
-use crate::items::Item;
 
 /// A single item in an inventory
 #[derive(Clone, Debug, Serialize, Deserialize)]
