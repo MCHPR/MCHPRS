@@ -265,10 +265,9 @@ impl Block {
             }
             b if b.has_comparator_override() => {
                 // Open container
-                // TODO: Avoid clone
-                let block_entity = world.get_block_entity(pos).cloned();
+                let block_entity = world.get_block_entity(pos);
                 if let Some(BlockEntity::Container { inventory, ty, .. }) = block_entity {
-                    player.open_container(&inventory, ty);
+                    player.open_container(inventory, *ty);
                 }
                 ActionResult::Success
             }
