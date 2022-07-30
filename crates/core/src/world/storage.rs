@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_save_data::plot_data::{ChunkData, ChunkSectionData};
@@ -524,7 +525,7 @@ impl Chunk {
                 .sections
                 .iter_mut()
                 .map(|s| s.save())
-                .collect::<Vec<_>>()
+                .collect_vec()
                 .try_into()
                 .unwrap(),
             block_entities: self.block_entities.clone(),
@@ -537,7 +538,7 @@ impl Chunk {
             z,
             sections: IntoIterator::into_iter(chunk_data.sections)
                 .map(ChunkSection::load)
-                .collect::<Vec<_>>()
+                .collect_vec()
                 .try_into()
                 .map_err(|_| ())
                 .unwrap(),

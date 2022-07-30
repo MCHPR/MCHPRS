@@ -227,14 +227,11 @@ impl ServerBoundPacketHandler for Plot {
         if let Some(item) = item_in_hand {
             let cancelled = items::use_item_on_block(
                 &item,
-                self,
+                &mut self.world,
                 UseOnBlockContext {
                     block_face,
                     block_pos,
-                    player_crouching: self.players[player].crouching,
-                    player_direction: self.players[player].get_direction(),
-                    player_yaw: self.players[player].yaw,
-                    player_idx: player,
+                    player: &mut self.players[player],
                 },
             );
             if cancelled {
