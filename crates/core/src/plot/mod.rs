@@ -810,7 +810,6 @@ impl Plot {
                             } else {
                                 self.lag_time -= dur_per_tick * batch_size as u32;
                             }
-                            dbg!(self.last_nspt, batch_size, self.lag_time, dur_per_tick);
                         } else {
                             // Redpiler is either already running or will not be automatically started,
                             // so there's nothing special to do here, just run the batch
