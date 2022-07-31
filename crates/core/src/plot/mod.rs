@@ -820,7 +820,6 @@ impl Plot {
                                 self.start_redpiler(Default::default());
                             } else {
                                 self.lag_time -= dur_per_tick * batch_size as u32;
-                                dbg!(self.lag_time);
                             }
                         } else {
                             // Limit the batch size to however many ticks we can fit inside the world send rate. 
