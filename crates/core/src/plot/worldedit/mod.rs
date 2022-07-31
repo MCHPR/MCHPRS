@@ -34,9 +34,7 @@ pub fn execute_command(
     } else if let Some(command) = ALIASES.get(command) {
         let mut alias: Vec<&str> = command.split(' ').collect();
         let command = alias.remove(0);
-        if alias.len() > 1 {
-            args.append(&mut alias);
-        }
+        args.append(&mut alias);
         &COMMANDS[command]
     } else {
         return false;
