@@ -66,7 +66,7 @@ pub struct Plot {
     tps: Tps,
     last_update_time: Instant,
     lag_time: Duration,
-    last_nspt: Duration,
+    last_nspt: Option<Duration>,
     timings: TimingsMonitor,
     /// The last time a player was in this plot
     last_player_time: Instant,
@@ -513,6 +513,15 @@ impl Plot {
         self.players[player_idx].last_chunk_z = chunk_z;
     }
 
+    /// After an expensive operation or change in timings, it's important to
+    /// call this function so our timings monitor doesn't think we're running
+    /// behind.
+    fn reset_timings(&mut self) {
+        self.lag_time = Duration::ZERO;
+        self.last_update_time = Instant::now();
+        self.timings.reset_timings();
+    }
+
     fn start_redpiler(&mut self, options: CompilerOptions) {
         debug!("Starting redpiler");
         let ticks = self.world.to_be_ticked.drain(..).collect();
@@ -524,8 +533,7 @@ impl Plot {
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Running);
         
-        self.lag_time = Duration::ZERO;
-        self.last_update_time = Instant::now();
+        self.reset_timings();
     }
 
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
@@ -536,7 +544,10 @@ impl Plot {
             self.scoreboard
                 .set_redpiler_state(&self.players, RedpilerState::Stopped);
             self.scoreboard
-                .set_redpiler_options(&self.players, &Default::default())
+                .set_redpiler_options(&self.players, &Default::default());
+
+            // reseting redpiler could cause a large amount of block updates
+            self.reset_timings();
         }
     }
 
@@ -781,16 +792,16 @@ impl Plot {
             match self.tps {
                 Tps::Limited(tps) if tps != 0 => {
                     let dur_per_tick = Duration::from_micros(1_000_000 / tps as u64);
-                    let elapsed_time = self.last_update_time.elapsed();
+                    self.lag_time += self.last_update_time.elapsed();
                     self.last_update_time = Instant::now();
-                    self.lag_time += elapsed_time;
                     if self.lag_time > dur_per_tick {
+                        // TODO: there are some problems here: redpiler should not automatically
+                        // compiler as early as it is, meaning we are not running as many ticks
+                        // as we should for some reason.
                         let batch_size = self.lag_time.as_micros() as u64 / dur_per_tick.as_micros() as u64;
-                        // Limit the batch size to however many ticks we can fit inside the world send rate. 
-                        let batch_size = batch_size.min(WORLD_SEND_RATE.as_micros() as u64 / self.last_nspt.as_nanos() as u64);
                         // 50000 here is arbitrary. We just need a number that's not too high so we actually
                         // get around to sending block updates.
-                        let batch_size = batch_size.min(50000).max(1);
+                        let batch_size = batch_size.min(50000);
                         if !self.redpiler.is_active() && self.auto_redpiler {
                             let mut ticks_completed = batch_size;
                             for i in 0..batch_size {
@@ -802,21 +813,29 @@ impl Plot {
                                 self.tick();
                             }
                             if ticks_completed > 0 {
-                                self.last_nspt = (Instant::now() - self.last_update_time) / ticks_completed as u32;
+                                self.last_nspt = Some(self.last_update_time.elapsed() / ticks_completed as u32);
                             }
                             // Check if we stopped early, and if so, start redpiler
                             if ticks_completed != batch_size {
                                 self.start_redpiler(Default::default());
                             } else {
                                 self.lag_time -= dur_per_tick * batch_size as u32;
+                                dbg!(self.lag_time);
                             }
                         } else {
+                            // Limit the batch size to however many ticks we can fit inside the world send rate. 
+                            let batch_size = batch_size.min(match self.last_nspt {
+                                Some(last_nspt) => WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos(),
+                                None => 1,
+                            } as u64);
+
                             // Redpiler is either already running or will not be automatically started,
                             // so there's nothing special to do here, just run the batch
                             for _ in 0..batch_size {
                                 self.tick();
                             }
                             self.lag_time -= dur_per_tick * batch_size as u32;
+                            self.last_nspt = Some(self.last_update_time.elapsed() / batch_size as u32);
                         }
                     }
                 }
@@ -825,12 +844,15 @@ impl Plot {
                         self.start_redpiler(Default::default());
                     }
                     self.last_update_time = Instant::now();
-                    let batch_size = WORLD_SEND_RATE.as_nanos() / self.last_nspt.as_nanos();
-                    let batch_size = batch_size.min(50000).max(1) as u32;
+                    let batch_size = match self.last_nspt {
+                        Some(last_nspt) => WORLD_SEND_RATE.as_micros() as u64 / last_nspt.as_micros() as u64,
+                        None => 1,
+                    };
+                    let batch_size = batch_size.min(50000) as u32;
                     for _ in 0..batch_size {
                         self.tick();
                     }
-                    self.last_nspt = (Instant::now() - self.last_update_time) / batch_size;
+                    self.last_nspt = Some((Instant::now() - self.last_update_time) / batch_size);
                 }
                 _ => {}
             }
@@ -932,7 +954,7 @@ impl Plot {
             last_world_send_time: Instant::now(),
             lag_time: Duration::new(0, 0),
             sleep_time: sleep_time_for_tps(tps),
-            last_nspt: Duration::from_millis(15),
+            last_nspt: None,
             message_receiver: rx,
             message_sender: tx,
             priv_message_receiver: priv_rx,
@@ -980,6 +1002,8 @@ impl Plot {
         };
         data.save_to_file(format!("./world/plots/p{},{}", world.x, world.z))
             .unwrap();
+
+        self.reset_timings();
     }
 
     fn run(&mut self, initial_player: Option<Player>) {

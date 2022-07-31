@@ -1,6 +1,6 @@
 use log::warn;
 use mchprs_save_data::plot_data::Tps;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering, AtomicU64};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -29,17 +29,18 @@ impl AtomicTps {
     fn update(&self, tps: Tps) {
         match tps {
             Tps::Limited(tps) => {
-                self.tps.store(tps, Ordering::SeqCst);
-                self.unlimited.store(false, Ordering::SeqCst);
+                self.tps.store(tps, Ordering::Relaxed);
+                self.unlimited.store(false, Ordering::Relaxed);
             }
-            Tps::Unlimited => self.unlimited.store(true, Ordering::SeqCst),
+            Tps::Unlimited => self.unlimited.store(true, Ordering::Relaxed),
         }
     }
 }
 
 struct MonitorData {
     tps: AtomicTps,
-    ticks_passed: Arc<AtomicU32>,
+    ticks_passed: Arc<AtomicU64>,
+    reset_timings: AtomicU32,
     too_slow: AtomicBool,
     ticking: AtomicBool,
     running: AtomicBool,
@@ -63,6 +64,7 @@ impl TimingsMonitor {
     pub fn new(tps: Tps) -> TimingsMonitor {
         let data = Arc::new(MonitorData {
             ticks_passed: Default::default(),
+            reset_timings: Default::default(),
             running: AtomicBool::new(true),
             too_slow: Default::default(),
             ticking: Default::default(),
@@ -77,7 +79,7 @@ impl TimingsMonitor {
     }
 
     pub fn stop(&mut self) {
-        self.data.running.store(false, Ordering::SeqCst);
+        self.data.running.store(false, Ordering::Relaxed);
         if let Some(handle) = self.monitor_thread.take() {
             if handle.join().is_err() {
                 warn!("Failed to join monitor thread handle");
@@ -120,57 +122,69 @@ impl TimingsMonitor {
 
     pub fn set_tps(&self, new_tps: Tps) {
         self.data.tps.update(new_tps);
-        self.data.too_slow.store(false, Ordering::SeqCst);
+        self.data.too_slow.store(false, Ordering::Relaxed);
     }
 
     pub fn tick(&self) {
-        self.data.ticks_passed.fetch_add(1, Ordering::SeqCst);
+        self.data.ticks_passed.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn is_running_behind(&self) -> bool {
-        self.data.too_slow.load(Ordering::SeqCst)
+        self.data.too_slow.load(Ordering::Relaxed)
     }
 
     pub fn set_ticking(&self, ticking: bool) {
         self.data.ticking.store(ticking, Ordering::Relaxed);
     }
 
+    pub fn reset_timings(&self) {
+        self.data.reset_timings.store(4, Ordering::Relaxed);
+    }
+
     fn run_thread(data: Arc<MonitorData>) -> JoinHandle<()> {
         thread::spawn(move || {
-            let mut last_tps = data.tps.tps.load(Ordering::SeqCst);
-            let mut last_ticks_count = data.ticks_passed.load(Ordering::SeqCst);
-            let mut was_ticking_before = data.ticking.load(Ordering::SeqCst);
+            let mut last_tps = data.tps.tps.load(Ordering::Relaxed);
+            let mut last_ticks_count = data.ticks_passed.load(Ordering::Relaxed);
+            let mut was_ticking_before = data.ticking.load(Ordering::Relaxed);
+
+            let mut behind_for = 0;
             loop {
                 thread::sleep(Duration::from_millis(500));
-                if !data.running.load(Ordering::SeqCst) {
+                if !data.running.load(Ordering::Relaxed) {
                     return;
                 }
 
-                let tps = data.tps.tps.load(Ordering::SeqCst);
-                let ticking = data.ticking.load(Ordering::SeqCst);
-                if !(ticking && was_ticking_before) || tps != last_tps {
+                let ticks_count = data.ticks_passed.load(Ordering::Relaxed);
+                if ticks_count == 0 {
+                    continue;
+                }
+                let ticks_passed = (ticks_count - last_ticks_count) as u32;
+                last_ticks_count = ticks_count;
+
+                let tps = data.tps.tps.load(Ordering::Relaxed);
+                let ticking = data.ticking.load(Ordering::Relaxed);
+                if !(ticking && was_ticking_before) || tps != last_tps || data.reset_timings.load(Ordering::Relaxed) > 0 {
+                    data.reset_timings.fetch_sub(1, Ordering::Relaxed);
                     was_ticking_before = ticking;
                     last_tps = tps;
                     continue;
                 }
 
-                let ticks_count = data.ticks_passed.load(Ordering::SeqCst);
-                if ticks_count == 0 {
-                    continue;
+                // 5% threshold
+                if data.tps.unlimited.load(Ordering::Relaxed) || ticks_passed < (tps / 2) * 95 / 100
+                {
+                    behind_for += 1;
+                } else {
+                    behind_for = 0;
+                    data.too_slow.store(false, Ordering::Relaxed);
                 }
 
-                let ticks_passed = ticks_count - last_ticks_count;
-
-                // 5% threshold
-                if data.tps.unlimited.load(Ordering::SeqCst) || ticks_passed < (tps / 2) * 95 / 100
-                {
-                    data.too_slow.store(true, Ordering::SeqCst);
+                if behind_for >= 3 {
+                    data.too_slow.store(true, Ordering::Relaxed);
                     // warn!(
                     //     "running behind by {} ticks",
                     //     ((tps / 2) * 95 / 100) - ticks_passed
                     // );
-                } else {
-                    data.too_slow.store(false, Ordering::SeqCst);
                 }
 
                 // The timings record will only go back 15 minutes.
@@ -182,7 +196,6 @@ impl TimingsMonitor {
                 }
                 timings_record.insert(0, ticks_passed);
 
-                last_ticks_count = ticks_count;
             }
         })
     }
@@ -191,6 +204,6 @@ impl TimingsMonitor {
 impl Drop for TimingsMonitor {
     fn drop(&mut self) {
         // Joining the thread in drop is a bad idea so we just let it detach
-        self.data.running.store(false, Ordering::SeqCst);
+        self.data.running.store(false, Ordering::Relaxed);
     }
 }

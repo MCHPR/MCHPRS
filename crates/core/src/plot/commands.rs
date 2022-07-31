@@ -18,7 +18,7 @@ use mchprs_save_data::plot_data::Tps;
 use std::ops::Add;
 use std::str::FromStr;
 use std::sync::LazyLock;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 // Parses a relative or absolute coordinate relative to a reference coordinate
 fn parse_relative_coord<F: FromStr + Add + Add<Output = F>>(
@@ -295,10 +295,8 @@ impl Plot {
 
                 self.sleep_time = sleep_time_for_tps(tps);
                 self.timings.set_tps(tps);
-                self.lag_time = Duration::from_millis(0);
                 self.tps = tps;
-                // This won't get set normally when rtps is 0
-                self.last_update_time = Instant::now();
+                self.reset_timings();
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
             "/radv" | "/radvance" => {
