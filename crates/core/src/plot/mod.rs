@@ -844,9 +844,9 @@ impl Plot {
                     }
                     self.last_update_time = Instant::now();
                     let batch_size = match self.last_nspt {
-                        Some(last_nspt) => WORLD_SEND_RATE.as_micros() as u64 / last_nspt.as_micros() as u64,
+                        Some(last_nspt) => WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos(),
                         None => 1,
-                    };
+                    } as u64;
                     let batch_size = batch_size.min(50000) as u32;
                     for _ in 0..batch_size {
                         self.tick();
