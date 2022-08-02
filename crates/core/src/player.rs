@@ -520,20 +520,20 @@ impl Player {
     }
 
     pub fn set_inventory_slot(&mut self, slot: u32, item: Option<ItemStack>) {
-        self.inventory[slot as usize] = item.clone();
-
         let set_slot = CSetSlot {
             window_id: 0,
             state_id: 0,
             slot: slot as i16,
-            slot_data: item.map(|item| SlotData {
+            slot_data: item.as_ref().map(|item| SlotData {
                 item_id: item.item_type.get_id() as i32,
                 item_count: item.count as i8,
-                nbt: item.nbt,
+                nbt: item.nbt.clone(),
             }),
         }
         .encode();
         self.client.send_packet(&set_slot);
+        
+        self.inventory[slot as usize] = item;
     }
 }
 

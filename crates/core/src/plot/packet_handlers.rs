@@ -123,6 +123,13 @@ impl ServerBoundPacketHandler for Plot {
         } else {
             self.players[player].inventory[creative_inventory_action.slot as usize] = None;
         }
+
+        // We wanna retrieve the item slot from the inventory
+        // rather than re-using the value from the client,
+        // to avoid getting out of sync if the server validates
+        // or sanitizes data or something
+        let item = self.players[player].inventory[creative_inventory_action.slot as usize].clone();
+        self.players[player].set_inventory_slot(creative_inventory_action.slot as u32, item);
     }
 
     fn handle_player_abilities(&mut self, player_abilities: SPlayerAbilities, player: usize) {
