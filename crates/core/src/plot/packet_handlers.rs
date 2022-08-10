@@ -18,6 +18,8 @@ use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
 
+const ERROR_IO_ONLY: &str = "This plot cannot be interacted with while redpiler is active with `--io-only`. To stop redpiler, run `/redpiler reset`.";
+
 impl Plot {
     pub(super) fn handle_packets_for_player(&mut self, player: usize) {
         let packets = self.players[player].client.receive_packets();
@@ -227,6 +229,14 @@ impl ServerBoundPacketHandler for Plot {
                 self.redpiler.on_use_block(&mut self.world, block_pos);
                 return;
             } else {
+                match self.redpiler.current_flags() {
+                    Some(flags) if flags.io_only => {
+                        self.players[player].send_error_message(ERROR_IO_ONLY);
+                        cancel(self);
+                        return;
+                    }
+                    _ => {}
+                }
                 self.reset_redpiler();
             }
         }
@@ -466,6 +476,15 @@ impl ServerBoundPacketHandler for Plot {
                 self.players[player].send_no_permission_message();
                 self.send_block_change(block_pos, block.get_id());
                 return;
+            }
+
+            match self.redpiler.current_flags() {
+                Some(flags) if flags.io_only => {
+                    self.players[player].send_error_message(ERROR_IO_ONLY);
+                    self.send_block_change(block_pos, block.get_id());
+                    return;
+                }
+                _ => {}
             }
 
             self.reset_redpiler();

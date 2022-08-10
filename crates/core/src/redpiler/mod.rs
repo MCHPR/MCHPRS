@@ -536,6 +536,13 @@ impl Compiler {
         self.is_active
     }
 
+    pub fn current_flags(&self) -> Option<&CompilerOptions> {
+        match self.is_active {
+            true => Some(&self.options),
+            false => None,
+        }
+    }
+
     /// Use just-in-time compilation with a `JITBackend` such as `CraneliftBackend` or `LLVMBackend`.
     /// Requires recompilation to take effect.
     pub fn use_jit(&mut self, jit: Box<dyn JITBackend>) {
