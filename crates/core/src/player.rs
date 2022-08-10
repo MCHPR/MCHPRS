@@ -532,7 +532,7 @@ impl Player {
         }
         .encode();
         self.client.send_packet(&set_slot);
-        
+
         self.inventory[slot as usize] = item;
     }
 }

@@ -532,7 +532,7 @@ impl Plot {
         self.redpiler.compile(&mut self.world, options, ticks);
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Running);
-        
+
         self.reset_timings();
     }
 
@@ -798,7 +798,8 @@ impl Plot {
                         // TODO: there are some problems here: redpiler should not automatically
                         // compiler as early as it is, meaning we are not running as many ticks
                         // as we should for some reason.
-                        let batch_size = self.lag_time.as_micros() as u64 / dur_per_tick.as_micros() as u64;
+                        let batch_size =
+                            self.lag_time.as_micros() as u64 / dur_per_tick.as_micros() as u64;
                         // 50000 here is arbitrary. We just need a number that's not too high so we actually
                         // get around to sending block updates.
                         let batch_size = batch_size.min(50000);
@@ -813,7 +814,8 @@ impl Plot {
                                 self.tick();
                             }
                             if ticks_completed > 0 {
-                                self.last_nspt = Some(self.last_update_time.elapsed() / ticks_completed as u32);
+                                self.last_nspt =
+                                    Some(self.last_update_time.elapsed() / ticks_completed as u32);
                             }
                             // Check if we stopped early, and if so, start redpiler
                             if ticks_completed != batch_size {
@@ -822,10 +824,12 @@ impl Plot {
                                 self.lag_time -= dur_per_tick * batch_size as u32;
                             }
                         } else {
-                            // Limit the batch size to however many ticks we can fit inside the world send rate. 
+                            // Limit the batch size to however many ticks we can fit inside the world send rate.
                             let batch_size = batch_size.min(match self.last_nspt {
-                                Some(last_nspt) => WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos(),
-                                None => 1,
+                                Some(Duration::ZERO) | None => 5,
+                                Some(last_nspt) => {
+                                    WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos()
+                                }
                             } as u64);
 
                             // Redpiler is either already running or will not be automatically started,
@@ -834,7 +838,8 @@ impl Plot {
                                 self.tick();
                             }
                             self.lag_time -= dur_per_tick * batch_size as u32;
-                            self.last_nspt = Some(self.last_update_time.elapsed() / batch_size as u32);
+                            self.last_nspt =
+                                Some(self.last_update_time.elapsed() / batch_size as u32);
                         }
                     }
                 }
@@ -844,14 +849,14 @@ impl Plot {
                     }
                     self.last_update_time = Instant::now();
                     let batch_size = match self.last_nspt {
+                        Some(Duration::ZERO) | None => 5,
                         Some(last_nspt) => WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos(),
-                        None => 1,
                     } as u64;
                     let batch_size = batch_size.min(50000) as u32;
                     for _ in 0..batch_size {
                         self.tick();
                     }
-                    self.last_nspt = Some((Instant::now() - self.last_update_time) / batch_size);
+                    self.last_nspt = Some(self.last_update_time.elapsed() / batch_size);
                 }
                 _ => {}
             }

@@ -1,6 +1,6 @@
 use log::warn;
 use mchprs_save_data::plot_data::Tps;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering, AtomicU64};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -163,7 +163,10 @@ impl TimingsMonitor {
 
                 let tps = data.tps.tps.load(Ordering::Relaxed);
                 let ticking = data.ticking.load(Ordering::Relaxed);
-                if !(ticking && was_ticking_before) || tps != last_tps || data.reset_timings.load(Ordering::Relaxed) > 0 {
+                if !(ticking && was_ticking_before)
+                    || tps != last_tps
+                    || data.reset_timings.load(Ordering::Relaxed) > 0
+                {
                     data.reset_timings.fetch_sub(1, Ordering::Relaxed);
                     was_ticking_before = ticking;
                     last_tps = tps;
@@ -195,7 +198,6 @@ impl TimingsMonitor {
                     timings_record.pop();
                 }
                 timings_record.insert(0, ticks_passed);
-
             }
         })
     }
