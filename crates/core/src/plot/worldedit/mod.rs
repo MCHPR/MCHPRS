@@ -448,6 +448,24 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             permission_node: "worldedit.navigation.up",
             ..Default::default()
         },
+        "ascend" => WorldeditCommand {
+            execute_fn: execute_ascend,
+            description: "Go up a floor",
+            arguments: &[
+                argument!("levels", UnsignedInteger, "# of levels to ascend")
+            ],
+            permission_node: "worldedit.navigation.ascend",
+            ..Default::default()
+        },
+        "descend" => WorldeditCommand {
+            execute_fn: execute_descend,
+            description: "Go down a floor",
+            arguments: &[
+                argument!("levels", UnsignedInteger, "# of levels to descend")
+            ],
+            permission_node: "worldedit.navigation.descend",
+            ..Default::default()
+        },
         "/pos1" => WorldeditCommand {
             execute_fn: execute_pos1,
             description: "Set position 1",
@@ -698,6 +716,8 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
 static ALIASES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     map! {
         "u" => "up",
+        "desc" => "descend",
+        "asc" => "ascend",
         "/1" => "/pos1",
         "/2" => "/pos2",
         "/c" => "/copy",

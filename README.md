@@ -96,6 +96,8 @@ These are the commands that are currently implemented:
 | Command | Alias | Description |
 | --- | --- |--- |
 | `/up` | `/u` | Go upwards some distance |
+| `/ascend` | `/asc` | Go up a floor |
+| `/descend` | `/desc` | Go down a floor |
 | `//pos1` | `//1` | Set position 1 |
 | `//pos2` | `//2` | Set position 2 |
 | `//hpos1` | `//h1` | Set position 1 to targeted block |

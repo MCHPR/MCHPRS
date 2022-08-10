@@ -869,6 +869,78 @@ pub(super) fn execute_up(ctx: CommandExecuteContext<'_>) {
     player.teleport(pos);
 }
 
+pub(super) fn execute_ascend(ctx: CommandExecuteContext<'_>) {
+    let initial_levels = ctx.arguments[0].unwrap_uint();
+    let mut levels = initial_levels;
+
+    let player = ctx.player;
+    let player_pos = player.pos.block_pos();
+    let mut player_y = player_pos.y;
+
+    for (y, _) in (player_y..=256).enumerate() {
+        if levels == 0 {
+            break;
+        }
+        let y = y as i32 + 1;
+
+        let floor_pos = player_pos + BlockPos::new(0, y - 1, 0);
+        let pos = player_pos + BlockPos::new(0, y, 0);
+        let high_pos = player_pos + BlockPos::new(0, y + 1, 0);
+        if ctx.plot.get_block(floor_pos) != (Block::Air {})
+            && ctx.plot.get_block(pos) == (Block::Air {})
+            && ctx.plot.get_block(high_pos) == (Block::Air {})
+        {
+            player_y = pos.y;
+            levels -= 1;
+        }
+    }
+
+    if player_y == player_pos.y {
+        player.send_error_message("No free spot above you found.");
+    } else {
+        let mut pos = player.pos;
+        pos.y = player_y as f64;
+        player.teleport(pos);
+        player.send_worldedit_message(&format!("Ascended {} levels.", initial_levels - levels));
+    }
+}
+
+pub(super) fn execute_descend(ctx: CommandExecuteContext<'_>) {
+    let initial_levels = ctx.arguments[0].unwrap_uint();
+    let mut levels = initial_levels;
+
+    let player = ctx.player;
+    let player_pos = player.pos.block_pos();
+    let mut player_y = player_pos.y;
+
+    for (y, _) in (1..player_y).enumerate() {
+        if levels == 0 {
+            break;
+        }
+        let y = -(y as i32 + 1);
+
+        let floor_pos = player_pos + BlockPos::new(0, y - 1, 0);
+        let pos = player_pos + BlockPos::new(0, y, 0);
+        let high_pos = player_pos + BlockPos::new(0, y + 1, 0);
+        if ctx.plot.get_block(floor_pos) != (Block::Air {})
+            && ctx.plot.get_block(pos) == (Block::Air {})
+            && ctx.plot.get_block(high_pos) == (Block::Air {})
+        {
+            player_y = pos.y;
+            levels -= 1;
+        }
+    }
+
+    if player_y == player_pos.y {
+        player.send_error_message("No free spot below you found.");
+    } else {
+        let mut pos = player.pos;
+        pos.y = player_y as f64;
+        player.teleport(pos);
+        player.send_worldedit_message(&format!("Descended {} levels.", initial_levels - levels));
+    }
+}
+
 pub(super) fn execute_rstack(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
