@@ -341,6 +341,12 @@ items! {
         from_id(_id): 221 => {},
         block: true,
     },
+    IronTrapdoor {
+        props: {},
+        get_id: 640,
+        from_id(_id): 640 => {},
+        block: true,
+    },
     Unknown {
         props: {
             id: u32
