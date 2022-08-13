@@ -220,18 +220,16 @@ impl DirectBackend {
         self.scheduler.schedule_tick(node_id, delay, priority);
     }
 
-    fn set_node(&mut self, node_id: NodeId, new_block: Block, update: bool) {
+    fn set_node(&mut self, node_id: NodeId, new_block: Block, new_power: u8) {
         let node = &mut self.nodes[node_id];
         node.state = new_block;
         node.changed = true;
-        if update {
-            node.update_output_power();
-            for i in 0..node.updates.len() {
-                let update = self.nodes[node_id].updates[i];
-                update_node(&mut self.scheduler, &mut self.nodes, update);
-            }
-            update_node(&mut self.scheduler, &mut self.nodes, node_id);
+        node.output_power = new_power;
+        for i in 0..node.updates.len() {
+            let update = self.nodes[node_id].updates[i];
+            update_node(&mut self.scheduler, &mut self.nodes, update);
         }
+        update_node(&mut self.scheduler, &mut self.nodes, node_id);
     }
 }
 
@@ -264,11 +262,15 @@ impl JITBackend for DirectBackend {
             Block::StoneButton { mut button } => {
                 button.powered = !button.powered;
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(node_id, Block::StoneButton { button }, true);
+                self.set_node(
+                    node_id,
+                    Block::StoneButton { button },
+                    bool_to_ss(button.powered),
+                );
             }
             Block::Lever { mut lever } => {
                 lever.powered = !lever.powered;
-                self.set_node(node_id, Block::Lever { lever }, true);
+                self.set_node(node_id, Block::Lever { lever }, bool_to_ss(lever.powered));
             }
             _ => warn!("Tried to use a {:?} redpiler node", node.state),
         }
@@ -279,7 +281,11 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.state {
             Block::StonePressurePlate { .. } => {
-                self.set_node(node_id, Block::StonePressurePlate { powered }, true);
+                self.set_node(
+                    node_id,
+                    Block::StonePressurePlate { powered },
+                    bool_to_ss(powered),
+                );
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.state),
         }
@@ -316,38 +322,30 @@ impl JITBackend for DirectBackend {
                     let should_be_powered = input_power > 0;
                     if repeater.powered && !should_be_powered {
                         repeater.powered = false;
-                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, 0);
                     } else if !repeater.powered {
                         repeater.powered = true;
-                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, true);
+                        self.set_node(node_id, Block::RedstoneRepeater { repeater }, 15);
                     }
                 }
                 Block::RedstoneTorch { lit } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
-                        self.set_node(node_id, Block::RedstoneTorch { lit: false }, true);
+                        self.set_node(node_id, Block::RedstoneTorch { lit: false }, 0);
                     } else if !lit && !should_be_off {
-                        self.set_node(node_id, Block::RedstoneTorch { lit: true }, true);
+                        self.set_node(node_id, Block::RedstoneTorch { lit: true }, 15);
                     }
                 }
                 Block::RedstoneWallTorch { lit, facing } => {
                     let should_be_off = input_power > 0;
                     if lit && should_be_off {
-                        self.set_node(
-                            node_id,
-                            Block::RedstoneWallTorch { lit: false, facing },
-                            true,
-                        );
+                        self.set_node(node_id, Block::RedstoneWallTorch { lit: false, facing }, 0);
                     } else if !lit && !should_be_off {
-                        self.set_node(
-                            node_id,
-                            Block::RedstoneWallTorch { lit: true, facing },
-                            true,
-                        );
+                        self.set_node(node_id, Block::RedstoneWallTorch { lit: true, facing }, 15);
                     }
                 }
                 Block::RedstoneComparator { mut comparator } => {
-                    if let Some(far_override) = self.nodes[node_id].comparator_far_input {
+                    if let Some(far_override) = node.comparator_far_input {
                         if input_power < 15 {
                             input_power = far_override;
                         }
@@ -369,19 +367,23 @@ impl JITBackend for DirectBackend {
                         } else if !powered && should_be_powered {
                             comparator.powered = true;
                         }
-                        self.set_node(node_id, Block::RedstoneComparator { comparator }, true);
+                        self.set_node(
+                            node_id,
+                            Block::RedstoneComparator { comparator },
+                            new_strength,
+                        );
                     }
                 }
                 Block::RedstoneLamp { lit } => {
                     let should_be_lit = input_power > 0;
                     if lit && !should_be_lit {
-                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, false);
+                        self.set_node(node_id, Block::RedstoneLamp { lit: false }, 0);
                     }
                 }
                 Block::StoneButton { mut button } => {
                     if button.powered {
                         button.powered = false;
-                        self.set_node(node_id, Block::StoneButton { button }, true);
+                        self.set_node(node_id, Block::StoneButton { button }, 0);
                     }
                 }
                 _ => warn!("Node {:?} should not be ticked!", node.state),
