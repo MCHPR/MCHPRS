@@ -75,26 +75,54 @@ impl From<CompileNode> for Node {
 }
 
 struct RPTickEntry {
-    ticks_left: u32,
-    tick_priority: TickPriority,
+    priority: TickPriority,
     node: usize,
+}
+
+#[derive(Default)]
+struct TickScheduler {
+    queues: [Vec<RPTickEntry>; 4],
+    current_queue: usize,
+}
+
+impl TickScheduler {
+    fn reset(&mut self, plot: &mut PlotWorld, nodes: &[Node]) {
+        for i in 0..4 {
+            let queue_idx = (self.current_queue + i) % 4;
+            let queue = &mut self.queues[queue_idx];
+            for entry in queue.iter() {
+                plot.schedule_tick(nodes[entry.node].pos, i as u32 + 1, entry.priority);
+            }
+            queue.clear();
+        }
+    }
+
+    fn schedule_tick(&mut self, node: usize, delay: usize, priority: TickPriority) {
+        let delay = self.current_queue + (delay - 1);
+        self.queues[delay % 4].push(RPTickEntry { priority, node });
+    }
+
+    fn swap_queue(&mut self, with: &mut Vec<RPTickEntry>) {
+        with.clear();
+        std::mem::swap(&mut self.queues[self.current_queue], with);
+        with.sort_by_key(|entry| entry.priority);
+        self.current_queue += 1;
+        self.current_queue %= 4;
+    }
 }
 
 #[derive(Default)]
 pub struct DirectBackend {
     nodes: Vec<Node>,
-    to_be_ticked: Vec<RPTickEntry>,
     pos_map: HashMap<BlockPos, usize>,
+    scheduler: TickScheduler,
+
+    cached_queue: Option<Vec<RPTickEntry>>,
 }
 
 impl DirectBackend {
-    fn schedule_tick(&mut self, node_id: usize, delay: u32, priority: TickPriority) {
-        self.nodes[node_id].pending_tick = true;
-        self.to_be_ticked.push(RPTickEntry {
-            node: node_id,
-            ticks_left: delay,
-            tick_priority: priority,
-        });
+    fn schedule_tick(&mut self, node_id: usize, delay: usize, priority: TickPriority) {
+        self.scheduler.schedule_tick(node_id, delay, priority);
     }
 
     fn set_node(&mut self, node_id: usize, new_block: Block, update: bool) {
@@ -105,22 +133,16 @@ impl DirectBackend {
             node.update_output_power();
             for i in 0..node.updates.len() {
                 let update = self.nodes[node_id].updates[i];
-                update_node(&mut self.to_be_ticked, &mut self.nodes, update);
+                update_node(&mut self.scheduler, &mut self.nodes, update);
             }
-            update_node(&mut self.to_be_ticked, &mut self.nodes, node_id);
+            update_node(&mut self.scheduler, &mut self.nodes, node_id);
         }
     }
 }
 
 impl JITBackend for DirectBackend {
     fn reset(&mut self, plot: &mut PlotWorld, io_only: bool) {
-        for entry in &self.to_be_ticked {
-            plot.schedule_tick(
-                self.nodes[entry.node].pos,
-                entry.ticks_left,
-                entry.tick_priority,
-            );
-        }
+        self.scheduler.reset(plot, &self.nodes);
 
         for node in &self.nodes {
             if let Block::RedstoneComparator { .. } = node.state {
@@ -137,7 +159,6 @@ impl JITBackend for DirectBackend {
 
         self.nodes.clear();
         self.pos_map.clear();
-        self.to_be_ticked.clear();
     }
 
     fn on_use_block(&mut self, _plot: &mut PlotWorld, pos: BlockPos) {
@@ -169,20 +190,13 @@ impl JITBackend for DirectBackend {
     }
 
     fn tick(&mut self, _plot: &mut PlotWorld) {
-        self.to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
-        for pending in &mut self.to_be_ticked {
-            pending.ticks_left = pending.ticks_left.saturating_sub(1);
-        }
+        let mut queue = match self.cached_queue.take() {
+            Some(queue) => queue,
+            None => Vec::new(),
+        };
+        self.scheduler.swap_queue(&mut queue);
 
-        let mut i = 0;
-        for _ in 0..self.to_be_ticked.len() {
-            let entry = &self.to_be_ticked[i];
-            if entry.ticks_left != 0 {
-                break;
-            }
-            i += 1;
-
+        for entry in &queue {
             let node_id = entry.node;
             self.nodes[node_id].pending_tick = false;
             let node = &self.nodes[node_id];
@@ -281,7 +295,7 @@ impl JITBackend for DirectBackend {
                 _ => warn!("Node {:?} should not be ticked!", node.state),
             }
         }
-        self.to_be_ticked.drain(0..i);
+        self.cached_queue = Some(queue);
     }
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
@@ -291,11 +305,8 @@ impl JITBackend for DirectBackend {
         self.nodes = nodes.into_iter().map(Into::into).collect();
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
-                self.to_be_ticked.push(RPTickEntry {
-                    ticks_left: entry.ticks_left,
-                    tick_priority: entry.tick_priority,
-                    node: *node,
-                });
+                self.scheduler
+                    .schedule_tick(*node, entry.ticks_left as usize, entry.tick_priority);
             }
         }
         // Dot file output
@@ -318,21 +329,17 @@ fn set_node(node: &mut Node, new_state: Block) {
 }
 
 fn schedule_tick(
-    to_be_ticked: &mut Vec<RPTickEntry>,
+    scheduler: &mut TickScheduler,
     node_id: usize,
     node: &mut Node,
-    delay: u32,
+    delay: usize,
     priority: TickPriority,
 ) {
     node.pending_tick = true;
-    to_be_ticked.push(RPTickEntry {
-        node: node_id,
-        ticks_left: delay,
-        tick_priority: priority,
-    });
+    scheduler.schedule_tick(node_id, delay, priority);
 }
 
-fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id: usize) {
+fn update_node(scheduler: &mut TickScheduler, nodes: &mut [Node], node_id: usize) {
     let node = &nodes[node_id];
 
     let mut input_power = 0;
@@ -370,13 +377,19 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id:
                     } else {
                         TickPriority::High
                     };
-                    schedule_tick(to_be_ticked, node_id, node, repeater.delay as u32, priority);
+                    schedule_tick(
+                        scheduler,
+                        node_id,
+                        node,
+                        repeater.delay as usize,
+                        priority,
+                    );
                 }
             }
         }
         Block::RedstoneTorch { lit } | Block::RedstoneWallTorch { lit, .. } => {
             if lit == (input_power > 0) && !node.pending_tick {
-                schedule_tick(to_be_ticked, node_id, node, 1, TickPriority::Normal);
+                schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
         }
         Block::RedstoneComparator { comparator } => {
@@ -400,13 +413,13 @@ fn update_node(to_be_ticked: &mut Vec<RPTickEntry>, nodes: &mut [Node], node_id:
                 } else {
                     TickPriority::Normal
                 };
-                schedule_tick(to_be_ticked, node_id, node, 1, priority);
+                schedule_tick(scheduler, node_id, node, 1, priority);
             }
         }
         Block::RedstoneLamp { lit } => {
             let should_be_lit = input_power > 0;
             if lit && !should_be_lit {
-                schedule_tick(to_be_ticked, node_id, node, 2, TickPriority::Normal);
+                schedule_tick(scheduler, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
                 set_node(node, Block::RedstoneLamp { lit: true });
             }
