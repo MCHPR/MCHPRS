@@ -3,12 +3,13 @@
 use super::JITBackend;
 use crate::blocks::{Block, ComparatorMode};
 use crate::plot::PlotWorld;
-use crate::redpiler::{bool_to_ss, CompileNode, Link, LinkType};
+use crate::redpiler::{bool_to_ss, CompileNode, LinkType};
 use crate::world::World;
 use log::warn;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
+use nodes::{NodeId, Nodes};
 use std::collections::HashMap;
 use std::fmt;
 
@@ -23,15 +24,89 @@ fn is_io_block(block: Block) -> bool {
     )
 }
 
+mod nodes {
+    use super::Node;
+    use std::ops::{Index, IndexMut};
+
+    #[derive(Debug, Copy, Clone)]
+    pub struct NodeId(usize);
+
+    impl NodeId {
+        pub fn index(self) -> usize {
+            self.0
+        }
+
+        /// Safety: index must be within bounds of nodes array
+        pub unsafe fn from_index(index: usize) -> NodeId {
+            NodeId(index)
+        }
+    }
+
+    // This is Pretty Bad:tm: because one can create a NodeId using another instance of Nodes,
+    // but at least some type system protection is better than none.
+    #[derive(Default)]
+    pub struct Nodes {
+        nodes: Box<[Node]>,
+    }
+
+    impl Nodes {
+        pub fn new(nodes: Box<[Node]>) -> Nodes {
+            Nodes { nodes }
+        }
+
+        pub fn get(&self, idx: usize) -> NodeId {
+            if self.nodes.get(idx).is_some() {
+                NodeId(idx)
+            } else {
+                panic!("node index out of bounds: {}", idx)
+            }
+        }
+
+        pub fn inner(&self) -> &[Node] {
+            &self.nodes
+        }
+
+        pub fn inner_mut(&mut self) -> &mut [Node] {
+            &mut self.nodes
+        }
+
+        pub fn into_inner(self) -> Box<[Node]> {
+            self.nodes
+        }
+    }
+
+    impl Index<NodeId> for Nodes {
+        type Output = Node;
+
+        // The index here MUST have been created by this instance, otherwise scary things will happen !
+        fn index(&self, index: NodeId) -> &Self::Output {
+            unsafe { self.nodes.get_unchecked(index.0) }
+        }
+    }
+
+    impl IndexMut<NodeId> for Nodes {
+        fn index_mut(&mut self, index: NodeId) -> &mut Self::Output {
+            unsafe { self.nodes.get_unchecked_mut(index.0) }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct DirectLink {
+    weight: u8,
+    to: NodeId,
+    ty: LinkType,
+}
+
 #[derive(Debug, Clone)]
 pub struct Node {
     pos: BlockPos,
-    inputs: Vec<Link>,
+    inputs: Vec<DirectLink>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
     state: Block,
-    updates: Vec<usize>,
+    updates: Vec<NodeId>,
     output_power: u8,
     comparator_output: u8,
     changed: bool,
@@ -53,15 +128,35 @@ impl Node {
             _ => 0,
         }
     }
-}
 
-impl From<CompileNode> for Node {
-    fn from(node: CompileNode) -> Self {
+    fn from_compile_node(node: CompileNode, nodes_len: usize) -> Self {
         let mut n = Node {
             pos: node.pos,
             state: node.state,
-            inputs: node.inputs,
-            updates: node.updates,
+            inputs: node
+                .inputs
+                .into_iter()
+                .map(|link| {
+                    assert!(link.end < nodes_len);
+                    DirectLink {
+                        weight: link.weight,
+                        to: unsafe {
+                            // Safety: bounds checked
+                            NodeId::from_index(link.end)
+                        },
+                        ty: link.ty,
+                    }
+                })
+                .collect(),
+            updates: node
+                .updates
+                .into_iter()
+                .map(|idx| {
+                    assert!(idx < nodes_len);
+                    // Safety: bounds checked
+                    unsafe { NodeId::from_index(idx) }
+                })
+                .collect(),
             output_power: 0,
             comparator_output: node.comparator_output,
             facing_diode: node.facing_diode,
@@ -76,7 +171,7 @@ impl From<CompileNode> for Node {
 
 struct RPTickEntry {
     priority: TickPriority,
-    node: usize,
+    node: NodeId,
 }
 
 #[derive(Default)]
@@ -86,7 +181,7 @@ struct TickScheduler {
 }
 
 impl TickScheduler {
-    fn reset(&mut self, plot: &mut PlotWorld, nodes: &[Node]) {
+    fn reset(&mut self, plot: &mut PlotWorld, nodes: &Nodes) {
         for i in 0..4 {
             let queue_idx = (self.current_queue + i) % 4;
             let queue = &mut self.queues[queue_idx];
@@ -97,7 +192,7 @@ impl TickScheduler {
         }
     }
 
-    fn schedule_tick(&mut self, node: usize, delay: usize, priority: TickPriority) {
+    fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
         let delay = self.current_queue + (delay - 1);
         self.queues[delay % 4].push(RPTickEntry { priority, node });
     }
@@ -113,19 +208,19 @@ impl TickScheduler {
 
 #[derive(Default)]
 pub struct DirectBackend {
-    nodes: Vec<Node>,
-    pos_map: HashMap<BlockPos, usize>,
+    nodes: Nodes,
+    pos_map: HashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
 
     cached_queue: Option<Vec<RPTickEntry>>,
 }
 
 impl DirectBackend {
-    fn schedule_tick(&mut self, node_id: usize, delay: usize, priority: TickPriority) {
+    fn schedule_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
         self.scheduler.schedule_tick(node_id, delay, priority);
     }
 
-    fn set_node(&mut self, node_id: usize, new_block: Block, update: bool) {
+    fn set_node(&mut self, node_id: NodeId, new_block: Block, update: bool) {
         let node = &mut self.nodes[node_id];
         node.state = new_block;
         node.changed = true;
@@ -144,7 +239,9 @@ impl JITBackend for DirectBackend {
     fn reset(&mut self, plot: &mut PlotWorld, io_only: bool) {
         self.scheduler.reset(plot, &self.nodes);
 
-        for node in &self.nodes {
+        let nodes = std::mem::take(&mut self.nodes);
+
+        for node in nodes.into_inner().iter() {
             if let Block::RedstoneComparator { .. } = node.state {
                 let block_entity = BlockEntity::Comparator {
                     output_strength: node.comparator_output,
@@ -157,7 +254,6 @@ impl JITBackend for DirectBackend {
             }
         }
 
-        self.nodes.clear();
         self.pos_map.clear();
     }
 
@@ -208,11 +304,7 @@ impl JITBackend for DirectBackend {
                     LinkType::Default => &mut input_power,
                     LinkType::Side => &mut side_input_power,
                 };
-                *power = (*power).max(
-                    self.nodes[link.end]
-                        .output_power
-                        .saturating_sub(link.weight),
-                );
+                *power = (*power).max(self.nodes[link.to].output_power.saturating_sub(link.weight));
             }
 
             match node.state {
@@ -299,10 +391,15 @@ impl JITBackend for DirectBackend {
     }
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
-        for (i, node) in nodes.iter().enumerate() {
-            self.pos_map.insert(node.pos, i);
+        let nodes_len = nodes.len();
+        let nodes = nodes
+            .into_iter()
+            .map(|cn| Node::from_compile_node(cn, nodes_len))
+            .collect();
+        self.nodes = Nodes::new(nodes);
+        for (i, node) in self.nodes.inner().iter().enumerate() {
+            self.pos_map.insert(node.pos, self.nodes.get(i));
         }
-        self.nodes = nodes.into_iter().map(Into::into).collect();
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
                 self.scheduler
@@ -314,7 +411,7 @@ impl JITBackend for DirectBackend {
     }
 
     fn flush(&mut self, plot: &mut PlotWorld, io_only: bool) {
-        for node in &mut self.nodes {
+        for node in self.nodes.inner_mut().iter_mut() {
             if node.changed && (!io_only || is_io_block(node.state)) {
                 plot.set_block(node.pos, node.state);
             }
@@ -330,7 +427,7 @@ fn set_node(node: &mut Node, new_state: Block) {
 
 fn schedule_tick(
     scheduler: &mut TickScheduler,
-    node_id: usize,
+    node_id: NodeId,
     node: &mut Node,
     delay: usize,
     priority: TickPriority,
@@ -339,7 +436,7 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-fn update_node(scheduler: &mut TickScheduler, nodes: &mut [Node], node_id: usize) {
+fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId) {
     let node = &nodes[node_id];
 
     let mut input_power = 0;
@@ -349,7 +446,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut [Node], node_id: usize
             LinkType::Default => &mut input_power,
             LinkType::Side => &mut side_input_power,
         };
-        *power = (*power).max(nodes[link.end].output_power.saturating_sub(link.weight));
+        *power = (*power).max(nodes[link.to].output_power.saturating_sub(link.weight));
     }
 
     let facing_diode = node.facing_diode;
@@ -377,13 +474,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut [Node], node_id: usize
                     } else {
                         TickPriority::High
                     };
-                    schedule_tick(
-                        scheduler,
-                        node_id,
-                        node,
-                        repeater.delay as usize,
-                        priority,
-                    );
+                    schedule_tick(scheduler, node_id, node, repeater.delay as usize, priority);
                 }
             }
         }
@@ -452,7 +543,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut [Node], node_id: usize
 impl fmt::Display for DirectBackend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("digraph{")?;
-        for (id, node) in self.nodes.iter().enumerate() {
+        for (id, node) in self.nodes.inner().iter().enumerate() {
             if matches!(node.state, Block::RedstoneWire { .. }) {
                 continue;
             }
@@ -476,7 +567,10 @@ impl fmt::Display for DirectBackend {
                 write!(
                     f,
                     "n{}->n{}[label=\"{}\"{}];",
-                    link.end, link.start, link.weight, color
+                    link.to.index(),
+                    id,
+                    link.weight,
+                    color
                 )?;
             }
             // for update in &node.updates {
