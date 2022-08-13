@@ -1,4 +1,4 @@
-use super::CompileNode;
+use super::{bool_to_ss, CompileNode};
 use crate::blocks::Block;
 use redpiler_graph::{serialize, BlockPos, ComparatorMode, Link, LinkType, Node, NodeType};
 use std::fs;
@@ -61,13 +61,13 @@ pub fn debug(graph: &[CompileNode]) {
             },
             facing_diode: node.facing_diode,
             output_power: match node.state {
-                Block::RedstoneRepeater { repeater } => repeater.powered.then(|| 15).unwrap_or(0),
+                Block::RedstoneRepeater { repeater } => bool_to_ss(repeater.powered),
                 Block::RedstoneComparator { .. } => node.comparator_output,
-                Block::RedstoneTorch { lit } => lit.then(|| 15).unwrap_or(0),
-                Block::RedstoneWallTorch { lit, .. } => lit.then(|| 15).unwrap_or(0),
-                Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
-                Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
-                Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
+                Block::RedstoneTorch { lit } => bool_to_ss(lit),
+                Block::RedstoneWallTorch { lit, .. } => bool_to_ss(lit),
+                Block::Lever { lever } => bool_to_ss(lever.powered),
+                Block::StoneButton { button } => bool_to_ss(button.powered),
+                Block::StonePressurePlate { powered } => bool_to_ss(powered),
                 Block::RedstoneBlock {} => 15,
                 s if s.has_comparator_override() => node.comparator_output,
                 _ => 0,

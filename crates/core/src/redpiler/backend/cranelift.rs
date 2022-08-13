@@ -1000,16 +1000,14 @@ impl JITBackend for CraneliftBackend {
 
             let power = match node.state {
                 Block::RedstoneWire { wire } => wire.power,
-                Block::RedstoneComparator { comparator } => {
-                    comparator.powered.then(|| 15).unwrap_or(0)
-                }
-                Block::RedstoneTorch { lit } => lit.then(|| 15).unwrap_or(0),
-                Block::RedstoneWallTorch { lit, .. } => lit.then(|| 15).unwrap_or(0),
-                Block::RedstoneRepeater { repeater } => repeater.powered.then(|| 15).unwrap_or(0),
-                Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
-                Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
+                Block::RedstoneComparator { comparator } => bool_to_ss(comparator.powered),
+                Block::RedstoneTorch { lit } => bool_to_ss(lit),
+                Block::RedstoneWallTorch { lit, .. } => bool_to_ss(lit),
+                Block::RedstoneRepeater { repeater } => bool_to_ss(repeater.powered),
+                Block::Lever { lever } => bool_to_ss(lever.powered),
+                Block::StoneButton { button } => bool_to_ss(button.powered),
                 Block::RedstoneBlock {} => 15,
-                Block::RedstoneLamp { lit } => lit.then(|| 15).unwrap_or(0),
+                Block::RedstoneLamp { lit } => bool_to_ss(lit),
                 _ => 0,
             };
             data_ctx.define(Box::new([power]));

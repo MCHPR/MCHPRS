@@ -3,7 +3,7 @@
 use super::JITBackend;
 use crate::blocks::{Block, ComparatorMode};
 use crate::plot::PlotWorld;
-use crate::redpiler::{CompileNode, Link, LinkType};
+use crate::redpiler::{bool_to_ss, CompileNode, Link, LinkType};
 use crate::world::World;
 use log::warn;
 use mchprs_blocks::block_entities::BlockEntity;
@@ -42,13 +42,13 @@ impl Node {
     fn update_output_power(&mut self) {
         self.output_power = match self.state {
             Block::RedstoneComparator { .. } => self.comparator_output,
-            Block::RedstoneTorch { lit } => lit.then(|| 15).unwrap_or(0),
-            Block::RedstoneWallTorch { lit, .. } => lit.then(|| 15).unwrap_or(0),
-            Block::RedstoneRepeater { repeater } => repeater.powered.then(|| 15).unwrap_or(0),
-            Block::Lever { lever } => lever.powered.then(|| 15).unwrap_or(0),
-            Block::StoneButton { button } => button.powered.then(|| 15).unwrap_or(0),
+            Block::RedstoneTorch { lit } => bool_to_ss(lit),
+            Block::RedstoneWallTorch { lit, .. } => bool_to_ss(lit),
+            Block::RedstoneRepeater { repeater } => bool_to_ss(repeater.powered),
+            Block::Lever { lever } => bool_to_ss(lever.powered),
+            Block::StoneButton { button } => bool_to_ss(button.powered),
             Block::RedstoneBlock {} => 15,
-            Block::StonePressurePlate { powered } => powered.then(|| 15).unwrap_or(0),
+            Block::StonePressurePlate { powered } => bool_to_ss(powered),
             s if s.has_comparator_override() => self.comparator_output,
             _ => 0,
         }

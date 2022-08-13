@@ -15,6 +15,13 @@ fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos), Block::RedstoneWire { .. })
 }
 
+fn bool_to_ss(b: bool) -> u8 {
+    match b {
+        true => 15,
+        false => 0,
+    }
+}
+
 type NodeId = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
