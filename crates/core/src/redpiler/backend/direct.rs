@@ -108,29 +108,14 @@ pub struct Node {
     state: Block,
     updates: Vec<NodeId>,
     output_power: u8,
-    comparator_output: u8,
     changed: bool,
     pending_tick: bool,
 }
 
 impl Node {
-    fn update_output_power(&mut self) {
-        self.output_power = match self.state {
-            Block::RedstoneComparator { .. } => self.comparator_output,
-            Block::RedstoneTorch { lit } => bool_to_ss(lit),
-            Block::RedstoneWallTorch { lit, .. } => bool_to_ss(lit),
-            Block::RedstoneRepeater { repeater } => bool_to_ss(repeater.powered),
-            Block::Lever { lever } => bool_to_ss(lever.powered),
-            Block::StoneButton { button } => bool_to_ss(button.powered),
-            Block::RedstoneBlock {} => 15,
-            Block::StonePressurePlate { powered } => bool_to_ss(powered),
-            s if s.has_comparator_override() => self.comparator_output,
-            _ => 0,
-        }
-    }
-
     fn from_compile_node(node: CompileNode, nodes_len: usize) -> Self {
-        let mut n = Node {
+        let output_power = node.output_power();
+        Node {
             pos: node.pos,
             state: node.state,
             inputs: node
@@ -157,15 +142,12 @@ impl Node {
                     unsafe { NodeId::from_index(idx) }
                 })
                 .collect(),
-            output_power: 0,
-            comparator_output: node.comparator_output,
+            output_power,
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
             changed: false,
-        };
-        n.update_output_power();
-        n
+        }
     }
 }
 
@@ -242,7 +224,7 @@ impl JITBackend for DirectBackend {
         for node in nodes.into_inner().iter() {
             if let Block::RedstoneComparator { .. } = node.state {
                 let block_entity = BlockEntity::Comparator {
-                    output_strength: node.comparator_output,
+                    output_strength: node.output_power,
                 };
                 plot.set_block_entity(node.pos, block_entity);
             }
@@ -350,12 +332,10 @@ impl JITBackend for DirectBackend {
                             input_power = far_override;
                         }
                     }
-                    let comparator_output = node.comparator_output;
                     let new_strength =
                         calculate_comparator_output(comparator.mode, input_power, side_input_power);
-                    let old_strength = comparator_output;
+                    let old_strength = node.output_power;
                     if new_strength != old_strength || comparator.mode == ComparatorMode::Compare {
-                        self.nodes[node_id].comparator_output = new_strength;
                         let should_be_powered = comparator_should_be_powered(
                             comparator.mode,
                             input_power,
@@ -451,9 +431,6 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
         *power = (*power).max(nodes[link.to].output_power.saturating_sub(link.weight));
     }
 
-    let facing_diode = node.facing_diode;
-    let comparator_output = node.comparator_output;
-
     let node = &mut nodes[node_id];
     match node.state {
         Block::RedstoneRepeater { mut repeater } => {
@@ -469,7 +446,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             if !repeater.locked && !node.pending_tick {
                 let should_be_powered = input_power > 0;
                 if should_be_powered != repeater.powered {
-                    let priority = if facing_diode {
+                    let priority = if node.facing_diode {
                         TickPriority::Highest
                     } else if !should_be_powered {
                         TickPriority::Higher
@@ -496,12 +473,12 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
             let output_power =
                 calculate_comparator_output(comparator.mode, input_power, side_input_power);
-            let old_strength = comparator_output;
+            let old_strength = node.output_power;
             if output_power != old_strength
                 || comparator.powered
                     != comparator_should_be_powered(comparator.mode, input_power, side_input_power)
             {
-                let priority = if facing_diode {
+                let priority = if node.facing_diode {
                     TickPriority::High
                 } else {
                     TickPriority::Normal

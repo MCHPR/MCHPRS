@@ -97,6 +97,21 @@ impl CompileNode {
             None
         }
     }
+
+    fn output_power(&self) -> u8 {
+        match self.state {
+            Block::RedstoneComparator { .. } => self.comparator_output,
+            Block::RedstoneTorch { lit } => bool_to_ss(lit),
+            Block::RedstoneWallTorch { lit, .. } => bool_to_ss(lit),
+            Block::RedstoneRepeater { repeater } => bool_to_ss(repeater.powered),
+            Block::Lever { lever } => bool_to_ss(lever.powered),
+            Block::StoneButton { button } => bool_to_ss(button.powered),
+            Block::RedstoneBlock {} => 15,
+            Block::StonePressurePlate { powered } => bool_to_ss(powered),
+            s if s.has_comparator_override() => self.comparator_output,
+            _ => 0,
+        }
+    }
 }
 
 struct InputSearch<'a> {
