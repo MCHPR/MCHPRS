@@ -22,6 +22,21 @@ fn bool_to_ss(b: bool) -> u8 {
     }
 }
 
+fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
+    Some(match block {
+        Block::RedstoneComparator { comparator } => &mut comparator.powered,
+        Block::RedstoneTorch { lit } => lit,
+        Block::RedstoneWallTorch { lit, .. } => lit,
+        Block::RedstoneRepeater { repeater } => &mut repeater.powered,
+        Block::Lever { lever } => &mut lever.powered,
+        Block::StoneButton { button } => &mut button.powered,
+        Block::StonePressurePlate { powered } => powered,
+        Block::RedstoneLamp { lit } => lit,
+        Block::IronTrapdoor { powered, .. } => powered,
+        _ => return None,
+    })
+}
+
 type NodeId = usize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -110,6 +125,13 @@ impl CompileNode {
             Block::StonePressurePlate { powered } => bool_to_ss(powered),
             s if s.has_comparator_override() => self.comparator_output,
             _ => 0,
+        }
+    }
+
+    fn powered(&self) -> bool {
+        match block_powered_mut(&mut self.state.clone()) {
+            Some(powered) => *powered,
+            None => false,
         }
     }
 }
