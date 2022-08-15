@@ -1,10 +1,11 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 use super::JITBackend;
-use crate::blocks::{Block, ComparatorMode};
+use crate::blocks::{Block, ComparatorMode, RedstoneRepeater};
 use crate::plot::PlotWorld;
 use crate::redpiler::{bool_to_ss, CompileNode, LinkType, block_powered_mut};
 use crate::world::World;
+use itertools::Itertools;
 use log::warn;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
@@ -90,6 +91,8 @@ struct DirectLink {
 #[derive(Debug, Clone, Copy)]
 enum NodeType {
     Repeater(u8),
+    /// A non-locking repeater that doesn't face a diode
+    SimpleRepeater,
     Torch,
     Comparator(ComparatorMode),
     Lamp,
@@ -147,11 +150,7 @@ impl Node {
     fn from_compile_node(node: CompileNode, nodes_len: usize) -> Self {
         let output_power = node.output_power();
         let powered = node.powered();
-        Node {
-            pos: node.pos,
-            block: node.state,
-            ty: NodeType::new(node.state),
-            inputs: node
+        let inputs = node
                 .inputs
                 .into_iter()
                 .map(|link| {
@@ -165,8 +164,8 @@ impl Node {
                         ty: link.ty,
                     }
                 })
-                .collect(),
-            updates: node
+                .collect_vec();
+        let updates = node
                 .updates
                 .into_iter()
                 .map(|idx| {
@@ -174,7 +173,18 @@ impl Node {
                     // Safety: bounds checked
                     unsafe { NodeId::from_index(idx) }
                 })
-                .collect(),
+                .collect();
+        let ty = if matches!(node.state, Block::RedstoneRepeater { repeater: RedstoneRepeater { delay: 1, .. } }) && !inputs.iter().any(|input| input.ty == LinkType::Side) && !node.facing_diode {
+            NodeType::SimpleRepeater
+        } else {
+            NodeType::new(node.state)
+        };
+        Node {
+            pos: node.pos,
+            block: node.state,
+            ty,
+            inputs,
+            updates,
             powered,
             output_power,
             locked: match node.state {
@@ -345,6 +355,14 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, true, 15);
                     }
                 }
+                NodeType::SimpleRepeater => {
+                    let should_be_powered = input_power > 0;
+                    if node.powered && !should_be_powered {
+                        self.set_node(node_id, false, 0);
+                    } else if !node.powered {
+                        self.set_node(node_id, true, 15);
+                    }
+                }
                 NodeType::Torch => {
                     let should_be_off = input_power > 0;
                     let lit = node.powered;
@@ -495,10 +513,22 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 }
             }
         }
+        NodeType::SimpleRepeater => {
+            let should_be_powered = input_power > 0;
+            if node.powered != should_be_powered && !node.pending_tick {
+                let priority = if !should_be_powered {
+                    TickPriority::Higher
+                } else {
+                    TickPriority::High
+                };
+                let node = &mut nodes[node_id];
+                schedule_tick(scheduler, node_id, node, 1, priority);
+            }
+        }
         NodeType::Torch => {
             let lit = node.powered;
-            let node = &mut nodes[node_id];
             if lit == (input_power > 0) && !node.pending_tick {
+                let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
         }
@@ -538,15 +568,15 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::Trapdoor => {
-            let node = &mut nodes[node_id];
             let should_be_powered = input_power > 0;
             if node.powered != should_be_powered {
+                let node = &mut nodes[node_id];
                 set_node(node, should_be_powered);
             }
         }
         NodeType::Wire => {
-            let node = &mut nodes[node_id];
             if node.output_power != input_power {
+                let node = &mut nodes[node_id];
                 node.output_power = input_power;
                 node.changed = true;
             }
