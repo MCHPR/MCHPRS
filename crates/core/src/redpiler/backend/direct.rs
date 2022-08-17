@@ -3,7 +3,7 @@
 use super::JITBackend;
 use crate::blocks::{Block, ComparatorMode, RedstoneRepeater};
 use crate::plot::PlotWorld;
-use crate::redpiler::{bool_to_ss, CompileNode, LinkType, block_powered_mut};
+use crate::redpiler::{block_powered_mut, bool_to_ss, CompileNode, LinkType};
 use crate::world::World;
 use itertools::Itertools;
 use log::warn;
@@ -123,7 +123,10 @@ impl NodeType {
     }
 
     fn is_io_block(self) -> bool {
-        matches!(self, NodeType::Lamp | NodeType::Button | NodeType::Lever | NodeType::Trapdoor)
+        matches!(
+            self,
+            NodeType::Lamp | NodeType::Button | NodeType::Lever | NodeType::Trapdoor
+        )
     }
 }
 
@@ -151,30 +154,36 @@ impl Node {
         let output_power = node.output_power();
         let powered = node.powered();
         let inputs = node
-                .inputs
-                .into_iter()
-                .map(|link| {
-                    assert!(link.end < nodes_len);
-                    DirectLink {
-                        weight: link.weight,
-                        to: unsafe {
-                            // Safety: bounds checked
-                            NodeId::from_index(link.end)
-                        },
-                        ty: link.ty,
-                    }
-                })
-                .collect_vec();
+            .inputs
+            .into_iter()
+            .map(|link| {
+                assert!(link.end < nodes_len);
+                DirectLink {
+                    weight: link.weight,
+                    to: unsafe {
+                        // Safety: bounds checked
+                        NodeId::from_index(link.end)
+                    },
+                    ty: link.ty,
+                }
+            })
+            .collect_vec();
         let updates = node
-                .updates
-                .into_iter()
-                .map(|idx| {
-                    assert!(idx < nodes_len);
-                    // Safety: bounds checked
-                    unsafe { NodeId::from_index(idx) }
-                })
-                .collect();
-        let ty = if matches!(node.state, Block::RedstoneRepeater { repeater: RedstoneRepeater { delay: 1, .. } }) && !inputs.iter().any(|input| input.ty == LinkType::Side) && !node.facing_diode {
+            .updates
+            .into_iter()
+            .map(|idx| {
+                assert!(idx < nodes_len);
+                // Safety: bounds checked
+                unsafe { NodeId::from_index(idx) }
+            })
+            .collect();
+        let ty = if matches!(
+            node.state,
+            Block::RedstoneRepeater {
+                repeater: RedstoneRepeater { delay: 1, .. }
+            }
+        ) && !inputs.iter().any(|input| input.ty == LinkType::Side)
+        {
             NodeType::SimpleRepeater
         } else {
             NodeType::new(node.state)
@@ -292,11 +301,7 @@ impl JITBackend for DirectBackend {
             NodeType::Button => {
                 let powered = !node.powered;
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(
-                    node_id,
-                    powered,
-                    bool_to_ss(powered),
-                );
+                self.set_node(node_id, powered, bool_to_ss(powered));
             }
             NodeType::Lever => {
                 self.set_node(node_id, !node.powered, bool_to_ss(!node.powered));
@@ -310,11 +315,7 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             NodeType::PressurePlate => {
-                self.set_node(
-                    node_id,
-                    powered,
-                    bool_to_ss(powered),
-                );
+                self.set_node(node_id, powered, bool_to_ss(powered));
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.ty),
         }
@@ -382,22 +383,15 @@ impl JITBackend for DirectBackend {
                         calculate_comparator_output(mode, input_power, side_input_power);
                     let old_strength = node.output_power;
                     if new_strength != old_strength || mode == ComparatorMode::Compare {
-                        let should_be_powered = comparator_should_be_powered(
-                            mode,
-                            input_power,
-                            side_input_power,
-                        );
+                        let should_be_powered =
+                            comparator_should_be_powered(mode, input_power, side_input_power);
                         let mut powered = node.powered;
                         if powered && !should_be_powered {
                             powered = false;
                         } else if !powered && should_be_powered {
                             powered = true;
                         }
-                        self.set_node(
-                            node_id,
-                            powered,
-                            new_strength,
-                        );
+                        self.set_node(node_id, powered, new_strength);
                     }
                 }
                 NodeType::Lamp => {
@@ -479,7 +473,7 @@ fn schedule_tick(
 #[inline]
 fn get_bool_input(node: &Node, nodes: &Nodes) -> bool {
     for link in &node.inputs {
-        if nodes[link.to].output_power.saturating_sub(link.weight) > 0 {
+        if nodes[link.to].output_power as isize - link.weight as isize > 0 {
             return true;
         }
     }
@@ -528,9 +522,14 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::SimpleRepeater => {
+            if node.pending_tick {
+                return;
+            }
             let should_be_powered = get_bool_input(node, nodes);
-            if node.powered != should_be_powered && !node.pending_tick {
-                let priority = if !should_be_powered {
+            if node.powered != should_be_powered {
+                let priority = if node.facing_diode {
+                    TickPriority::Highest
+                } else if !should_be_powered {
                     TickPriority::Higher
                 } else {
                     TickPriority::High
@@ -540,9 +539,12 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::Torch => {
+            if node.pending_tick {
+                return;
+            }
             let should_be_off = get_bool_input(node, nodes);
             let lit = node.powered;
-            if lit == should_be_off && !node.pending_tick {
+            if lit == should_be_off {
                 let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
@@ -557,12 +559,10 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                     input_power = far_override;
                 }
             }
-            let output_power =
-                calculate_comparator_output(mode, input_power, side_input_power);
+            let output_power = calculate_comparator_output(mode, input_power, side_input_power);
             let old_strength = node.output_power;
             if output_power != old_strength
-                || node.powered
-                    != comparator_should_be_powered(mode, input_power, side_input_power)
+                || node.powered != comparator_should_be_powered(mode, input_power, side_input_power)
             {
                 let priority = if node.facing_diode {
                     TickPriority::High
@@ -613,10 +613,7 @@ impl fmt::Display for DirectBackend {
                 f,
                 "n{}[label=\"{}\\n({}, {}, {})\"];",
                 id,
-                format!("{:?}", node.ty)
-                    .split_whitespace()
-                    .next()
-                    .unwrap(),
+                format!("{:?}", node.ty).split_whitespace().next().unwrap(),
                 node.pos.x,
                 node.pos.y,
                 node.pos.z
