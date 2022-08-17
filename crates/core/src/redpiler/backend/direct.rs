@@ -333,23 +333,13 @@ impl JITBackend for DirectBackend {
             self.nodes[node_id].pending_tick = false;
             let node = &self.nodes[node_id];
 
-            let mut input_power = 0u8;
-            let mut side_input_power = 0u8;
-            for link in &node.inputs {
-                let power = match link.ty {
-                    LinkType::Default => &mut input_power,
-                    LinkType::Side => &mut side_input_power,
-                };
-                *power = (*power).max(self.nodes[link.to].output_power.saturating_sub(link.weight));
-            }
-
             match node.ty {
                 NodeType::Repeater(_) => {
                     if node.locked {
                         continue;
                     }
 
-                    let should_be_powered = input_power > 0;
+                    let should_be_powered = get_bool_input(node, &self.nodes);
                     if node.powered && !should_be_powered {
                         self.set_node(node_id, false, 0);
                     } else if !node.powered {
@@ -357,7 +347,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::SimpleRepeater => {
-                    let should_be_powered = input_power > 0;
+                    let should_be_powered = get_bool_input(node, &self.nodes);
                     if node.powered && !should_be_powered {
                         self.set_node(node_id, false, 0);
                     } else if !node.powered {
@@ -365,7 +355,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::Torch => {
-                    let should_be_off = input_power > 0;
+                    let should_be_off= get_bool_input(node, &self.nodes);
                     let lit = node.powered;
                     if lit && should_be_off {
                         self.set_node(node_id, false, 0);
@@ -374,6 +364,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::Comparator(mode) => {
+                    let (mut input_power, side_input_power) = get_all_input(node, &self.nodes);
                     if let Some(far_override) = node.comparator_far_input {
                         if input_power < 15 {
                             input_power = far_override;
@@ -395,7 +386,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::Lamp => {
-                    let should_be_lit = input_power > 0;
+                    let should_be_lit = get_bool_input(node, &self.nodes);
                     if node.powered && !should_be_lit {
                         self.set_node(node_id, false, 0);
                     }
