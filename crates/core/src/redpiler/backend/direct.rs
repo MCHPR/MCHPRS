@@ -476,9 +476,17 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId) {
-    let node = &nodes[node_id];
+#[inline]
+fn get_bool_input(node: &Node, nodes: &Nodes) -> bool {
+    for link in &node.inputs {
+        if nodes[link.to].output_power.saturating_sub(link.weight) > 0 {
+            return true;
+        }
+    }
+    false
+}
 
+fn get_all_input(node: &Node, nodes: &Nodes) -> (u8, u8) {
     let mut input_power = 0;
     let mut side_input_power = 0;
     for link in &node.inputs {
@@ -488,9 +496,15 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
         };
         *power = (*power).max(nodes[link.to].output_power.saturating_sub(link.weight));
     }
+    (input_power, side_input_power)
+}
+
+fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId) {
+    let node = &nodes[node_id];
 
     match node.ty {
         NodeType::Repeater(delay) => {
+            let (input_power, side_input_power) = get_all_input(node, nodes);
             let node = &mut nodes[node_id];
             let should_be_locked = side_input_power > 0;
             if !node.locked && should_be_locked {
@@ -514,7 +528,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::SimpleRepeater => {
-            let should_be_powered = input_power > 0;
+            let should_be_powered = get_bool_input(node, nodes);
             if node.powered != should_be_powered && !node.pending_tick {
                 let priority = if !should_be_powered {
                     TickPriority::Higher
@@ -526,8 +540,9 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::Torch => {
+            let should_be_off = get_bool_input(node, nodes);
             let lit = node.powered;
-            if lit == (input_power > 0) && !node.pending_tick {
+            if lit == should_be_off && !node.pending_tick {
                 let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
@@ -536,6 +551,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             if node.pending_tick {
                 return;
             }
+            let (mut input_power, side_input_power) = get_all_input(node, nodes);
             if let Some(far_override) = node.comparator_far_input {
                 if input_power < 15 {
                     input_power = far_override;
@@ -558,8 +574,8 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::Lamp => {
+            let should_be_lit = get_bool_input(node, nodes);
             let lit = node.powered;
-            let should_be_lit = input_power > 0;
             let node = &mut nodes[node_id];
             if lit && !should_be_lit {
                 schedule_tick(scheduler, node_id, node, 2, TickPriority::Normal);
@@ -568,13 +584,14 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::Trapdoor => {
-            let should_be_powered = input_power > 0;
+            let should_be_powered = get_bool_input(node, nodes);
             if node.powered != should_be_powered {
                 let node = &mut nodes[node_id];
                 set_node(node, should_be_powered);
             }
         }
         NodeType::Wire => {
+            let (input_power, _) = get_all_input(node, nodes);
             if node.output_power != input_power {
                 let node = &mut nodes[node_id];
                 node.output_power = input_power;
