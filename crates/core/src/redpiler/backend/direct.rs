@@ -132,8 +132,6 @@ impl NodeType {
 
 #[derive(Debug, Clone)]
 pub struct Node {
-    pos: BlockPos,
-    block: Block,
     ty: NodeType,
     inputs: Vec<DirectLink>,
     updates: Vec<NodeId>,
@@ -189,8 +187,6 @@ impl Node {
             NodeType::new(node.state)
         };
         Node {
-            pos: node.pos,
-            block: node.state,
             ty,
             inputs,
             updates,
@@ -220,12 +216,13 @@ struct TickScheduler {
 }
 
 impl TickScheduler {
-    fn reset(&mut self, plot: &mut PlotWorld, nodes: &Nodes) {
+    fn reset(&mut self, plot: &mut PlotWorld, blocks: &[(BlockPos, Block)]) {
         for i in 0..4 {
             let queue_idx = (self.current_queue + i) % 4;
             let queue = &mut self.queues[queue_idx];
             for entry in queue.iter() {
-                plot.schedule_tick(nodes[entry.node].pos, i as u32 + 1, entry.priority);
+                let pos = blocks[entry.node.index()].0;
+                plot.schedule_tick(pos, i as u32 + 1, entry.priority);
             }
             queue.clear();
         }
@@ -248,6 +245,7 @@ impl TickScheduler {
 #[derive(Default)]
 pub struct DirectBackend {
     nodes: Nodes,
+    blocks: Vec<(BlockPos, Block)>,
     pos_map: HashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
 
@@ -274,20 +272,21 @@ impl DirectBackend {
 
 impl JITBackend for DirectBackend {
     fn reset(&mut self, plot: &mut PlotWorld, io_only: bool) {
-        self.scheduler.reset(plot, &self.nodes);
+        self.scheduler.reset(plot, &self.blocks);
 
         let nodes = std::mem::take(&mut self.nodes);
 
-        for node in nodes.into_inner().iter() {
+        for (i, node) in nodes.into_inner().iter().enumerate() {
+            let (pos, block) = self.blocks[i];
             if matches!(node.ty, NodeType::Comparator(_)) {
                 let block_entity = BlockEntity::Comparator {
                     output_strength: node.output_power,
                 };
-                plot.set_block_entity(node.pos, block_entity);
+                plot.set_block_entity(pos, block_entity);
             }
 
             if io_only && !node.ty.is_io_block() {
-                plot.set_block(node.pos, node.block);
+                plot.set_block(pos, block);
             }
         }
 
@@ -355,7 +354,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::Torch => {
-                    let should_be_off= get_bool_input(node, &self.nodes);
+                    let should_be_off = get_bool_input(node, &self.nodes);
                     let lit = node.powered;
                     if lit && should_be_off {
                         self.set_node(node_id, false, 0);
@@ -404,13 +403,14 @@ impl JITBackend for DirectBackend {
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
         let nodes_len = nodes.len();
+        self.blocks = nodes.iter().map(|node| (node.pos, node.state)).collect();
         let nodes = nodes
             .into_iter()
             .map(|cn| Node::from_compile_node(cn, nodes_len))
             .collect();
         self.nodes = Nodes::new(nodes);
-        for (i, node) in self.nodes.inner().iter().enumerate() {
-            self.pos_map.insert(node.pos, self.nodes.get(i));
+        for i in 0..self.blocks.len() {
+            self.pos_map.insert(self.blocks[i].0, self.nodes.get(i));
         }
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
@@ -423,15 +423,16 @@ impl JITBackend for DirectBackend {
     }
 
     fn flush(&mut self, plot: &mut PlotWorld, io_only: bool) {
-        for node in self.nodes.inner_mut().iter_mut() {
+        for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
+            let (pos, block) = &mut self.blocks[i];
             if node.changed && (!io_only || node.ty.is_io_block()) {
-                if let Some(powered) = block_powered_mut(&mut node.block) {
+                if let Some(powered) = block_powered_mut(block) {
                     *powered = node.powered
                 }
-                if let Block::RedstoneWire { wire, .. } = &mut node.block {
+                if let Block::RedstoneWire { wire, .. } = block {
                     wire.power = node.output_power
                 };
-                plot.set_block(node.pos, node.block);
+                plot.set_block(*pos, *block);
             }
             node.changed = false;
         }
@@ -600,14 +601,15 @@ impl fmt::Display for DirectBackend {
             if matches!(node.ty, NodeType::Wire) {
                 continue;
             }
+            let pos = self.blocks[id].0;
             write!(
                 f,
                 "n{}[label=\"{}\\n({}, {}, {})\"];",
                 id,
                 format!("{:?}", node.ty).split_whitespace().next().unwrap(),
-                node.pos.x,
-                node.pos.y,
-                node.pos.z
+                pos.x,
+                pos.y,
+                pos.z
             )?;
             for link in &node.inputs {
                 let color = match link.ty {
