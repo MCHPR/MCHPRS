@@ -40,37 +40,30 @@ pub fn execute_command(
         return false;
     };
 
-    let mut ctx = CommandExecuteContext {
-        plot: &mut plot.world,
-        player,
-        arguments: Vec::new(),
-        flags: Vec::new(),
-    };
 
-    let wea = ctx.player.has_permission("plots.worldedit.bypass");
+    let wea = player.has_permission("plots.worldedit.bypass");
     if !wea {
         if let Some(owner) = plot.owner {
-            if owner != ctx.player.uuid {
+            if owner != player.uuid {
                 // tried to worldedit on plot that wasn't theirs
-                ctx.player.send_no_permission_message();
+                player.send_no_permission_message();
                 return true;
             }
         } else {
             // tried to worldedit on unclaimed plot
-            ctx.player.send_no_permission_message();
+            player.send_no_permission_message();
             return true;
         }
     }
 
-    if !command.permission_node.is_empty() && !ctx.player.has_permission(command.permission_node) {
-        ctx.player.send_no_permission_message();
+    if !command.permission_node.is_empty() && !player.has_permission(command.permission_node) {
+        player.send_no_permission_message();
         return true;
     }
 
     if command.requires_positions {
-        let plot_x = ctx.plot.x;
-        let plot_z = ctx.plot.z;
-        let player = &mut ctx.player;
+        let plot_x = plot.world.x;
+        let plot_z = plot.world.z;
         if player.first_position.is_none() || player.second_position.is_none() {
             player.send_error_message("Make a region selection first.");
             return true;
@@ -87,16 +80,14 @@ pub fn execute_command(
         }
     }
 
-    if command.requires_clipboard {
-        let player = &mut ctx.player;
-        if player.worldedit_clipboard.is_none() {
-            player.send_error_message("Your clipboard is empty. Use //copy first.");
-            return true;
-        }
+    if command.requires_clipboard && player.worldedit_clipboard.is_none() {
+        player.send_error_message("Your clipboard is empty. Use //copy first.");
+        return true;
     }
 
     let flag_descs = command.flags;
 
+    let mut ctx_flags = Vec::new();
     let mut arg_removal_idxs = Vec::new();
     for (i, arg) in args.iter().enumerate() {
         if arg.starts_with('-') {
@@ -104,14 +95,14 @@ pub fn execute_command(
             let flags = arg.chars();
             for flag in flags.skip(1) {
                 if with_argument {
-                    ctx.player
+                    player
                         .send_error_message("Flag with argument must be last in grouping");
                     return true;
                 }
                 let flag_desc = if let Some(desc) = flag_descs.iter().find(|d| d.letter == flag) {
                     desc
                 } else {
-                    ctx.player
+                    player
                         .send_error_message(&format!("Unknown flag: {}", flag));
                     return true;
                 };
@@ -120,7 +111,7 @@ pub fn execute_command(
                     arg_removal_idxs.push(i + 1);
                     with_argument = true;
                 }
-                ctx.flags.push(flag);
+                ctx_flags.push(flag);
             }
         }
     }
@@ -132,23 +123,30 @@ pub fn execute_command(
     let arg_descs = command.arguments;
 
     if args.len() > arg_descs.len() {
-        ctx.player.send_error_message("Too many arguments.");
+        player.send_error_message("Too many arguments.");
         return true;
     }
 
+    let mut arguments = Vec::new();
     for (i, arg_desc) in arg_descs.iter().enumerate() {
         let arg = args.get(i).copied();
-        match Argument::parse(&ctx, arg_desc, arg) {
-            Ok(default_arg) => ctx.arguments.push(default_arg),
+        match Argument::parse(player, arg_desc, arg) {
+            Ok(default_arg) => arguments.push(default_arg),
             Err(err) => {
-                ctx.player.send_error_message(&err.to_string());
+                player.send_error_message(&err.to_string());
                 return true;
             }
         }
     }
     if command.mutates_world {
-        plot.redpiler.reset(ctx.plot);
+        plot.reset_redpiler();
     }
+    let ctx = CommandExecuteContext {
+        plot: &mut plot.world,
+        player: &mut plot.players[player_idx],
+        arguments,
+        flags: Vec::new(),
+    };
     (command.execute_fn)(ctx);
     true
 }
@@ -256,7 +254,7 @@ impl Argument {
     }
 
     fn get_default(
-        ctx: &CommandExecuteContext<'_>,
+        player: &Player,
         desc: &ArgumentDescription,
     ) -> ArgumentParseResult {
         if let Some(default) = &desc.default {
@@ -266,7 +264,7 @@ impl Argument {
         let arg_type = desc.argument_type;
         match arg_type {
             ArgumentType::Direction | ArgumentType::DirectionVector => {
-                Argument::parse(ctx, desc, Some("me"))
+                Argument::parse(player, desc, Some("me"))
             }
             ArgumentType::UnsignedInteger => Ok(Argument::UnsignedInteger(1)),
             _ => Err(ArgumentParseError::new(
@@ -277,18 +275,18 @@ impl Argument {
     }
 
     fn parse(
-        ctx: &CommandExecuteContext<'_>,
+        player: &Player,
         desc: &ArgumentDescription,
         arg: Option<&str>,
     ) -> ArgumentParseResult {
         if arg.is_none() {
-            return Argument::get_default(ctx, desc);
+            return Argument::get_default(player, desc);
         }
         let arg = arg.unwrap();
         let arg_type = desc.argument_type;
         match arg_type {
             ArgumentType::Direction => {
-                let player_facing = ctx.player.get_facing();
+                let player_facing = player.get_facing();
                 Ok(Argument::Direction(match arg {
                     "me" => player_facing,
                     "u" | "up" => BlockFacing::Up,
@@ -314,11 +312,11 @@ impl Argument {
             ArgumentType::String => Ok(Argument::String(arg.to_owned())),
             ArgumentType::DirectionVector => {
                 let mut vec = BlockPos::new(0, 0, 0);
-                let player_facing = ctx.player.get_facing();
+                let player_facing = player.get_facing();
                 if arg == "me" {
                     vec = player_facing.offset_pos(vec, 1);
                     if !matches!(player_facing, BlockFacing::Down | BlockFacing::Up) {
-                        let pitch = ctx.player.pitch;
+                        let pitch = player.pitch;
                         if pitch > 22.5 {
                             vec.y -= 1;
                         } else if pitch < -22.5 {
@@ -532,6 +530,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_copy,
             description: "Copy the selection to the clipboard",
             permission_node: "worldedit.clipboard.copy",
+            mutates_world: false,
             ..Default::default()
         },
         "/cut" => WorldeditCommand {
