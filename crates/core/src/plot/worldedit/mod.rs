@@ -146,7 +146,9 @@ pub fn execute_command(
             }
         }
     }
-    plot.redpiler.reset(ctx.plot);
+    if command.mutates_world {
+        plot.redpiler.reset(ctx.plot);
+    }
     (command.execute_fn)(ctx);
     true
 }
@@ -421,6 +423,7 @@ struct WorldeditCommand {
     execute_fn: fn(CommandExecuteContext<'_>),
     description: &'static str,
     permission_node: &'static str,
+    mutates_world: bool,
 }
 
 impl Default for WorldeditCommand {
@@ -433,6 +436,7 @@ impl Default for WorldeditCommand {
             requires_clipboard: false,
             requires_positions: false,
             permission_node: "",
+            mutates_world: true,
         }
     }
 }
@@ -455,6 +459,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
                 argument!("levels", UnsignedInteger, "# of levels to ascend")
             ],
             permission_node: "worldedit.navigation.ascend",
+            mutates_world: false,
             ..Default::default()
         },
         "descend" => WorldeditCommand {
@@ -464,35 +469,41 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
                 argument!("levels", UnsignedInteger, "# of levels to descend")
             ],
             permission_node: "worldedit.navigation.descend",
+            mutates_world: false,
             ..Default::default()
         },
         "/pos1" => WorldeditCommand {
             execute_fn: execute_pos1,
             description: "Set position 1",
             permission_node: "worldedit.selection.pos",
+            mutates_world: false,
             ..Default::default()
         },
         "/pos2" => WorldeditCommand {
             execute_fn: execute_pos2,
             description: "Set position 2",
             permission_node: "worldedit.selection.pos",
+            mutates_world: false,
             ..Default::default()
         },
         "/hpos1" => WorldeditCommand {
             execute_fn: execute_hpos1,
             description: "Set position 1 to targeted block",
             permission_node: "worldedit.selection.hpos",
+            mutates_world: false,
             ..Default::default()
         },
         "/hpos2" => WorldeditCommand {
             execute_fn: execute_hpos2,
             description: "Set position 2 to targeted block",
             permission_node: "worldedit.selection.hpos",
+            mutates_world: false,
             ..Default::default()
         },
         "/sel" => WorldeditCommand {
             execute_fn: execute_sel,
             description: "Choose a region selector",
+            mutates_world: false,
             ..Default::default()
         },
         "/set" => WorldeditCommand {
@@ -589,6 +600,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_count,
             description: "Counts the number of blocks matching a mask",
             permission_node: "worldedit.analysis.count",
+            mutates_world: false,
             ..Default::default()
         },
         "/load" => WorldeditCommand {
@@ -598,6 +610,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_load,
             description: "Loads a schematic file into the clipboard",
             permission_node: "worldedit.clipboard.load",
+            mutates_world: false,
             ..Default::default()
         },
         "/save" => WorldeditCommand {
@@ -608,6 +621,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_save,
             description: "Save a schematic file from the clipboard",
             permission_node: "worldedit.clipboard.save",
+            mutates_world: false,
             ..Default::default()
         },
         "/expand" => WorldeditCommand {
@@ -619,6 +633,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_expand,
             description: "Expand the selection area",
             permission_node: "worldedit.selection.expand",
+            mutates_world: false,
             ..Default::default()
         },
         "/contract" => WorldeditCommand {
@@ -630,6 +645,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_contract,
             description: "Contract the selection area",
             permission_node: "worldedit.selection.contract",
+            mutates_world: false,
             ..Default::default()
         },
         "/shift" => WorldeditCommand {
@@ -641,6 +657,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_shift,
             description: "Shift the selection area",
             permission_node: "worldedit.selection.shift",
+            mutates_world: false,
             ..Default::default()
         },
         "/flip" => WorldeditCommand {
@@ -650,6 +667,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             requires_clipboard: true,
             execute_fn: execute_flip,
             description: "Flip the contents of the clipboard across the origin",
+            mutates_world: false,
             ..Default::default()
         },
         "/rotate" => WorldeditCommand {
@@ -659,6 +677,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             requires_clipboard: true,
             execute_fn: execute_rotate,
             description: "Rotate the contents of the clipboard",
+            mutates_world: false,
             ..Default::default()
         },
         "/rstack" => WorldeditCommand {
@@ -691,12 +710,14 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
             execute_fn: execute_help,
             description: "Displays help for WorldEdit commands",
             permission_node: "worldedit.help",
+            mutates_world: false,
             ..Default::default()
         },
         "/wand" => WorldeditCommand {
            execute_fn: execute_wand,
            description: "Gives a WorldEdit wand",
            permission_node: "worldedit.wand",
+            mutates_world: false,
            ..Default::default()
         },
         "/replacecontainer" => WorldeditCommand {
