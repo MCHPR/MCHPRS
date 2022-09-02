@@ -142,7 +142,7 @@ pub fn execute_command(
         plot: &mut plot.world,
         player: &mut plot.players[player_idx],
         arguments,
-        flags: Vec::new(),
+        flags: ctx_flags,
     };
     (command.execute_fn)(ctx);
     true
