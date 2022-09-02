@@ -40,7 +40,6 @@ pub fn execute_command(
         return false;
     };
 
-
     let wea = player.has_permission("plots.worldedit.bypass");
     if !wea {
         if let Some(owner) = plot.owner {
@@ -95,15 +94,13 @@ pub fn execute_command(
             let flags = arg.chars();
             for flag in flags.skip(1) {
                 if with_argument {
-                    player
-                        .send_error_message("Flag with argument must be last in grouping");
+                    player.send_error_message("Flag with argument must be last in grouping");
                     return true;
                 }
                 let flag_desc = if let Some(desc) = flag_descs.iter().find(|d| d.letter == flag) {
                     desc
                 } else {
-                    player
-                        .send_error_message(&format!("Unknown flag: {}", flag));
+                    player.send_error_message(&format!("Unknown flag: {}", flag));
                     return true;
                 };
                 arg_removal_idxs.push(i);
@@ -253,10 +250,7 @@ impl Argument {
         }
     }
 
-    fn get_default(
-        player: &Player,
-        desc: &ArgumentDescription,
-    ) -> ArgumentParseResult {
+    fn get_default(player: &Player, desc: &ArgumentDescription) -> ArgumentParseResult {
         if let Some(default) = &desc.default {
             return Ok(default.clone());
         }
