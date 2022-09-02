@@ -125,7 +125,11 @@ impl NodeType {
     fn is_io_block(self) -> bool {
         matches!(
             self,
-            NodeType::Lamp | NodeType::Button | NodeType::Lever | NodeType::Trapdoor
+            NodeType::Lamp
+                | NodeType::Button
+                | NodeType::Lever
+                | NodeType::Trapdoor
+                | NodeType::PressurePlate
         )
     }
 }
