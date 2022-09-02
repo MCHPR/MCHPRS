@@ -213,6 +213,12 @@ struct RPTickEntry {
     node: NodeId,
 }
 
+struct LongTickEntry {
+    priority: TickPriority,
+    node: NodeId,
+    ticks_left: u32,
+}
+
 #[derive(Default)]
 struct TickScheduler {
     queues: [Vec<RPTickEntry>; 4],
@@ -252,6 +258,7 @@ pub struct DirectBackend {
     blocks: Vec<(BlockPos, Block)>,
     pos_map: HashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
+    long_queue: Vec<LongTickEntry>,
 
     cached_queue: Option<Vec<RPTickEntry>>,
 }
@@ -259,6 +266,14 @@ pub struct DirectBackend {
 impl DirectBackend {
     fn schedule_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
         self.scheduler.schedule_tick(node_id, delay, priority);
+    }
+
+    fn schedule_long_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
+        self.long_queue.push(LongTickEntry {
+            node: node_id,
+            priority,
+            ticks_left: delay as u32,
+        });
     }
 
     fn set_node(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
@@ -303,7 +318,7 @@ impl JITBackend for DirectBackend {
         match node.ty {
             NodeType::Button => {
                 let powered = !node.powered;
-                self.schedule_tick(node_id, 10, TickPriority::Normal);
+                self.schedule_long_tick(node_id, 10, TickPriority::Normal);
                 self.set_node(node_id, powered, bool_to_ss(powered));
             }
             NodeType::Lever => {
@@ -394,15 +409,39 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     }
                 }
-                NodeType::Button => {
-                    if node.powered {
-                        self.set_node(node_id, false, 0);
-                    }
-                }
                 _ => warn!("Node {:?} should not be ticked!", node.ty),
             }
         }
         self.cached_queue = Some(queue);
+
+        if !self.long_queue.is_empty() {
+            self.long_queue.sort_by_key(|e| (e.ticks_left, e.priority));
+            for pending in &mut self.long_queue {
+                pending.ticks_left = pending.ticks_left.saturating_sub(1);
+            }
+            let mut i = 0;
+            for _ in 0..self.long_queue.len() {
+                let entry = &self.long_queue[i];
+                if entry.ticks_left != 0 {
+                    break;
+                }
+                i += 1;
+
+                let node_id = entry.node;
+                self.nodes[node_id].pending_tick = false;
+                let node = &self.nodes[node_id];
+
+                match node.ty {
+                    NodeType::Button => {
+                        if node.powered {
+                            self.set_node(node_id, false, 0);
+                        }
+                    }
+                    _ => warn!("Node {:?} should not be long ticked!", node.ty),
+                }
+            }
+            self.long_queue.drain(0..i);
+        }
     }
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
