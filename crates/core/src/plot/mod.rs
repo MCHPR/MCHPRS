@@ -139,7 +139,7 @@ impl World for PlotWorld {
         };
 
         // Check to see if block is within height limit
-        if pos.y > 256 || pos.y < 0 {
+        if pos.y >= 256 || pos.y < 0 {
             return false;
         }
 
