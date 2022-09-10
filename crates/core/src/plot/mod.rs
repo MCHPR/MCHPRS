@@ -802,7 +802,7 @@ impl Plot {
                             self.lag_time.as_micros() as u64 / dur_per_tick.as_micros() as u64;
                         // 50000 here is arbitrary. We just need a number that's not too high so we actually
                         // get around to sending block updates.
-                        let batch_size = batch_size.min(50000).max(5);
+                        let batch_size = batch_size.min(50000);
                         if !self.redpiler.is_active() && self.auto_redpiler {
                             let mut ticks_completed = batch_size;
                             for i in 0..batch_size {
@@ -828,7 +828,7 @@ impl Plot {
                             let batch_size = batch_size.min(match self.last_nspt {
                                 Some(Duration::ZERO) | None => 5,
                                 Some(last_nspt) => {
-                                    (WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos()).max(5)
+                                    WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos()
                                 }
                             } as u64);
 
@@ -850,7 +850,7 @@ impl Plot {
                     self.last_update_time = Instant::now();
                     let batch_size = match self.last_nspt {
                         Some(Duration::ZERO) | None => 5,
-                        Some(last_nspt) => (WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos()).max(5),
+                        Some(last_nspt) => WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos(),
                     } as u64;
                     let batch_size = batch_size.min(50000) as u32;
                     for _ in 0..batch_size {
