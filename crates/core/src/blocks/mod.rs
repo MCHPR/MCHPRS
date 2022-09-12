@@ -283,6 +283,7 @@ impl Block {
     ) -> Block {
         let block = match item {
             Item::Stone {} => Block::Stone {},
+            Item::StoneBricks {} => Block::StoneBricks {},
             Item::Glass {} => Block::Glass {},
             Item::Sandstone {} => Block::Sandstone {},
             Item::SeaPickle {} => Block::SeaPickle { pickles: 1 },
@@ -924,6 +925,17 @@ blocks! {
             "stone" => {}
         },
         get_name: "stone",
+        solid: true,
+        cube: true,
+    },
+    StoneBricks {
+        props: {},
+        get_id: 4564,
+        from_id(_id): 4564 => {},
+        from_names(_name): {
+            "stone_bricks" => {}
+        },
+        get_name: "stone_bricks",
         solid: true,
         cube: true,
     },

@@ -292,8 +292,17 @@ impl Argument {
                 let player_facing = player.get_facing();
                 Ok(Argument::Direction(match arg {
                     "me" => player_facing,
+                    "rme" => player_facing.reverse(),
+
                     "u" | "up" => BlockFacing::Up,
                     "d" | "down" => BlockFacing::Down,
+
+                    "n" | "north" => BlockFacing::North,
+                    "s" | "south" => BlockFacing::South,
+
+                    "e" | "east" => BlockFacing::East,
+                    "w" | "west" => BlockFacing::West,
+
                     "l" | "left" => player_facing.rotate_ccw(),
                     "r" | "right" => player_facing.rotate(),
                     _ => return Err(ArgumentParseError::new(arg_type, "unknown direction")),

@@ -166,6 +166,12 @@ items! {
         from_id(_id): 1 => {},
         block: true,
     },
+    StoneBricks {
+        props: {},
+        get_id: 283,
+        from_id(_id): 283 => {},
+        block: true,
+    },
     Redstone {
         props: {},
         get_id: 585,
