@@ -488,41 +488,47 @@ pub(super) fn execute_hpos2(mut ctx: CommandExecuteContext<'_>) {
 }
 
 pub(super) fn execute_expand(ctx: CommandExecuteContext<'_>) {
-    let mut amount = ctx.arguments[0].unwrap_int();
-    let mut direction = ctx.arguments[1].unwrap_direction();
-
-    if amount < 0 {
-        amount = -amount;
-        direction = direction.reverse();
-    }
+    let amount = ctx.arguments[0].unwrap_int();
+    let direction = ctx.arguments[1].unwrap_direction();
 
     let player = ctx.player;
 
-    expand_selection(
-        player,
-        direction.offset_pos(BlockPos::zero(), amount),
-        false,
-    );
+    if amount < 0 {
+        expand_selection(
+            player,
+            direction.reverse().offset_pos(BlockPos::zero(), -amount),
+            false,
+        );
+    } else {
+        expand_selection(
+            player,
+            direction.offset_pos(BlockPos::zero(), amount),
+            false,
+        );
+    }
 
     player.send_worldedit_message(&format!("Region expanded {} block(s).", amount));
 }
 
 pub(super) fn execute_contract(ctx: CommandExecuteContext<'_>) {
-    let mut amount = ctx.arguments[0].unwrap_int();
-    let mut direction = ctx.arguments[1].unwrap_direction();
-
-    if amount < 0 {
-        amount = -amount;
-        direction = direction.reverse();
-    }
+    let amount = ctx.arguments[0].unwrap_int();
+    let direction = ctx.arguments[1].unwrap_direction();
 
     let player = ctx.player;
 
-    expand_selection(
-        player,
-        direction.offset_pos(BlockPos::zero(), amount),
-        true,
-    );
+    if amount < 0 {
+        expand_selection(
+            player,
+            direction.reverse().offset_pos(BlockPos::zero(), -amount),
+            true,
+        );
+    } else {
+        expand_selection(
+            player,
+            direction.offset_pos(BlockPos::zero(), amount),
+            true,
+        );
+    }
 
     player.send_worldedit_message(&format!("Region contracted {} block(s).", amount));
 }
