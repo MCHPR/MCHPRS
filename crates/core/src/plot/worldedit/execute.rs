@@ -488,13 +488,19 @@ pub(super) fn execute_hpos2(mut ctx: CommandExecuteContext<'_>) {
 }
 
 pub(super) fn execute_expand(ctx: CommandExecuteContext<'_>) {
-    let amount = ctx.arguments[0].unwrap_uint();
-    let direction = ctx.arguments[1].unwrap_direction();
+    let mut amount = ctx.arguments[0].unwrap_int();
+    let mut direction = ctx.arguments[1].unwrap_direction();
+
+    if amount < 0 {
+        amount = -amount;
+        direction = direction.reverse();
+    }
+
     let player = ctx.player;
 
     expand_selection(
         player,
-        direction.offset_pos(BlockPos::zero(), amount as i32),
+        direction.offset_pos(BlockPos::zero(), amount),
         false,
     );
 
@@ -502,13 +508,19 @@ pub(super) fn execute_expand(ctx: CommandExecuteContext<'_>) {
 }
 
 pub(super) fn execute_contract(ctx: CommandExecuteContext<'_>) {
-    let amount = ctx.arguments[0].unwrap_uint();
-    let direction = ctx.arguments[1].unwrap_direction();
+    let mut amount = ctx.arguments[0].unwrap_int();
+    let mut direction = ctx.arguments[1].unwrap_direction();
+
+    if amount < 0 {
+        amount = -amount;
+        direction = direction.reverse();
+    }
+
     let player = ctx.player;
 
     expand_selection(
         player,
-        direction.offset_pos(BlockPos::zero(), amount as i32),
+        direction.offset_pos(BlockPos::zero(), amount),
         true,
     );
 

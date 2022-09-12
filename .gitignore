@@ -3,3 +3,8 @@ run/
 target/
 test_proxy/
 generators
+
+world/
+schems/
+output.log
+Config.toml

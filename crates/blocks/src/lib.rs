@@ -348,6 +348,19 @@ impl BlockFacing {
         }
     }
 
+    pub fn reverse(self) -> BlockFacing {
+        match self {
+            BlockFacing::Down => BlockFacing::Up,
+            BlockFacing::Up => BlockFacing::Down,
+
+            BlockFacing::South => BlockFacing::North,
+            BlockFacing::North => BlockFacing::South,
+
+            BlockFacing::East => BlockFacing::West,
+            BlockFacing::West => BlockFacing::East,
+        }
+    }
+
     pub fn get_id(self) -> u32 {
         match self {
             BlockFacing::North => 0,

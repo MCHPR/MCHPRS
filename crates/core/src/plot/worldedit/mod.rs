@@ -89,7 +89,7 @@ pub fn execute_command(
     let mut ctx_flags = Vec::new();
     let mut arg_removal_idxs = Vec::new();
     for (i, arg) in args.iter().enumerate() {
-        if arg.starts_with('-') {
+        if arg.starts_with('-') && !arg.parse::<i32>().is_ok() {
             let mut with_argument = false;
             let flags = arg.chars();
             for flag in flags.skip(1) {
@@ -180,6 +180,7 @@ type ArgumentParseResult = Result<Argument, ArgumentParseError>;
 #[derive(Copy, Clone, Debug)]
 enum ArgumentType {
     UnsignedInteger,
+    Integer,
     Direction,
     /// Used for diag directions in redstonetools commands
     DirectionVector,
@@ -192,6 +193,7 @@ enum ArgumentType {
 #[derive(Debug, Clone)]
 enum Argument {
     UnsignedInteger(u32),
+    Integer(i32),
     Direction(BlockFacing),
     DirectionVector(BlockPos),
     Pattern(WorldEditPattern),
@@ -204,6 +206,13 @@ impl Argument {
     fn unwrap_uint(&self) -> u32 {
         match self {
             Argument::UnsignedInteger(val) => *val,
+            _ => panic!("Argument was not an UnsignedInteger"),
+        }
+    }
+
+    fn unwrap_int(&self) -> i32 {
+        match self {
+            Argument::Integer(val) => *val,
             _ => panic!("Argument was not an UnsignedInteger"),
         }
     }
@@ -289,10 +298,14 @@ impl Argument {
                     "r" | "right" => player_facing.rotate(),
                     _ => return Err(ArgumentParseError::new(arg_type, "unknown direction")),
                 }))
-            }
+            },
             ArgumentType::UnsignedInteger => match arg.parse::<u32>() {
                 Ok(num) => Ok(Argument::UnsignedInteger(num)),
                 Err(_) => Err(ArgumentParseError::new(arg_type, "error parsing uint")),
+            },
+            ArgumentType::Integer => match arg.parse::<i32>() {
+                Ok(num) => Ok(Argument::Integer(num)),
+                Err(_) => Err(ArgumentParseError::new(arg_type, "error parsing int")),
             },
             ArgumentType::Pattern => match WorldEditPattern::from_str(arg) {
                 Ok(pattern) => Ok(Argument::Pattern(pattern)),
@@ -619,7 +632,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
         },
         "/expand" => WorldeditCommand {
             arguments: &[
-                argument!("amount", UnsignedInteger, "Amount to expand the selection by"),
+                argument!("amount", Integer, "Amount to expand the selection by"),
                 argument!("direction", Direction, "Direction to expand")
             ],
             requires_positions: true,
@@ -631,7 +644,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
         },
         "/contract" => WorldeditCommand {
             arguments: &[
-                argument!("amount", UnsignedInteger, "Amount to contract the selection by"),
+                argument!("amount", Integer, "Amount to contract the selection by"),
                 argument!("direction", Direction, "Direction to contract")
             ],
             requires_positions: true,
