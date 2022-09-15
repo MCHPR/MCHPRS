@@ -98,7 +98,7 @@ impl Plot {
 
                 let idx = if args.len() == 2 {
                     match args[1].parse::<usize>() {
-                        Ok(idx) => idx - 1,
+                        Ok(idx) => idx.checked_sub(1).unwrap_or(usize::MAX),
                         Err(_) => {
                             self.players[player].send_error_message("Unable to parse index");
                             return;
