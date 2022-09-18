@@ -10,6 +10,7 @@ use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::SlotData;
+use once_cell::sync::Lazy;
 use schematic::{load_schematic, save_schematic};
 use std::time::Instant;
 
@@ -252,8 +253,8 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
     }
 }
 
-static SCHEMATI_VALIDATE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
+static SCHEMATI_VALIDATE_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
 
 pub(super) fn execute_load(mut ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();

@@ -47,10 +47,29 @@ trait BlockTransform {
     fn flip(&mut self, dir: crate::blocks::FlipDirection);
 }
 
-impl<T> BlockTransform for T {
-    default fn rotate90(&mut self) {}
-    default fn flip(&mut self, _dir: crate::blocks::FlipDirection) {}
+macro_rules! noop_block_transform {
+    ($($ty:ty),*$(,)?) => {
+        $(
+            impl BlockTransform for $ty {
+                fn rotate90(&mut self) {}
+                fn flip(&mut self, dir: crate::blocks::FlipDirection) {}
+            }
+        )*
+    };
 }
+
+noop_block_transform!(
+    u8,
+    u32,
+    bool,
+    BlockColorVariant,
+    BlockFacing,
+    TrapdoorHalf,
+    SignType,
+    redstone::ButtonFace,
+    redstone::LeverFace,
+    redstone::ComparatorMode,
+);
 
 impl BlockTransform for BlockDirection {
     fn flip(&mut self, dir: FlipDirection) {
