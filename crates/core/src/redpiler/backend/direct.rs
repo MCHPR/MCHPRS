@@ -5,7 +5,6 @@ use crate::blocks::{Block, ComparatorMode, RedstoneRepeater};
 use crate::plot::PlotWorld;
 use crate::redpiler::{block_powered_mut, bool_to_ss, CompileNode, LinkType};
 use crate::world::World;
-use itertools::Itertools;
 use log::warn;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
@@ -13,6 +12,7 @@ use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
+use smallvec::SmallVec;
 
 mod nodes {
     use super::Node;
@@ -136,8 +136,8 @@ impl NodeType {
 #[derive(Debug, Clone)]
 pub struct Node {
     ty: NodeType,
-    default_inputs: Vec<DirectLink>,
-    side_inputs: Vec<DirectLink>,
+    default_inputs: SmallVec<[DirectLink; 2]>,
+    side_inputs: SmallVec<[DirectLink; 1]>,
     updates: Vec<NodeId>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
@@ -155,8 +155,8 @@ impl Node {
     fn from_compile_node(node: CompileNode, nodes_len: usize) -> Self {
         let output_power = node.output_power();
         let powered = node.powered();
-        let mut default_inputs = vec![];
-        let mut side_inputs = vec![];
+        let mut default_inputs = SmallVec::new();
+        let mut side_inputs = SmallVec::new();
         node.inputs
             .into_iter()
             .map(|link| {
