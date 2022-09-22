@@ -11,7 +11,7 @@ use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt;
 
 mod nodes {
@@ -208,47 +208,75 @@ impl Node {
     }
 }
 
-struct RPTickEntry {
-    priority: TickPriority,
-    node: NodeId,
-}
+#[derive(Default, Clone)]
+struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
 
-struct LongTickEntry {
-    priority: TickPriority,
-    node: NodeId,
-    ticks_left: u32,
+impl Queues {
+    fn drain_iter(&mut self) -> impl Iterator<Item=NodeId> + '_ {
+        let [q0, q1, q2, q3] = &mut self.0;
+        let [q0, q1, q2, q3] = [q0, q1, q2, q3].map(|q| q.drain(..));
+        q0.chain(q1).chain(q2).chain(q3)
+    }
 }
 
 #[derive(Default)]
 struct TickScheduler {
-    queues: [Vec<RPTickEntry>; 4],
-    current_queue: usize,
+    queues_deque: VecDeque<Queues>,
 }
 
 impl TickScheduler {
+    const NUM_PRIORITIES: usize = 4;
+
     fn reset(&mut self, plot: &mut PlotWorld, blocks: &[(BlockPos, Block)]) {
-        for i in 0..4 {
-            let queue_idx = (self.current_queue + i) % 4;
-            let queue = &mut self.queues[queue_idx];
-            for entry in queue.iter() {
-                let pos = blocks[entry.node.index()].0;
-                plot.schedule_tick(pos, i as u32 + 1, entry.priority);
+        for (delay, queues) in self.queues_deque.iter().enumerate() {
+            for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
+                for node in entries {
+                    let pos = blocks[node.index()].0;
+                    plot.schedule_tick(pos, delay as u32, priority);
+                }
             }
-            queue.clear();
         }
+        self.queues_deque.clear();
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        let delay = self.current_queue + (delay - 1);
-        self.queues[delay % 4].push(RPTickEntry { priority, node });
+        if delay > self.queues_deque.len() {
+            self.queues_deque.resize(delay, Default::default());
+        }
+
+        self.queues_deque[delay - 1].0[Self::priority_index(priority)].push(node);
     }
 
-    fn swap_queue(&mut self, with: &mut Vec<RPTickEntry>) {
-        with.clear();
-        std::mem::swap(&mut self.queues[self.current_queue], with);
-        with.sort_by_key(|entry| entry.priority);
-        self.current_queue += 1;
-        self.current_queue %= 4;
+    fn queues_this_tick(&mut self) -> Queues {
+        if self.queues_deque.len() == 0 {
+            self.queues_deque.push_back(Default::default());
+        }
+        self.queues_deque.pop_front().unwrap()
+    }
+
+    fn return_queues(&mut self, mut queues: Queues) {
+        for queue in &mut queues.0 {
+            queue.clear();
+        }
+        self.queues_deque.push_back(queues);
+    }
+
+    fn priorities() -> [TickPriority; Self::NUM_PRIORITIES] {
+        [
+            TickPriority::Highest,
+            TickPriority::Higher,
+            TickPriority::High,
+            TickPriority::Normal,
+        ]
+    }
+
+    fn priority_index(priority: TickPriority) -> usize {
+        match priority {
+            TickPriority::Highest => 0,
+            TickPriority::Higher => 1,
+            TickPriority::High => 2,
+            TickPriority::Normal => 3,
+        }
     }
 }
 
@@ -258,22 +286,11 @@ pub struct DirectBackend {
     blocks: Vec<(BlockPos, Block)>,
     pos_map: HashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
-    long_queue: Vec<LongTickEntry>,
-
-    cached_queue: Option<Vec<RPTickEntry>>,
 }
 
 impl DirectBackend {
     fn schedule_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
         self.scheduler.schedule_tick(node_id, delay, priority);
-    }
-
-    fn schedule_long_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
-        self.long_queue.push(LongTickEntry {
-            node: node_id,
-            priority,
-            ticks_left: delay as u32,
-        });
     }
 
     fn set_node(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
@@ -318,7 +335,7 @@ impl JITBackend for DirectBackend {
         match node.ty {
             NodeType::Button => {
                 let powered = !node.powered;
-                self.schedule_long_tick(node_id, 10, TickPriority::Normal);
+                self.schedule_tick(node_id, 10, TickPriority::Normal);
                 self.set_node(node_id, powered, bool_to_ss(powered));
             }
             NodeType::Lever => {
@@ -340,14 +357,9 @@ impl JITBackend for DirectBackend {
     }
 
     fn tick(&mut self, _plot: &mut PlotWorld) {
-        let mut queue = match self.cached_queue.take() {
-            Some(queue) => queue,
-            None => Vec::new(),
-        };
-        self.scheduler.swap_queue(&mut queue);
+        let mut queues = self.scheduler.queues_this_tick();
 
-        for entry in &queue {
-            let node_id = entry.node;
+        for node_id in queues.drain_iter() {
             self.nodes[node_id].pending_tick = false;
             let node = &self.nodes[node_id];
 
@@ -409,39 +421,16 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     }
                 }
+                NodeType::Button => {
+                    if node.powered {
+                        self.set_node(node_id, false, 0);
+                    }
+                }
                 _ => warn!("Node {:?} should not be ticked!", node.ty),
             }
         }
-        self.cached_queue = Some(queue);
 
-        if !self.long_queue.is_empty() {
-            self.long_queue.sort_by_key(|e| (e.ticks_left, e.priority));
-            for pending in &mut self.long_queue {
-                pending.ticks_left = pending.ticks_left.saturating_sub(1);
-            }
-            let mut i = 0;
-            for _ in 0..self.long_queue.len() {
-                let entry = &self.long_queue[i];
-                if entry.ticks_left != 0 {
-                    break;
-                }
-                i += 1;
-
-                let node_id = entry.node;
-                self.nodes[node_id].pending_tick = false;
-                let node = &self.nodes[node_id];
-
-                match node.ty {
-                    NodeType::Button => {
-                        if node.powered {
-                            self.set_node(node_id, false, 0);
-                        }
-                    }
-                    _ => warn!("Node {:?} should not be long ticked!", node.ty),
-                }
-            }
-            self.long_queue.drain(0..i);
-        }
+        self.scheduler.return_queues(queues);
     }
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
