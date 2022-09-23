@@ -10,9 +10,9 @@ use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
+use smallvec::SmallVec;
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
-use smallvec::SmallVec;
 
 mod nodes {
     use super::Node;
@@ -406,19 +406,11 @@ impl JITBackend for DirectBackend {
                             input_power = far_override;
                         }
                     }
+                    let old_strength = node.output_power;
                     let new_strength =
                         calculate_comparator_output(mode, input_power, side_input_power);
-                    let old_strength = node.output_power;
-                    if new_strength != old_strength || mode == ComparatorMode::Compare {
-                        let should_be_powered =
-                            comparator_should_be_powered(mode, input_power, side_input_power);
-                        let mut powered = node.powered;
-                        if powered && !should_be_powered {
-                            powered = false;
-                        } else if !powered && should_be_powered {
-                            powered = true;
-                        }
-                        self.set_node(node_id, powered, new_strength);
+                    if new_strength != old_strength {
+                        self.set_node(node_id, new_strength > 0, new_strength);
                     }
                 }
                 NodeType::Lamp => {
@@ -594,11 +586,9 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                     input_power = far_override;
                 }
             }
-            let output_power = calculate_comparator_output(mode, input_power, side_input_power);
             let old_strength = node.output_power;
-            if output_power != old_strength
-                || node.powered != comparator_should_be_powered(mode, input_power, side_input_power)
-            {
+            let output_power = calculate_comparator_output(mode, input_power, side_input_power);
+            if output_power != old_strength {
                 let priority = if node.facing_diode {
                     TickPriority::High
                 } else {
@@ -681,26 +671,15 @@ impl fmt::Display for DirectBackend {
     }
 }
 
-fn comparator_should_be_powered(
-    mode: ComparatorMode,
-    input_strength: u8,
-    power_on_sides: u8,
-) -> bool {
-    if input_strength == 0 {
-        false
-    } else if input_strength > power_on_sides {
-        true
-    } else {
-        power_on_sides == input_strength && mode == ComparatorMode::Compare
-    }
-}
-
 fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_on_sides: u8) -> u8 {
-    if mode == ComparatorMode::Subtract {
-        input_strength.saturating_sub(power_on_sides)
-    } else if input_strength >= power_on_sides {
-        input_strength
-    } else {
-        0
+    match mode {
+        ComparatorMode::Compare => {
+            if input_strength >= power_on_sides {
+                input_strength
+            } else {
+                0
+            }
+        }
+        ComparatorMode::Subtract => input_strength.saturating_sub(power_on_sides),
     }
 }
