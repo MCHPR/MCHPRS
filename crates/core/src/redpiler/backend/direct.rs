@@ -138,7 +138,7 @@ pub struct Node {
     ty: NodeType,
     default_inputs: SmallVec<[DirectLink; 2]>,
     side_inputs: SmallVec<[DirectLink; 1]>,
-    updates: Vec<NodeId>,
+    updates: SmallVec<[NodeId; 2]>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
