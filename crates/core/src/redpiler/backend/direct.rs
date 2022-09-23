@@ -85,7 +85,6 @@ mod nodes {
 struct DirectLink {
     weight: u8,
     to: NodeId,
-    ty: LinkType,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -137,7 +136,8 @@ impl NodeType {
 #[derive(Debug, Clone)]
 pub struct Node {
     ty: NodeType,
-    inputs: Vec<DirectLink>,
+    default_inputs: Vec<DirectLink>,
+    side_inputs: Vec<DirectLink>,
     updates: Vec<NodeId>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
@@ -155,21 +155,27 @@ impl Node {
     fn from_compile_node(node: CompileNode, nodes_len: usize) -> Self {
         let output_power = node.output_power();
         let powered = node.powered();
-        let inputs = node
-            .inputs
+        let mut default_inputs = vec![];
+        let mut side_inputs = vec![];
+        node.inputs
             .into_iter()
             .map(|link| {
                 assert!(link.end < nodes_len);
-                DirectLink {
-                    weight: link.weight,
-                    to: unsafe {
-                        // Safety: bounds checked
-                        NodeId::from_index(link.end)
+                (
+                    link.ty,
+                    DirectLink {
+                        weight: link.weight,
+                        to: unsafe {
+                            // Safety: bounds checked
+                            NodeId::from_index(link.end)
+                        },
                     },
-                    ty: link.ty,
-                }
+                )
             })
-            .collect_vec();
+            .for_each(|(link_type, link)| match link_type {
+                LinkType::Default => default_inputs.push(link),
+                LinkType::Side => side_inputs.push(link),
+            });
         let updates = node
             .updates
             .into_iter()
@@ -184,7 +190,7 @@ impl Node {
             Block::RedstoneRepeater {
                 repeater: RedstoneRepeater { delay: 1, .. }
             }
-        ) && !inputs.iter().any(|input| input.ty == LinkType::Side)
+        ) && side_inputs.is_empty()
         {
             NodeType::SimpleRepeater
         } else {
@@ -192,7 +198,8 @@ impl Node {
         };
         Node {
             ty,
-            inputs,
+            default_inputs,
+            side_inputs,
             updates,
             powered,
             output_power,
@@ -212,7 +219,7 @@ impl Node {
 struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
 
 impl Queues {
-    fn drain_iter(&mut self) -> impl Iterator<Item=NodeId> + '_ {
+    fn drain_iter(&mut self) -> impl Iterator<Item = NodeId> + '_ {
         let [q0, q1, q2, q3] = &mut self.0;
         let [q0, q1, q2, q3] = [q0, q1, q2, q3].map(|q| q.drain(..));
         q0.chain(q1).chain(q2).chain(q3)
@@ -240,21 +247,25 @@ impl TickScheduler {
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        if delay > self.queues_deque.len() {
-            self.queues_deque.resize(delay, Default::default());
+        if delay >= self.queues_deque.len() {
+            self.queues_deque.resize(delay + 1, Default::default());
         }
 
-        self.queues_deque[delay - 1].0[Self::priority_index(priority)].push(node);
+        self.queues_deque[delay].0[Self::priority_index(priority)].push(node);
     }
 
     fn queues_this_tick(&mut self) -> Queues {
         if self.queues_deque.len() == 0 {
             self.queues_deque.push_back(Default::default());
         }
-        self.queues_deque.pop_front().unwrap()
+        let queues = self.queues_deque.pop_front().unwrap();
+        self.queues_deque.push_front(Default::default());
+        queues
     }
 
-    fn return_queues(&mut self, mut queues: Queues) {
+    fn end_tick(&mut self, mut queues: Queues) {
+        self.queues_deque.pop_front();
+
         for queue in &mut queues.0 {
             queue.clear();
         }
@@ -430,7 +441,7 @@ impl JITBackend for DirectBackend {
             }
         }
 
-        self.scheduler.return_queues(queues);
+        self.scheduler.end_tick(queues);
     }
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
@@ -494,26 +505,31 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-#[inline]
+fn link_strength(link: &DirectLink, nodes: &Nodes) -> u8 {
+    nodes[link.to].output_power.saturating_sub(link.weight)
+}
+
 fn get_bool_input(node: &Node, nodes: &Nodes) -> bool {
-    for link in &node.inputs {
-        if nodes[link.to].output_power as isize - link.weight as isize > 0 {
-            return true;
-        }
-    }
-    false
+    node.default_inputs
+        .iter()
+        .any(|link| link_strength(link, nodes) > 0)
 }
 
 fn get_all_input(node: &Node, nodes: &Nodes) -> (u8, u8) {
-    let mut input_power = 0;
-    let mut side_input_power = 0;
-    for link in &node.inputs {
-        let power = match link.ty {
-            LinkType::Default => &mut input_power,
-            LinkType::Side => &mut side_input_power,
-        };
-        *power = (*power).max(nodes[link.to].output_power.saturating_sub(link.weight));
-    }
+    let input_power = node
+        .default_inputs
+        .iter()
+        .map(|link| link_strength(link, nodes))
+        .max()
+        .unwrap_or(0);
+
+    let side_input_power = node
+        .side_inputs
+        .iter()
+        .map(|link| link_strength(link, nodes))
+        .max()
+        .unwrap_or(0);
+
     (input_power, side_input_power)
 }
 
@@ -643,8 +659,13 @@ impl fmt::Display for DirectBackend {
                 pos.y,
                 pos.z
             )?;
-            for link in &node.inputs {
-                let color = match link.ty {
+            let all_inputs = node
+                .default_inputs
+                .iter()
+                .map(|link| (LinkType::Default, link))
+                .chain(node.side_inputs.iter().map(|link| (LinkType::Side, link)));
+            for (link_type, link) in all_inputs {
+                let color = match link_type {
                     LinkType::Default => "",
                     LinkType::Side => ",color=\"blue\"",
                 };
