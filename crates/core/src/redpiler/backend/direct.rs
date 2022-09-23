@@ -90,8 +90,8 @@ struct DirectLink {
 #[derive(Debug, Clone, Copy)]
 enum NodeType {
     Repeater(u8),
-    /// A non-locking repeater that doesn't face a diode
-    SimpleRepeater,
+    /// A non-locking repeater
+    SimpleRepeater(u8),
     Torch,
     Comparator(ComparatorMode),
     Lamp,
@@ -185,16 +185,11 @@ impl Node {
                 unsafe { NodeId::from_index(idx) }
             })
             .collect();
-        let ty = if matches!(
-            node.state,
+        let ty = match node.state {
             Block::RedstoneRepeater {
-                repeater: RedstoneRepeater { delay: 1, .. }
-            }
-        ) && side_inputs.is_empty()
-        {
-            NodeType::SimpleRepeater
-        } else {
-            NodeType::new(node.state)
+                repeater: RedstoneRepeater { delay, .. },
+            } if side_inputs.is_empty() => NodeType::SimpleRepeater(delay),
+            state => NodeType::new(state),
         };
         Node {
             ty,
@@ -387,7 +382,7 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, true, 15);
                     }
                 }
-                NodeType::SimpleRepeater => {
+                NodeType::SimpleRepeater(_delay) => {
                     let should_be_powered = get_bool_input(node, &self.nodes);
                     if node.powered && !should_be_powered {
                         self.set_node(node_id, false, 0);
@@ -561,7 +556,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 }
             }
         }
-        NodeType::SimpleRepeater => {
+        NodeType::SimpleRepeater(delay) => {
             if node.pending_tick {
                 return;
             }
@@ -575,7 +570,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                     TickPriority::High
                 };
                 let node = &mut nodes[node_id];
-                schedule_tick(scheduler, node_id, node, 1, priority);
+                schedule_tick(scheduler, node_id, node, delay as usize, priority);
             }
         }
         NodeType::Torch => {
