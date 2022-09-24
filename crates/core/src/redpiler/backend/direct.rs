@@ -81,7 +81,7 @@ mod nodes {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct DirectLink {
     weight: u8,
     to: NodeId,
@@ -492,13 +492,14 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-fn link_strength(link: &DirectLink, nodes: &Nodes) -> u8 {
+fn link_strength(link: DirectLink, nodes: &Nodes) -> u8 {
     nodes[link.to].output_power.saturating_sub(link.weight)
 }
 
 fn get_bool_input(node: &Node, nodes: &Nodes) -> bool {
     node.default_inputs
         .iter()
+        .copied()
         .any(|link| link_strength(link, nodes) > 0)
 }
 
@@ -506,6 +507,7 @@ fn get_all_input(node: &Node, nodes: &Nodes) -> (u8, u8) {
     let input_power = node
         .default_inputs
         .iter()
+        .copied()
         .map(|link| link_strength(link, nodes))
         .max()
         .unwrap_or(0);
@@ -513,6 +515,7 @@ fn get_all_input(node: &Node, nodes: &Nodes) -> (u8, u8) {
     let side_input_power = node
         .side_inputs
         .iter()
+        .copied()
         .map(|link| link_strength(link, nodes))
         .max()
         .unwrap_or(0);
