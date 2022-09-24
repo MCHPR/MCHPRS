@@ -12,7 +12,7 @@ use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
 use smallvec::SmallVec;
 use std::collections::{HashMap, VecDeque};
-use std::fmt;
+use std::{fmt, mem};
 
 mod nodes {
     use super::Node;
@@ -253,9 +253,7 @@ impl TickScheduler {
         if self.queues_deque.len() == 0 {
             self.queues_deque.push_back(Default::default());
         }
-        let queues = self.queues_deque.pop_front().unwrap();
-        self.queues_deque.push_front(Default::default());
-        queues
+        mem::take(&mut self.queues_deque[0])
     }
 
     fn end_tick(&mut self, mut queues: Queues) {
