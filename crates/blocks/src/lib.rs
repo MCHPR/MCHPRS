@@ -348,6 +348,16 @@ impl BlockFacing {
         }
     }
 
+    pub fn from_id_trapdoor(id: u32) -> BlockFacing{
+        match id {
+            0 => BlockFacing::North,
+            1 => BlockFacing::South,
+            2 => BlockFacing::West,
+            3 => BlockFacing::East,
+            _ => BlockFacing::North,
+        }
+    }
+
     pub fn get_id(self) -> u32 {
         match self {
             BlockFacing::North => 0,
@@ -356,6 +366,16 @@ impl BlockFacing {
             BlockFacing::West => 3,
             BlockFacing::Up => 4,
             BlockFacing::Down => 5,
+        }
+    }
+
+    pub fn get_id_trapdoor(self) -> u32 {
+        match self {
+            BlockFacing::North => 0,
+            BlockFacing::South => 1,
+            BlockFacing::West => 2,
+            BlockFacing::East => 3,
+            _ => 0,
         }
     }
 

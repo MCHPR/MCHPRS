@@ -1676,14 +1676,14 @@ blocks! {
             powered: bool
         },
         get_id: {
-            facing.get_id() * 16
+            facing.get_id_trapdoor() * 16
                 + half.get_id() * 8
                 + !powered as u32 * 6
                 + 7788
         },
         from_id_offset: 7788,
         from_id(id): 7788..=7850 => {
-            facing: BlockFacing::from_id(id >> 4),
+            facing: BlockFacing::from_id_trapdoor(id >> 4),
             half: TrapdoorHalf::from_id((id >> 3) & 1),
             powered: ((id >> 1) & 1) == 0
         },
