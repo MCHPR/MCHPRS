@@ -160,6 +160,12 @@ items! {
         from_id(_id): 1010 => {},
         max_stack: 1,
     },
+    MilkBucket {
+        props: {},
+        get_id: 748,
+        from_id(_id): 748 => {},
+        max_stack: 1,
+    },
     Stone {
         props: {},
         get_id: 1,
@@ -355,6 +361,7 @@ impl Item {
         match name {
             "snowball" => Some(Item::Snowball {}),
             "totem_of_undying" => Some(Item::TotemOfUndying {}),
+            "milk_bucket" => Some(Item::MilkBucket {  }),
             _ => None,
         }
     }
@@ -363,6 +370,7 @@ impl Item {
         match self {
             Item::Snowball {} => "snowball",
             Item::TotemOfUndying {} => "totem_of_undying",
+            Item::MilkBucket {} => "milk_bucket",
             _ => "redstone",
         }
     }
