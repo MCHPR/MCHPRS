@@ -47,6 +47,7 @@ itertools = "0.10"
 impls = "1"
 bincode = "1.3"
 once_cell = "1.14.0"
+smallvec = "1.9.0"
 redpiler_graph = { path = "../redpiler_graph" }
 mchprs_save_data = { path = "../save_data" }
 mchprs_blocks = { path = "../blocks" }
