@@ -249,6 +249,7 @@ impl ServerBoundPacketHandler for Plot {
                     block_face,
                     block_pos,
                     player: &mut self.players[player],
+                    cursor_y: player_block_placement.cursor_y,
                 },
             );
             if cancelled {
