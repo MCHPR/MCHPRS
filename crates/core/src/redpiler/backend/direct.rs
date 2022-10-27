@@ -5,14 +5,14 @@ use crate::blocks::{Block, ComparatorMode, RedstoneRepeater};
 use crate::plot::PlotWorld;
 use crate::redpiler::{block_powered_mut, bool_to_ss, CompileNode, LinkType};
 use crate::world::World;
-use itertools::Itertools;
 use log::warn;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
-use std::collections::HashMap;
-use std::fmt;
+use smallvec::SmallVec;
+use std::collections::{HashMap, VecDeque};
+use std::{fmt, mem};
 
 mod nodes {
     use super::Node;
@@ -81,18 +81,17 @@ mod nodes {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct DirectLink {
     weight: u8,
     to: NodeId,
-    ty: LinkType,
 }
 
 #[derive(Debug, Clone, Copy)]
 enum NodeType {
     Repeater(u8),
-    /// A non-locking repeater that doesn't face a diode
-    SimpleRepeater,
+    /// A non-locking repeater
+    SimpleRepeater(u8),
     Torch,
     Comparator(ComparatorMode),
     Lamp,
@@ -137,8 +136,9 @@ impl NodeType {
 #[derive(Debug, Clone)]
 pub struct Node {
     ty: NodeType,
-    inputs: Vec<DirectLink>,
-    updates: Vec<NodeId>,
+    default_inputs: SmallVec<[DirectLink; 2]>,
+    side_inputs: SmallVec<[DirectLink; 1]>,
+    updates: SmallVec<[NodeId; 2]>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
@@ -155,21 +155,27 @@ impl Node {
     fn from_compile_node(node: CompileNode, nodes_len: usize) -> Self {
         let output_power = node.output_power();
         let powered = node.powered();
-        let inputs = node
-            .inputs
+        let mut default_inputs = SmallVec::new();
+        let mut side_inputs = SmallVec::new();
+        node.inputs
             .into_iter()
             .map(|link| {
                 assert!(link.end < nodes_len);
-                DirectLink {
-                    weight: link.weight,
-                    to: unsafe {
-                        // Safety: bounds checked
-                        NodeId::from_index(link.end)
+                (
+                    link.ty,
+                    DirectLink {
+                        weight: link.weight,
+                        to: unsafe {
+                            // Safety: bounds checked
+                            NodeId::from_index(link.end)
+                        },
                     },
-                    ty: link.ty,
-                }
+                )
             })
-            .collect_vec();
+            .for_each(|(link_type, link)| match link_type {
+                LinkType::Default => default_inputs.push(link),
+                LinkType::Side => side_inputs.push(link),
+            });
         let updates = node
             .updates
             .into_iter()
@@ -179,20 +185,16 @@ impl Node {
                 unsafe { NodeId::from_index(idx) }
             })
             .collect();
-        let ty = if matches!(
-            node.state,
+        let ty = match node.state {
             Block::RedstoneRepeater {
-                repeater: RedstoneRepeater { delay: 1, .. }
-            }
-        ) && !inputs.iter().any(|input| input.ty == LinkType::Side)
-        {
-            NodeType::SimpleRepeater
-        } else {
-            NodeType::new(node.state)
+                repeater: RedstoneRepeater { delay, .. },
+            } if side_inputs.is_empty() => NodeType::SimpleRepeater(delay),
+            state => NodeType::new(state),
         };
         Node {
             ty,
-            inputs,
+            default_inputs,
+            side_inputs,
             updates,
             powered,
             output_power,
@@ -208,47 +210,77 @@ impl Node {
     }
 }
 
-struct RPTickEntry {
-    priority: TickPriority,
-    node: NodeId,
-}
+#[derive(Default, Clone)]
+struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
 
-struct LongTickEntry {
-    priority: TickPriority,
-    node: NodeId,
-    ticks_left: u32,
+impl Queues {
+    fn drain_iter(&mut self) -> impl Iterator<Item = NodeId> + '_ {
+        let [q0, q1, q2, q3] = &mut self.0;
+        let [q0, q1, q2, q3] = [q0, q1, q2, q3].map(|q| q.drain(..));
+        q0.chain(q1).chain(q2).chain(q3)
+    }
 }
 
 #[derive(Default)]
 struct TickScheduler {
-    queues: [Vec<RPTickEntry>; 4],
-    current_queue: usize,
+    queues_deque: VecDeque<Queues>,
 }
 
 impl TickScheduler {
+    const NUM_PRIORITIES: usize = 4;
+
     fn reset(&mut self, plot: &mut PlotWorld, blocks: &[(BlockPos, Block)]) {
-        for i in 0..4 {
-            let queue_idx = (self.current_queue + i) % 4;
-            let queue = &mut self.queues[queue_idx];
-            for entry in queue.iter() {
-                let pos = blocks[entry.node.index()].0;
-                plot.schedule_tick(pos, i as u32 + 1, entry.priority);
+        for (delay, queues) in self.queues_deque.iter().enumerate() {
+            for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
+                for node in entries {
+                    let pos = blocks[node.index()].0;
+                    plot.schedule_tick(pos, delay as u32, priority);
+                }
             }
-            queue.clear();
         }
+        self.queues_deque.clear();
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        let delay = self.current_queue + (delay - 1);
-        self.queues[delay % 4].push(RPTickEntry { priority, node });
+        if delay >= self.queues_deque.len() {
+            self.queues_deque.resize(delay + 1, Default::default());
+        }
+
+        self.queues_deque[delay].0[Self::priority_index(priority)].push(node);
     }
 
-    fn swap_queue(&mut self, with: &mut Vec<RPTickEntry>) {
-        with.clear();
-        std::mem::swap(&mut self.queues[self.current_queue], with);
-        with.sort_by_key(|entry| entry.priority);
-        self.current_queue += 1;
-        self.current_queue %= 4;
+    fn queues_this_tick(&mut self) -> Queues {
+        if self.queues_deque.len() == 0 {
+            self.queues_deque.push_back(Default::default());
+        }
+        mem::take(&mut self.queues_deque[0])
+    }
+
+    fn end_tick(&mut self, mut queues: Queues) {
+        self.queues_deque.pop_front();
+
+        for queue in &mut queues.0 {
+            queue.clear();
+        }
+        self.queues_deque.push_back(queues);
+    }
+
+    fn priorities() -> [TickPriority; Self::NUM_PRIORITIES] {
+        [
+            TickPriority::Highest,
+            TickPriority::Higher,
+            TickPriority::High,
+            TickPriority::Normal,
+        ]
+    }
+
+    fn priority_index(priority: TickPriority) -> usize {
+        match priority {
+            TickPriority::Highest => 0,
+            TickPriority::Higher => 1,
+            TickPriority::High => 2,
+            TickPriority::Normal => 3,
+        }
     }
 }
 
@@ -258,22 +290,11 @@ pub struct DirectBackend {
     blocks: Vec<(BlockPos, Block)>,
     pos_map: HashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
-    long_queue: Vec<LongTickEntry>,
-
-    cached_queue: Option<Vec<RPTickEntry>>,
 }
 
 impl DirectBackend {
     fn schedule_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
         self.scheduler.schedule_tick(node_id, delay, priority);
-    }
-
-    fn schedule_long_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
-        self.long_queue.push(LongTickEntry {
-            node: node_id,
-            priority,
-            ticks_left: delay as u32,
-        });
     }
 
     fn set_node(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
@@ -318,7 +339,7 @@ impl JITBackend for DirectBackend {
         match node.ty {
             NodeType::Button => {
                 let powered = !node.powered;
-                self.schedule_long_tick(node_id, 10, TickPriority::Normal);
+                self.schedule_tick(node_id, 10, TickPriority::Normal);
                 self.set_node(node_id, powered, bool_to_ss(powered));
             }
             NodeType::Lever => {
@@ -340,14 +361,9 @@ impl JITBackend for DirectBackend {
     }
 
     fn tick(&mut self, _plot: &mut PlotWorld) {
-        let mut queue = match self.cached_queue.take() {
-            Some(queue) => queue,
-            None => Vec::new(),
-        };
-        self.scheduler.swap_queue(&mut queue);
+        let mut queues = self.scheduler.queues_this_tick();
 
-        for entry in &queue {
-            let node_id = entry.node;
+        for node_id in queues.drain_iter() {
             self.nodes[node_id].pending_tick = false;
             let node = &self.nodes[node_id];
 
@@ -364,7 +380,7 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, true, 15);
                     }
                 }
-                NodeType::SimpleRepeater => {
+                NodeType::SimpleRepeater(_delay) => {
                     let should_be_powered = get_bool_input(node, &self.nodes);
                     if node.powered && !should_be_powered {
                         self.set_node(node_id, false, 0);
@@ -388,19 +404,11 @@ impl JITBackend for DirectBackend {
                             input_power = far_override;
                         }
                     }
+                    let old_strength = node.output_power;
                     let new_strength =
                         calculate_comparator_output(mode, input_power, side_input_power);
-                    let old_strength = node.output_power;
-                    if new_strength != old_strength || mode == ComparatorMode::Compare {
-                        let should_be_powered =
-                            comparator_should_be_powered(mode, input_power, side_input_power);
-                        let mut powered = node.powered;
-                        if powered && !should_be_powered {
-                            powered = false;
-                        } else if !powered && should_be_powered {
-                            powered = true;
-                        }
-                        self.set_node(node_id, powered, new_strength);
+                    if new_strength != old_strength {
+                        self.set_node(node_id, new_strength > 0, new_strength);
                     }
                 }
                 NodeType::Lamp => {
@@ -409,39 +417,16 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     }
                 }
+                NodeType::Button => {
+                    if node.powered {
+                        self.set_node(node_id, false, 0);
+                    }
+                }
                 _ => warn!("Node {:?} should not be ticked!", node.ty),
             }
         }
-        self.cached_queue = Some(queue);
 
-        if !self.long_queue.is_empty() {
-            self.long_queue.sort_by_key(|e| (e.ticks_left, e.priority));
-            for pending in &mut self.long_queue {
-                pending.ticks_left = pending.ticks_left.saturating_sub(1);
-            }
-            let mut i = 0;
-            for _ in 0..self.long_queue.len() {
-                let entry = &self.long_queue[i];
-                if entry.ticks_left != 0 {
-                    break;
-                }
-                i += 1;
-
-                let node_id = entry.node;
-                self.nodes[node_id].pending_tick = false;
-                let node = &self.nodes[node_id];
-
-                match node.ty {
-                    NodeType::Button => {
-                        if node.powered {
-                            self.set_node(node_id, false, 0);
-                        }
-                    }
-                    _ => warn!("Node {:?} should not be long ticked!", node.ty),
-                }
-            }
-            self.long_queue.drain(0..i);
-        }
+        self.scheduler.end_tick(queues);
     }
 
     fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
@@ -505,26 +490,34 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-#[inline]
+fn link_strength(link: DirectLink, nodes: &Nodes) -> u8 {
+    nodes[link.to].output_power.saturating_sub(link.weight)
+}
+
 fn get_bool_input(node: &Node, nodes: &Nodes) -> bool {
-    for link in &node.inputs {
-        if nodes[link.to].output_power as isize - link.weight as isize > 0 {
-            return true;
-        }
-    }
-    false
+    node.default_inputs
+        .iter()
+        .copied()
+        .any(|link| link_strength(link, nodes) > 0)
 }
 
 fn get_all_input(node: &Node, nodes: &Nodes) -> (u8, u8) {
-    let mut input_power = 0;
-    let mut side_input_power = 0;
-    for link in &node.inputs {
-        let power = match link.ty {
-            LinkType::Default => &mut input_power,
-            LinkType::Side => &mut side_input_power,
-        };
-        *power = (*power).max(nodes[link.to].output_power.saturating_sub(link.weight));
-    }
+    let input_power = node
+        .default_inputs
+        .iter()
+        .copied()
+        .map(|link| link_strength(link, nodes))
+        .max()
+        .unwrap_or(0);
+
+    let side_input_power = node
+        .side_inputs
+        .iter()
+        .copied()
+        .map(|link| link_strength(link, nodes))
+        .max()
+        .unwrap_or(0);
+
     (input_power, side_input_power)
 }
 
@@ -556,7 +549,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 }
             }
         }
-        NodeType::SimpleRepeater => {
+        NodeType::SimpleRepeater(delay) => {
             if node.pending_tick {
                 return;
             }
@@ -570,7 +563,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                     TickPriority::High
                 };
                 let node = &mut nodes[node_id];
-                schedule_tick(scheduler, node_id, node, 1, priority);
+                schedule_tick(scheduler, node_id, node, delay as usize, priority);
             }
         }
         NodeType::Torch => {
@@ -594,11 +587,9 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                     input_power = far_override;
                 }
             }
-            let output_power = calculate_comparator_output(mode, input_power, side_input_power);
             let old_strength = node.output_power;
-            if output_power != old_strength
-                || node.powered != comparator_should_be_powered(mode, input_power, side_input_power)
-            {
+            let output_power = calculate_comparator_output(mode, input_power, side_input_power);
+            if output_power != old_strength {
                 let priority = if node.facing_diode {
                     TickPriority::High
                 } else {
@@ -654,8 +645,13 @@ impl fmt::Display for DirectBackend {
                 pos.y,
                 pos.z
             )?;
-            for link in &node.inputs {
-                let color = match link.ty {
+            let all_inputs = node
+                .default_inputs
+                .iter()
+                .map(|link| (LinkType::Default, link))
+                .chain(node.side_inputs.iter().map(|link| (LinkType::Side, link)));
+            for (link_type, link) in all_inputs {
+                let color = match link_type {
                     LinkType::Default => "",
                     LinkType::Side => ",color=\"blue\"",
                 };
@@ -676,26 +672,15 @@ impl fmt::Display for DirectBackend {
     }
 }
 
-fn comparator_should_be_powered(
-    mode: ComparatorMode,
-    input_strength: u8,
-    power_on_sides: u8,
-) -> bool {
-    if input_strength == 0 {
-        false
-    } else if input_strength > power_on_sides {
-        true
-    } else {
-        power_on_sides == input_strength && mode == ComparatorMode::Compare
-    }
-}
-
 fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_on_sides: u8) -> u8 {
-    if mode == ComparatorMode::Subtract {
-        input_strength.saturating_sub(power_on_sides)
-    } else if input_strength >= power_on_sides {
-        input_strength
-    } else {
-        0
+    match mode {
+        ComparatorMode::Compare => {
+            if input_strength >= power_on_sides {
+                input_strength
+            } else {
+                0
+            }
+        }
+        ComparatorMode::Subtract => input_strength.saturating_sub(power_on_sides),
     }
 }

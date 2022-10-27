@@ -374,6 +374,13 @@ impl Block {
             Item::StainedGlass { color } => Block::StainedGlass { color },
             Item::SmoothStoneSlab {} => Block::SmoothStoneSlab {},
             Item::QuartzSlab {} => Block::QuartzSlab {},
+            Item::IronTrapdoor {} => {
+                match context.block_face {
+                    BlockFace::Bottom => Block::IronTrapdoor { facing: context.player.get_direction().opposite(), half: TrapdoorHalf::Top, powered: false },
+                    BlockFace::Top => Block::IronTrapdoor { facing: context.player.get_direction().opposite(), half: TrapdoorHalf::Bottom, powered: false },
+                    _ => Block::IronTrapdoor { facing: context.block_face.to_direction(), half: if context.cursor_y > 0.5 {TrapdoorHalf::Top} else {TrapdoorHalf::Bottom} , powered: false }
+                }
+            },
             _ => Block::Air {},
         };
         if block.is_valid_position(world, pos) {
@@ -1671,7 +1678,7 @@ blocks! {
     },
     IronTrapdoor {
         props: {
-            facing: BlockFacing,
+            facing: BlockDirection,
             half: TrapdoorHalf,
             powered: bool
         },
@@ -1683,7 +1690,7 @@ blocks! {
         },
         from_id_offset: 7788,
         from_id(id): 7788..=7850 => {
-            facing: BlockFacing::from_id(id >> 4),
+            facing: BlockDirection::from_id(id >> 4),
             half: TrapdoorHalf::from_id((id >> 3) & 1),
             powered: ((id >> 1) & 1) == 0
         },
