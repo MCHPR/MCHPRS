@@ -839,7 +839,7 @@ impl Plot {
                             }
                             self.lag_time -= dur_per_tick * batch_size as u32;
                             self.last_nspt =
-                                Some(self.last_update_time.elapsed() / batch_size as u32);
+                                Some(self.last_update_time.elapsed() / (batch_size as u32).max(1));
                         }
                     }
                 }
