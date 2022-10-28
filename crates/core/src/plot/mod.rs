@@ -856,7 +856,7 @@ impl Plot {
                     for _ in 0..batch_size {
                         self.tick();
                     }
-                    self.last_nspt = Some(self.last_update_time.elapsed() / batch_size);
+                    self.last_nspt = Some(self.last_update_time.elapsed() / batch_size.max(1));
                 }
                 _ => {}
             }
