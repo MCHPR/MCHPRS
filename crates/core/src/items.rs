@@ -23,6 +23,7 @@ pub struct UseOnBlockContext<'a> {
     pub block_pos: BlockPos,
     pub block_face: BlockFace,
     pub player: &'a mut Player,
+    pub cursor_y: f32,
 }
 
 /// returns true if cancelled
