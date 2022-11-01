@@ -831,15 +831,16 @@ impl Plot {
                                     WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos()
                                 }
                             } as u64);
-
-                            // Redpiler is either already running or will not be automatically started,
-                            // so there's nothing special to do here, just run the batch
-                            for _ in 0..batch_size {
-                                self.tick();
+                            if batch_size != 0 {
+                                // Redpiler is either already running or will not be automatically started,
+                                // so there's nothing special to do here, just run the batch
+                                for _ in 0..batch_size {
+                                    self.tick();
+                                }
+                                self.lag_time -= dur_per_tick * batch_size as u32;
+                                self.last_nspt =
+                                Some(self.last_update_time.elapsed() / (batch_size as u32));
                             }
-                            self.lag_time -= dur_per_tick * batch_size as u32;
-                            self.last_nspt =
-                                Some(self.last_update_time.elapsed() / batch_size as u32);
                         }
                     }
                 }
@@ -852,11 +853,13 @@ impl Plot {
                         Some(Duration::ZERO) | None => 5,
                         Some(last_nspt) => WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos(),
                     } as u64;
-                    let batch_size = batch_size.min(50000) as u32;
-                    for _ in 0..batch_size {
-                        self.tick();
+                    if batch_size != 0 {
+                        let batch_size = batch_size.min(50000) as u32;
+                        for _ in 0..batch_size {
+                            self.tick();
+                        }
+                        self.last_nspt = Some(self.last_update_time.elapsed() / batch_size);
                     }
-                    self.last_nspt = Some(self.last_update_time.elapsed() / batch_size);
                 }
                 _ => {}
             }
