@@ -9,7 +9,7 @@ pub enum TickPriority {
     Normal,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TickEntry {
     pub ticks_left: u32,
     pub tick_priority: TickPriority,
