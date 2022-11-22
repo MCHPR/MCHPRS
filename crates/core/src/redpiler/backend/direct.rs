@@ -234,7 +234,7 @@ impl TickScheduler {
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
                     let pos = blocks[node.index()].0;
-                    plot.schedule_tick(pos, delay as u32, priority);
+                    plot.schedule_tick(pos, delay as u32 + 1, priority);
                 }
             }
         }
@@ -440,12 +440,14 @@ impl JITBackend for DirectBackend {
         for i in 0..self.blocks.len() {
             self.pos_map.insert(self.blocks[i].0, self.nodes.get(i));
         }
+        let queues = self.scheduler.queues_this_tick();
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
                 self.scheduler
                     .schedule_tick(*node, entry.ticks_left as usize, entry.tick_priority);
             }
         }
+        self.scheduler.end_tick(queues);
         // Dot file output
         // println!("{}", self);
     }
