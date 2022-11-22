@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dev-dependencies]
-criterion = "0.3"
+criterion = "0.4"
 
 [[bench]]
 name = "bitbuffer"
@@ -33,14 +33,14 @@ chrono = "0.4"
 rand = "0.8"
 regex = { version = "1.4", features = ["pattern"] }
 backtrace = "0.3"
-rusqlite = { version="0.27", features=["bundled"] }
+rusqlite = { version="0.28", features=["bundled"] }
 anyhow = "1.0"
 rayon = "1.5"
 cranelift = { version = "0.77", optional = true }
 cranelift-jit  = { version = "0.77", optional = true }
 cranelift-module  = { version = "0.77", optional = true }
-toml_edit = "0.14"
-mysql = "22"
+toml_edit = "0.15"
+mysql = "23"
 tokio = { version = "1", features = ["rt-multi-thread"] }
 reqwest = { version = "0.11", features = ["json"] }
 itertools = "0.10"
