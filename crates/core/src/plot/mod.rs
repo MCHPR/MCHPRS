@@ -266,7 +266,7 @@ impl Plot {
         let block_change = CBlockChange {
             block_id: id as i32,
             x: pos.x,
-            y: pos.y as i32,
+            y: pos.y,
             z: pos.z,
         }
         .encode();

@@ -250,7 +250,7 @@ impl TickScheduler {
     }
 
     fn queues_this_tick(&mut self) -> Queues {
-        if self.queues_deque.len() == 0 {
+        if self.queues_deque.is_empty() {
             self.queues_deque.push_back(Default::default());
         }
         mem::take(&mut self.queues_deque[0])

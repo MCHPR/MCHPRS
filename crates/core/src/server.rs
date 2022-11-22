@@ -482,7 +482,7 @@ impl MinecraftServer {
                 uuid: *uuid,
                 name: player.username.clone(),
                 display_name: None,
-                gamemode: player.gamemode.get_id() as i32,
+                gamemode: player.gamemode.get_id(),
                 ping: 0,
                 properties: Vec::new(),
             });
@@ -491,7 +491,7 @@ impl MinecraftServer {
             uuid: player.uuid,
             name: player.username.clone(),
             display_name: None,
-            gamemode: player.gamemode.get_id() as i32,
+            gamemode: player.gamemode.get_id(),
             ping: 0,
             properties: Vec::new(),
         });
