@@ -7,8 +7,6 @@ use crate::plot::{self, database, Plot};
 use crate::utils::HyphenatedUUID;
 use backtrace::Backtrace;
 use bus::Bus;
-use fern::colors::{Color, ColoredLevelConfig};
-use log::{debug, error, info, warn};
 use mchprs_network::packets::clientbound::{
     CDisconnectLogin, CHeldItemChange, CJoinGame, CJoinGameBiomeEffects,
     CJoinGameBiomeEffectsMoodSound, CJoinGameBiomeElement, CJoinGameDimensionCodec,
@@ -28,6 +26,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
+use tracing::{debug, error, info, warn};
 
 pub const MC_VERSION: &str = "1.18.2";
 pub const MC_DATA_VERSION: i32 = 2975;
@@ -128,35 +127,8 @@ pub struct MinecraftServer {
 }
 
 impl MinecraftServer {
-    /// Setup logging, set the panic hook,
-    /// create the world if it does not exist,
-    /// and then finally start the server.
+    /// Start the server
     pub fn run() {
-        // Setup logging
-        let colors_level = ColoredLevelConfig::new()
-            .info(Color::Green)
-            .error(Color::Red)
-            .warn(Color::Yellow);
-        fern::Dispatch::new()
-            .format(move |out, message, record| {
-                out.finish(format_args!(
-                    "[\x1B[32m{date}\x1B[0m][{target}][{level}] {message}\x1B[0m",
-                    date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
-                    target = record.target(),
-                    level = colors_level.color(record.level()),
-                    message = message,
-                ));
-            })
-            .level(log::LevelFilter::Trace)
-            .level_for("regalloc", log::LevelFilter::Warn)
-            .level_for("cranelift_jit", log::LevelFilter::Warn)
-            // .level_for("cranelift_codegen::machinst::compile", log::LevelFilter::Debug)
-            .level_for("cranelift_codegen", log::LevelFilter::Info)
-            .chain(std::io::stdout())
-            .chain(fern::log_file("output.log").unwrap())
-            .apply()
-            .unwrap();
-
         std::panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
             error!("plot {}\n{:?}", panic_info.to_string(), backtrace);

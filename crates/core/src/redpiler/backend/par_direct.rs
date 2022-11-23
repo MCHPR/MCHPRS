@@ -4,7 +4,7 @@ use super::{JITBackend, JITResetData};
 use crate::blocks::{Block, BlockEntity, BlockPos, ComparatorMode};
 use crate::redpiler::{CompileNode, Link, LinkType};
 use crate::world::{TickEntry, TickPriority};
-use log::warn;
+use tracing::warn;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::fmt;

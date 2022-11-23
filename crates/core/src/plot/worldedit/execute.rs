@@ -4,7 +4,6 @@ use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::config::CONFIG;
 use crate::player::PacketSender;
 use crate::utils::HyphenatedUUID;
-use log::error;
 use mchprs_blocks::block_entities::InventoryEntry;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockFacing, BlockPos};
@@ -12,6 +11,7 @@ use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::SlotData;
 use schematic::{load_schematic, save_schematic};
 use std::time::Instant;
+use tracing::error;
 
 pub(super) fn execute_wand(ctx: CommandExecuteContext<'_>) {
     let item = ItemStack {

@@ -6,7 +6,6 @@ use crate::player::{PacketSender, PlayerPos, SkinParts};
 use crate::server::Message;
 use crate::utils::HyphenatedUUID;
 use crate::world::World;
-use log::error;
 use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntity};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos};
@@ -17,6 +16,7 @@ use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
+use tracing::error;
 
 const ERROR_IO_ONLY: &str = "This plot cannot be interacted with while redpiler is active with `--io-only`. To stop redpiler, run `/redpiler reset`.";
 
