@@ -3,7 +3,7 @@ mod dedup_links;
 mod identify_nodes;
 mod input_search;
 
-use log::{debug, trace};
+use log::trace;
 use std::time::Instant;
 use super::compile_graph::CompileGraph;
 use super::{CompilerInput, CompilerOptions};
@@ -28,7 +28,7 @@ impl<'p> PassManager<'p> {
         let mut graph = CompileGraph::new();
 
         for &pass in self.passes {
-            if !pass.should_run(&options) {
+            if !pass.should_run(options) {
                 trace!("Skipping pass: {}", pass.name());
                 continue;
             }
@@ -39,6 +39,8 @@ impl<'p> PassManager<'p> {
             pass.run_pass(&mut graph, options, &input);
 
             trace!("Completed pass in {:?}", start.elapsed());
+            trace!("node_count: {}", graph.node_count());
+            trace!("edge_count: {}", graph.edge_count());
         }
 
         graph

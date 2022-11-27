@@ -21,7 +21,8 @@ impl Pass for DedupLinks {
 
                 let mut should_remove = false;
                 for other_edge in graph.edges_directed(idx, Direction::Incoming) {
-                    if other_edge.source() == source_idx
+                    if other_edge.id() != edge_idx
+                        && other_edge.source() == source_idx
                         && other_edge.weight().ty == edge.ty
                         && other_edge.weight().ss <= edge.ss
                     {

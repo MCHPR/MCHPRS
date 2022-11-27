@@ -96,8 +96,8 @@ impl<'a> InputSearchState<'a> {
                 let block = self.plot.get_block(pos);
                 if self.provides_strong_power(block, *side) {
                     self.graph.add_edge(
-                        start_node,
                         self.pos_map[&pos],
+                        start_node,
                         CompileLink::new(link_ty, distance),
                     );
                 }
@@ -127,8 +127,8 @@ impl<'a> InputSearchState<'a> {
             }
         } else if self.provides_weak_power(block, side) {
             self.graph.add_edge(
-                start_node,
                 self.pos_map[&pos],
+                start_node,
                 CompileLink::new(link_ty, distance),
             );
         } else if let Block::RedstoneWire { wire } = block {
@@ -233,7 +233,7 @@ impl<'a> InputSearchState<'a> {
         let side_block = self.plot.get_block(side_pos);
         if side_block.is_diode() && self.provides_weak_power(side_block, side.block_face()) {
             self.graph
-                .add_edge(id, self.pos_map[&side_pos], CompileLink::side(0));
+                .add_edge(self.pos_map[&side_pos], id, CompileLink::side(0));
         }
     }
 
@@ -242,7 +242,7 @@ impl<'a> InputSearchState<'a> {
         let side_block = self.plot.get_block(side_pos);
         if side_block.is_diode() && self.provides_weak_power(side_block, side.block_face()) {
             self.graph
-                .add_edge(id, self.pos_map[&side_pos], CompileLink::side(0));
+                .add_edge(self.pos_map[&side_pos], id, CompileLink::side(0));
         } else if matches!(side_block, Block::RedstoneWire { .. }) {
             self.search_wire(id, side_pos, LinkType::Side, 0)
         }
@@ -287,7 +287,7 @@ impl<'a> InputSearchState<'a> {
                 let input_block = self.plot.get_block(input_pos);
                 if input_block.has_comparator_override() {
                     self.graph
-                        .add_edge(id, self.pos_map[&input_pos], CompileLink::default(0));
+                        .add_edge(self.pos_map[&input_pos], id, CompileLink::default(0));
                 } else {
                     let far_input_pos = input_pos.offset(facing.block_face());
                     let far_input_block = self.plot.get_block(far_input_pos);
@@ -301,6 +301,7 @@ impl<'a> InputSearchState<'a> {
             Block::RedstoneRepeater { repeater } => {
                 let facing = repeater.facing;
 
+                self.search_diode_inputs(id, pos, facing);
                 self.search_repeater_side(id, pos, facing.rotate());
                 self.search_repeater_side(id, pos, facing.rotate_ccw());
             }

@@ -166,7 +166,7 @@ impl Node {
         }
 
         let updates = graph
-            .neighbors_directed(node_idx, Direction::Incoming)
+            .neighbors_directed(node_idx, Direction::Outgoing)
             .map(|idx|
                 unsafe {
                     let idx = nodes_map[&idx];

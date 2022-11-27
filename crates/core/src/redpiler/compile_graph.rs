@@ -74,6 +74,7 @@ pub enum LinkType {
     Side,
 }
 
+#[derive(Debug)]
 pub struct CompileLink {
     pub ty: LinkType,
     pub ss: u8,
