@@ -1,15 +1,18 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 use super::JITBackend;
-use crate::blocks::{Block, ComparatorMode, RedstoneRepeater};
+use crate::blocks::{Block, ComparatorMode};
 use crate::plot::PlotWorld;
-use crate::redpiler::{block_powered_mut, bool_to_ss, CompileNode, LinkType};
+use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
+use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
 use log::warn;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
+use petgraph::visit::EdgeRef;
+use petgraph::Direction;
 use smallvec::SmallVec;
 use std::collections::{HashMap, VecDeque};
 use std::{fmt, mem};
@@ -104,23 +107,6 @@ enum NodeType {
 }
 
 impl NodeType {
-    fn new(block: Block) -> NodeType {
-        match block {
-            Block::RedstoneRepeater { repeater } => NodeType::Repeater(repeater.delay),
-            Block::RedstoneComparator { comparator } => NodeType::Comparator(comparator.mode),
-            Block::RedstoneTorch { .. } | Block::RedstoneWallTorch { .. } => NodeType::Torch,
-            Block::RedstoneWire { .. } => NodeType::Wire,
-            Block::StoneButton { .. } => NodeType::Button,
-            Block::RedstoneLamp { .. } => NodeType::Lamp,
-            Block::Lever { .. } => NodeType::Lever,
-            Block::StonePressurePlate { .. } => NodeType::PressurePlate,
-            Block::IronTrapdoor { .. } => NodeType::Trapdoor,
-            Block::RedstoneBlock { .. } => NodeType::Constant,
-            block if block.has_comparator_override() => NodeType::Constant,
-            _ => panic!("Cannot determine node type for {:?}", block),
-        }
-    }
-
     fn is_io_block(self) -> bool {
         matches!(
             self,
@@ -152,56 +138,72 @@ pub struct Node {
 }
 
 impl Node {
-    fn from_compile_node(node: CompileNode, nodes_len: usize) -> Self {
-        let output_power = node.output_power();
-        let powered = node.powered();
+    fn from_compile_node(
+        graph: &CompileGraph,
+        node_idx: NodeIdx,
+        nodes_len: usize,
+        nodes_map: &HashMap<NodeIdx, usize>,
+    ) -> Self {
+        let node = &graph[node_idx];
+
         let mut default_inputs = SmallVec::new();
         let mut side_inputs = SmallVec::new();
-        node.inputs
-            .into_iter()
-            .map(|link| {
-                assert!(link.end < nodes_len);
-                (
-                    link.ty,
-                    DirectLink {
-                        weight: link.weight,
-                        to: unsafe {
-                            // Safety: bounds checked
-                            NodeId::from_index(link.end)
-                        },
-                    },
-                )
-            })
-            .for_each(|(link_type, link)| match link_type {
+        for edge in graph.edges_directed(node_idx, Direction::Incoming) {
+            let idx = nodes_map[&edge.source()];
+            assert!(idx < nodes_len);
+            let idx = unsafe {
+                // Safety: bounds checked
+                NodeId::from_index(idx)
+            };
+            let link = DirectLink {
+                to: idx,
+                weight: edge.weight().ss,
+            };
+            match edge.weight().ty {
                 LinkType::Default => default_inputs.push(link),
                 LinkType::Side => side_inputs.push(link),
-            });
-        let updates = node
-            .updates
-            .into_iter()
-            .map(|idx| {
-                assert!(idx < nodes_len);
-                // Safety: bounds checked
-                unsafe { NodeId::from_index(idx) }
-            })
+            }
+        }
+
+        let updates = graph
+            .neighbors_directed(node_idx, Direction::Incoming)
+            .map(|idx|
+                unsafe {
+                    let idx = nodes_map[&idx];
+                    assert!(idx < nodes_len);
+                    // Safety: bounds checked
+                    NodeId::from_index(idx)
+                })
             .collect();
-        let ty = match node.state {
-            Block::RedstoneRepeater {
-                repeater: RedstoneRepeater { delay, .. },
-            } if side_inputs.is_empty() => NodeType::SimpleRepeater(delay),
-            state => NodeType::new(state),
+
+        use crate::redpiler::compile_graph::NodeType as CNodeType;
+        let ty = match node.ty {
+            CNodeType::Repeater(delay) => {
+                if side_inputs.is_empty() {
+                    NodeType::SimpleRepeater(delay)
+                } else {
+                    NodeType::Repeater(delay)
+                }
+            }
+            CNodeType::Torch => NodeType::Torch,
+            CNodeType::Comparator(mode) => NodeType::Comparator(mode),
+            CNodeType::Lamp => NodeType::Lamp,
+            CNodeType::Button => NodeType::Button,
+            CNodeType::Lever => NodeType::Lever,
+            CNodeType::PressurePlate => NodeType::PressurePlate,
+            CNodeType::Trapdoor => NodeType::Trapdoor,
+            CNodeType::Wire => NodeType::Wire,
+            CNodeType::Constant => NodeType::Constant,
         };
+
         Node {
             ty,
             default_inputs,
             side_inputs,
             updates,
-            powered,
-            output_power,
-            locked: match node.state {
-                Block::RedstoneRepeater { repeater } => repeater.locked,
-                _ => false,
-            },
+            powered: node.state.powered,
+            output_power: node.state.output_strength,
+            locked: node.state.repeater_locked,
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
@@ -229,11 +231,14 @@ struct TickScheduler {
 impl TickScheduler {
     const NUM_PRIORITIES: usize = 4;
 
-    fn reset(&mut self, plot: &mut PlotWorld, blocks: &[(BlockPos, Block)]) {
+    fn reset(&mut self, plot: &mut PlotWorld, blocks: &[Option<(BlockPos, Block)>]) {
         for (delay, queues) in self.queues_deque.iter().enumerate() {
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
-                    let pos = blocks[node.index()].0;
+                    let Some((pos, _)) = blocks[node.index()] else {
+                        warn!("Cannot schedule tick for node {:?} because block information is missing", node);
+                        continue;
+                    };
                     plot.schedule_tick(pos, delay as u32 + 1, priority);
                 }
             }
@@ -287,7 +292,7 @@ impl TickScheduler {
 #[derive(Default)]
 pub struct DirectBackend {
     nodes: Nodes,
-    blocks: Vec<(BlockPos, Block)>,
+    blocks: Vec<Option<(BlockPos, Block)>>,
     pos_map: HashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
 }
@@ -317,7 +322,9 @@ impl JITBackend for DirectBackend {
         let nodes = std::mem::take(&mut self.nodes);
 
         for (i, node) in nodes.into_inner().iter().enumerate() {
-            let (pos, block) = self.blocks[i];
+            let Some((pos, block)) = self.blocks[i] else {
+                continue;
+            };
             if matches!(node.ty, NodeType::Comparator(_)) {
                 let block_entity = BlockEntity::Comparator {
                     output_strength: node.output_power,
@@ -429,17 +436,24 @@ impl JITBackend for DirectBackend {
         self.scheduler.end_tick(queues);
     }
 
-    fn compile(&mut self, nodes: Vec<CompileNode>, ticks: Vec<TickEntry>) {
-        let nodes_len = nodes.len();
-        self.blocks = nodes.iter().map(|node| (node.pos, node.state)).collect();
-        let nodes = nodes
-            .into_iter()
-            .map(|cn| Node::from_compile_node(cn, nodes_len))
-            .collect();
-        self.nodes = Nodes::new(nodes);
-        for i in 0..self.blocks.len() {
-            self.pos_map.insert(self.blocks[i].0, self.nodes.get(i));
+    fn compile(&mut self, graph: CompileGraph, ticks: Vec<TickEntry>) {
+        let mut nodes_map = HashMap::with_capacity(graph.node_count());
+        for node in graph.node_indices() {
+            nodes_map.insert(node, nodes_map.len());
         }
+        let nodes_len = nodes_map.len();
+
+        let nodes = graph.node_indices().map(|idx| Node::from_compile_node(&graph, idx, nodes_len, &nodes_map)).collect();
+
+        self.blocks = graph.node_weights().map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id)))).collect();
+        self.nodes = Nodes::new(nodes);
+
+        for i in 0..self.blocks.len() {
+            if let Some((pos, _)) = self.blocks[i] {
+                self.pos_map.insert(pos, self.nodes.get(i));
+            }
+        }
+
         let queues = self.scheduler.queues_this_tick();
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
@@ -454,7 +468,9 @@ impl JITBackend for DirectBackend {
 
     fn flush(&mut self, plot: &mut PlotWorld, io_only: bool) {
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
-            let (pos, block) = &mut self.blocks[i];
+            let Some((pos, block)) = &mut self.blocks[i] else {
+                continue;
+            };
             if node.changed && (!io_only || node.ty.is_io_block()) {
                 if let Some(powered) = block_powered_mut(block) {
                     *powered = node.powered
@@ -637,15 +653,17 @@ impl fmt::Display for DirectBackend {
             if matches!(node.ty, NodeType::Wire) {
                 continue;
             }
-            let pos = self.blocks[id].0;
+            let pos = if let Some((pos, _)) = self.blocks[id] {
+                format!("{}, {}, {}", pos.x, pos.y, pos.z)
+            } else {
+                "No Pos".to_string()
+            };
             write!(
                 f,
-                "n{}[label=\"{}\\n({}, {}, {})\"];",
+                "n{}[label=\"{}\\n({})\"];",
                 id,
                 format!("{:?}", node.ty).split_whitespace().next().unwrap(),
-                pos.x,
-                pos.y,
-                pos.z
+                pos,
             )?;
             let all_inputs = node
                 .default_inputs
