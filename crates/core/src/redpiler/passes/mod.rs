@@ -2,6 +2,7 @@ mod comparator_override;
 mod dedup_links;
 mod identify_nodes;
 mod input_search;
+mod clamp_weights;
 
 use log::trace;
 use std::time::Instant;
@@ -11,6 +12,7 @@ use super::{CompilerInput, CompilerOptions};
 pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &identify_nodes::IdentifyNodes,
     &input_search::InputSearch,
+    &clamp_weights::ClampWeights,
     &dedup_links::DedupLinks,
     &comparator_override::ComparatorOverride,
 ]);
