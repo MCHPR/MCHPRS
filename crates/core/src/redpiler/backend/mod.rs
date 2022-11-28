@@ -15,4 +15,6 @@ pub trait JITBackend {
     fn set_pressure_plate(&mut self, plot: &mut PlotWorld, pos: BlockPos, powered: bool);
     fn flush(&mut self, plot: &mut PlotWorld, io_only: bool);
     fn reset(&mut self, plot: &mut PlotWorld, io_only: bool);
+    /// Inspect block for debugging
+    fn inspect(&mut self, pos: BlockPos);
 }

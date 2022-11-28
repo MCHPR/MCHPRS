@@ -6,7 +6,7 @@ use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
-use log::warn;
+use log::{warn, debug};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
@@ -316,6 +316,15 @@ impl DirectBackend {
 }
 
 impl JITBackend for DirectBackend {
+    fn inspect(&mut self, pos: BlockPos) {
+        let Some(node_id) = self.pos_map.get(&pos) else {
+            debug!("could not find node at pos {}", pos);
+            return;
+        };
+
+        debug!("Node {:?}: {:#?}", node_id, self.nodes[*node_id]);
+    }
+
     fn reset(&mut self, plot: &mut PlotWorld, io_only: bool) {
         self.scheduler.reset(plot, &self.blocks);
 

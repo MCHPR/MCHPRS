@@ -186,6 +186,15 @@ impl Plot {
 
                 debug!("Compile took {:?}", start_time.elapsed());
             }
+            "inspect" | "i" => {
+                let player = &self.players[player];
+                let pos = worldedit::ray_trace_block(&self.world, player.pos, player.pitch as f64, player.yaw as f64, 10.0);
+                let Some(pos) = pos else {
+                    player.send_error_message("Trace failed");
+                    return;
+                };
+                self.redpiler.inspect(pos);
+            }
             "reset" | "r" => {
                 self.reset_redpiler();
             }

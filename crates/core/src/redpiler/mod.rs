@@ -173,6 +173,14 @@ impl Compiler {
         let io_only = self.options.io_only;
         self.backend().flush(plot, io_only);
     }
+
+    pub fn inspect(&mut self, pos: BlockPos) {
+        if let Some(backend) = &mut self.jit {
+            backend.inspect(pos);
+        } else {
+            debug!("cannot inspect when backend is not running");
+        }
+    }
 }
 
 pub struct CompilerInput<'w> {

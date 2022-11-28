@@ -921,7 +921,7 @@ impl WorldEditOperation {
     }
 }
 
-fn ray_trace_block(
+pub fn ray_trace_block(
     world: &impl World,
     mut pos: PlayerPos,
     start_pitch: f64,
