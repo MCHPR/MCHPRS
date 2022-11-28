@@ -19,7 +19,7 @@ impl Pass for ComparatorOverride {
             }
 
             let is_overriden = graph.edges_directed(idx, Direction::Incoming).any(|edge| {
-                graph[edge.source()].ty == NodeType::Constant
+                graph[edge.source()].ty == NodeType::Constant(true)
                     && edge.weight().ty == LinkType::Default
             });
             if !is_overriden {
@@ -30,7 +30,7 @@ impl Pass for ComparatorOverride {
             while let Some(edge_idx) = edges.next_edge(graph) {
                 let edge = &graph[edge_idx];
                 let source_ty = graph[graph.edge_endpoints(edge_idx).unwrap().0].ty;
-                if edge.ty == LinkType::Default && source_ty != NodeType::Constant {
+                if edge.ty == LinkType::Default && source_ty != NodeType::Constant(true) {
                     graph.remove_edge(edge_idx);
                 }
             }
