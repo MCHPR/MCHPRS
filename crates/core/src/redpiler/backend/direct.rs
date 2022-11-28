@@ -193,7 +193,7 @@ impl Node {
             CNodeType::PressurePlate => NodeType::PressurePlate,
             CNodeType::Trapdoor => NodeType::Trapdoor,
             CNodeType::Wire => NodeType::Wire,
-            CNodeType::Constant(_) => NodeType::Constant,
+            CNodeType::Constant => NodeType::Constant,
         };
 
         Node {

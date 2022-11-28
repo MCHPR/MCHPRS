@@ -96,9 +96,9 @@ fn identify_block(block: Block, pos: BlockPos, world: &PlotWorld) -> Option<(Nod
             (NodeType::PressurePlate, NodeState::simple(powered))
         }
         Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
-        Block::RedstoneBlock {} => (NodeType::Constant(false), NodeState::ss(15)),
+        Block::RedstoneBlock {} => (NodeType::Constant, NodeState::ss(15)),
         block if block.has_comparator_override() => (
-            NodeType::Constant(true),
+            NodeType::Constant,
             NodeState::ss(block.get_comparator_override(world, pos)),
         ),
         _ => return None,

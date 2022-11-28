@@ -15,8 +15,7 @@ pub enum NodeType {
     PressurePlate,
     Trapdoor,
     Wire,
-    /// True if it is a comparator override
-    Constant(bool),
+    Constant,
 }
 
 #[derive(Debug, Clone, Default)]

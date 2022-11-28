@@ -1,4 +1,3 @@
-mod comparator_override;
 mod dedup_links;
 mod identify_nodes;
 mod input_search;
@@ -14,7 +13,6 @@ pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &input_search::InputSearch,
     &clamp_weights::ClampWeights,
     &dedup_links::DedupLinks,
-    &comparator_override::ComparatorOverride,
 ]);
 
 pub struct PassManager<'p> {

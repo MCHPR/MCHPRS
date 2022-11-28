@@ -279,7 +279,6 @@ impl<'a> InputSearchState<'a> {
             Block::RedstoneComparator { comparator } => {
                 let facing = comparator.facing;
 
-                self.search_diode_inputs(id, pos, facing);
                 self.search_comparator_side(id, pos, facing.rotate());
                 self.search_comparator_side(id, pos, facing.rotate_ccw());
 
@@ -289,6 +288,8 @@ impl<'a> InputSearchState<'a> {
                     self.graph
                         .add_edge(self.pos_map[&input_pos], id, CompileLink::default(0));
                 } else {
+                    self.search_diode_inputs(id, pos, facing);
+
                     let far_input_pos = input_pos.offset(facing.block_face());
                     let far_input_block = self.plot.get_block(far_input_pos);
                     if input_block.is_solid() && far_input_block.has_comparator_override() {
