@@ -38,7 +38,7 @@ impl NodeState {
         NodeState {
             powered,
             repeater_locked: locked,
-            ..Default::default()
+            output_strength: if powered { 15 } else { 0 },
         }
     }
 
