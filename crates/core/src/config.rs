@@ -73,5 +73,6 @@ gen_config! {
     whitelist: bool = false,
     schemati: bool = false,
     luckperms: Option<PermissionsConfig> = None,
-    block_in_hitbox: bool = true
+    block_in_hitbox: bool = true,
+    auto_redpiler: bool = true
 }

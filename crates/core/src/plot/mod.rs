@@ -968,7 +968,7 @@ impl Plot {
             players: Vec::new(),
             locked_players: HashSet::new(),
             running: true,
-            auto_redpiler: true,
+            auto_redpiler: CONFIG.auto_redpiler,
             tps,
             always_running,
             redpiler: Default::default(),
