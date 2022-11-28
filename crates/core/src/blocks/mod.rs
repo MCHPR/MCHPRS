@@ -141,6 +141,7 @@ impl Block {
                 | Block::Hopper { .. }
                 | Block::Cauldron { .. }
                 | Block::Composter { .. }
+                | Block::Cake { .. }
         )
     }
 
@@ -159,6 +160,7 @@ impl Block {
             }
             Block::Cauldron { level } => level,
             Block::Composter { level } => level,
+            Block::Cake { bites } => 14 - 2 * bites,
             _ => 0,
         }
     }
@@ -1330,6 +1332,22 @@ blocks! {
             }
         },
         get_name: "stone_pressure_plate",
+    },
+    Cake {
+        props: {
+            bites: u8
+        },
+        get_id: 4093 + bites as u32,
+        from_id_offset: 4093,
+        from_id(id): 4093..=4099 => {
+            bites: id as u8
+        },
+        from_names(_name): {
+            "cake" => {
+                bites: 0
+            }
+        },
+        get_name: "cake",
     },
     Barrel {
         props: {},
