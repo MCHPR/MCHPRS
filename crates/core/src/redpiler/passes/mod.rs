@@ -2,6 +2,7 @@ mod dedup_links;
 mod identify_nodes;
 mod input_search;
 mod clamp_weights;
+mod constant_coalesce;
 
 use log::trace;
 use std::time::Instant;
@@ -13,6 +14,7 @@ pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &input_search::InputSearch,
     &clamp_weights::ClampWeights,
     &dedup_links::DedupLinks,
+    &constant_coalesce::ConstantCoalesce,
 ]);
 
 pub struct PassManager<'p> {

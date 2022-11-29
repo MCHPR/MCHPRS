@@ -17,6 +17,13 @@ use smallvec::SmallVec;
 use std::collections::{HashMap, VecDeque};
 use std::{fmt, mem};
 
+#[derive(Debug, Default)]
+struct FinalGraphMetrics {
+    update_link_count: usize,
+    side_link_count: usize,
+    default_link_count: usize,
+}
+
 mod nodes {
     use super::Node;
     use std::ops::{Index, IndexMut};
