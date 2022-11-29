@@ -1,5 +1,6 @@
 mod clamp_weights;
 mod constant_coalesce;
+mod constant_fold;
 mod dedup_links;
 mod identify_nodes;
 mod input_search;
@@ -15,6 +16,7 @@ pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &clamp_weights::ClampWeights,
     &dedup_links::DedupLinks,
     &constant_coalesce::ConstantCoalesce,
+    &constant_fold::ConstantFold,
 ]);
 
 pub struct PassManager<'p> {
