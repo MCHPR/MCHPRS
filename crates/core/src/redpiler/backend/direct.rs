@@ -6,7 +6,7 @@ use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
-use log::{warn, debug};
+use log::{debug, warn};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
@@ -174,13 +174,12 @@ impl Node {
 
         let updates = graph
             .neighbors_directed(node_idx, Direction::Outgoing)
-            .map(|idx|
-                unsafe {
-                    let idx = nodes_map[&idx];
-                    assert!(idx < nodes_len);
-                    // Safety: bounds checked
-                    NodeId::from_index(idx)
-                })
+            .map(|idx| unsafe {
+                let idx = nodes_map[&idx];
+                assert!(idx < nodes_len);
+                // Safety: bounds checked
+                NodeId::from_index(idx)
+            })
             .collect();
 
         use crate::redpiler::compile_graph::NodeType as CNodeType;
@@ -459,9 +458,15 @@ impl JITBackend for DirectBackend {
         }
         let nodes_len = nodes_map.len();
 
-        let nodes = graph.node_indices().map(|idx| Node::from_compile_node(&graph, idx, nodes_len, &nodes_map)).collect();
+        let nodes = graph
+            .node_indices()
+            .map(|idx| Node::from_compile_node(&graph, idx, nodes_len, &nodes_map))
+            .collect();
 
-        self.blocks = graph.node_weights().map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id)))).collect();
+        self.blocks = graph
+            .node_weights()
+            .map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id))))
+            .collect();
         self.nodes = Nodes::new(nodes);
 
         for i in 0..self.blocks.len() {

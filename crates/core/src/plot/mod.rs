@@ -828,7 +828,8 @@ impl Plot {
                             let batch_size = batch_size.min(match self.last_nspt {
                                 Some(Duration::ZERO) | None => 5,
                                 Some(last_nspt) => {
-                                    let ticks_fit = WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos();
+                                    let ticks_fit =
+                                        WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos();
                                     if ticks_fit == 0 {
                                         // A tick previously took longer than the world send rate.
                                         // Run at least one just so we're not stuck doing nothing
@@ -867,7 +868,7 @@ impl Plot {
                             } else {
                                 ticks_fit
                             }
-                        },
+                        }
                     } as u64;
                     if batch_size != 0 {
                         let batch_size = batch_size.min(50000) as u32;

@@ -1,9 +1,9 @@
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, NodeIdx, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use std::collections::HashMap;
 use petgraph::visit::NodeIndexable;
 use petgraph::Direction;
+use std::collections::HashMap;
 
 pub struct ConstantCoalesce;
 
@@ -39,7 +39,6 @@ impl Pass for ConstantCoalesce {
                     constant_nodes.insert(ss, idx);
                 }
             }
-
         }
     }
 }

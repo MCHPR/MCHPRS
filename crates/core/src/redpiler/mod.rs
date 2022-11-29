@@ -7,11 +7,11 @@ use crate::blocks::Block;
 use crate::plot::PlotWorld;
 use crate::world::World;
 use backend::JITBackend;
-use log::{error, warn, debug, trace};
+use log::{debug, error, trace, warn};
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
-use std::time::Instant;
 use passes::DEFAULT_PASS_MANAGER;
+use std::time::Instant;
 
 fn bool_to_ss(b: bool) -> u8 {
     match b {

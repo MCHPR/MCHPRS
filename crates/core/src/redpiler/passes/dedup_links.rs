@@ -1,8 +1,8 @@
-use petgraph::visit::{EdgeRef, NodeIndexable};
-use petgraph::Direction;
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, NodeIdx};
 use crate::redpiler::{CompilerInput, CompilerOptions};
+use petgraph::visit::{EdgeRef, NodeIndexable};
+use petgraph::Direction;
 
 pub struct DedupLinks;
 

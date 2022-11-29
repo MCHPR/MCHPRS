@@ -1,13 +1,13 @@
+mod clamp_weights;
+mod constant_coalesce;
 mod dedup_links;
 mod identify_nodes;
 mod input_search;
-mod clamp_weights;
-mod constant_coalesce;
 
-use log::trace;
-use std::time::Instant;
 use super::compile_graph::CompileGraph;
 use super::{CompilerInput, CompilerOptions};
+use log::trace;
+use std::time::Instant;
 
 pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &identify_nodes::IdentifyNodes,
