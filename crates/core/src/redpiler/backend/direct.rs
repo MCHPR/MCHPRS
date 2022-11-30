@@ -6,7 +6,7 @@ use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
-use log::{debug, warn};
+use log::{debug, warn, trace};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
@@ -18,10 +18,11 @@ use std::collections::{HashMap, VecDeque};
 use std::{fmt, mem};
 
 #[derive(Debug, Default)]
-struct FinalGraphMetrics {
+struct FinalGraphStats {
     update_link_count: usize,
     side_link_count: usize,
     default_link_count: usize,
+    nodes_bytes: usize,
 }
 
 mod nodes {
@@ -150,6 +151,7 @@ impl Node {
         node_idx: NodeIdx,
         nodes_len: usize,
         nodes_map: &HashMap<NodeIdx, usize>,
+        stats: &mut FinalGraphStats,
     ) -> Self {
         let node = &graph[node_idx];
 
@@ -171,8 +173,10 @@ impl Node {
                 LinkType::Side => side_inputs.push(link),
             }
         }
+        stats.default_link_count += default_inputs.len();
+        stats.side_link_count += side_inputs.len();
 
-        let updates = graph
+        let updates: SmallVec<[NodeId; 2]> = graph
             .neighbors_directed(node_idx, Direction::Outgoing)
             .map(|idx| unsafe {
                 let idx = nodes_map[&idx];
@@ -181,6 +185,7 @@ impl Node {
                 NodeId::from_index(idx)
             })
             .collect();
+        stats.update_link_count += updates.len();
 
         use crate::redpiler::compile_graph::NodeType as CNodeType;
         let ty = match node.ty {
@@ -458,10 +463,13 @@ impl JITBackend for DirectBackend {
         }
         let nodes_len = nodes_map.len();
 
+        let mut stats = FinalGraphStats::default();
         let nodes = graph
             .node_indices()
-            .map(|idx| Node::from_compile_node(&graph, idx, nodes_len, &nodes_map))
+            .map(|idx| Node::from_compile_node(&graph, idx, nodes_len, &nodes_map, &mut stats))
             .collect();
+        stats.nodes_bytes = nodes_len * std::mem::size_of::<Node>();
+        trace!("{:#?}", stats);
 
         self.blocks = graph
             .node_weights()
