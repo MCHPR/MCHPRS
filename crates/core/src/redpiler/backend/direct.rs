@@ -6,7 +6,7 @@ use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
-use log::{debug, warn, trace};
+use log::{debug, trace, warn};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
@@ -176,18 +176,22 @@ impl Node {
         stats.default_link_count += default_inputs.len();
         stats.side_link_count += side_inputs.len();
 
-        let updates: SmallVec<[NodeId; 2]> = graph
-            .neighbors_directed(node_idx, Direction::Outgoing)
-            .map(|idx| unsafe {
-                let idx = nodes_map[&idx];
-                assert!(idx < nodes_len);
-                // Safety: bounds checked
-                NodeId::from_index(idx)
-            })
-            .collect();
+        use crate::redpiler::compile_graph::NodeType as CNodeType;
+        let updates: SmallVec<[NodeId; 2]> = if node.ty != CNodeType::Constant {
+            graph
+                .neighbors_directed(node_idx, Direction::Outgoing)
+                .map(|idx| unsafe {
+                    let idx = nodes_map[&idx];
+                    assert!(idx < nodes_len);
+                    // Safety: bounds checked
+                    NodeId::from_index(idx)
+                })
+                .collect()
+        } else {
+            SmallVec::new()
+        };
         stats.update_link_count += updates.len();
 
-        use crate::redpiler::compile_graph::NodeType as CNodeType;
         let ty = match node.ty {
             CNodeType::Repeater(delay) => {
                 if side_inputs.is_empty() {
