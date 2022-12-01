@@ -32,6 +32,11 @@ impl Pass for IdentifyNodes {
             }
         }
     }
+
+    fn should_run(&self, _: &CompilerOptions) -> bool {
+        // Mandatory
+        true
+    }
 }
 
 fn for_pos(ignore_wires: bool, plot: &PlotWorld, graph: &mut CompileGraph, pos: BlockPos) {

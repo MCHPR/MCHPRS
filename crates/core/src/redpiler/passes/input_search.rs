@@ -16,6 +16,11 @@ impl Pass for InputSearch {
         let mut state = InputSearchState::new(input.plot, graph);
         state.search();
     }
+
+    fn should_run(&self, _: &CompilerOptions) -> bool {
+        // Mandatory
+        true
+    }
 }
 
 struct InputSearchState<'a> {

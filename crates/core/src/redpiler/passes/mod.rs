@@ -65,8 +65,8 @@ pub trait Pass {
         std::any::type_name::<Self>()
     }
 
-    fn should_run(&self, _: &CompilerOptions) -> bool {
-        // Run passes by default
-        true
+    fn should_run(&self, options: &CompilerOptions) -> bool {
+        // Run passes for optimized builds by default
+        options.optimize
     }
 }
