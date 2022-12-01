@@ -147,7 +147,7 @@ impl MinecraftServer {
                     message = message,
                 ));
             })
-            .level(log::LevelFilter::Info)
+            .level(log::LevelFilter::Trace)
             .level_for("regalloc", log::LevelFilter::Warn)
             .level_for("cranelift_jit", log::LevelFilter::Warn)
             // .level_for("cranelift_codegen::machinst::compile", log::LevelFilter::Debug)

@@ -20,7 +20,7 @@ impl Pass for Coalesce {
             if matches!(node.ty, NodeType::Comparator(_)) || node.ty.is_output() {
                 continue;
             }
-            
+
             let mut edges = graph.edges_directed(idx, Direction::Incoming);
             let Some(edge) = edges.next() else {
                 continue;
@@ -45,7 +45,9 @@ impl Pass for Coalesce {
 }
 
 fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: NodeIdx) {
-    let mut walk_outgoing = graph.neighbors_directed(source_idx, Direction::Outgoing).detach();
+    let mut walk_outgoing = graph
+        .neighbors_directed(source_idx, Direction::Outgoing)
+        .detach();
     while let Some(edge_idx) = walk_outgoing.next_edge(graph) {
         let dest_idx = graph.edge_endpoints(edge_idx).unwrap().1;
         if dest_idx == into_idx {
@@ -55,7 +57,13 @@ fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: No
         let dest = &graph[dest_idx];
         let into = &graph[into_idx];
 
-        if dest.ty == into.ty && dest.facing_diode == into.facing_diode && graph.neighbors_directed(dest_idx, Direction::Incoming).count() == 1 {
+        if dest.ty == into.ty
+            && dest.facing_diode == into.facing_diode
+            && graph
+                .neighbors_directed(dest_idx, Direction::Incoming)
+                .count()
+                == 1
+        {
             coalesce(graph, dest_idx, into_idx);
         }
     }

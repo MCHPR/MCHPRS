@@ -1,10 +1,10 @@
 mod clamp_weights;
+mod coalesce;
 mod constant_coalesce;
 mod constant_fold;
 mod dedup_links;
 mod identify_nodes;
 mod input_search;
-mod coalesce;
 
 use super::compile_graph::CompileGraph;
 use super::{CompilerInput, CompilerOptions};
