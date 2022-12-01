@@ -18,6 +18,12 @@ pub enum NodeType {
     Constant,
 }
 
+impl NodeType {
+    pub fn is_output(self) -> bool {
+        matches!(self, NodeType::Lamp | NodeType::Trapdoor)
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct NodeState {
     pub powered: bool,
