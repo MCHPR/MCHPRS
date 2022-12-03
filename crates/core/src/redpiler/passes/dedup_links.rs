@@ -1,3 +1,10 @@
+//! # [`DedupLinks`]
+//!
+//! This pass removes duplicate edges from the graph, or parallel edges that have higher weight.
+//!
+//! For example, if two nodes are connected with two links of weights 13 and 15, the link with
+//! weight 15 is removed.
+
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, NodeIdx};
 use crate::redpiler::{CompilerInput, CompilerOptions};

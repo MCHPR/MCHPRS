@@ -1,3 +1,12 @@
+//! # [`IdentifyNodes`]
+//!
+//! This pass populates the graph with nodes using the input given in [`CompilerInput`].
+//! This pass is *mandatory*. Without it, the graph will never be populated.
+//!
+//! If `optimize` is set in [`CompilerOptions`], redstone wires will not be added to the graph.
+//!
+//! There are no requirements for this pass.
+
 use super::Pass;
 use crate::blocks::Block;
 use crate::plot::PlotWorld;

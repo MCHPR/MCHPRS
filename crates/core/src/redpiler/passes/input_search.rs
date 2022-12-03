@@ -1,5 +1,7 @@
-use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
-use petgraph::visit::NodeIndexable;
+//! # [`InputSearch`]
+//!
+//! This pass populates the graph with edges.
+//! This pass is *mandatory*. Without it, there would be no links between nodes.
 
 use super::Pass;
 use crate::blocks::{Block, ButtonFace, LeverFace};
@@ -7,6 +9,8 @@ use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::world::World;
+use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use petgraph::visit::NodeIndexable;
 use std::collections::{HashMap, VecDeque};
 
 pub struct InputSearch;
