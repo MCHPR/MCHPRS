@@ -5,7 +5,6 @@ use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::plot::PLOT_SCALE;
 use crate::utils::HyphenatedUUID;
 use byteorder::{BigEndian, ReadBytesExt};
-use log::{error, warn};
 use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
@@ -19,6 +18,7 @@ use std::fs::{self, OpenOptions};
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Instant, SystemTime};
+use tracing::{error, warn};
 
 pub type EntityId = u32;
 static ENTITY_ID_COUNTER: AtomicU32 = AtomicU32::new(0);

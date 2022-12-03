@@ -1,13 +1,13 @@
 mod nbt_map;
 pub mod packets;
 
-use log::warn;
 use packets::serverbound::ServerBoundPacket;
 use packets::{read_packet, PacketEncoder};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
 use std::thread;
+use tracing::warn;
 
 #[derive(Debug)]
 pub struct PlayerPacketSender {

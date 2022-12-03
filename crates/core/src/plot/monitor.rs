@@ -1,10 +1,10 @@
-use log::warn;
 use mchprs_save_data::plot_data::Tps;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use tracing::warn;
 
 #[derive(Default)]
 struct AtomicTps {

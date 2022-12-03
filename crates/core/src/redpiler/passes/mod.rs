@@ -8,7 +8,7 @@ mod input_search;
 
 use super::compile_graph::CompileGraph;
 use super::{CompilerInput, CompilerOptions};
-use log::trace;
+use tracing::trace;
 use std::time::Instant;
 
 pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[

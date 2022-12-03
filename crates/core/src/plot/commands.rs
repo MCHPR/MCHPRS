@@ -6,7 +6,6 @@ use crate::profile::PlayerProfile;
 use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use bitflags::_core::i32::MAX;
-use log::{debug, info, warn};
 use mchprs_blocks::items::ItemStack;
 use mchprs_network::packets::clientbound::{
     CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
@@ -19,6 +18,7 @@ use std::ops::Add;
 use std::str::FromStr;
 use std::sync::LazyLock;
 use std::time::Instant;
+use tracing::{debug, info, warn};
 
 // Parses a relative or absolute coordinate relative to a reference coordinate
 fn parse_relative_coord<F: FromStr + Add + Add<Output = F>>(

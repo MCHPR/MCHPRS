@@ -7,8 +7,8 @@ use crate::world::{TickEntry, TickPriority};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{DataContext, DataId, FuncId, Linkage, Module};
-use log::debug;
 use std::collections::HashMap;
+use tracing::debug;
 
 struct CLTickEntry {
     ticks_left: u32,

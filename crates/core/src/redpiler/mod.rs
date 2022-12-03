@@ -7,9 +7,9 @@ use crate::blocks::Block;
 use crate::plot::PlotWorld;
 use crate::world::World;
 use backend::JITBackend;
-use log::{debug, error, trace, warn};
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
+use tracing::{error, warn, trace, debug};
 use passes::DEFAULT_PASS_MANAGER;
 use std::time::Instant;
 

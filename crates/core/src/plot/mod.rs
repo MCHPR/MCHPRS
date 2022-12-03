@@ -17,7 +17,6 @@ use crate::world::storage::Chunk;
 use crate::world::World;
 use anyhow::Context;
 use bus::BusReader;
-use log::{debug, error, warn};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
@@ -35,6 +34,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
+use tracing::{debug, error, warn};
 
 use self::data::sleep_time_for_tps;
 use self::scoreboard::Scoreboard;
