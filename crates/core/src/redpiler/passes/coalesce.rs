@@ -38,10 +38,6 @@ impl Pass for Coalesce {
             coalesce_outgoing(graph, source, idx);
         }
     }
-
-    fn should_run(&self, options: &CompilerOptions) -> bool {
-        options.io_only
-    }
 }
 
 fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: NodeIdx) {
