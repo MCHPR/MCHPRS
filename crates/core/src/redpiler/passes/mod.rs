@@ -5,6 +5,7 @@ mod constant_fold;
 mod dedup_links;
 mod identify_nodes;
 mod input_search;
+mod unreachable_output;
 
 use super::compile_graph::CompileGraph;
 use super::{CompilerInput, CompilerOptions};
@@ -17,6 +18,7 @@ pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &clamp_weights::ClampWeights,
     &dedup_links::DedupLinks,
     &constant_fold::ConstantFold,
+    &unreachable_output::UnreachableOutput,
     &constant_coalesce::ConstantCoalesce,
     &coalesce::Coalesce,
 ]);
