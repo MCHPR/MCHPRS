@@ -686,18 +686,20 @@ impl fmt::Display for DirectBackend {
             if matches!(node.ty, NodeType::Wire) {
                 continue;
             }
+            let label = match node.ty {
+                NodeType::Constant => format!("Constant: {}", node.output_power),
+                _ => format!("{:?}", node.ty)
+                    .split_whitespace()
+                    .next()
+                    .unwrap()
+                    .to_string(),
+            };
             let pos = if let Some((pos, _)) = self.blocks[id] {
                 format!("{}, {}, {}", pos.x, pos.y, pos.z)
             } else {
                 "No Pos".to_string()
             };
-            write!(
-                f,
-                "n{}[label=\"{}\\n({})\"];",
-                id,
-                format!("{:?}", node.ty).split_whitespace().next().unwrap(),
-                pos,
-            )?;
+            write!(f, "n{}[label=\"{}\\n({})\"];", id, label, pos,)?;
             let all_inputs = node
                 .default_inputs
                 .iter()
