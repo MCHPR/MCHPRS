@@ -8,16 +8,16 @@ mod input_search;
 
 use super::compile_graph::CompileGraph;
 use super::{CompilerInput, CompilerOptions};
-use tracing::trace;
 use std::time::Instant;
+use tracing::trace;
 
 pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &identify_nodes::IdentifyNodes,
     &input_search::InputSearch,
     &clamp_weights::ClampWeights,
     &dedup_links::DedupLinks,
-    &constant_coalesce::ConstantCoalesce,
     &constant_fold::ConstantFold,
+    &constant_coalesce::ConstantCoalesce,
     &coalesce::Coalesce,
 ]);
 

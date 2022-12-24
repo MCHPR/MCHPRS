@@ -1,10 +1,10 @@
 use mchprs_core::server::MinecraftServer;
+use std::fs;
+use std::path::Path;
+use tracing::debug;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
-use tracing::debug;
-use std::path::Path;
-use std::fs;
 
 fn main() {
     // Setup logging
@@ -23,7 +23,10 @@ fn main() {
     if old_log_path.exists() {
         let dest_path = "./logs/old_output.log";
         fs::rename(old_log_path, "./logs/old_output.log").unwrap();
-        debug!("Moving old log file from {old_log_path} to {dest_path}", old_log_path = old_log_path.display());
+        debug!(
+            "Moving old log file from {old_log_path} to {dest_path}",
+            old_log_path = old_log_path.display()
+        );
     }
 
     MinecraftServer::run();

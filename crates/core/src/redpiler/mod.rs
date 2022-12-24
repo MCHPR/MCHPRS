@@ -9,9 +9,9 @@ use crate::world::World;
 use backend::JITBackend;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
-use tracing::{error, warn, trace, debug};
 use passes::DEFAULT_PASS_MANAGER;
 use std::time::Instant;
+use tracing::{debug, error, trace, warn};
 
 fn bool_to_ss(b: bool) -> u8 {
     match b {

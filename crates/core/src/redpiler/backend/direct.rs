@@ -6,7 +6,6 @@ use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
-use tracing::{debug, trace, warn};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
@@ -16,6 +15,7 @@ use petgraph::Direction;
 use smallvec::SmallVec;
 use std::collections::{HashMap, VecDeque};
 use std::{fmt, mem};
+use tracing::{debug, trace, warn};
 
 #[derive(Debug, Default)]
 struct FinalGraphStats {

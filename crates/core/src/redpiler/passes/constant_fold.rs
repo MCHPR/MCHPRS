@@ -1,9 +1,10 @@
 use super::Pass;
+use crate::blocks::ComparatorMode;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use tracing::trace;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
+use tracing::trace;
 
 pub struct ConstantFold;
 
@@ -22,40 +23,85 @@ impl Pass for ConstantFold {
 fn fold(graph: &mut CompileGraph) -> usize {
     let mut num_folded = 0;
 
-    for i in 0..graph.node_bound() {
+    'nodes: for i in 0..graph.node_bound() {
         let idx = NodeIdx::new(i);
         if !graph.contains_node(idx) {
             continue;
         }
 
-        // TODO: Other node types
-        if !matches!(graph[idx].ty, NodeType::Comparator(_)) {
-            continue;
+        let mut default_power = 0;
+        let mut side_power = 0;
+        for edge in graph.edges_directed(idx, Direction::Incoming) {
+            let constant = &graph[edge.source()];
+            if constant.ty != NodeType::Constant {
+                continue 'nodes;
+            }
+
+            match edge.weight().ty {
+                LinkType::Default => {
+                    default_power = default_power.max(
+                        constant
+                            .state
+                            .output_strength
+                            .saturating_sub(edge.weight().ss),
+                    )
+                }
+                LinkType::Side => {
+                    side_power = side_power.max(
+                        constant
+                            .state
+                            .output_strength
+                            .saturating_sub(edge.weight().ss),
+                    )
+                }
+            }
         }
 
-        let mut edges = graph.edges_directed(idx, Direction::Incoming);
-        let Some(edge) = edges.next() else {
-            continue;
+        let new_power = match graph[idx].ty {
+            NodeType::Comparator(mode) => {
+                if let Some(far_override) = graph[idx].comparator_far_input {
+                    if default_power < 15 {
+                        default_power = far_override;
+                    }
+                }
+                match mode {
+                    ComparatorMode::Compare => {
+                        if default_power >= side_power {
+                            default_power
+                        } else {
+                            0
+                        }
+                    }
+                    ComparatorMode::Subtract => default_power.saturating_sub(side_power),
+                }
+            }
+            NodeType::Repeater(_) => {
+                if graph[idx].state.repeater_locked {
+                    graph[idx].state.output_strength
+                } else if default_power > 0 {
+                    15
+                } else {
+                    0
+                }
+            }
+            NodeType::Torch => {
+                if default_power > 0 {
+                    0
+                } else {
+                    15
+                }
+            }
+            _ => continue,
         };
 
-        // TODO: Handle multiple inputs
-        if edges.next().is_some() {
-            continue;
+        graph[idx].ty = NodeType::Constant;
+        graph[idx].state.output_strength = new_power;
+
+        let mut incoming = graph.neighbors_directed(idx, Direction::Incoming).detach();
+        while let Some(edge) = incoming.next_edge(graph) {
+            graph.remove_edge(edge);
         }
 
-        let constant_idx = edge.source();
-        if graph[constant_idx].ty != NodeType::Constant || edge.weight().ty == LinkType::Side {
-            continue;
-        }
-
-        let mut outgoing = graph.neighbors_directed(idx, Direction::Outgoing).detach();
-        while let Some(outgoing_edge) = outgoing.next_edge(graph) {
-            let outgoing_node = graph.edge_endpoints(outgoing_edge).unwrap().1;
-            let weight = graph.remove_edge(outgoing_edge).unwrap();
-            graph.add_edge(constant_idx, outgoing_node, weight);
-        }
-
-        graph.remove_node(idx);
         num_folded += 1;
     }
 
