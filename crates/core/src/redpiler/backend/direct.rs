@@ -511,6 +511,9 @@ impl JITBackend for DirectBackend {
                 if let Block::RedstoneWire { wire, .. } = block {
                     wire.power = node.output_power
                 };
+                if let Block::RedstoneRepeater { repeater } = block {
+                    repeater.locked = node.locked;
+                }
                 plot.set_block(*pos, *block);
             }
             node.changed = false;
