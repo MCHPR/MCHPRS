@@ -9,7 +9,6 @@
 
 use super::Pass;
 use crate::blocks::Block;
-use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeState, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::world::World;
@@ -18,17 +17,17 @@ use mchprs_blocks::BlockPos;
 
 pub struct IdentifyNodes;
 
-impl Pass for IdentifyNodes {
+impl<W: World> Pass<W> for IdentifyNodes {
     fn run_pass(
         &self,
         graph: &mut CompileGraph,
         options: &CompilerOptions,
-        input: &CompilerInput<'_>,
+        input: &CompilerInput<'_, W>,
     ) {
         let ignore_wires = options.optimize;
-        let plot = input.plot;
+        let plot = input.world;
 
-        let (first_pos, second_pos) = plot.get_corners();
+        let (first_pos, second_pos) = input.bounds;
 
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
@@ -48,19 +47,21 @@ impl Pass for IdentifyNodes {
     }
 }
 
-fn for_pos(ignore_wires: bool, plot: &PlotWorld, graph: &mut CompileGraph, pos: BlockPos) {
-    let id = plot.get_block_raw(pos);
+fn for_pos<W: World>(ignore_wires: bool, world: &W, graph: &mut CompileGraph, pos: BlockPos) {
+    let id = world.get_block_raw(pos);
     let block = Block::from_id(id);
 
-    let Some((ty, state)) = identify_block(block, pos, plot) else {
+    let Some((ty, state)) = identify_block(block, pos, world) else {
         return;
     };
 
     let facing_diode = if let Block::RedstoneRepeater { repeater } = block {
-        plot.get_block(pos.offset(repeater.facing.opposite().block_face()))
+        world
+            .get_block(pos.offset(repeater.facing.opposite().block_face()))
             .is_diode()
     } else if let Block::RedstoneComparator { comparator } = block {
-        plot.get_block(pos.offset(comparator.facing.opposite().block_face()))
+        world
+            .get_block(pos.offset(comparator.facing.opposite().block_face()))
             .is_diode()
     } else {
         false
@@ -80,7 +81,11 @@ fn for_pos(ignore_wires: bool, plot: &PlotWorld, graph: &mut CompileGraph, pos: 
     });
 }
 
-fn identify_block(block: Block, pos: BlockPos, world: &PlotWorld) -> Option<(NodeType, NodeState)> {
+fn identify_block<W: World>(
+    block: Block,
+    pos: BlockPos,
+    world: &W,
+) -> Option<(NodeType, NodeState)> {
     let (ty, state) = match block {
         Block::RedstoneRepeater { repeater } => (
             NodeType::Repeater(repeater.delay),

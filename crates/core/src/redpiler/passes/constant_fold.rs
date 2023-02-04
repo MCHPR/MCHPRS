@@ -2,14 +2,15 @@ use super::Pass;
 use crate::blocks::ComparatorMode;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
 use tracing::trace;
 
 pub struct ConstantFold;
 
-impl Pass for ConstantFold {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_>) {
+impl<W: World> Pass<W> for ConstantFold {
+    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
         loop {
             let num_folded = fold(graph);
             if num_folded == 0 {

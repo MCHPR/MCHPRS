@@ -28,12 +28,13 @@ fn load_world(path: impl AsRef<Path>) -> PlotWorld {
     }
 }
 
-fn init_compiler() -> (PlotWorld, Compiler) {
+fn init_compiler() -> (PlotWorld, Compiler<PlotWorld>) {
     let mut world = load_world("./benches/chungus_mandelbrot_plot");
-    let mut compiler: Compiler = Default::default();
+    let mut compiler: Compiler<PlotWorld> = Default::default();
 
     let options = CompilerOptions::parse("-O");
-    compiler.compile(&mut world, options, Vec::new());
+    let bounds = world.get_corners();
+    compiler.compile(&mut world, bounds, options, Vec::new());
     compiler.on_use_block(&mut world, START_BUTTON);
     (world, compiler)
 }

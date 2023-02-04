@@ -53,7 +53,7 @@ pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 pub struct Plot {
     pub world: PlotWorld,
     pub players: Vec<Player>,
-    pub redpiler: Compiler,
+    pub redpiler: Compiler<PlotWorld>,
 
     // Thread communication
     message_receiver: BusReader<BroadcastMessage>,
@@ -529,7 +529,9 @@ impl Plot {
             .set_redpiler_state(&self.players, RedpilerState::Compiling);
         self.scoreboard
             .set_redpiler_options(&self.players, &options);
-        self.redpiler.compile(&mut self.world, options, ticks);
+        let bounds = self.world.get_corners();
+        self.redpiler
+            .compile(&mut self.world, bounds, options, ticks);
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Running);
 
@@ -540,7 +542,8 @@ impl Plot {
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active() {
             debug!("Discarding redpiler");
-            self.redpiler.reset(&mut self.world);
+            let bounds = self.world.get_corners();
+            self.redpiler.reset(&mut self.world, bounds);
             self.scoreboard
                 .set_redpiler_state(&self.players, RedpilerState::Stopped);
             self.scoreboard
