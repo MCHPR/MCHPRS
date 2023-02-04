@@ -2,7 +2,6 @@
 
 use super::JITBackend;
 use crate::blocks::{Block, ComparatorMode};
-use crate::plot::PlotWorld;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
@@ -250,7 +249,7 @@ struct TickScheduler {
 impl TickScheduler {
     const NUM_PRIORITIES: usize = 4;
 
-    fn reset(&mut self, plot: &mut PlotWorld, blocks: &[Option<(BlockPos, Block)>]) {
+    fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
         for (delay, queues) in self.queues_deque.iter().enumerate() {
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
@@ -258,7 +257,7 @@ impl TickScheduler {
                         warn!("Cannot schedule tick for node {:?} because block information is missing", node);
                         continue;
                     };
-                    plot.schedule_tick(pos, delay as u32 + 1, priority);
+                    world.schedule_tick(pos, delay as u32 + 1, priority);
                 }
             }
         }
@@ -330,7 +329,7 @@ impl DirectBackend {
     }
 }
 
-impl JITBackend for DirectBackend {
+impl<W: World> JITBackend<W> for DirectBackend {
     fn inspect(&mut self, pos: BlockPos) {
         let Some(node_id) = self.pos_map.get(&pos) else {
             debug!("could not find node at pos {}", pos);
@@ -340,8 +339,8 @@ impl JITBackend for DirectBackend {
         debug!("Node {:?}: {:#?}", node_id, self.nodes[*node_id]);
     }
 
-    fn reset(&mut self, plot: &mut PlotWorld, io_only: bool) {
-        self.scheduler.reset(plot, &self.blocks);
+    fn reset(&mut self, world: &mut W, io_only: bool) {
+        self.scheduler.reset(world, &self.blocks);
 
         let nodes = std::mem::take(&mut self.nodes);
 
@@ -353,18 +352,18 @@ impl JITBackend for DirectBackend {
                 let block_entity = BlockEntity::Comparator {
                     output_strength: node.output_power,
                 };
-                plot.set_block_entity(pos, block_entity);
+                world.set_block_entity(pos, block_entity);
             }
 
             if io_only && !node.ty.is_io_block() {
-                plot.set_block(pos, block);
+                world.set_block(pos, block);
             }
         }
 
         self.pos_map.clear();
     }
 
-    fn on_use_block(&mut self, _plot: &mut PlotWorld, pos: BlockPos) {
+    fn on_use_block(&mut self, _world: &mut W, pos: BlockPos) {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.ty {
@@ -382,7 +381,7 @@ impl JITBackend for DirectBackend {
         }
     }
 
-    fn set_pressure_plate(&mut self, _plot: &mut PlotWorld, pos: BlockPos, powered: bool) {
+    fn set_pressure_plate(&mut self, _world: &mut W, pos: BlockPos, powered: bool) {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.ty {
@@ -393,7 +392,7 @@ impl JITBackend for DirectBackend {
         }
     }
 
-    fn tick(&mut self, _plot: &mut PlotWorld) {
+    fn tick(&mut self, _world: &mut W) {
         let mut queues = self.scheduler.queues_this_tick();
 
         for node_id in queues.drain_iter() {
@@ -509,7 +508,7 @@ impl JITBackend for DirectBackend {
         // println!("{}", self);
     }
 
-    fn flush(&mut self, plot: &mut PlotWorld, io_only: bool) {
+    fn flush(&mut self, world: &mut W, io_only: bool) {
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
             let Some((pos, block)) = &mut self.blocks[i] else {
                 continue;
@@ -524,7 +523,7 @@ impl JITBackend for DirectBackend {
                 if let Block::RedstoneRepeater { repeater } = block {
                     repeater.locked = node.locked;
                 }
-                plot.set_block(*pos, *block);
+                world.set_block(*pos, *block);
             }
             node.changed = false;
         }

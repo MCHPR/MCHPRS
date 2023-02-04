@@ -8,33 +8,41 @@ mod identify_nodes;
 mod input_search;
 mod unreachable_output;
 
+use crate::world::World;
+
 use super::compile_graph::CompileGraph;
 use super::{CompilerInput, CompilerOptions};
 use std::time::Instant;
 use tracing::trace;
 
-pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
-    &identify_nodes::IdentifyNodes,
-    &input_search::InputSearch,
-    &clamp_weights::ClampWeights,
-    &dedup_links::DedupLinks,
-    &constant_fold::ConstantFold,
-    &unreachable_output::UnreachableOutput,
-    &constant_coalesce::ConstantCoalesce,
-    &coalesce::Coalesce,
-    &export_graph::ExportGraph,
-]);
-
-pub struct PassManager<'p> {
-    passes: &'p [&'p dyn Pass],
+pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
+    PassManager::new(&[
+        &identify_nodes::IdentifyNodes,
+        &input_search::InputSearch,
+        &clamp_weights::ClampWeights,
+        &dedup_links::DedupLinks,
+        &constant_fold::ConstantFold,
+        &unreachable_output::UnreachableOutput,
+        &constant_coalesce::ConstantCoalesce,
+        &coalesce::Coalesce,
+        &export_graph::ExportGraph,
+    ])
 }
 
-impl<'p> PassManager<'p> {
-    pub const fn new(passes: &'p [&dyn Pass]) -> Self {
+pub struct PassManager<'p, W: World> {
+    passes: &'p [&'p dyn Pass<W>],
+}
+
+impl<'p, W: World> PassManager<'p, W> {
+    pub const fn new(passes: &'p [&dyn Pass<W>]) -> Self {
         Self { passes }
     }
 
-    pub fn run_passes(&self, options: &CompilerOptions, input: CompilerInput<'_>) -> CompileGraph {
+    pub fn run_passes(
+        &self,
+        options: &CompilerOptions,
+        input: &CompilerInput<'_, W>,
+    ) -> CompileGraph {
         let mut graph = CompileGraph::new();
 
         for &pass in self.passes {
@@ -46,7 +54,7 @@ impl<'p> PassManager<'p> {
             trace!("Running pass: {}", pass.name());
             let start = Instant::now();
 
-            pass.run_pass(&mut graph, options, &input);
+            pass.run_pass(&mut graph, options, input);
 
             trace!("Completed pass in {:?}", start.elapsed());
             trace!("node_count: {}", graph.node_count());
@@ -57,12 +65,12 @@ impl<'p> PassManager<'p> {
     }
 }
 
-pub trait Pass {
+pub trait Pass<W: World> {
     fn run_pass(
         &self,
         graph: &mut CompileGraph,
         options: &CompilerOptions,
-        input: &CompilerInput<'_>,
+        input: &CompilerInput<'_, W>,
     );
 
     /// This name should only be use for debugging purposes,

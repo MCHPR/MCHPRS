@@ -4,6 +4,7 @@ use crate::redpiler::compile_graph::{
     CompileGraph, LinkType as CLinkType, NodeIdx, NodeType as CNodeType,
 };
 use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::world::World;
 use itertools::Itertools;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
@@ -79,8 +80,8 @@ fn convert_node(
 
 pub struct ExportGraph;
 
-impl Pass for ExportGraph {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_>) {
+impl<W: World> Pass<W> for ExportGraph {
+    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
         let mut nodes_map = HashMap::with_capacity(graph.node_count());
         for node in graph.node_indices() {
             nodes_map.insert(node, nodes_map.len());

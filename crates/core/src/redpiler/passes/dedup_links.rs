@@ -8,13 +8,14 @@
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, NodeIdx};
 use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
 
 pub struct DedupLinks;
 
-impl Pass for DedupLinks {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_>) {
+impl<W: World> Pass<W> for DedupLinks {
+    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
         for i in 0..graph.node_bound() {
             let idx = NodeIdx::new(i);
             if !graph.contains_node(idx) {

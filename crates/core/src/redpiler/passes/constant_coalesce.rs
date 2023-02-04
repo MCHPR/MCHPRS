@@ -1,14 +1,15 @@
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, NodeIdx, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::world::World;
 use petgraph::visit::NodeIndexable;
 use petgraph::Direction;
 use std::collections::HashMap;
 
 pub struct ConstantCoalesce;
 
-impl Pass for ConstantCoalesce {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_>) {
+impl<W: World> Pass<W> for ConstantCoalesce {
+    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
         let mut constant_nodes = HashMap::new();
 
         for i in 0..graph.node_bound() {
