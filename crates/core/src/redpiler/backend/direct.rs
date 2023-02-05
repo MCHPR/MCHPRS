@@ -329,7 +329,7 @@ impl DirectBackend {
     }
 }
 
-impl<W: World> JITBackend<W> for DirectBackend {
+impl JITBackend for DirectBackend {
     fn inspect(&mut self, pos: BlockPos) {
         let Some(node_id) = self.pos_map.get(&pos) else {
             debug!("could not find node at pos {}", pos);
@@ -339,7 +339,7 @@ impl<W: World> JITBackend<W> for DirectBackend {
         debug!("Node {:?}: {:#?}", node_id, self.nodes[*node_id]);
     }
 
-    fn reset(&mut self, world: &mut W, io_only: bool) {
+    fn reset<W: World>(&mut self, world: &mut W, io_only: bool) {
         self.scheduler.reset(world, &self.blocks);
 
         let nodes = std::mem::take(&mut self.nodes);
@@ -363,7 +363,7 @@ impl<W: World> JITBackend<W> for DirectBackend {
         self.pos_map.clear();
     }
 
-    fn on_use_block(&mut self, _world: &mut W, pos: BlockPos) {
+    fn on_use_block(&mut self, pos: BlockPos) {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.ty {
@@ -381,7 +381,7 @@ impl<W: World> JITBackend<W> for DirectBackend {
         }
     }
 
-    fn set_pressure_plate(&mut self, _world: &mut W, pos: BlockPos, powered: bool) {
+    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.ty {
@@ -392,7 +392,7 @@ impl<W: World> JITBackend<W> for DirectBackend {
         }
     }
 
-    fn tick(&mut self, _world: &mut W) {
+    fn tick(&mut self) {
         let mut queues = self.scheduler.queues_this_tick();
 
         for node_id in queues.drain_iter() {
@@ -508,7 +508,7 @@ impl<W: World> JITBackend<W> for DirectBackend {
         // println!("{}", self);
     }
 
-    fn flush(&mut self, world: &mut W, io_only: bool) {
+    fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
             let Some((pos, block)) = &mut self.blocks[i] else {
                 continue;
