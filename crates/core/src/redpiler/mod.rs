@@ -12,6 +12,8 @@ use mchprs_world::TickEntry;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
 
+use self::backend::BackendDispatcher;
+
 fn bool_to_ss(b: bool) -> u8 {
     match b {
         true => 15,
@@ -58,23 +60,14 @@ impl CompilerOptions {
     }
 }
 
-impl<W: World> Default for Compiler<W> {
-    fn default() -> Self {
-        Self {
-            is_active: false,
-            jit: None,
-            options: Default::default(),
-        }
-    }
-}
-
-pub struct Compiler<W: World> {
+#[derive(Default)]
+pub struct Compiler {
     is_active: bool,
-    jit: Option<Box<dyn JITBackend<W>>>,
+    jit: Option<BackendDispatcher>,
     options: CompilerOptions,
 }
 
-impl<W: World> Compiler<W> {
+impl Compiler {
     pub fn is_active(&self) -> bool {
         self.is_active
     }
@@ -88,11 +81,11 @@ impl<W: World> Compiler<W> {
 
     /// Use just-in-time compilation with a `JITBackend` such as `CraneliftBackend` or `LLVMBackend`.
     /// Requires recompilation to take effect.
-    pub fn use_jit(&mut self, jit: Box<dyn JITBackend<W>>) {
+    pub fn use_jit(&mut self, jit: BackendDispatcher) {
         self.jit = Some(jit);
     }
 
-    pub fn compile(
+    pub fn compile<W: World>(
         &mut self,
         world: &mut W,
         bounds: (BlockPos, BlockPos),
@@ -110,9 +103,7 @@ impl<W: World> Compiler<W> {
 
         // TODO: Remove this once there is proper backend switching
         if self.jit.is_none() {
-            let jit: Box<backend::direct::DirectBackend> = Default::default();
-            // let jit: Box<codegen::cranelift::CraneliftBackend> = Default::default();
-            self.use_jit(jit);
+            self.use_jit(Default::default());
         }
 
         if let Some(jit) = &mut self.jit {
@@ -128,7 +119,7 @@ impl<W: World> Compiler<W> {
         debug!("Compile completed in {:?}", start.elapsed());
     }
 
-    pub fn reset(&mut self, world: &mut W, bounds: (BlockPos, BlockPos)) {
+    pub fn reset<W: World>(&mut self, world: &mut W, bounds: (BlockPos, BlockPos)) {
         if self.is_active {
             self.is_active = false;
             if let Some(jit) = &mut self.jit {
@@ -155,7 +146,7 @@ impl<W: World> Compiler<W> {
         self.options = Default::default();
     }
 
-    fn backend(&mut self) -> &mut Box<dyn JITBackend<W>> {
+    fn backend(&mut self) -> &mut BackendDispatcher {
         assert!(
             self.is_active,
             "tried to get redpiler backend when inactive"
@@ -167,19 +158,19 @@ impl<W: World> Compiler<W> {
         }
     }
 
-    pub fn tick(&mut self, world: &mut W) {
-        self.backend().tick(world);
+    pub fn tick(&mut self) {
+        self.backend().tick();
     }
 
-    pub fn on_use_block(&mut self, world: &mut W, pos: BlockPos) {
-        self.backend().on_use_block(world, pos);
+    pub fn on_use_block(&mut self, pos: BlockPos) {
+        self.backend().on_use_block(pos);
     }
 
-    pub fn set_pressure_plate(&mut self, world: &mut W, pos: BlockPos, powered: bool) {
-        self.backend().set_pressure_plate(world, pos, powered);
+    pub fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
+        self.backend().set_pressure_plate(pos, powered);
     }
 
-    pub fn flush(&mut self, world: &mut W) {
+    pub fn flush<W: World>(&mut self, world: &mut W) {
         let io_only = self.options.io_only;
         self.backend().flush(world, io_only);
     }

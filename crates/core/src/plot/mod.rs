@@ -53,7 +53,7 @@ pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 pub struct Plot {
     pub world: PlotWorld,
     pub players: Vec<Player>,
-    pub redpiler: Compiler<PlotWorld>,
+    pub redpiler: Compiler,
 
     // Thread communication
     message_receiver: BusReader<BroadcastMessage>,
@@ -243,7 +243,7 @@ impl Plot {
     fn tick(&mut self) {
         self.timings.tick();
         if self.redpiler.is_active() {
-            self.redpiler.tick(&mut self.world);
+            self.redpiler.tick();
             return;
         }
 
@@ -318,7 +318,7 @@ impl Plot {
     fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
         if self.redpiler.is_active() {
             self.redpiler
-                .set_pressure_plate(&mut self.world, pos, powered);
+                .set_pressure_plate(pos, powered);
             return;
         }
 

@@ -226,7 +226,7 @@ impl ServerBoundPacketHandler for Plot {
             let block = self.world.get_block(block_pos);
             let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
             if lever_or_button && !self.players[player].crouching {
-                self.redpiler.on_use_block(&mut self.world, block_pos);
+                self.redpiler.on_use_block(block_pos);
                 return;
             } else {
                 match self.redpiler.current_flags() {
