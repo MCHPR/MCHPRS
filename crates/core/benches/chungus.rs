@@ -28,22 +28,22 @@ fn load_world(path: impl AsRef<Path>) -> PlotWorld {
     }
 }
 
-fn init_compiler() -> (PlotWorld, Compiler<PlotWorld>) {
+fn init_compiler() -> Compiler {
     let mut world = load_world("./benches/chungus_mandelbrot_plot");
-    let mut compiler: Compiler<PlotWorld> = Default::default();
+    let mut compiler: Compiler = Default::default();
 
     let options = CompilerOptions::parse("-O");
     let bounds = world.get_corners();
     compiler.compile(&mut world, bounds, options, Vec::new());
-    compiler.on_use_block(&mut world, START_BUTTON);
-    (world, compiler)
+    compiler.on_use_block(START_BUTTON);
+    compiler
 }
 
 fn chungus_mandelbrot(c: &mut Criterion) {
-    let (mut world, mut compiler) = init_compiler();
+    let mut compiler = init_compiler();
 
     c.bench_function("chungus-mandelbrot-tick", |b| {
-        b.iter(|| compiler.tick(&mut world));
+        b.iter(|| compiler.tick());
     });
 }
 
@@ -55,10 +55,10 @@ fn mandelbrot_full(_c: &mut Criterion) {
     }
 
     println!("Running full chungus mandelbrot, this can take a while!");
-    let (mut world, mut compiler) = init_compiler();
+    let mut compiler = init_compiler();
     let start = Instant::now();
     for _ in 0..12411975 {
-        compiler.tick(&mut world);
+        compiler.tick();
     }
     println!("Mandelbrot benchmark completed in {:?}", start.elapsed());
 }
