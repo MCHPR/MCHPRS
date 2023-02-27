@@ -24,6 +24,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::fs::{self, File};
+use std::io::{Read, Write};
+use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
@@ -157,8 +159,12 @@ impl MinecraftServer {
         .expect("There was an error setting the ctrlc handler");
 
         let whitelist = CONFIG.whitelist.then(|| {
-            let whitelist_file = File::open("whitelist.json").unwrap();
-            serde_json::from_reader(whitelist_file).unwrap()
+            let whitelist_file = if Path::new("whitelist.json").exists() {
+                File::open("whitelist.json")
+            } else {
+                File::create("whitelist.json").expect("Failed to create whitelist.json"); File::open("whitelist.json")
+            }.expect("Failed to open whitelist.json");
+            serde_json::from_reader(whitelist_file).unwrap_or_default()
         });
 
         if let Some(permissions_config) = &CONFIG.luckperms {
