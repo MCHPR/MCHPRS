@@ -159,12 +159,10 @@ impl MinecraftServer {
         .expect("There was an error setting the ctrlc handler");
 
         let whitelist = CONFIG.whitelist.then(|| {
-            let whitelist_file = if Path::new("whitelist.json").exists() {
-                File::open("whitelist.json")
-            } else {
-                File::create("whitelist.json").expect("Failed to create whitelist.json"); File::open("whitelist.json")
-            }.expect("Failed to open whitelist.json");
-            serde_json::from_reader(whitelist_file).unwrap_or_default()
+            if !Path::new("whitelist.json").exists() {
+                File::create("whitelist.json").expect("Failed to create whitelist.json");
+            }
+            serde_json::from_reader(File::open("whitelist.json").expect("Failed to open whitelist.json")).unwrap_or_default()
         });
 
         if let Some(permissions_config) = &CONFIG.luckperms {
