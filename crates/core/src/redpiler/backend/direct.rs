@@ -240,7 +240,8 @@ impl Queues {
 
 #[derive(Default)]
 struct TickScheduler {
-    queues_deque: VecDeque<Queues>,
+    queues_deque: [Queues; 16],
+    pos: usize,
 }
 
 impl TickScheduler {
@@ -258,31 +259,28 @@ impl TickScheduler {
                 }
             }
         }
-        self.queues_deque.clear();
+        for queues in self.queues_deque.iter_mut() {
+            for queue in queues.0.iter_mut() {
+                queue.clear();
+            }
+        }
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        if delay >= self.queues_deque.len() {
-            self.queues_deque.resize(delay + 1, Default::default());
-        }
-
-        self.queues_deque[delay].0[Self::priority_index(priority)].push(node);
+        self.queues_deque[(self.pos + delay) & 15].0[Self::priority_index(priority)].push(node);
     }
 
     fn queues_this_tick(&mut self) -> Queues {
-        if self.queues_deque.is_empty() {
-            self.queues_deque.push_back(Default::default());
-        }
-        mem::take(&mut self.queues_deque[0])
+        mem::take(&mut self.queues_deque[self.pos])
     }
 
     fn end_tick(&mut self, mut queues: Queues) {
-        self.queues_deque.pop_front();
-
         for queue in &mut queues.0 {
             queue.clear();
         }
-        self.queues_deque.push_back(queues);
+        self.queues_deque[self.pos] = queues;
+
+        self.pos = (self.pos + 1) & 15;
     }
 
     fn priorities() -> [TickPriority; Self::NUM_PRIORITIES] {
