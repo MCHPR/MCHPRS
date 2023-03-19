@@ -288,8 +288,9 @@ impl RedstoneRepeater {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub enum ComparatorMode {
+    #[default]
     Compare,
     Subtract,
 }
@@ -336,12 +337,6 @@ impl ToString for ComparatorMode {
             ComparatorMode::Subtract => "subtract".to_owned(),
             ComparatorMode::Compare => "compare".to_owned(),
         }
-    }
-}
-
-impl Default for ComparatorMode {
-    fn default() -> Self {
-        ComparatorMode::Compare
     }
 }
 
@@ -502,9 +497,10 @@ impl RedstoneComparator {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub enum LeverFace {
     Floor,
+    #[default]
     Wall,
     Ceiling,
 }
@@ -551,12 +547,6 @@ impl ToString for LeverFace {
     }
 }
 
-impl Default for LeverFace {
-    fn default() -> Self {
-        LeverFace::Wall
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty, BlockTransform)]
 pub struct Lever {
     pub face: LeverFace,
@@ -574,9 +564,10 @@ impl Lever {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub enum ButtonFace {
     Floor,
+    #[default]
     Wall,
     Ceiling,
 }
@@ -620,12 +611,6 @@ impl ToString for ButtonFace {
             ButtonFace::Ceiling => "ceiling".to_owned(),
             ButtonFace::Wall => "wall".to_owned(),
         }
-    }
-}
-
-impl Default for ButtonFace {
-    fn default() -> Self {
-        ButtonFace::Wall
     }
 }
 

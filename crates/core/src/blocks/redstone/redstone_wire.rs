@@ -22,10 +22,11 @@ impl Block {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum RedstoneWireSide {
     Up,
     Side,
+    #[default]
     None,
 }
 
@@ -55,12 +56,6 @@ impl ToString for RedstoneWireSide {
             RedstoneWireSide::Side => "side".to_owned(),
             RedstoneWireSide::None => "none".to_owned(),
         }
-    }
-}
-
-impl Default for RedstoneWireSide {
-    fn default() -> RedstoneWireSide {
-        RedstoneWireSide::None
     }
 }
 
