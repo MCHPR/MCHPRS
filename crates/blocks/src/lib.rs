@@ -215,11 +215,12 @@ impl BlockProperty for BlockColorVariant {
     fn decode(&mut self, _props: &HashMap<&str, &str>, _name: &str) {}
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub enum BlockDirection {
     North,
     South,
     East,
+    #[default]
     West,
 }
 
@@ -319,17 +320,12 @@ impl ToString for BlockDirection {
     }
 }
 
-impl Default for BlockDirection {
-    fn default() -> Self {
-        BlockDirection::West
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub enum BlockFacing {
     North,
     East,
     South,
+    #[default]
     West,
     Up,
     Down,
@@ -420,12 +416,6 @@ impl FromStr for BlockFacing {
             "down" => BlockFacing::Down,
             _ => return Err(()),
         })
-    }
-}
-
-impl Default for BlockFacing {
-    fn default() -> Self {
-        BlockFacing::West
     }
 }
 
