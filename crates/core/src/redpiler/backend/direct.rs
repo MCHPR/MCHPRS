@@ -30,16 +30,16 @@ mod nodes {
     use std::ops::{Index, IndexMut};
 
     #[derive(Debug, Copy, Clone)]
-    pub struct NodeId(usize);
+    pub struct NodeId(u32);
 
     impl NodeId {
         pub fn index(self) -> usize {
-            self.0
+            self.0 as usize
         }
 
         /// Safety: index must be within bounds of nodes array
         pub unsafe fn from_index(index: usize) -> NodeId {
-            NodeId(index)
+            NodeId(index as u32)
         }
     }
 
@@ -57,7 +57,7 @@ mod nodes {
 
         pub fn get(&self, idx: usize) -> NodeId {
             if self.nodes.get(idx).is_some() {
-                NodeId(idx)
+                NodeId(idx as u32)
             } else {
                 panic!("node index out of bounds: {}", idx)
             }
@@ -81,13 +81,13 @@ mod nodes {
 
         // The index here MUST have been created by this instance, otherwise scary things will happen !
         fn index(&self, index: NodeId) -> &Self::Output {
-            unsafe { self.nodes.get_unchecked(index.0) }
+            unsafe { self.nodes.get_unchecked(index.0 as usize) }
         }
     }
 
     impl IndexMut<NodeId> for Nodes {
         fn index_mut(&mut self, index: NodeId) -> &mut Self::Output {
-            unsafe { self.nodes.get_unchecked_mut(index.0) }
+            unsafe { self.nodes.get_unchecked_mut(index.0 as usize) }
         }
     }
 }
@@ -127,12 +127,15 @@ impl NodeType {
     }
 }
 
+// struct is 128 bytes to fit nicely into cachelines
+// which are usualy 64 bytes, it can vary but is almost always a power of 2
 #[derive(Debug, Clone)]
+#[repr(align(128))]
 pub struct Node {
     ty: NodeType,
-    default_inputs: SmallVec<[DirectLink; 2]>,
-    side_inputs: SmallVec<[DirectLink; 1]>,
-    updates: SmallVec<[NodeId; 2]>,
+    default_inputs: SmallVec<[DirectLink; 7]>,
+    side_inputs: SmallVec<[DirectLink; 2]>,
+    updates: SmallVec<[NodeId; 4]>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
@@ -177,7 +180,7 @@ impl Node {
         stats.side_link_count += side_inputs.len();
 
         use crate::redpiler::compile_graph::NodeType as CNodeType;
-        let updates: SmallVec<[NodeId; 2]> = if node.ty != CNodeType::Constant {
+        let updates: SmallVec<[NodeId; 4]> = if node.ty != CNodeType::Constant {
             graph
                 .neighbors_directed(node_idx, Direction::Outgoing)
                 .map(|idx| unsafe {
