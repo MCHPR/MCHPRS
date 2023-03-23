@@ -576,6 +576,7 @@ fn get_all_input(node: &Node, nodes: &Nodes) -> (u8, u8) {
     (input_power, side_input_power)
 }
 
+#[inline(always)]
 fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId) {
     let node = &nodes[node_id];
 
