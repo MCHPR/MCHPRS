@@ -1,5 +1,5 @@
 #![deny(rust_2018_idioms)]
-#![feature(min_specialization, once_cell)]
+#![feature(min_specialization, lazy_cell)]
 
 #[macro_use]
 mod utils;

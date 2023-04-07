@@ -249,7 +249,9 @@ impl<'a> InputSearchState<'a> {
     fn search_comparator_side(&mut self, id: NodeIdx, pos: BlockPos, side: BlockDirection) {
         let side_pos = pos.offset(side.block_face());
         let side_block = self.plot.get_block(side_pos);
-        if side_block.is_diode() && self.provides_weak_power(side_block, side.block_face()) {
+        if (side_block.is_diode() && self.provides_weak_power(side_block, side.block_face()))
+            || matches!(side_block, Block::RedstoneBlock { .. })
+        {
             self.graph
                 .add_edge(self.pos_map[&side_pos], id, CompileLink::side(0));
         } else if matches!(side_block, Block::RedstoneWire { .. }) {
