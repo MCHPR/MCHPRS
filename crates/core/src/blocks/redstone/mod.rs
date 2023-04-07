@@ -367,6 +367,8 @@ impl RedstoneComparator {
             side_block.get_weak_power(world, side_pos, side.block_face(), false)
         } else if let Block::RedstoneWire { wire } = side_block {
             wire.power
+        } else if let Block::RedstoneBlock {} = side_block {
+            15
         } else {
             0
         }
