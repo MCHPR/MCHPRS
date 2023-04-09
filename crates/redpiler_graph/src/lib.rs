@@ -32,27 +32,36 @@ pub struct Link {
 #[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Copy, Debug)]
 pub enum NodeType {
     Repeater(u8),
-    Comparator(ComparatorMode),
     Torch,
-    StoneButton,
-    StonePressurePlate,
+    Comparator(ComparatorMode),
     Lamp,
+    Button,
     Lever,
-    Constant,
+    PressurePlate,
+    Trapdoor,
     Wire,
+    Constant,
+}
+
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
+pub struct NodeState {
+    pub powered: bool,
+    pub repeater_locked: bool,
+    pub output_strength: u8,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Node {
     pub ty: NodeType,
-    pub inputs: Vec<Link>,
-    pub updates: Vec<NodeId>,
+    /// Position and protocol id for block
+    pub block: Option<(BlockPos, u32)>,
+    pub state: NodeState,
+
     pub facing_diode: bool,
     pub comparator_far_input: Option<u8>,
-    pub output_power: u8,
-    /// Comparator powered / Repeater locked
-    pub diode_state: bool,
-    pub pos: BlockPos,
+
+    pub inputs: Vec<Link>,
+    pub updates: Vec<NodeId>,
 }
 
 pub fn serialize(nodes: &[Node]) -> Result<Vec<u8>> {

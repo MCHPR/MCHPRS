@@ -3,6 +3,7 @@ mod coalesce;
 mod constant_coalesce;
 mod constant_fold;
 mod dedup_links;
+mod export_graph;
 mod identify_nodes;
 mod input_search;
 mod unreachable_output;
@@ -21,6 +22,7 @@ pub const DEFAULT_PASS_MANAGER: PassManager<'_> = PassManager::new(&[
     &unreachable_output::UnreachableOutput,
     &constant_coalesce::ConstantCoalesce,
     &coalesce::Coalesce,
+    &export_graph::ExportGraph,
 ]);
 
 pub struct PassManager<'p> {
