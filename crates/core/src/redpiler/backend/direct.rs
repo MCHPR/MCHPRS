@@ -369,9 +369,11 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             NodeType::Button => {
-                let powered = !node.powered;
+                if node.powered {
+                    return;
+                }
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(node_id, powered, bool_to_ss(powered));
+                self.set_node(node_id, true, 15);
             }
             NodeType::Lever => {
                 self.set_node(node_id, !node.powered, bool_to_ss(!node.powered));
