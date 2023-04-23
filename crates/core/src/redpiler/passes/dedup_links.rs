@@ -34,6 +34,7 @@ impl Pass for DedupLinks {
                         && other_edge.weight().ss <= edge.ss
                     {
                         should_remove = true;
+                        break;
                     }
                 }
 
