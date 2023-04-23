@@ -326,7 +326,6 @@ impl DirectBackend {
             let update = self.nodes[node_id].updates[i];
             update_node(&mut self.scheduler, &mut self.nodes, update);
         }
-        update_node(&mut self.scheduler, &mut self.nodes, node_id);
     }
 }
 
@@ -401,7 +400,7 @@ impl JITBackend for DirectBackend {
             let node = &self.nodes[node_id];
 
             match node.ty {
-                NodeType::Repeater(_) => {
+                NodeType::Repeater(delay) => {
                     if node.locked {
                         continue;
                     }
@@ -411,14 +410,32 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     } else if !node.powered {
                         self.set_node(node_id, true, 15);
+                        if !should_be_powered {
+                            let node = &mut self.nodes[node_id];
+                            let priority = if node.facing_diode {
+                                TickPriority::Highest
+                            } else {
+                                TickPriority::Higher
+                            };
+                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, priority);
+                        }
                     }
                 }
-                NodeType::SimpleRepeater(_delay) => {
+                NodeType::SimpleRepeater(delay) => {
                     let should_be_powered = get_bool_input(node, &self.nodes);
                     if node.powered && !should_be_powered {
                         self.set_node(node_id, false, 0);
                     } else if !node.powered {
                         self.set_node(node_id, true, 15);
+                        if !should_be_powered {
+                            let node = &mut self.nodes[node_id];
+                            let priority = if node.facing_diode {
+                                TickPriority::Highest
+                            } else {
+                                TickPriority::Higher
+                            };
+                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, priority);
+                        }
                     }
                 }
                 NodeType::Torch => {
