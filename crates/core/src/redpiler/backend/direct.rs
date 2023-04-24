@@ -412,12 +412,7 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, true, 15);
                         if !should_be_powered {
                             let node = &mut self.nodes[node_id];
-                            let priority = if node.facing_diode {
-                                TickPriority::Highest
-                            } else {
-                                TickPriority::Higher
-                            };
-                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, priority);
+                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, TickPriority::Higher);
                         }
                     }
                 }
@@ -429,12 +424,7 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, true, 15);
                         if !should_be_powered {
                             let node = &mut self.nodes[node_id];
-                            let priority = if node.facing_diode {
-                                TickPriority::Highest
-                            } else {
-                                TickPriority::Higher
-                            };
-                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, priority);
+                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, TickPriority::Higher);
                         }
                     }
                 }
