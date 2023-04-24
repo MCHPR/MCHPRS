@@ -13,7 +13,7 @@ use nodes::{NodeId, Nodes};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use smallvec::SmallVec;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::{fmt, mem};
 use tracing::{debug, trace, warn};
 
