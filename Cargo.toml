@@ -22,6 +22,10 @@ include = [
 # MCHPRS runs far too slow without any optimizations to even be usable for testing
 opt-level = 1
 
+[profile.release]
+# This seems to speed up Redpiler compile times
+lto = "fat"
+
 [dependencies]
 mchprs_core = { path = "./crates/core" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
