@@ -1371,6 +1371,7 @@ dependencies = [
  "mchprs_world",
  "md5",
  "mysql",
+ "once_cell",
  "petgraph",
  "rand",
  "redpiler_graph",

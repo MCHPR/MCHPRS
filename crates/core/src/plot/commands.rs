@@ -14,9 +14,9 @@ use mchprs_network::packets::clientbound::{
 use mchprs_network::packets::PacketEncoder;
 use mchprs_network::PlayerPacketSender;
 use mchprs_save_data::plot_data::Tps;
+use once_cell::sync::Lazy;
 use std::ops::Add;
 use std::str::FromStr;
-use std::sync::LazyLock;
 use std::time::Instant;
 use tracing::{debug, info, warn};
 
@@ -512,7 +512,7 @@ bitflags! {
 // For more information, see https://wiki.vg/Command_Data
 /// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
-pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
+pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
     CDeclareCommands {
         nodes: &[
             // 0: Root Node

@@ -12,13 +12,13 @@ use execute::*;
 use mchprs_blocks::block_entities::{BlockEntity, ContainerType};
 use mchprs_blocks::{BlockFacing, BlockPos};
 use mchprs_utils::map;
+use once_cell::sync::Lazy;
 use rand::Rng;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::sync::LazyLock;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
 // The command is not handled if it is not found in the worldedit commands and alias lists.
@@ -433,7 +433,7 @@ impl Default for WorldeditCommand {
     }
 }
 
-static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::new(|| {
+static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
     map! {
         "up" => WorldeditCommand {
             execute_fn: execute_up,
@@ -727,7 +727,7 @@ static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::n
     }
 });
 
-static ALIASES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
+static ALIASES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
     map! {
         "u" => "up",
         "desc" => "descend",
@@ -803,7 +803,7 @@ impl FromStr for WorldEditPattern {
     fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(',') {
-            static RE: LazyLock<Regex> = LazyLock::new(|| {
+            static RE: Lazy<Regex> = Lazy::new(|| {
                 Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap()
             });
 
