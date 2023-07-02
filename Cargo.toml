@@ -3,7 +3,7 @@ members = ["crates/proc_macros", "crates/redpiler_graph"]
 
 [package]
 name = "mchprs"
-version = "0.3.0"
+version = "0.4.1"
 authors = ["StackDoubleFlow <ojaslandge@gmail.com>"]
 edition = "2018"
 description = "A multithreaded minecraft server built for redstone."

@@ -1328,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs"
-version = "0.3.0"
+version = "0.4.1"
 dependencies = [
  "mchprs_core",
  "tracing",
