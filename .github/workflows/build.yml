@@ -30,10 +30,9 @@ jobs:
     - uses: actions/checkout@v3
     - uses: actions-rs/toolchain@v1
       with:
-        toolchain: nightly
+        toolchain: stable
         target: ${{ matrix.target }}
         profile: minimal
-        override: true
     - uses: Swatinem/rust-cache@v1
       with:
         key: ${{ matrix.target }}

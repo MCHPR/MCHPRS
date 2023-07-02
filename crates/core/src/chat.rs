@@ -1,8 +1,8 @@
+use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Serialize;
-use std::sync::LazyLock;
 
-static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
+static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
     Regex::new("([a-zA-Z0-9§\\-:/]+\\.[a-zA-Z/0-9§\\-:_#]+(\\.[a-zA-Z/0-9.§\\-:#\\?\\+=_]+)?)")
         .unwrap()
 });
@@ -220,7 +220,10 @@ impl ChatComponent {
         for component in components {
             let mut last = 0;
             let text = &component.text;
-            for (index, matched) in text.match_indices(&*URL_REGEX) {
+
+            for match_ in URL_REGEX.find_iter(text) {
+                let index = match_.start();
+                let matched = match_.as_str();
                 if last != index {
                     let mut new = component.clone();
                     new.text = String::from(&text[last..index]);

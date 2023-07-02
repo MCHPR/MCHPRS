@@ -1,8 +1,8 @@
 use super::{Plot, PlotWorld, PLOT_WIDTH};
 use anyhow::{Context, Result};
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps};
+use once_cell::sync::Lazy;
 use std::path::Path;
-use std::sync::LazyLock;
 use std::time::Duration;
 
 // TODO: where to put this?
@@ -33,7 +33,7 @@ pub fn empty_plot() -> PlotData {
     EMPTY_PLOT.clone()
 }
 
-static EMPTY_PLOT: LazyLock<PlotData> = LazyLock::new(|| {
+static EMPTY_PLOT: Lazy<PlotData> = Lazy::new(|| {
     let template_path = Path::new("./world/plots/pTEMPLATE");
     if template_path.exists() {
         PlotData::load_from_file(template_path).expect("failed to read template plot")

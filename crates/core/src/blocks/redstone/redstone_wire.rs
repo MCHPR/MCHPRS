@@ -4,6 +4,7 @@ use crate::blocks::{
 };
 use crate::world::World;
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::str::FromStr;
 
 impl Block {
@@ -628,16 +629,18 @@ impl RedstoneWireTurbo {
         if self.nodes[upd1.index].neighbors.is_none() {
             self.identify_neighbors(world, upd1);
         }
-        // FIXME: Get rid of this nasty clone
-        let neighbors = self.nodes[upd1.index].neighbors.clone().unwrap();
+
+        let neighbors: [NodeId; 24] = self.nodes[upd1.index].neighbors.as_ref().unwrap()[0..24]
+            .try_into()
+            .unwrap();
 
         let layer1 = layer + 1;
 
-        for neighbor_id in &neighbors[0..24] {
+        for neighbor_id in neighbors {
             let neighbor = &mut self.nodes[neighbor_id.index];
             if layer1 > neighbor.layer {
                 neighbor.layer = layer1;
-                self.update_queue[1].push(*neighbor_id);
+                self.update_queue[1].push(neighbor_id);
             }
         }
 

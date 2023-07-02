@@ -31,7 +31,7 @@ ctrlc = { version = "3.1", features = ["termination"] }
 tracing = "0.1"
 chrono = "0.4"
 rand = "0.8"
-regex = { version = "1.4", features = ["pattern"] }
+regex = { version = "1.4" }
 backtrace = "0.3"
 rusqlite = { version="0.28", features=["bundled"] }
 anyhow = "1.0"
@@ -42,6 +42,7 @@ reqwest = { version = "0.11", features = ["json"] }
 itertools = "0.10"
 impls = "1"
 bincode = "1.3"
+once_cell = "1.14.0"
 smallvec = "1.9.0"
 petgraph = "0.6"
 redpiler_graph = { path = "../redpiler_graph" }
