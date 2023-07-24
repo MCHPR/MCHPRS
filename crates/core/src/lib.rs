@@ -11,6 +11,7 @@ mod player;
 pub mod plot;
 mod profile;
 pub mod redpiler;
+pub mod redstone;
 pub mod server;
 pub mod world;
 

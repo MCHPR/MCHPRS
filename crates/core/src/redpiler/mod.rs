@@ -5,6 +5,7 @@ mod passes;
 
 use crate::blocks::Block;
 use crate::redpiler::passes::make_default_pass_manager;
+use crate::redstone;
 use crate::world::World;
 use backend::JITBackend;
 use mchprs_blocks::BlockPos;
@@ -137,7 +138,7 @@ impl Compiler {
                         let pos = BlockPos::new(x, y, z);
                         let block = world.get_block(pos);
                         if matches!(block, Block::RedstoneWire { .. }) {
-                            block.update(world, pos);
+                            redstone::update(block, world, pos);
                         }
                     }
                 }

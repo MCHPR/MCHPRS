@@ -4,7 +4,7 @@
 //! comparator is equal to the difference of the maximum side input and the maximum default input.
 //! Outgoing edges that have a weight greater than or equal to the maxiumum output of the
 //! comparator can be safely removed.
-//! 
+//!
 //! Basically, links from comparators that could never possibly output a signal great enough that
 //! it won't be zero'd out by the weight of the link get removed.
 

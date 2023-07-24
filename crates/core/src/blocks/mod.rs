@@ -1,7 +1,8 @@
-mod redstone;
+mod props;
 
 use crate::items::{ActionResult, UseOnBlockContext};
 use crate::player::Player;
+use crate::redstone;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::items::Item;
@@ -10,9 +11,8 @@ use mchprs_blocks::{
 };
 use mchprs_proc_macros::BlockTransform;
 use mchprs_world::TickPriority;
-pub use redstone::*;
+pub use props::*;
 use std::collections::HashMap;
-use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug)]
 pub enum FlipDirection {
@@ -52,7 +52,7 @@ macro_rules! noop_block_transform {
         $(
             impl BlockTransform for $ty {
                 fn rotate90(&mut self) {}
-                fn flip(&mut self, dir: crate::blocks::FlipDirection) {}
+                fn flip(&mut self, _dir: crate::blocks::FlipDirection) {}
             }
         )*
     };
@@ -66,9 +66,9 @@ noop_block_transform!(
     BlockFacing,
     TrapdoorHalf,
     SignType,
-    redstone::ButtonFace,
-    redstone::LeverFace,
-    redstone::ComparatorMode,
+    ButtonFace,
+    LeverFace,
+    ComparatorMode,
 );
 
 impl BlockTransform for BlockDirection {
@@ -94,48 +94,6 @@ impl BlockTransform for BlockDirection {
             BlockDirection::South => BlockDirection::West,
             BlockDirection::West => BlockDirection::North,
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TrapdoorHalf {
-    Top,
-    Bottom,
-}
-
-impl TrapdoorHalf {
-    pub fn get_id(self) -> u32 {
-        self as u32
-    }
-
-    pub fn from_id(id: u32) -> TrapdoorHalf {
-        use TrapdoorHalf::*;
-        match id {
-            0 => Top,
-            1 => Bottom,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl ToString for TrapdoorHalf {
-    fn to_string(&self) -> String {
-        match self {
-            TrapdoorHalf::Top => "top".to_owned(),
-            TrapdoorHalf::Bottom => "bottom".to_owned(),
-        }
-    }
-}
-
-impl FromStr for TrapdoorHalf {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "top" => TrapdoorHalf::Top,
-            "bottom" => TrapdoorHalf::Bottom,
-            _ => return Err(()),
-        })
     }
 }
 
@@ -227,22 +185,22 @@ impl Block {
             Block::RedstoneComparator { comparator } => {
                 let mut comparator = comparator;
                 comparator.mode = comparator.mode.toggle();
-                comparator.tick(world, pos);
+                redstone::comparator::tick(comparator, world, pos);
                 world.set_block(pos, Block::RedstoneComparator { comparator });
                 ActionResult::Success
             }
             Block::Lever { mut lever } => {
                 lever.powered = !lever.powered;
                 world.set_block(pos, Block::Lever { lever });
-                Block::update_surrounding_blocks(world, pos);
+                redstone::update_surrounding_blocks(world, pos);
                 match lever.face {
                     LeverFace::Ceiling => {
-                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
+                        redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
                     }
                     LeverFace::Floor => {
-                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
+                        redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
                     }
-                    LeverFace::Wall => Block::update_surrounding_blocks(
+                    LeverFace::Wall => redstone::update_surrounding_blocks(
                         world,
                         pos.offset(lever.facing.opposite().block_face()),
                     ),
@@ -254,15 +212,18 @@ impl Block {
                     button.powered = true;
                     world.set_block(pos, Block::StoneButton { button });
                     world.schedule_tick(pos, 10, TickPriority::Normal);
-                    Block::update_surrounding_blocks(world, pos);
+                    redstone::update_surrounding_blocks(world, pos);
                     match button.face {
                         ButtonFace::Ceiling => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
+                            redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
                         }
                         ButtonFace::Floor => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
+                            redstone::update_surrounding_blocks(
+                                world,
+                                pos.offset(BlockFace::Bottom),
+                            );
                         }
-                        ButtonFace::Wall => Block::update_surrounding_blocks(
+                        ButtonFace::Wall => redstone::update_surrounding_blocks(
                             world,
                             pos.offset(button.facing.opposite().block_face()),
                         ),
@@ -270,7 +231,7 @@ impl Block {
                 }
                 ActionResult::Success
             }
-            Block::RedstoneWire { wire } => wire.on_use(world, pos),
+            Block::RedstoneWire { wire } => redstone::wire::on_use(wire, world, pos),
             Block::SeaPickle { pickles } => {
                 if let Some(Item::SeaPickle {}) = item_in_hand {
                     if pickles < 4 {
@@ -354,7 +315,7 @@ impl Block {
                 }
             }
             Item::RedstoneLamp {} => Block::RedstoneLamp {
-                lit: Block::redstone_lamp_should_be_lit(world, pos),
+                lit: redstone::redstone_lamp_should_be_lit(world, pos),
             },
             Item::RedstoneBlock {} => Block::RedstoneBlock {},
             Item::Hopper {} => Block::Hopper {},
@@ -362,7 +323,7 @@ impl Block {
             Item::ColoredTerracotta { color } => Block::ColoredTerracotta { color },
             Item::Concrete { color } => Block::Concrete { color },
             Item::Repeater {} => Block::RedstoneRepeater {
-                repeater: RedstoneRepeater::get_state_for_placement(
+                repeater: redstone::repeater::get_state_for_placement(
                     world,
                     pos,
                     context.player.get_direction().opposite(),
@@ -388,7 +349,7 @@ impl Block {
                 },
             },
             Item::Redstone {} => Block::RedstoneWire {
-                wire: RedstoneWire::get_state_for_placement(world, pos),
+                wire: redstone::wire::get_state_for_placement(world, pos),
             },
             Item::Barrel {} => Block::Barrel {},
             Item::Target {} => Block::Target {},
@@ -440,17 +401,17 @@ impl Block {
                 // TODO: Queue repeater tick
                 world.set_block(pos, self);
                 Block::change_surrounding_blocks(world, pos);
-                Block::update_surrounding_blocks(world, pos);
+                redstone::update_surrounding_blocks(world, pos);
             }
             Block::RedstoneWire { .. } => {
                 world.set_block(pos, self);
                 Block::change_surrounding_blocks(world, pos);
-                Block::update_wire_neighbors(world, pos);
+                redstone::update_wire_neighbors(world, pos);
             }
             _ => {
                 world.set_block(pos, self);
                 Block::change_surrounding_blocks(world, pos);
-                Block::update_surrounding_blocks(world, pos);
+                redstone::update_surrounding_blocks(world, pos);
             }
         }
     }
@@ -464,7 +425,7 @@ impl Block {
             Block::RedstoneWire { .. } => {
                 world.set_block(pos, Block::Air {});
                 Block::change_surrounding_blocks(world, pos);
-                Block::update_wire_neighbors(world, pos);
+                redstone::update_wire_neighbors(world, pos);
             }
             Block::Lever { lever } => {
                 world.set_block(pos, Block::Air {});
@@ -473,18 +434,18 @@ impl Block {
                 match lever.face {
                     LeverFace::Ceiling => {
                         Block::change_surrounding_blocks(world, pos.offset(BlockFace::Top));
-                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
+                        redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
                     }
                     LeverFace::Floor => {
                         Block::change_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
-                        Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
+                        redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
                     }
                     LeverFace::Wall => {
                         Block::change_surrounding_blocks(
                             world,
                             pos.offset(lever.facing.opposite().block_face()),
                         );
-                        Block::update_surrounding_blocks(
+                        redstone::update_surrounding_blocks(
                             world,
                             pos.offset(lever.facing.opposite().block_face()),
                         );
@@ -494,115 +455,8 @@ impl Block {
             _ => {
                 world.set_block(pos, Block::Air {});
                 Block::change_surrounding_blocks(world, pos);
-                Block::update_surrounding_blocks(world, pos);
+                redstone::update_surrounding_blocks(world, pos);
             }
-        }
-    }
-
-    pub fn update(self, world: &mut impl World, pos: BlockPos) {
-        match self {
-            Block::RedstoneWire { wire } => {
-                wire.on_neighbor_updated(world, pos);
-            }
-            Block::RedstoneTorch { lit } => {
-                if lit == Block::torch_should_be_off(world, pos) && !world.pending_tick_at(pos) {
-                    world.schedule_tick(pos, 1, TickPriority::Normal);
-                }
-            }
-            Block::RedstoneWallTorch { lit, facing } => {
-                if lit == Block::wall_torch_should_be_off(world, pos, facing)
-                    && !world.pending_tick_at(pos)
-                {
-                    world.schedule_tick(pos, 1, TickPriority::Normal);
-                }
-            }
-            Block::RedstoneRepeater { repeater } => {
-                repeater.on_neighbor_updated(world, pos);
-            }
-            Block::RedstoneComparator { comparator } => {
-                comparator.update(world, pos);
-            }
-            Block::RedstoneLamp { lit } => {
-                let should_be_lit = Block::redstone_lamp_should_be_lit(world, pos);
-                if lit && !should_be_lit {
-                    world.schedule_tick(pos, 2, TickPriority::Normal);
-                } else if !lit && should_be_lit {
-                    world.set_block(pos, Block::RedstoneLamp { lit: true });
-                }
-            }
-            Block::IronTrapdoor {
-                powered,
-                facing,
-                half,
-            } => {
-                let should_be_powered = Block::redstone_lamp_should_be_lit(world, pos);
-                if powered != should_be_powered {
-                    let new_block = Block::IronTrapdoor {
-                        facing,
-                        half,
-                        powered: should_be_powered,
-                    };
-                    world.set_block(pos, new_block);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    pub fn tick(self, world: &mut impl World, pos: BlockPos) {
-        match self {
-            Block::RedstoneRepeater { repeater } => {
-                repeater.tick(world, pos);
-            }
-            Block::RedstoneComparator { comparator } => {
-                comparator.tick(world, pos);
-            }
-            Block::RedstoneTorch { lit } => {
-                let should_be_off = Block::torch_should_be_off(world, pos);
-                if lit && should_be_off {
-                    world.set_block(pos, Block::RedstoneTorch { lit: false });
-                    Block::update_surrounding_blocks(world, pos);
-                } else if !lit && !should_be_off {
-                    world.set_block(pos, Block::RedstoneTorch { lit: true });
-                    Block::update_surrounding_blocks(world, pos);
-                }
-            }
-            Block::RedstoneWallTorch { lit, facing } => {
-                let should_be_off = Block::wall_torch_should_be_off(world, pos, facing);
-                if lit && should_be_off {
-                    world.set_block(pos, Block::RedstoneWallTorch { lit: false, facing });
-                    Block::update_surrounding_blocks(world, pos);
-                } else if !lit && !should_be_off {
-                    world.set_block(pos, Block::RedstoneWallTorch { lit: true, facing });
-                    Block::update_surrounding_blocks(world, pos);
-                }
-            }
-            Block::RedstoneLamp { lit } => {
-                let should_be_lit = Block::redstone_lamp_should_be_lit(world, pos);
-                if lit && !should_be_lit {
-                    world.set_block(pos, Block::RedstoneLamp { lit: false });
-                }
-            }
-            Block::StoneButton { mut button } => {
-                if button.powered {
-                    button.powered = false;
-                    world.set_block(pos, Block::StoneButton { button });
-                    Block::update_surrounding_blocks(world, pos);
-                    match button.face {
-                        ButtonFace::Ceiling => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
-                        }
-                        ButtonFace::Floor => {
-                            Block::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
-                        }
-                        ButtonFace::Wall => Block::update_surrounding_blocks(
-                            world,
-                            pos.offset(button.facing.opposite().block_face()),
-                        ),
-                    }
-                }
-            }
-            _ => {}
         }
     }
 
@@ -668,41 +522,10 @@ impl Block {
             return;
         }
         if let Block::RedstoneWire { wire } = self {
-            let new_state = wire.on_neighbor_changed(world, pos, direction);
+            let new_state = redstone::wire::on_neighbor_changed(wire, world, pos, direction);
             if world.set_block(pos, Block::RedstoneWire { wire: new_state }) {
-                Block::update_wire_neighbors(world, pos);
+                redstone::update_wire_neighbors(world, pos);
             }
-        }
-    }
-
-    fn update_wire_neighbors(world: &mut impl World, pos: BlockPos) {
-        for direction in &BlockFace::values() {
-            let neighbor_pos = pos.offset(*direction);
-            let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
-            for n_direction in &BlockFace::values() {
-                let n_neighbor_pos = neighbor_pos.offset(*n_direction);
-                let block = world.get_block(n_neighbor_pos);
-                block.update(world, n_neighbor_pos);
-            }
-        }
-    }
-
-    pub fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
-        for direction in &BlockFace::values() {
-            let neighbor_pos = pos.offset(*direction);
-            let block = world.get_block(neighbor_pos);
-            block.update(world, neighbor_pos);
-
-            // Also update diagonal blocks
-
-            let up_pos = neighbor_pos.offset(BlockFace::Top);
-            let up_block = world.get_block(up_pos);
-            up_block.update(world, up_pos);
-
-            let down_pos = neighbor_pos.offset(BlockFace::Bottom);
-            let down_block = world.get_block(down_pos);
-            down_block.update(world, down_pos);
         }
     }
 

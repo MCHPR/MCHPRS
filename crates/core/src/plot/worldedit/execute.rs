@@ -3,6 +3,7 @@ use crate::blocks::{Block, FlipDirection, RotateAmt};
 use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::config::CONFIG;
 use crate::player::PacketSender;
+use crate::redstone;
 use crate::utils::HyphenatedUUID;
 use mchprs_blocks::block_entities::InventoryEntry;
 use mchprs_blocks::items::{Item, ItemStack};
@@ -997,7 +998,7 @@ pub(super) fn execute_update(ctx: CommandExecuteContext<'_>) {
             for z in operation.z_range() {
                 let block_pos = BlockPos::new(x, y, z);
                 let block = ctx.plot.get_block(block_pos);
-                block.update(ctx.plot, block_pos);
+                redstone::update(block, ctx.plot, block_pos);
             }
         }
     }

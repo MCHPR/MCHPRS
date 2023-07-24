@@ -7,6 +7,7 @@ use super::Pass;
 use crate::blocks::{Block, ButtonFace, LeverFace};
 use crate::redpiler::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
 use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::redstone::wire;
 use crate::world::World;
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use petgraph::visit::NodeIndexable;
@@ -127,10 +128,11 @@ impl<'a, W: World> InputSearchState<'a, W> {
                         _ => {
                             let direction = side.to_direction();
                             if search_wire
-                                && !wire
-                                    .get_regulated_sides(self.world, pos)
-                                    .get_current_side(direction.opposite())
-                                    .is_none()
+                                && !wire::get_current_side(
+                                    wire::get_regulated_sides(wire, self.world, pos),
+                                    direction.opposite(),
+                                )
+                                .is_none()
                             {
                                 self.search_wire(start_node, pos, link_ty, distance);
                             }
@@ -151,10 +153,11 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 _ => {
                     let direction = side.to_direction();
                     if search_wire
-                        && !wire
-                            .get_regulated_sides(self.world, pos)
-                            .get_current_side(direction.opposite())
-                            .is_none()
+                        && !wire::get_current_side(
+                            wire::get_regulated_sides(wire, self.world, pos),
+                            direction.opposite(),
+                        )
+                        .is_none()
                     {
                         self.search_wire(start_node, pos, link_ty, distance);
                     }
