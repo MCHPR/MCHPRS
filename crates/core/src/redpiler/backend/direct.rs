@@ -250,14 +250,15 @@ impl TickScheduler {
     const NUM_PRIORITIES: usize = 4;
 
     fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
-        for (delay, queues) in self.queues_deque.iter().enumerate() {
+        for (idx, queues) in self.queues_deque.iter().enumerate() {
+            let delay = if self.pos >= idx { idx + 16 } else { idx } - self.pos;
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
                     let Some((pos, _)) = blocks[node.index()] else {
                         warn!("Cannot schedule tick for node {:?} because block information is missing", node);
                         continue;
                     };
-                    world.schedule_tick(pos, delay as u32 + 1, priority);
+                    world.schedule_tick(pos, delay as u32, priority);
                 }
             }
         }
@@ -411,7 +412,13 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, true, 15);
                         if !should_be_powered {
                             let node = &mut self.nodes[node_id];
-                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, TickPriority::Higher);
+                            schedule_tick(
+                                &mut self.scheduler,
+                                node_id,
+                                node,
+                                delay as usize,
+                                TickPriority::Higher,
+                            );
                         }
                     }
                 }
@@ -423,7 +430,13 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, true, 15);
                         if !should_be_powered {
                             let node = &mut self.nodes[node_id];
-                            schedule_tick(&mut self.scheduler, node_id, node, delay as usize, TickPriority::Higher);
+                            schedule_tick(
+                                &mut self.scheduler,
+                                node_id,
+                                node,
+                                delay as usize,
+                                TickPriority::Higher,
+                            );
                         }
                     }
                 }
@@ -495,14 +508,13 @@ impl JITBackend for DirectBackend {
             }
         }
 
-        let queues = self.scheduler.queues_this_tick();
         for entry in ticks {
             if let Some(node) = self.pos_map.get(&entry.pos) {
                 self.scheduler
                     .schedule_tick(*node, entry.ticks_left as usize, entry.tick_priority);
+                self.nodes[*node].pending_tick = true;
             }
         }
-        self.scheduler.end_tick(queues);
         // Dot file output
         // println!("{}", self);
     }
