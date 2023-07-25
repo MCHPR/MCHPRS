@@ -273,6 +273,7 @@ impl TickScheduler {
     }
 
     fn queues_this_tick(&mut self) -> Queues {
+        self.pos = (self.pos + 1) & 15;
         mem::take(&mut self.queues_deque[self.pos])
     }
 
@@ -281,8 +282,6 @@ impl TickScheduler {
             queue.clear();
         }
         self.queues_deque[self.pos] = queues;
-
-        self.pos = (self.pos + 1) & 15;
     }
 
     fn priorities() -> [TickPriority; Self::NUM_PRIORITIES] {
