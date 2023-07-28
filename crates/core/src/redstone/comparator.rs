@@ -7,7 +7,7 @@ use mchprs_world::TickPriority;
 fn get_power_on_side(world: &impl World, pos: BlockPos, side: BlockDirection) -> u8 {
     let side_pos = pos.offset(side.block_face());
     let side_block = world.get_block(side_pos);
-    if side_block.is_diode() {
+    if super::is_diode(side_block) {
         super::get_weak_power(side_block, world, side_pos, side.block_face(), false)
     } else if let Block::RedstoneWire { wire } = side_block {
         wire.power
@@ -29,13 +29,13 @@ fn calculate_input_strength(comp: RedstoneComparator, world: &impl World, pos: B
     let base_input_strength = super::diode_get_input_strength(world, pos, comp.facing);
     let input_pos = pos.offset(comp.facing.block_face());
     let input_block = world.get_block(input_pos);
-    if input_block.has_comparator_override() {
-        input_block.get_comparator_override(world, input_pos)
+    if super::has_comparator_override(input_block) {
+        super::get_comparator_override(input_block, world, input_pos)
     } else if base_input_strength < 15 && input_block.is_solid() {
         let far_input_pos = input_pos.offset(comp.facing.block_face());
         let far_input_block = world.get_block(far_input_pos);
-        if far_input_block.has_comparator_override() {
-            far_input_block.get_comparator_override(world, far_input_pos)
+        if super::has_comparator_override(far_input_block) {
+            super::get_comparator_override(far_input_block, world, far_input_pos)
         } else {
             base_input_strength
         }
@@ -100,7 +100,7 @@ pub fn update(comp: RedstoneComparator, world: &mut impl World, pos: BlockPos) {
         };
     if output_strength != old_strength || comp.powered != should_be_powered(comp, world, pos) {
         let front_block = world.get_block(pos.offset(comp.facing.opposite().block_face()));
-        let priority = if front_block.is_diode() {
+        let priority = if super::is_diode(front_block) {
             TickPriority::High
         } else {
             TickPriority::Normal

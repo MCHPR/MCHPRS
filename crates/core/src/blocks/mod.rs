@@ -110,45 +110,6 @@ impl Block {
         )
     }
 
-    pub fn has_comparator_override(self) -> bool {
-        matches!(
-            self,
-            Block::Barrel { .. }
-                | Block::Furnace { .. }
-                | Block::Hopper { .. }
-                | Block::Cauldron { .. }
-                | Block::Composter { .. }
-                | Block::Cake { .. }
-        )
-    }
-
-    pub fn get_comparator_override(self, world: &impl World, pos: BlockPos) -> u8 {
-        match self {
-            Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
-                if let Some(BlockEntity::Container {
-                    comparator_override,
-                    ..
-                }) = world.get_block_entity(pos)
-                {
-                    *comparator_override
-                } else {
-                    0
-                }
-            }
-            Block::Cauldron { level } => level,
-            Block::Composter { level } => level,
-            Block::Cake { bites } => 14 - 2 * bites,
-            _ => 0,
-        }
-    }
-
-    pub fn is_diode(self) -> bool {
-        matches!(
-            self,
-            Block::RedstoneRepeater { .. } | Block::RedstoneComparator { .. }
-        )
-    }
-
     pub fn can_place_block_in(self) -> bool {
         matches!(self.get_id(),
             0             // Air
@@ -245,7 +206,7 @@ impl Block {
                 }
                 ActionResult::Success
             }
-            b if b.has_comparator_override() => {
+            b if b.has_block_entity() => {
                 // Open container
                 let block_entity = world.get_block_entity(pos);
                 if let Some(BlockEntity::Container { inventory, ty, .. }) = block_entity {

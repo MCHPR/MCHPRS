@@ -308,3 +308,42 @@ pub fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
         update(down_block, world, down_pos);
     }
 }
+
+pub fn has_comparator_override(block: Block) -> bool {
+    matches!(
+        block,
+        Block::Barrel { .. }
+            | Block::Furnace { .. }
+            | Block::Hopper { .. }
+            | Block::Cauldron { .. }
+            | Block::Composter { .. }
+            | Block::Cake { .. }
+    )
+}
+
+pub fn get_comparator_override(block: Block, world: &impl World, pos: BlockPos) -> u8 {
+    match block {
+        Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
+            if let Some(BlockEntity::Container {
+                comparator_override,
+                ..
+            }) = world.get_block_entity(pos)
+            {
+                *comparator_override
+            } else {
+                0
+            }
+        }
+        Block::Cauldron { level } => level,
+        Block::Composter { level } => level,
+        Block::Cake { bites } => 14 - 2 * bites,
+        _ => 0,
+    }
+}
+
+pub fn is_diode(block: Block) -> bool {
+    matches!(
+        block,
+        Block::RedstoneRepeater { .. } | Block::RedstoneComparator { .. }
+    )
+}

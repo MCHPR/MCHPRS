@@ -25,7 +25,7 @@ fn should_be_locked(facing: BlockDirection, world: &impl World, pos: BlockPos) -
 fn get_power_on_side(world: &impl World, pos: BlockPos, side: BlockDirection) -> u8 {
     let side_pos = pos.offset(side.block_face());
     let side_block = world.get_block(side_pos);
-    if side_block.is_diode() {
+    if super::is_diode(side_block) {
         super::get_weak_power(side_block, world, side_pos, side.block_face(), false)
     } else {
         0
@@ -50,7 +50,7 @@ fn schedule_tick(
     should_be_powered: bool,
 ) {
     let front_block = world.get_block(pos.offset(rep.facing.opposite().block_face()));
-    let priority = if front_block.is_diode() {
+    let priority = if super::is_diode(front_block) {
         TickPriority::Highest
     } else if !should_be_powered {
         TickPriority::Higher
