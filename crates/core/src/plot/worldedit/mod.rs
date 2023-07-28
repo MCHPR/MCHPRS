@@ -4,12 +4,12 @@ mod execute;
 mod schematic;
 
 use super::{Plot, PlotWorld};
-use crate::blocks::Block;
 use crate::player::{PacketSender, Player, PlayerPos};
 use crate::world::storage::PalettedBitBuffer;
 use crate::world::World;
 use execute::*;
 use mchprs_blocks::block_entities::{BlockEntity, ContainerType};
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockFacing, BlockPos};
 use mchprs_utils::map;
 use once_cell::sync::Lazy;

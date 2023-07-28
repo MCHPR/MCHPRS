@@ -1,4 +1,4 @@
-use crate::blocks::ComparatorMode;
+use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_blocks::BlockPos;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 

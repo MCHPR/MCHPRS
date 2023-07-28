@@ -1,5 +1,5 @@
-use crate::blocks::{Block, RedstoneRepeater};
 use crate::world::World;
+use mchprs_blocks::blocks::{Block, RedstoneRepeater};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
 

@@ -1,5 +1,4 @@
 use super::Plot;
-use crate::blocks::Block;
 use crate::config::CONFIG;
 use crate::interaction::{self, UseOnBlockContext};
 use crate::player::{PacketSender, PlayerPos, SkinParts};
@@ -7,6 +6,7 @@ use crate::server::Message;
 use crate::utils::HyphenatedUUID;
 use crate::world::World;
 use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntity};
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;

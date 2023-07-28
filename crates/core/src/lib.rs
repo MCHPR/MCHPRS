@@ -2,7 +2,6 @@
 
 #[macro_use]
 mod utils;
-pub mod blocks;
 mod chat;
 mod config;
 mod interaction;

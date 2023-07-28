@@ -1,10 +1,10 @@
-use crate::blocks::*;
 use crate::config::CONFIG;
 use crate::player::Player;
 use crate::plot::PlotWorld;
 use crate::redstone;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::*;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos, SignType};
 use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};

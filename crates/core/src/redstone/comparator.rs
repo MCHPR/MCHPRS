@@ -1,6 +1,6 @@
-use crate::blocks::{Block, ComparatorMode, RedstoneComparator};
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::{Block, ComparatorMode, RedstoneComparator};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
 

@@ -1,8 +1,8 @@
 use super::Pass;
-use crate::blocks::ComparatorMode;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::world::World;
+use mchprs_blocks::blocks::ComparatorMode;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
 use tracing::trace;

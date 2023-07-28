@@ -6,9 +6,9 @@ pub mod comparator;
 pub mod repeater;
 pub mod wire;
 
-use crate::blocks::{Block, ButtonFace, LeverFace};
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
 

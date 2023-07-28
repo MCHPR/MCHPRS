@@ -1,6 +1,6 @@
 mod props;
 
-use mchprs_blocks::{BlockColorVariant, BlockDirection, BlockFacing, BlockProperty, SignType};
+use crate::{BlockColorVariant, BlockDirection, BlockFacing, BlockProperty, SignType};
 use mchprs_proc_macros::BlockTransform;
 pub use props::*;
 use std::collections::HashMap;

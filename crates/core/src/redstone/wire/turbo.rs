@@ -2,9 +2,9 @@
 //! the accelorator created by theosib. For more information, see:
 //! https://bugs.mojang.com/browse/MC-81098.
 
-use crate::blocks::{Block, RedstoneWire};
 use crate::redstone;
 use crate::world::World;
+use mchprs_blocks::blocks::{Block, RedstoneWire};
 use mchprs_blocks::{BlockFace, BlockPos};
 use std::collections::HashMap;
 

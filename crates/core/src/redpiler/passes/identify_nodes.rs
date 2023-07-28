@@ -8,12 +8,12 @@
 //! There are no requirements for this pass.
 
 use super::Pass;
-use crate::blocks::{Block, RedstoneComparator, RedstoneRepeater};
 use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeState, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::redstone;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::{Block, RedstoneComparator, RedstoneRepeater};
 use mchprs_blocks::BlockPos;
 
 pub struct IdentifyNodes;

@@ -1,8 +1,8 @@
 mod turbo;
 
-use crate::blocks::{Block, RedstoneWire, RedstoneWireSide};
 use crate::interaction::ActionResult;
 use crate::world::World;
+use mchprs_blocks::blocks::{Block, RedstoneWire, RedstoneWireSide};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use turbo::RedstoneWireTurbo;
 

@@ -6,7 +6,6 @@ mod packet_handlers;
 mod scoreboard;
 pub mod worldedit;
 
-use crate::blocks::Block;
 use crate::chat::ChatComponent;
 use crate::config::CONFIG;
 use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
@@ -19,6 +18,7 @@ use crate::world::World;
 use anyhow::Context;
 use bus::BusReader;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::SlotData;

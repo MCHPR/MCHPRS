@@ -1,11 +1,11 @@
 use super::*;
-use crate::blocks::{Block, FlipDirection, RotateAmt};
 use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::config::CONFIG;
 use crate::player::PacketSender;
 use crate::redstone;
 use crate::utils::HyphenatedUUID;
 use mchprs_blocks::block_entities::InventoryEntry;
+use mchprs_blocks::blocks::{Block, FlipDirection, RotateAmt};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
