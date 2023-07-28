@@ -5,7 +5,7 @@ mod utils;
 pub mod blocks;
 mod chat;
 mod config;
-mod items;
+mod interaction;
 mod permissions;
 mod player;
 pub mod plot;

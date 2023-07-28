@@ -59,7 +59,7 @@ impl ComparatorMode {
         }
     }
 
-    pub(super) fn toggle(self) -> ComparatorMode {
+    pub fn toggle(self) -> ComparatorMode {
         match self {
             ComparatorMode::Subtract => ComparatorMode::Compare,
             ComparatorMode::Compare => ComparatorMode::Subtract,
@@ -96,11 +96,7 @@ pub struct RedstoneComparator {
 }
 
 impl RedstoneComparator {
-    pub(super) fn new(
-        facing: BlockDirection,
-        mode: ComparatorMode,
-        powered: bool,
-    ) -> RedstoneComparator {
+    pub fn new(facing: BlockDirection, mode: ComparatorMode, powered: bool) -> RedstoneComparator {
         RedstoneComparator {
             facing,
             mode,
@@ -167,7 +163,7 @@ pub struct Lever {
 }
 
 impl Lever {
-    pub(super) fn new(face: LeverFace, facing: BlockDirection, powered: bool) -> Lever {
+    pub fn new(face: LeverFace, facing: BlockDirection, powered: bool) -> Lever {
         Lever {
             face,
             facing,
@@ -234,7 +230,7 @@ pub struct StoneButton {
 }
 
 impl StoneButton {
-    pub(super) fn new(face: ButtonFace, facing: BlockDirection, powered: bool) -> StoneButton {
+    pub fn new(face: ButtonFace, facing: BlockDirection, powered: bool) -> StoneButton {
         StoneButton {
             face,
             facing,
