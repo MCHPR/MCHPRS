@@ -1,7 +1,7 @@
 pub mod storage;
 
-use crate::blocks::Block;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickPriority;
 use storage::Chunk;

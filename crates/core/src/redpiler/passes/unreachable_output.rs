@@ -4,15 +4,15 @@
 //! comparator is equal to the difference of the maximum side input and the maximum default input.
 //! Outgoing edges that have a weight greater than or equal to the maxiumum output of the
 //! comparator can be safely removed.
-//! 
+//!
 //! Basically, links from comparators that could never possibly output a signal great enough that
 //! it won't be zero'd out by the weight of the link get removed.
 
 use super::Pass;
-use crate::blocks::ComparatorMode;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::world::World;
+use mchprs_blocks::blocks::ComparatorMode;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
 

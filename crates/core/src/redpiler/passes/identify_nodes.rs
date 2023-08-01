@@ -8,11 +8,12 @@
 //! There are no requirements for this pass.
 
 use super::Pass;
-use crate::blocks::Block;
 use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeState, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::redstone;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::{Block, RedstoneComparator, RedstoneRepeater};
 use mchprs_blocks::BlockPos;
 
 pub struct IdentifyNodes;
@@ -55,16 +56,19 @@ fn for_pos<W: World>(ignore_wires: bool, world: &W, graph: &mut CompileGraph, po
         return;
     };
 
-    let facing_diode = if let Block::RedstoneRepeater { repeater } = block {
-        world
-            .get_block(pos.offset(repeater.facing.opposite().block_face()))
-            .is_diode()
-    } else if let Block::RedstoneComparator { comparator } = block {
-        world
-            .get_block(pos.offset(comparator.facing.opposite().block_face()))
-            .is_diode()
-    } else {
-        false
+    let facing_diode = match block {
+        Block::RedstoneRepeater {
+            repeater: RedstoneRepeater { facing, .. },
+            ..
+        }
+        | Block::RedstoneComparator {
+            comparator: RedstoneComparator { facing, .. },
+            ..
+        } => {
+            let facing_block = world.get_block(pos.offset(facing.opposite().block_face()));
+            redstone::is_diode(facing_block)
+        }
+        _ => false,
     };
 
     if ignore_wires && ty == NodeType::Wire {
@@ -116,9 +120,9 @@ fn identify_block<W: World>(
         }
         Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
         Block::RedstoneBlock {} => (NodeType::Constant, NodeState::ss(15)),
-        block if block.has_comparator_override() => (
+        block if redstone::has_comparator_override(block) => (
             NodeType::Constant,
-            NodeState::ss(block.get_comparator_override(world, pos)),
+            NodeState::ss(redstone::get_comparator_override(block, world, pos)),
         ),
         _ => return None,
     };

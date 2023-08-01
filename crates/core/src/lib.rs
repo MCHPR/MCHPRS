@@ -2,15 +2,15 @@
 
 #[macro_use]
 mod utils;
-pub mod blocks;
 mod chat;
 mod config;
-mod items;
+mod interaction;
 mod permissions;
 mod player;
 pub mod plot;
 mod profile;
 pub mod redpiler;
+pub mod redstone;
 pub mod server;
 pub mod world;
 

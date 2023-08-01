@@ -1,12 +1,12 @@
 use super::Plot;
-use crate::blocks::Block;
 use crate::config::CONFIG;
-use crate::items::{self, UseOnBlockContext};
+use crate::interaction::{self, UseOnBlockContext};
 use crate::player::{PacketSender, PlayerPos, SkinParts};
 use crate::server::Message;
 use crate::utils::HyphenatedUUID;
 use crate::world::World;
 use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntity};
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
@@ -242,7 +242,7 @@ impl ServerBoundPacketHandler for Plot {
         }
 
         if let Some(item) = item_in_hand {
-            let cancelled = items::use_item_on_block(
+            let cancelled = interaction::use_item_on_block(
                 &item,
                 &mut self.world,
                 UseOnBlockContext {
@@ -261,7 +261,13 @@ impl ServerBoundPacketHandler for Plot {
 
         let block = self.world.get_block(block_pos);
         if !self.players[player].crouching {
-            block.on_use(&mut self.world, &mut self.players[player], block_pos, None);
+            interaction::on_use(
+                block,
+                &mut self.world,
+                &mut self.players[player],
+                block_pos,
+                None,
+            );
             self.world.flush_block_changes();
         }
     }
@@ -490,7 +496,7 @@ impl ServerBoundPacketHandler for Plot {
 
             self.reset_redpiler();
 
-            block.destroy(&mut self.world, block_pos);
+            interaction::destroy(block, &mut self.world, block_pos);
             self.world.flush_block_changes();
 
             let effect = CEffect {

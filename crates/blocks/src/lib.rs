@@ -1,4 +1,5 @@
 pub mod block_entities;
+pub mod blocks;
 pub mod items;
 
 pub use mchprs_proc_macros::BlockProperty;

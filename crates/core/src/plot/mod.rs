@@ -6,11 +6,11 @@ mod packet_handlers;
 mod scoreboard;
 pub mod worldedit;
 
-use crate::blocks::Block;
 use crate::chat::ChatComponent;
 use crate::config::CONFIG;
 use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
+use crate::redstone;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
 use crate::world::storage::Chunk;
@@ -18,6 +18,7 @@ use crate::world::World;
 use anyhow::Context;
 use bus::BusReader;
 use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::SlotData;
@@ -255,9 +256,7 @@ impl Plot {
         }
         while self.world.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
             let entry = self.world.to_be_ticked.remove(0);
-            self.world
-                .get_block(entry.pos)
-                .tick(&mut self.world, entry.pos);
+            redstone::tick(self.world.get_block(entry.pos), &mut self.world, entry.pos);
         }
     }
 
@@ -317,8 +316,7 @@ impl Plot {
 
     fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
         if self.redpiler.is_active() {
-            self.redpiler
-                .set_pressure_plate(pos, powered);
+            self.redpiler.set_pressure_plate(pos, powered);
             return;
         }
 
@@ -327,8 +325,8 @@ impl Plot {
             Block::StonePressurePlate { .. } => {
                 self.world
                     .set_block(pos, Block::StonePressurePlate { powered });
-                Block::update_surrounding_blocks(&mut self.world, pos);
-                Block::update_surrounding_blocks(&mut self.world, pos.offset(BlockFace::Bottom));
+                redstone::update_surrounding_blocks(&mut self.world, pos);
+                redstone::update_surrounding_blocks(&mut self.world, pos.offset(BlockFace::Bottom));
             }
             _ => warn!("Block at {} is not a pressure plate", pos),
         }
