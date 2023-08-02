@@ -34,10 +34,10 @@ fn make_backup(path: impl AsRef<Path>) -> Result<(), PlotLoadError> {
     Ok(())
 }
 
-pub fn try_fix<const SECTIONS: usize>(
+pub fn try_fix<const NUM_SECTIONS: usize>(
     path: impl AsRef<Path>,
     info: FixInfo,
-) -> Result<Option<PlotData<SECTIONS>>, PlotLoadError> {
+) -> Result<Option<PlotData<NUM_SECTIONS>>, PlotLoadError> {
     let result = match info {
         FixInfo::InvalidHeader => {
             let data = fs::read(&path)?;

@@ -64,9 +64,9 @@ pub struct ChunkSectionData {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ChunkData<const SECTIONS: usize> {
+pub struct ChunkData<const NUM_SECTIONS: usize> {
     #[serde(with = "BigArray")]
-    pub sections: [Option<ChunkSectionData>; SECTIONS],
+    pub sections: [Option<ChunkSectionData>; NUM_SECTIONS],
     pub block_entities: FxHashMap<BlockPos, BlockEntity>,
 }
 
@@ -86,14 +86,16 @@ impl fmt::Display for Tps {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PlotData<const SECTIONS: usize> {
+pub struct PlotData<const NUM_CHUNK_SECTIONS: usize> {
     pub tps: Tps,
-    pub chunk_data: Vec<ChunkData<SECTIONS>>,
+    pub chunk_data: Vec<ChunkData<NUM_CHUNK_SECTIONS>>,
     pub pending_ticks: Vec<TickEntry>,
 }
 
-impl<const SECTIONS: usize> PlotData<SECTIONS> {
-    pub fn load_from_file(path: impl AsRef<Path>) -> Result<PlotData<SECTIONS>, PlotLoadError> {
+impl<const NUM_CHUNK_SECTIONS: usize> PlotData<NUM_CHUNK_SECTIONS> {
+    pub fn load_from_file(
+        path: impl AsRef<Path>,
+    ) -> Result<PlotData<NUM_CHUNK_SECTIONS>, PlotLoadError> {
         let mut file = File::open(&path)?;
 
         let mut magic = [0; 8];
