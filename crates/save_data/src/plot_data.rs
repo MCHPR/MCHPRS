@@ -7,6 +7,7 @@ use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -63,8 +64,9 @@ pub struct ChunkSectionData {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ChunkData {
-    pub sections: [Option<ChunkSectionData>; 16],
+pub struct ChunkData<const SECTIONS: usize> {
+    #[serde(with = "BigArray")]
+    pub sections: [Option<ChunkSectionData>; SECTIONS],
     pub block_entities: FxHashMap<BlockPos, BlockEntity>,
 }
 
@@ -84,14 +86,14 @@ impl fmt::Display for Tps {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PlotData {
+pub struct PlotData<const SECTIONS: usize> {
     pub tps: Tps,
-    pub chunk_data: Vec<ChunkData>,
+    pub chunk_data: Vec<ChunkData<SECTIONS>>,
     pub pending_ticks: Vec<TickEntry>,
 }
 
-impl PlotData {
-    pub fn load_from_file(path: impl AsRef<Path>) -> Result<PlotData, PlotLoadError> {
+impl<const SECTIONS: usize> PlotData<SECTIONS> {
+    pub fn load_from_file(path: impl AsRef<Path>) -> Result<PlotData<SECTIONS>, PlotLoadError> {
         let mut file = File::open(&path)?;
 
         let mut magic = [0; 8];

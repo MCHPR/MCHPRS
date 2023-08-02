@@ -24,7 +24,7 @@ pub struct PreHeaderPlotData {
     pub pending_ticks: Vec<TickEntry>,
 }
 
-pub fn try_fix(data: &[u8]) -> Option<PlotData> {
+pub fn try_fix<const SECTIONS: usize>(data: &[u8]) -> Option<PlotData<SECTIONS>> {
     let old_data: PreHeaderPlotData = bincode::deserialize(data).ok()?;
 
     let data = PlotData {
@@ -36,7 +36,8 @@ pub fn try_fix(data: &[u8]) -> Option<PlotData> {
             .chunk_data
             .into_iter()
             .map(|chunk| {
-                let mut sections: [Option<ChunkSectionData>; 16] = Default::default();
+                const INIT: Option<ChunkSectionData> = None;
+                let mut sections = [INIT; SECTIONS];
                 for (y, section) in chunk.sections.into_iter() {
                     if (y as usize) < sections.len() {
                         sections[y as usize] = Some(section);

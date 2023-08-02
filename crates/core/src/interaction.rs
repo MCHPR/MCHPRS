@@ -1,6 +1,7 @@
 use crate::config::CONFIG;
 use crate::player::Player;
 use crate::plot::PlotWorld;
+use crate::plot::PLOT_BLOCK_HEIGHT;
 use crate::redstone;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
@@ -431,7 +432,7 @@ pub fn use_item_on_block(
         return false;
     }
 
-    if can_place && (0..256).contains(&block_pos.y) {
+    if can_place && (0..PLOT_BLOCK_HEIGHT).contains(&block_pos.y) {
         let block = get_state_for_placement(world, block_pos, item.item_type, &ctx);
 
         match block {

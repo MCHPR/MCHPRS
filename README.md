@@ -52,6 +52,8 @@ The folowing options are available at the toplevel (under no header):
 | `block_in_hitbox` | Allow placing blocks inside of players (hitbox logic is simplified) | true |
 | `auto_redpiler` | Use redpiler automatically | true |
 
+To change the plot size edit the constants defined in [plot/mod.rs](./crates/core/src/plot/mod.rs).
+
 ### LuckPerms
 
 MCHPRS has basic support for LuckPerms with MySQL or MariaDB remote database storage. This implementation has no commands or interface and would have to be manged through LuckPerms running on a proxy (`/lpb`) or other server (`/lp`)
