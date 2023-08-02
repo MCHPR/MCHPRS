@@ -4,13 +4,13 @@ use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::world::World;
 use petgraph::visit::NodeIndexable;
 use petgraph::Direction;
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 pub struct ConstantCoalesce;
 
 impl<W: World> Pass<W> for ConstantCoalesce {
     fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
-        let mut constant_nodes = HashMap::new();
+        let mut constant_nodes = FxHashMap::default();
 
         for i in 0..graph.node_bound() {
             let idx = NodeIdx::new(i);

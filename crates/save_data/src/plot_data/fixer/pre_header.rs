@@ -6,13 +6,14 @@ use crate::plot_data::{ChunkData, ChunkSectionData, PlotData, Tps};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
+use rustc_hash::FxHashMap;
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 #[derive(Deserialize)]
 pub struct PreHeaderChunkData {
     sections: BTreeMap<u8, ChunkSectionData>,
-    block_entities: HashMap<BlockPos, BlockEntity>,
+    block_entities: FxHashMap<BlockPos, BlockEntity>,
 }
 
 #[derive(Deserialize)]

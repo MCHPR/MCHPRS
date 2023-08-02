@@ -5,8 +5,8 @@ use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -65,7 +65,7 @@ pub struct ChunkSectionData {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ChunkData {
     pub sections: [Option<ChunkSectionData>; 16],
-    pub block_entities: HashMap<BlockPos, BlockEntity>,
+    pub block_entities: FxHashMap<BlockPos, BlockEntity>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]

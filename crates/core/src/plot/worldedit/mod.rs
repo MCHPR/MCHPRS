@@ -15,6 +15,7 @@ use mchprs_utils::map;
 use once_cell::sync::Lazy;
 use rand::Rng;
 use regex::Regex;
+use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::RangeInclusive;
@@ -765,7 +766,7 @@ pub struct WorldEditClipboard {
     pub size_y: u32,
     pub size_z: u32,
     pub data: PalettedBitBuffer,
-    pub block_entities: HashMap<BlockPos, BlockEntity>,
+    pub block_entities: FxHashMap<BlockPos, BlockEntity>,
 }
 
 #[derive(Clone, Debug)]
@@ -985,7 +986,7 @@ fn create_clipboard(
         size_y,
         size_z,
         data: PalettedBitBuffer::new((size_x * size_y * size_z) as usize, 9),
-        block_entities: HashMap::new(),
+        block_entities: FxHashMap::default(),
     };
     let mut i = 0;
     for y in start_pos.y..=end_pos.y {

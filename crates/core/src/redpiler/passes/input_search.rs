@@ -11,7 +11,8 @@ use crate::world::World;
 use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use petgraph::visit::NodeIndexable;
-use std::collections::{HashMap, VecDeque};
+use rustc_hash::FxHashMap;
+use std::collections::VecDeque;
 
 pub struct InputSearch;
 
@@ -35,12 +36,12 @@ impl<W: World> Pass<W> for InputSearch {
 struct InputSearchState<'a, W: World> {
     world: &'a W,
     graph: &'a mut CompileGraph,
-    pos_map: HashMap<BlockPos, NodeIdx>,
+    pos_map: FxHashMap<BlockPos, NodeIdx>,
 }
 
 impl<'a, W: World> InputSearchState<'a, W> {
     fn new(world: &'a W, graph: &'a mut CompileGraph) -> InputSearchState<'a, W> {
-        let mut pos_map = HashMap::new();
+        let mut pos_map = FxHashMap::default();
         for id in graph.node_indices() {
             let (pos, _) = graph[id].block.unwrap();
             pos_map.insert(pos, id);
@@ -174,7 +175,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
         mut distance: u8,
     ) {
         let mut queue: VecDeque<BlockPos> = VecDeque::new();
-        let mut discovered = HashMap::new();
+        let mut discovered = FxHashMap::default();
 
         discovered.insert(root_pos, distance);
         queue.push_back(root_pos);

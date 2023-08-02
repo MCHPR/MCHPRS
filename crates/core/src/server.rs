@@ -20,9 +20,9 @@ use mchprs_network::packets::serverbound::{
 use mchprs_network::packets::{PacketEncoderExt, SlotData};
 use mchprs_network::{NetworkServer, NetworkState, PlayerPacketSender};
 use mchprs_utils::map;
+use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
@@ -122,7 +122,7 @@ pub struct MinecraftServer {
     broadcaster: Bus<BroadcastMessage>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
-    online_players: HashMap<u128, PlayerListEntry>,
+    online_players: FxHashMap<u128, PlayerListEntry>,
     running_plots: Vec<PlotListEntry>,
     whitelist: Option<Vec<WhitelistEntry>>,
 }
@@ -177,7 +177,7 @@ impl MinecraftServer {
             broadcaster: bus,
             receiver: server_rx,
             plot_sender: plot_tx,
-            online_players: HashMap::new(),
+            online_players: FxHashMap::default(),
             running_plots: Vec::new(),
             whitelist,
         };

@@ -6,7 +6,7 @@ use crate::redstone;
 use crate::world::World;
 use mchprs_blocks::blocks::{Block, RedstoneWire};
 use mchprs_blocks::{BlockFace, BlockPos};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 
 fn unwrap_wire(block: Block) -> RedstoneWire {
     match block {
@@ -55,7 +55,7 @@ impl UpdateNode {
 
 pub(super) struct RedstoneWireTurbo {
     nodes: Vec<UpdateNode>,
-    node_cache: HashMap<BlockPos, NodeId>,
+    node_cache: FxHashMap<BlockPos, NodeId>,
     update_queue: Vec<Vec<NodeId>>,
     current_walk_layer: u32,
 }
@@ -70,7 +70,7 @@ impl RedstoneWireTurbo {
     fn new() -> RedstoneWireTurbo {
         RedstoneWireTurbo {
             nodes: Vec::new(),
-            node_cache: HashMap::new(),
+            node_cache: FxHashMap::default(),
             update_queue: vec![vec![], vec![], vec![]],
             current_walk_layer: 0,
         }

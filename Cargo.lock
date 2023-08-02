@@ -1378,6 +1378,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rusqlite",
+ "rustc-hash",
  "serde",
  "serde_json",
  "smallvec",
@@ -1414,6 +1415,7 @@ dependencies = [
  "byteorder",
  "mchprs_blocks",
  "mchprs_world",
+ "rustc-hash",
  "serde",
  "thiserror",
 ]

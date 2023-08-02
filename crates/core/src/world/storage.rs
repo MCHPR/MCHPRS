@@ -8,7 +8,7 @@ use mchprs_network::packets::clientbound::{
     CMultiBlockChange, ClientBoundPacket,
 };
 use mchprs_network::packets::{PacketEncoder, PalettedContainer};
-use std::collections::HashMap;
+use rustc_hash::FxHashMap;
 use std::convert::TryInto;
 use std::mem;
 
@@ -406,7 +406,7 @@ pub struct Chunk {
     pub sections: [ChunkSection; 16],
     pub x: i32,
     pub z: i32,
-    pub block_entities: HashMap<BlockPos, BlockEntity>,
+    pub block_entities: FxHashMap<BlockPos, BlockEntity>,
 }
 
 impl Chunk {
@@ -557,7 +557,7 @@ impl Chunk {
             sections: Default::default(),
             x,
             z,
-            block_entities: HashMap::new(),
+            block_entities: FxHashMap::default(),
         }
     }
 
