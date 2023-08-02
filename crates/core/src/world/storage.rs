@@ -1,3 +1,4 @@
+use crate::plot::{PLOT_BLOCK_HEIGHT, PLOT_SECTIONS};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
@@ -10,9 +11,7 @@ use mchprs_network::packets::clientbound::{
 use mchprs_network::packets::{PacketEncoder, PalettedContainer};
 use rustc_hash::FxHashMap;
 use std::convert::TryInto;
-use std::mem::{self, MaybeUninit};
-
-use crate::plot::{PLOT_BLOCK_HEIGHT, PLOT_SECTIONS};
+use std::mem;
 
 #[derive(Clone)]
 pub struct BitBuffer {
@@ -415,8 +414,9 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn encode_packet(&self) -> PacketEncoder {
-        // Equivalent to ceil(log2(x + 1)). See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
-        const HEIGHTMAP_BITS: u8 = (32 - (PLOT_BLOCK_HEIGHT as u32 + 1).leading_zeros()) as u8;
+        // Integer arithmetic trick: ceil(log2(x)) can be calculated with 32 - (x - 1).leading_zeros().
+        // See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
+        const HEIGHTMAP_BITS: u8 = (32 - ((PLOT_BLOCK_HEIGHT as u32 + 1) - 1).leading_zeros()) as u8;
         let mut heightmap_buffer = BitBuffer::create(HEIGHTMAP_BITS, 16 * 16);
         for x in 0..16 {
             for z in 0..16 {
@@ -559,14 +559,8 @@ impl Chunk {
     }
 
     pub fn empty(x: i32, z: i32) -> Chunk {
-        let mut sections: [MaybeUninit<ChunkSection>; PLOT_SECTIONS as usize] =
-            unsafe { MaybeUninit::uninit().assume_init() };
-        for section in &mut sections {
-            section.write(ChunkSection::default());
-        }
-        let sections = unsafe { std::mem::transmute(sections) };
         Chunk {
-            sections,
+            sections: std::array::from_fn(|_| Default::default()),
             x,
             z,
             block_entities: FxHashMap::default(),
