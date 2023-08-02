@@ -173,12 +173,16 @@ impl Plot {
             "compile" | "c" => {
                 let start_time = Instant::now();
                 let args = args.join(" ");
-                let options = CompilerOptions::parse(&args);
+                let mut options = CompilerOptions::parse(&args);
 
                 if options.optimize {
                     let msg = "Redpiler optimization is highly unstable and can break builds. Use with caution!";
                     warn!("{}", msg);
                     self.players[player].send_system_message(msg);
+                }
+                if self.io_only_mode {
+                    options.io_only = true;
+                    self.players[player].send_system_message("Forcing --io-only flag, because io-only mode is active.");
                 }
 
                 self.reset_redpiler();
@@ -491,13 +495,15 @@ impl Plot {
                 let slot = 36 + self.players[player].selected_slot;
                 self.players[player].set_inventory_slot(slot, Some(item));
             }
-            "/togglerenderfilter" | "/togglerf" => {
-                self.render_filter = !self.render_filter;
-                if self.render_filter {
-                    self.players[player].send_system_message("Render filtering has been enabled.");
+            "/toggleioonly" => {
+                self.io_only_mode = !self.io_only_mode;
+                if self.io_only_mode {
+                    self.players[player].send_system_message("IO only mode has been enabled.");
                 } else {
-                    // TODO: Resend all skipped block changes
-                    self.players[player].send_system_message("Render filtering has been disabled.");
+                    self.players[player].send_system_message("IO only mode has been disabled.");
+                    //self.players[player].send_system_message("Warning: Redstone components will look out of sync until they are updated again!");
+                    // TODO: We dont't actually need to resend the world, only updating all block matching the io_only filter would be enough
+                    self.update_view_pos_for_player(player, true);
                 }
             }
             _ => self.players[player].send_error_message("Command not found!"),
@@ -529,7 +535,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49, 53, 60, 61, 63, 65, 66, 67, 68, 72,
+                    47, 49, 53, 60, 61, 63, 65, 66, 67, 68,
                 ],
                 redirect_node: None,
                 name: None,
@@ -1115,21 +1121,21 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 parser: Some(Parser::String(0)),
                 suggestions_type: Some("minecraft:ask_server"),
             },
-            // 65: /togglerenderfilter
+            // 65: /toggleioonly
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
                 children: &[],
                 redirect_node: None,
-                name: Some("togglerenderfilter"),
+                name: Some("toggleioonly"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 66: /togglerf
+            // 66: /toggleautorp
             Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
                 children: &[],
-                redirect_node: Some(65),
-                name: Some("togglerf"),
+                redirect_node: None,
+                name: Some("toggleautorp"),
                 parser: None,
                 suggestions_type: None,
             },
@@ -1175,15 +1181,6 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 children: &[],
                 redirect_node: None,
                 name: Some("reset"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 72: /toggleautorp
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("toggleautorp"),
                 parser: None,
                 suggestions_type: None,
             },
