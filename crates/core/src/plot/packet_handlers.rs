@@ -255,7 +255,7 @@ impl ServerBoundPacketHandler for Plot {
             if cancelled {
                 cancel(self);
             }
-            self.world.flush_block_changes();
+            self.world.flush_block_changes(false);
             return;
         }
 
@@ -268,7 +268,7 @@ impl ServerBoundPacketHandler for Plot {
                 block_pos,
                 None,
             );
-            self.world.flush_block_changes();
+            self.world.flush_block_changes(false);
         }
     }
 
@@ -497,7 +497,7 @@ impl ServerBoundPacketHandler for Plot {
             self.reset_redpiler();
 
             interaction::destroy(block, &mut self.world, block_pos);
-            self.world.flush_block_changes();
+            self.world.flush_block_changes(false);
 
             let effect = CEffect {
                 effect_id: 2001,
