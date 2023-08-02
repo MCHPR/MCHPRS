@@ -3,7 +3,7 @@ use crate::config::CONFIG;
 use crate::permissions;
 use crate::player::{Gamemode, PacketSender, Player};
 use crate::plot::commands::DECLARE_COMMANDS;
-use crate::plot::{self, database, Plot};
+use crate::plot::{self, database, Plot, PLOT_BLOCK_HEIGHT};
 use crate::utils::HyphenatedUUID;
 use backtrace::Backtrace;
 use bus::Bus;
@@ -347,7 +347,7 @@ impl MinecraftServer {
             ultrawarm: 0,
             has_raids: 0,
             min_y: 0,
-            height: 256,
+            height: PLOT_BLOCK_HEIGHT,
             respawn_anchor_works: 0,
             bed_works: 0,
             coordinate_scale: 1.0,

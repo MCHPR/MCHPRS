@@ -49,6 +49,11 @@ pub const PLOT_WIDTH: i32 = 2i32.pow(PLOT_SCALE);
 pub const PLOT_BLOCK_WIDTH: i32 = PLOT_WIDTH * 16;
 pub const NUM_CHUNKS: usize = PLOT_WIDTH.pow(2) as usize;
 
+/// The height of the world in sections (Default: 16, Max: 127)
+pub const PLOT_SECTIONS: usize = 16;
+/// The plot height in blocks
+pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
+
 pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 
 pub struct Plot {
@@ -126,7 +131,11 @@ impl PlotWorld {
     pub fn get_corners(&self) -> (BlockPos, BlockPos) {
         const W: i32 = PLOT_BLOCK_WIDTH;
         let first_pos = BlockPos::new(self.x * W, 0, self.z * W);
-        let second_pos = BlockPos::new((self.x + 1) * W - 1, 255, (self.z + 1) * W - 1);
+        let second_pos = BlockPos::new(
+            (self.x + 1) * W - 1,
+            PLOT_BLOCK_HEIGHT - 1,
+            (self.z + 1) * W - 1,
+        );
         (first_pos, second_pos)
     }
 }
@@ -140,7 +149,7 @@ impl World for PlotWorld {
         };
 
         // Check to see if block is within height limit
-        if pos.y >= 256 || pos.y < 0 {
+        if pos.y >= PLOT_BLOCK_HEIGHT || pos.y < 0 {
             return false;
         }
 
@@ -459,7 +468,7 @@ impl Plot {
             if !Plot::chunk_in_plot_bounds(self.world.x, self.world.z, chunk_x, chunk_z) {
                 self.players[player_idx]
                     .client
-                    .send_packet(&Chunk::encode_emtpy_packet(chunk_x, chunk_z));
+                    .send_packet(&Chunk::encode_empty_packet(chunk_x, chunk_z));
             } else {
                 let chunk_data = self.world.chunks
                     [self.world.get_chunk_index_for_chunk(chunk_x, chunk_z)]
@@ -938,7 +947,7 @@ impl Plot {
     }
 
     fn from_data(
-        plot_data: PlotData,
+        plot_data: PlotData<PLOT_SECTIONS>,
         x: i32,
         z: i32,
         rx: BusReader<BroadcastMessage>,
@@ -1019,7 +1028,8 @@ impl Plot {
 
     fn save(&mut self) {
         let world = &mut self.world;
-        let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData<PLOT_SECTIONS>> =
+            world.chunks.iter_mut().map(|c| c.save()).collect();
         let data = PlotData {
             tps: self.tps,
             chunk_data,
