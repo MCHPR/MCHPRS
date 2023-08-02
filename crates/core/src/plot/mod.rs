@@ -56,6 +56,9 @@ pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
 
 pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 
+// Include perfect hash set `RENDER_FILTER_BLACKLIST`
+include!(concat!(env!("OUT_DIR"), "/block_filter.rs"));
+
 pub struct Plot {
     pub world: PlotWorld,
     pub players: Vec<Player>,
@@ -86,6 +89,7 @@ pub struct Plot {
     /// If true, the plot will remain running even if no players are on for a long time.
     always_running: bool,
     auto_redpiler: bool,
+    render_filter: bool,
 
     owner: Option<u128>,
     async_rt: Runtime,
@@ -116,15 +120,22 @@ impl PlotWorld {
         Some(((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize)
     }
 
-    fn flush_block_changes(&mut self) {
+    fn flush_block_changes(&mut self, render_filter: bool) {
         for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
+            if render_filter {
+                packet
+                    .records
+                    .retain(|r| !RENDER_FILTER_BLACKLIST.contains(&r.block_id));
+                if packet.records.is_empty() {
+                    continue;
+                }
+            }
+
             let encoded = packet.encode();
             for player in &self.packet_senders {
                 player.send_packet(&encoded);
             }
-        }
-        for chunk in &mut self.chunks {
-            chunk.reset_multi_blocks();
+            packet.records.clear();
         }
     }
 
@@ -898,7 +909,7 @@ impl Plot {
             let time_since_last_world_send = now - self.last_world_send_time;
             if time_since_last_world_send > WORLD_SEND_RATE {
                 self.last_world_send_time = now;
-                self.world.flush_block_changes();
+                self.world.flush_block_changes(self.render_filter);
             }
         } else {
             self.timings.set_ticking(false);
@@ -998,6 +1009,7 @@ impl Plot {
             auto_redpiler: CONFIG.auto_redpiler,
             tps,
             always_running,
+            render_filter: false,
             redpiler: Default::default(),
             timings: TimingsMonitor::new(tps),
             owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0),

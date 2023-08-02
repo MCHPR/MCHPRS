@@ -491,6 +491,14 @@ impl Plot {
                 let slot = 36 + self.players[player].selected_slot;
                 self.players[player].set_inventory_slot(slot, Some(item));
             }
+            "/togglerenderfilter" | "/togglerf" => {
+                self.render_filter = !self.render_filter;
+                if self.render_filter {
+                    self.players[player].send_system_message("Render filtering has been enabled.");
+                } else {
+                    self.players[player].send_system_message("Render filtering has been disabled.");
+                }
+            }
             _ => self.players[player].send_error_message("Command not found!"),
         }
         false

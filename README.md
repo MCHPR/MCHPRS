@@ -89,6 +89,7 @@ server_context = "global"
 | `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. Available flags: --io-only --optimize --export (or in short: -I -O -E) |
 | `/redpiler reset` | `/rp r` | Stops redpiler. |
 | `/toggleautorp` | None | Toggles automatic redpiler compilation. |
+| `/togglerenderfilter` | None | Toggles render filtering (Supress updating non I/O redstone components). |
 | `/stop` | None | Stops the server. |
 
 ### Plot Ownership

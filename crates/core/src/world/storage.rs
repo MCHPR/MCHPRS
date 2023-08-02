@@ -365,7 +365,7 @@ impl ChunkSection {
         }
     }
 
-    fn multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &CMultiBlockChange {
+    fn multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &mut CMultiBlockChange {
         self.multi_block.chunk_x = chunk_x;
         self.multi_block.chunk_y = chunk_y;
         self.multi_block.chunk_z = chunk_z;
@@ -384,7 +384,7 @@ impl ChunkSection {
             self.changed = false;
             self.changed_blocks = [-1; 16 * 16 * 16];
         }
-        &self.multi_block
+        &mut self.multi_block
     }
 }
 
@@ -567,7 +567,7 @@ impl Chunk {
         }
     }
 
-    pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
+    pub fn multi_blocks(&mut self) -> impl Iterator<Item = &mut CMultiBlockChange> {
         let x = self.x;
         let z = self.z;
         self.sections
@@ -578,11 +578,5 @@ impl Chunk {
                     .changed
                     .then(move || section.multi_block(x, y as u32, z))
             })
-    }
-
-    pub fn reset_multi_blocks(&mut self) {
-        for section in &mut self.sections {
-            section.multi_block.records.clear();
-        }
     }
 }
