@@ -11,8 +11,8 @@ use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use once_cell::sync::Lazy;
 use regex::Regex;
+use rustc_hash::FxHashMap;
 use serde::Serialize;
-use std::collections::HashMap;
 use std::fs::{self, File};
 use std::path::PathBuf;
 
@@ -56,7 +56,7 @@ pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
     let offset_x = -nbt_as!(metadata["WEOffsetX"], Value::Int);
     let offset_y = -nbt_as!(metadata["WEOffsetY"], Value::Int);
     let offset_z = -nbt_as!(metadata["WEOffsetZ"], Value::Int);
-    let mut palette: HashMap<u32, u32> = HashMap::new();
+    let mut palette: FxHashMap<u32, u32> = FxHashMap::default();
     for (k, v) in nbt_palette {
         let id = *nbt_as!(v, Value::Int) as u32;
         let block = parse_block(k).with_context(|| format!("error parsing block: {}", k))?;
@@ -87,7 +87,7 @@ pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
         }
     }
     let block_entities = nbt_as!(&nbt["BlockEntities"], Value::List);
-    let mut parsed_block_entities = HashMap::new();
+    let mut parsed_block_entities = FxHashMap::default();
     for block_entity in block_entities {
         let val = nbt_as!(block_entity, Value::Compound);
         let pos_array = nbt_as!(&val["Pos"], Value::IntArray);

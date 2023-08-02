@@ -11,8 +11,8 @@ use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
+use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::collections::HashMap;
 use std::{fmt, mem};
 use tracing::{debug, trace, warn};
 
@@ -152,7 +152,7 @@ impl Node {
         graph: &CompileGraph,
         node_idx: NodeIdx,
         nodes_len: usize,
-        nodes_map: &HashMap<NodeIdx, usize>,
+        nodes_map: &FxHashMap<NodeIdx, usize>,
         stats: &mut FinalGraphStats,
     ) -> Self {
         let node = &graph[node_idx];
@@ -308,7 +308,7 @@ impl TickScheduler {
 pub struct DirectBackend {
     nodes: Nodes,
     blocks: Vec<Option<(BlockPos, Block)>>,
-    pos_map: HashMap<BlockPos, NodeId>,
+    pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
 }
 
@@ -482,7 +482,8 @@ impl JITBackend for DirectBackend {
     }
 
     fn compile(&mut self, graph: CompileGraph, ticks: Vec<TickEntry>) {
-        let mut nodes_map = HashMap::with_capacity(graph.node_count());
+        let mut nodes_map =
+            FxHashMap::with_capacity_and_hasher(graph.node_count(), Default::default());
         for node in graph.node_indices() {
             nodes_map.insert(node, nodes_map.len());
         }
