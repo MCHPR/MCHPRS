@@ -56,8 +56,8 @@ pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
 
 pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 
-// Include perfect hash set `RENDER_FILTER_BLACKLIST`
-include!(concat!(env!("OUT_DIR"), "/block_filter.rs"));
+// Include perfect hash set `IO_ONLY_BLACKLIST`
+include!(concat!(env!("OUT_DIR"), "/io_only_filter.rs"));
 
 pub struct Plot {
     pub world: PlotWorld,
@@ -89,7 +89,7 @@ pub struct Plot {
     /// If true, the plot will remain running even if no players are on for a long time.
     always_running: bool,
     auto_redpiler: bool,
-    render_filter: bool,
+    io_only_mode: bool,
 
     owner: Option<u128>,
     async_rt: Runtime,
@@ -120,12 +120,12 @@ impl PlotWorld {
         Some(((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize)
     }
 
-    fn flush_block_changes(&mut self, render_filter: bool) {
+    fn flush_block_changes(&mut self, io_only_mode: bool) {
         for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
-            if render_filter {
+            if io_only_mode {
                 packet
                     .records
-                    .retain(|r| !RENDER_FILTER_BLACKLIST.contains(&r.block_id));
+                    .retain(|r| !IO_ONLY_BLACKLIST.contains(&r.block_id));
                 if packet.records.is_empty() {
                     continue;
                 }
@@ -909,7 +909,7 @@ impl Plot {
             let time_since_last_world_send = now - self.last_world_send_time;
             if time_since_last_world_send > WORLD_SEND_RATE {
                 self.last_world_send_time = now;
-                self.world.flush_block_changes(self.render_filter);
+                self.world.flush_block_changes(self.io_only_mode);
             }
         } else {
             self.timings.set_ticking(false);
@@ -1009,7 +1009,7 @@ impl Plot {
             auto_redpiler: CONFIG.auto_redpiler,
             tps,
             always_running,
-            render_filter: false,
+            io_only_mode: false,
             redpiler: Default::default(),
             timings: TimingsMonitor::new(tps),
             owner: database::get_plot_owner(x, z).map(|s| s.parse::<HyphenatedUUID>().unwrap().0),
