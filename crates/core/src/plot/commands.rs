@@ -496,6 +496,7 @@ impl Plot {
                 if self.render_filter {
                     self.players[player].send_system_message("Render filtering has been enabled.");
                 } else {
+                    // TODO: Resend all skipped block changes
                     self.players[player].send_system_message("Render filtering has been disabled.");
                 }
             }
@@ -528,7 +529,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49, 53, 60, 61, 63,
+                    47, 49, 53, 60, 61, 63, 65, 66, 67, 68, 72,
                 ],
                 redirect_node: None,
                 name: None,
@@ -1113,6 +1114,78 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 name: Some("filename"),
                 parser: Some(Parser::String(0)),
                 suggestions_type: Some("minecraft:ask_server"),
+            },
+            // 65: /togglerenderfilter
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("togglerenderfilter"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 66: /togglerf
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: &[],
+                redirect_node: Some(65),
+                name: Some("togglerf"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 67: /redpiler
+            Node {
+                flags: CommandFlags::LITERAL.bits() as i8,
+                children: &[69, 70, 71], // Children are compile, inspect, reset
+                redirect_node: None,
+                name: Some("redpiler"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 68: /rp
+            Node {
+                flags: (CommandFlags::REDIRECT | CommandFlags::LITERAL).bits() as i8,
+                children: &[],
+                redirect_node: Some(67), // Redirect to /redpiler
+                name: Some("rp"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 69: /redpiler compile
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("compile"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 70: /redpiler inspect
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("inspect"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 71: /redpiler reset
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("reset"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 72: /toggleautorp
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("toggleautorp"),
+                parser: None,
+                suggestions_type: None,
             },
         ],
         root_index: 0,

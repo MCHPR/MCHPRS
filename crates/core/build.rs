@@ -8,7 +8,7 @@ use mchprs_blocks::blocks::{Block, RedstoneWireSide};
 /// This build script generates a perfect hash set to filter out any unnecessary block changes.
 /// Best used for big redstone screens as it eases the load on the mincraft client's chunk rendering threads, resulting in visually faster updates.
 /// Toggle the filter with //togglerf
-/// Warning: Filtering will cause redstone components to look like they aren't updating. This persists until the affected blocks's chunk is reloaded
+/// Warning: Filtering will cause redstone components to look like they aren't updating. This persists until the affected blocks are changed again or the chunk is reloaded
 fn main() {
     let path = Path::new(&env::var("OUT_DIR").unwrap()).join("block_filter.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
@@ -20,6 +20,11 @@ fn main() {
         let block = Block::from_id(id);
 
         match block {
+            //Block::RedstoneWire { wire }
+            //if wire.north == RedstoneWireSide::None
+            //    && wire.east == RedstoneWireSide::None
+            //    && wire.south == RedstoneWireSide::None
+            //    && wire.west == RedstoneWireSide::None => {}
             Block::RedstoneWire { .. }
             | Block::RedstoneTorch { .. }
             | Block::RedstoneWallTorch { .. }
