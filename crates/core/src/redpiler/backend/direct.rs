@@ -4,6 +4,7 @@ use super::JITBackend;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
+use bitvec::BitArr;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ComparatorMode};
 use mchprs_blocks::BlockPos;
@@ -111,6 +112,7 @@ enum NodeType {
     Trapdoor,
     Wire,
     Constant,
+    Buffer(u8),
 }
 
 // struct is 128 bytes to fit nicely into cachelines
@@ -129,12 +131,16 @@ pub struct Node {
     powered: bool,
     /// Only for repeaters
     locked: bool,
+    // Only for buffers
+    state_queue: BitArr256,
     output_power: u8,
     changed: bool,
     pending_tick: bool,
     is_input: bool,
     is_output: bool,
 }
+
+type BitArr256 = BitArr!(for 256);
 
 impl Node {
     fn from_compile_node(
@@ -200,6 +206,7 @@ impl Node {
             CNodeType::Trapdoor => NodeType::Trapdoor,
             CNodeType::Wire => NodeType::Wire,
             CNodeType::Constant => NodeType::Constant,
+            CNodeType::Buffer(delay) => NodeType::Buffer(delay),
         };
 
         Node {
@@ -210,6 +217,7 @@ impl Node {
             powered: node.state.powered,
             output_power: node.state.output_strength,
             locked: node.state.repeater_locked,
+            state_queue: BitArr256::ZERO,
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
@@ -465,6 +473,9 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     }
                 }
+                NodeType::Buffer(delay) => {
+                    // TODO Implement
+                }
                 _ => warn!("Node {:?} should not be ticked!", node.ty),
             }
         }
@@ -690,6 +701,16 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 node.output_power = input_power;
                 node.changed = true;
             }
+        }
+        NodeType::Buffer(delay) => {
+            // TODO Implement
+            // let node = &mut nodes[node_id];
+            // let should_be_powered = get_bool_input(node, nodes);
+            // if node.powered != should_be_powered {
+            //     if node.state_queue.any() {
+            //         schedule_tick(scheduler, node_id, node, delay as usize, TickPriority::Normal);
+            //     }
+            // }
         }
         _ => {} // panic!("Node {:?} should not be updated!", node.state),
     }

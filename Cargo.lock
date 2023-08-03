@@ -1354,6 +1354,7 @@ dependencies = [
  "backtrace",
  "bincode",
  "bitflags",
+ "bitvec",
  "bus",
  "byteorder",
  "chrono",
