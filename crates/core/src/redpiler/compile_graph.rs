@@ -72,6 +72,8 @@ pub struct CompileNode {
 
     pub facing_diode: bool,
     pub comparator_far_input: Option<u8>,
+    pub is_input: bool,
+    pub is_output: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

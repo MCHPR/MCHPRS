@@ -113,19 +113,6 @@ enum NodeType {
     Constant,
 }
 
-impl NodeType {
-    fn is_io_block(self) -> bool {
-        matches!(
-            self,
-            NodeType::Lamp
-                | NodeType::Button
-                | NodeType::Lever
-                | NodeType::Trapdoor
-                | NodeType::PressurePlate
-        )
-    }
-}
-
 // struct is 128 bytes to fit nicely into cachelines
 // which are usualy 64 bytes, it can vary but is almost always a power of 2
 #[derive(Debug, Clone)]
@@ -145,6 +132,8 @@ pub struct Node {
     output_power: u8,
     changed: bool,
     pending_tick: bool,
+    is_input: bool,
+    is_output: bool,
 }
 
 impl Node {
@@ -225,6 +214,8 @@ impl Node {
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
             changed: false,
+            is_input: node.is_input,
+            is_output: node.is_output,
         }
     }
 }
@@ -355,7 +346,7 @@ impl JITBackend for DirectBackend {
                 world.set_block_entity(pos, block_entity);
             }
 
-            if io_only && !node.ty.is_io_block() {
+            if io_only && !(node.is_input || node.is_output) {
                 world.set_block(pos, block);
             }
         }
@@ -525,7 +516,7 @@ impl JITBackend for DirectBackend {
             let Some((pos, block)) = &mut self.blocks[i] else {
                 continue;
             };
-            if node.changed && (!io_only || node.ty.is_io_block()) {
+            if node.changed && (!io_only || (node.is_input || node.is_output)) {
                 if let Some(powered) = block_powered_mut(block) {
                     *powered = node.powered
                 }
