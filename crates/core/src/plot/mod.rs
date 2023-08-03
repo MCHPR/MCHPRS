@@ -56,8 +56,8 @@ pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
 
 pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
 
-// Include perfect hash set `IO_ONLY_BLACKLIST`
-include!(concat!(env!("OUT_DIR"), "/io_only_filter.rs"));
+// Include perfect hash sets for blocks
+include!(concat!(env!("OUT_DIR"), "/block_filters.rs"));
 
 pub struct Plot {
     pub world: PlotWorld,
@@ -123,9 +123,11 @@ impl PlotWorld {
     fn flush_block_changes(&mut self, io_only_mode: bool) {
         for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
             if io_only_mode {
-                packet
-                    .records
-                    .retain(|r| !IO_ONLY_BLACKLIST.contains(&r.block_id));
+                packet.records.retain(|r| {
+                    !CHANGING_BLOCKS.contains(&r.block_id)
+                        || INPUT_BLOCKS.contains(&r.block_id)
+                        || OUTPUT_BLOCKS.contains(&r.block_id)
+                });
                 if packet.records.is_empty() {
                     continue;
                 }

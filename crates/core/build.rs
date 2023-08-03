@@ -5,39 +5,71 @@ use std::path::Path;
 
 use mchprs_blocks::blocks::Block;
 
-/// This build script generates a perfect hash set to filter out any unnecessary block changes.
-/// Best used for big redstone screens as it eases the load on the mincraft client's chunk rendering threads, resulting in visually faster updates.
-/// Toggle the filter with //toggleioonly
-/// Warning: Filtering will cause redstone components to look like they aren't updating. This persists until the affected blocks are changed again or the chunk is reloaded
+/// This build script generates perfect hash sets to match certain types of blocks.
+/// In non standard cases you may add components to the appropiate match statements.
 fn main() {
-    let path = Path::new(&env::var("OUT_DIR").unwrap()).join("io_only_filter.rs");
+    let path = Path::new(&env::var("OUT_DIR").unwrap()).join("block_filters.rs");
     let mut file = BufWriter::new(File::create(&path).unwrap());
 
-    let mut set = phf_codegen::Set::<u32>::new();
+    let mut input_set = phf_codegen::Set::<u32>::new();
+    let mut output_set = phf_codegen::Set::<u32>::new();
+    let mut changing_set = phf_codegen::Set::<u32>::new();
 
     // Magic number, not sure how many total block states there are, but 2^16 should hopefully be enough
     for id in 0..65536 {
         let block = Block::from_id(id);
 
+        // Matches all blocks that should be considered as ouput components
+        match block {
+            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
+                input_set.entry(id);
+            }
+            _ => {}
+        }
+
+        // Matches all blocks that should be considered as ouput components
+        match block {
+            Block::Lever { .. } | Block::StoneButton { .. } | Block::StonePressurePlate { .. } => {
+                output_set.entry(id);
+            }
+            _ => {}
+        }
+
+        // Matches all blocks that may change state (active redstone components)
         match block {
             Block::RedstoneWire { .. }
+            | Block::Lever { .. }
+            | Block::StoneButton { .. }
             | Block::RedstoneTorch { .. }
             | Block::RedstoneWallTorch { .. }
             | Block::RedstoneRepeater { .. }
-            //| Block::RedstoneLamp { .. }
+            | Block::RedstoneLamp { .. }
             | Block::RedstoneComparator { .. }
             | Block::Observer { .. }
-            //| Block::IronTrapdoor { .. }
-            => {
-                set.entry(id);
+            | Block::StonePressurePlate { .. }
+            | Block::IronTrapdoor { .. } => {
+                changing_set.entry(id);
             }
             _ => {}
         }
     }
+
     write!(
         &mut file,
-        "static IO_ONLY_BLACKLIST: phf::Set<u32> = {};\n",
-        set.build()
+        "pub static INPUT_BLOCKS: phf::Set<u32> = {};\n",
+        input_set.build()
+    )
+    .unwrap();
+    write!(
+        &mut file,
+        "pub static OUTPUT_BLOCKS: phf::Set<u32> = {};\n",
+        output_set.build()
+    )
+    .unwrap();
+    write!(
+        &mut file,
+        "pub static CHANGING_BLOCKS: phf::Set<u32> = {};\n",
+        changing_set.build()
     )
     .unwrap();
 }

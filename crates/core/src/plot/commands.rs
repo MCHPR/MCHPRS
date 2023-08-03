@@ -182,7 +182,9 @@ impl Plot {
                 }
                 if self.io_only_mode {
                     options.io_only = true;
-                    self.players[player].send_system_message("Forcing --io-only flag, because io-only mode is active.");
+                    self.players[player].send_system_message(
+                        "Forcing --io-only flag, because io-only mode is active.",
+                    );
                 }
 
                 self.reset_redpiler();
