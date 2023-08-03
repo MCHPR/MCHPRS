@@ -1,6 +1,7 @@
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_blocks::BlockPos;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
+use std::fmt;
 
 pub type NodeIdx = NodeIndex;
 
@@ -70,6 +71,33 @@ pub struct CompileNode {
     pub is_output: bool,
 }
 
+impl fmt::Display for CompileNode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self.ty {
+                NodeType::Repeater(delay) => format!("Repeater({})", delay),
+                NodeType::Torch => format!("Torch"),
+                NodeType::Comparator(mode) => format!(
+                    "Comparator({})",
+                    match mode {
+                        ComparatorMode::Compare => "Cmp",
+                        ComparatorMode::Subtract => "Sub",
+                    }
+                ),
+                NodeType::Lamp => format!("Lamp"),
+                NodeType::Button => format!("Button"),
+                NodeType::Lever => format!("Lever"),
+                NodeType::PressurePlate => format!("PressurePlate"),
+                NodeType::Trapdoor => format!("Trapdoor"),
+                NodeType::Wire => format!("Wire"),
+                NodeType::Constant => format!("Constant"),
+            }
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LinkType {
     Default,
@@ -99,6 +127,20 @@ impl CompileLink {
             ty: LinkType::Side,
             ss,
         }
+    }
+}
+
+impl fmt::Display for CompileLink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}{}",
+            match self.ty {
+                LinkType::Default => "",
+                LinkType::Side => "S",
+            },
+            self.ss
+        )
     }
 }
 
