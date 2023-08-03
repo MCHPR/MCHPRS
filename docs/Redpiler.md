@@ -52,6 +52,11 @@ Disregarding High-Signal Strength logic, which Redpiler does not support anyways
 
 There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repetears that lock other repeaters. This is very inefficent because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
 
+## The `PruneOrphans` Pass
+
+Any redstone components that do not contribute to the functioning of output components (Trapdoors and Lamps) can be disregarded.
+This pass recusively marks all nodes connected to an output node and removes all remaining unmarked nodes.
+
 ## The `ExportGraph` Pass
 
 This pass is neither a mandatory pass nor an optimization pass. This pass is only run when the `--export` flag is set and serializes the graph into a binary file which can be read by other programs. This can be greatly useful for people who wish to experiement with Redstone and might want a directed weighted graph just like what Redpiler creates. Using this pass, they can utilize Redpiler for their projects.
