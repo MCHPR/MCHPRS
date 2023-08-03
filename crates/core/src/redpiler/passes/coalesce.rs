@@ -18,7 +18,7 @@ impl<W: World> Pass<W> for Coalesce {
             let node = &graph[idx];
             // Comparators depend on the link weight as well as the type,
             // we could implement that later if it's beneficial enough.
-            if matches!(node.ty, NodeType::Comparator(_)) || node.ty.is_output() {
+            if matches!(node.ty, NodeType::Comparator(_)) || node.is_output {
                 continue;
             }
 
