@@ -19,17 +19,17 @@ fn main() {
     for id in 0..65536 {
         let block = Block::from_id(id);
 
-        // Matches all blocks that should be considered as ouput components
+        // Matches all blocks that should be considered as input components
         match block {
-            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
+            Block::Lever { .. } | Block::StoneButton { .. } | Block::StonePressurePlate { .. } => {
                 input_set.entry(id);
             }
             _ => {}
         }
 
-        // Matches all blocks that should be considered as ouput components
+        // Matches all blocks that should be considered as output components
         match block {
-            Block::Lever { .. } | Block::StoneButton { .. } | Block::StonePressurePlate { .. } => {
+            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
                 output_set.entry(id);
             }
             _ => {}
