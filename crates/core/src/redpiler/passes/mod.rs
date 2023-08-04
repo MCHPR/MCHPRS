@@ -6,8 +6,8 @@ mod dedup_links;
 mod export_graph;
 mod identify_nodes;
 mod input_search;
-mod prune_orphans;
 mod line_coalesce;
+mod prune_orphans;
 mod unreachable_output;
 
 use crate::world::World;
