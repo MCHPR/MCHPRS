@@ -41,7 +41,8 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-    Buffer(u8),
+    BinBuffer(u8),
+    HexBuffer(u8),
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]

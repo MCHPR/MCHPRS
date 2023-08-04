@@ -56,7 +56,8 @@ fn convert_node(
             CNodeType::Trapdoor => NodeType::Trapdoor,
             CNodeType::Wire => NodeType::Wire,
             CNodeType::Constant => NodeType::Constant,
-            CNodeType::Buffer(delay) => NodeType::Buffer(delay),
+            CNodeType::BinBuffer(delay) => NodeType::BinBuffer(delay),
+            CNodeType::HexBuffer(delay) => NodeType::HexBuffer(delay),
         },
         block: node.block.map(|(pos, id)| {
             (

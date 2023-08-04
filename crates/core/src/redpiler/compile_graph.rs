@@ -17,7 +17,8 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-    Buffer(u8),
+    BinBuffer(u8),
+    HexBuffer(u8),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -94,7 +95,8 @@ impl fmt::Display for CompileNode {
                 NodeType::Trapdoor => format!("Trapdoor"),
                 NodeType::Wire => format!("Wire"),
                 NodeType::Constant => format!("Constant"),
-                NodeType::Buffer(delay) => format!("Buffer({})", delay),
+                NodeType::BinBuffer(delay) => format!("BinBuffer({})", delay),
+                NodeType::HexBuffer(delay) => format!("HexBuffer({})", delay),
             }
         )
     }

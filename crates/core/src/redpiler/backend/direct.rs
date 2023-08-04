@@ -4,7 +4,6 @@ use super::JITBackend;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
 use crate::world::World;
-use bitvec::BitArr;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ComparatorMode};
 use mchprs_blocks::BlockPos;
@@ -12,6 +11,7 @@ use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
+use ruint::aliases::U256;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::{fmt, mem};
@@ -112,7 +112,8 @@ enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-    Buffer(u8),
+    BinBuffer(u8),
+    HexBuffer(u8),
 }
 
 // struct is 128 bytes to fit nicely into cachelines
@@ -132,15 +133,14 @@ pub struct Node {
     /// Only for repeaters
     locked: bool,
     // Only for buffers
-    state_queue: BitArr256,
+    state_queue: U256,
+
     output_power: u8,
     changed: bool,
     pending_tick: bool,
     is_input: bool,
     is_output: bool,
 }
-
-type BitArr256 = BitArr!(for 256);
 
 impl Node {
     fn from_compile_node(
@@ -206,7 +206,8 @@ impl Node {
             CNodeType::Trapdoor => NodeType::Trapdoor,
             CNodeType::Wire => NodeType::Wire,
             CNodeType::Constant => NodeType::Constant,
-            CNodeType::Buffer(delay) => NodeType::Buffer(delay),
+            CNodeType::BinBuffer(delay) => NodeType::BinBuffer(delay),
+            CNodeType::HexBuffer(delay) => NodeType::HexBuffer(delay),
         };
 
         Node {
@@ -217,7 +218,7 @@ impl Node {
             powered: node.state.powered,
             output_power: node.state.output_strength,
             locked: node.state.repeater_locked,
-            state_queue: BitArr256::ZERO,
+            state_queue: U256::ZERO,
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
@@ -473,8 +474,44 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     }
                 }
-                NodeType::Buffer(delay) => {
-                    // TODO Implement
+                NodeType::BinBuffer(delay) => {
+                    // TODO Check for correctness
+                    let should_be_powered = get_bool_input(node, &self.nodes);
+                    let node = &mut self.nodes[node_id];
+                    node.state_queue >>= 1;
+                    node.state_queue
+                        .set_bit(delay as usize - 1, should_be_powered);
+
+                    if node.powered && !node.state_queue.bit(0) {
+                        self.set_node(node_id, false, 0);
+                    } else if !node.powered && node.state_queue.bit(0) {
+                        self.set_node(node_id, true, 15);
+                    }
+
+                    let node = &mut self.nodes[node_id];
+                    let ones = node.state_queue.count_ones();
+                    if ones != 0 && ones != delay as usize {
+                        schedule_tick(&mut self.scheduler, node_id, node, 1, TickPriority::Highest);
+                    }
+                }
+                NodeType::HexBuffer(delay) => {
+                    // TODO Check for correctness
+                    let (input_power, _) = get_all_input(node, &self.nodes);
+
+                    let node = &mut self.nodes[node_id];
+                    node.state_queue >>= 4;
+                    node.state_queue |= U256::from(input_power) << ((delay as usize - 1) * 4);
+
+                    let old_strength = node.output_power;
+                    let new_strength = node.state_queue.byte(0) & 0xF;
+                    if new_strength != old_strength {
+                        self.set_node(node_id, new_strength > 0, new_strength);
+                    }
+
+                    let node = &mut self.nodes[node_id];
+                    if !are_nibbles_equal(node.state_queue, delay as usize) {
+                        schedule_tick(&mut self.scheduler, node_id, node, 1, TickPriority::Highest);
+                    }
                 }
                 _ => warn!("Node {:?} should not be ticked!", node.ty),
             }
@@ -702,17 +739,31 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 node.changed = true;
             }
         }
-        NodeType::Buffer(delay) => {
-            // TODO Implement
-            // let node = &mut nodes[node_id];
-            // let should_be_powered = get_bool_input(node, nodes);
-            // if node.powered != should_be_powered {
-            //     if node.state_queue.any() {
-            //         schedule_tick(scheduler, node_id, node, delay as usize, TickPriority::Normal);
-            //     }
-            // }
+        NodeType::BinBuffer(delay) => {
+            // TODO Check for correctness
+            if node.pending_tick {
+                return;
+            }
+            let should_be_powered = get_bool_input(node, nodes);
+            let powered = node.state_queue.bit(delay as usize - 1);
+            if should_be_powered != powered {
+                let node = &mut nodes[node_id];
+                schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);
+            }
         }
-        _ => {} // panic!("Node {:?} should not be updated!", node.state),
+        NodeType::HexBuffer(delay) => {
+            // TODO Check for correctness
+            if node.pending_tick {
+                return;
+            }
+            let (new_strength, _) = get_all_input(node, nodes);
+            let old_strength = (node.state_queue >> ((delay as usize - 1) * 4)).byte(0) & 0xF;
+            if new_strength != old_strength {
+                let node = &mut nodes[node_id];
+                schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);
+            }
+        }
+        _ => panic!("Node {:?} should not be updated!", node),
     }
 }
 
@@ -775,4 +826,19 @@ fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_o
         }
         ComparatorMode::Subtract => input_strength.saturating_sub(power_on_sides),
     }
+}
+
+fn are_nibbles_equal(num: U256, n: usize) -> bool {
+    let bytes: [u8; 256 / 8] = num.to_le_bytes();
+    let ref_nibble = bytes[0] & 0xF;
+
+    for i in 1..n {
+        let byte = bytes[i / 2];
+        let nibble = if i % 2 == 0 { byte & 0xF } else { byte >> 4 };
+
+        if nibble != ref_nibble {
+            return false;
+        }
+    }
+    true
 }

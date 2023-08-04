@@ -1,8 +1,6 @@
-//! # [`TransitiveCoalesce`]
+//! # [`LineCoalesce`]
 //!
 // TODO
-
-use std::collections::VecDeque;
 
 use super::Pass;
 use crate::redpiler::compile_graph::{
@@ -14,19 +12,27 @@ use itertools::Itertools;
 use petgraph::Direction;
 use rustc_hash::FxHashSet;
 
-pub struct TransitiveCoalesce;
+pub struct LineCoalesce;
 
-// TODO Increase this to 255 after changing amount of tick queues
-const MAX_DELAY: usize = 15;
+const QUEUE_BITS: usize = 256;
 
-impl<W: World> Pass<W> for TransitiveCoalesce {
+impl<W: World> Pass<W> for LineCoalesce {
     fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
-        let repeater_lines = find_lines(graph, MAX_DELAY + 2, |x| x.ty == NodeType::Repeater(1));
-        for mut line in repeater_lines {
-            if line.len() > 3 {
+        coalesce_1tick_repeater_lines(graph);
+        coalesce_comparator_lines(graph);
+    }
+}
+
+fn coalesce_1tick_repeater_lines(graph: &mut CompileGraph) {
+    let lines = find_lines(graph, |x| x.ty == NodeType::Repeater(1));
+    for line in lines {
+        for line in line.chunks(QUEUE_BITS + 2) {
+            if line.len() >= 4 {
+                let start = line[0];
+                let end = line[line.len() - 1];
                 let delay = (line.len() - 2) as u8;
                 let buffer = graph.add_node(CompileNode {
-                    ty: NodeType::Buffer(delay),
+                    ty: NodeType::BinBuffer(delay),
                     block: None,
                     state: NodeState::default(),
                     facing_diode: false,
@@ -34,8 +40,6 @@ impl<W: World> Pass<W> for TransitiveCoalesce {
                     is_input: false,
                     is_output: false,
                 });
-                let start = line.pop_front().unwrap();
-                let end = line.pop_back().unwrap();
                 graph.add_edge(
                     start,
                     buffer,
@@ -52,7 +56,7 @@ impl<W: World> Pass<W> for TransitiveCoalesce {
                         ss: 0,
                     },
                 );
-                for idx in line {
+                for &idx in &line[1..(line.len() - 1)] {
                     graph.remove_node(idx);
                 }
             }
@@ -60,7 +64,59 @@ impl<W: World> Pass<W> for TransitiveCoalesce {
     }
 }
 
-fn find_lines<F>(graph: &CompileGraph, max_length: usize, predicate: F) -> Vec<VecDeque<NodeIdx>>
+fn coalesce_comparator_lines(graph: &mut CompileGraph) {
+    let lines = find_lines(graph, |x| {
+        matches!(x.ty, NodeType::Comparator(_)) && matches!(x.comparator_far_input, None)
+    });
+    for line in lines {
+        for line in line.chunks(QUEUE_BITS / 4 + 2) {
+            if line.len() >= 4 {
+                let start = line[0];
+                let end = line[line.len() - 1];
+                let delay = (line.len() - 2) as u8;
+                let falloff: u8 = line
+                    .windows(2)
+                    .map(|w| graph.find_edge(w[0], w[1]).unwrap())
+                    .map(|e| graph[e].ss)
+                    .sum();
+                if falloff >= 15 {
+                    // TODO: Remove entire line
+                    continue;
+                }
+                let buffer = graph.add_node(CompileNode {
+                    ty: NodeType::HexBuffer(delay),
+                    block: None,
+                    state: NodeState::default(),
+                    facing_diode: false,
+                    comparator_far_input: None,
+                    is_input: false,
+                    is_output: false,
+                });
+                graph.add_edge(
+                    start,
+                    buffer,
+                    CompileLink {
+                        ty: LinkType::Default,
+                        ss: 0,
+                    },
+                );
+                graph.add_edge(
+                    buffer,
+                    end,
+                    CompileLink {
+                        ty: LinkType::Default,
+                        ss: falloff,
+                    },
+                );
+                for &idx in &line[1..(line.len() - 1)] {
+                    graph.remove_node(idx);
+                }
+            }
+        }
+    }
+}
+
+fn find_lines<F>(graph: &CompileGraph, predicate: F) -> Vec<Vec<NodeIdx>>
 where
     F: Fn(&CompileNode) -> bool,
 {
@@ -69,20 +125,16 @@ where
     let mut lines = vec![];
     for idx in graph.node_indices() {
         if visited.contains(&idx) {
-            println!("Skipped: {:?}", idx);
             continue;
         }
         visited.insert(idx);
         if !(predicate(&graph[idx]) && is_line(graph, idx)) {
-            println!("Not a line: {:?}", idx);
             continue;
         }
-        println!("Found new line: {:?}", idx);
         let mut line = vec![idx];
         // Match backwards
         let mut cur = next(graph, idx, Direction::Incoming);
         while predicate(&graph[idx]) && is_line(graph, cur) {
-            println!("Backward: {:?}", cur);
             line.push(cur);
             visited.insert(cur);
             cur = next(graph, cur, Direction::Incoming);
@@ -91,7 +143,6 @@ where
         // Match forward
         let mut cur = next(graph, idx, Direction::Outgoing);
         while predicate(&graph[idx]) && is_line(graph, cur) {
-            println!("Forward: {:?}", cur);
             line.push(cur);
             visited.insert(cur);
             cur = next(graph, cur, Direction::Outgoing);
@@ -100,22 +151,14 @@ where
     }
     println!("Identified {} lines", lines.len());
     println!("Histogram: {:?}", lines.iter().counts_by(|l| l.len()));
-    // TODO: In an ideal world this would just be a simple iterator
-    lines
-        .into_iter()
-        .flat_map(|l| {
-            l.chunks(max_length)
-                .map(|chunk| VecDeque::from(chunk.to_vec()))
-                .collect_vec()
-        })
-        .collect_vec()
+    return lines;
 }
 
 fn is_line(graph: &CompileGraph, idx: NodeIdx) -> bool {
     let edge_inc = graph.edges_directed(idx, Direction::Incoming).exactly_one();
     let edge_out = graph.edges_directed(idx, Direction::Outgoing).exactly_one();
-    matches!(graph[idx].ty, NodeType::Repeater(_))
-        && !graph[idx].is_output
+    let node = &graph[idx];
+    !node.is_input && !node.is_output
         && edge_inc.is_ok_and(|e| e.weight().ty == LinkType::Default)
         && edge_out.is_ok_and(|e| e.weight().ty == LinkType::Default)
 }
