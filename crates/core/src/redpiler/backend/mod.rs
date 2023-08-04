@@ -1,3 +1,4 @@
+pub mod bitqueue;
 pub mod direct;
 
 use super::compile_graph::CompileGraph;

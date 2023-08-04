@@ -1,5 +1,6 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
+use super::bitqueue::BitQueue;
 use super::JITBackend;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
@@ -11,7 +12,6 @@ use mchprs_world::{TickEntry, TickPriority};
 use nodes::{NodeId, Nodes};
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
-use ruint::aliases::U256;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::{fmt, mem};
@@ -133,7 +133,7 @@ pub struct Node {
     /// Only for repeaters
     locked: bool,
     // Only for buffers
-    state_queue: U256,
+    state_queue: BitQueue,
 
     output_power: u8,
     changed: bool,
@@ -210,6 +210,12 @@ impl Node {
             CNodeType::HexBuffer(delay) => NodeType::HexBuffer(delay),
         };
 
+        let state_queue = match ty {
+            NodeType::BinBuffer(delay) => BitQueue::new_bits(delay, node.state.output_strength > 0),
+            NodeType::HexBuffer(delay) => BitQueue::new_nibbles(delay, node.state.output_strength),
+            _ => BitQueue::default(),
+        };
+
         Node {
             ty,
             default_inputs,
@@ -218,7 +224,7 @@ impl Node {
             powered: node.state.powered,
             output_power: node.state.output_strength,
             locked: node.state.repeater_locked,
-            state_queue: U256::ZERO,
+            state_queue,
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
@@ -456,10 +462,9 @@ impl JITBackend for DirectBackend {
                             input_power = far_override;
                         }
                     }
-                    let old_strength = node.output_power;
                     let new_strength =
                         calculate_comparator_output(mode, input_power, side_input_power);
-                    if new_strength != old_strength {
+                    if new_strength != node.output_power {
                         self.set_node(node_id, new_strength > 0, new_strength);
                     }
                 }
@@ -476,21 +481,20 @@ impl JITBackend for DirectBackend {
                 }
                 NodeType::BinBuffer(delay) => {
                     // TODO Check for correctness
-                    let should_be_powered = get_bool_input(node, &self.nodes);
+                    let input_powered = get_bool_input(node, &self.nodes);
                     let node = &mut self.nodes[node_id];
-                    node.state_queue >>= 1;
-                    node.state_queue
-                        .set_bit(delay as usize - 1, should_be_powered);
+                    node.state_queue.pop_bit();
+                    node.state_queue.set_bit(delay - 1, input_powered);
 
-                    if node.powered && !node.state_queue.bit(0) {
+                    let new_powered = node.state_queue.peek_bit(0);
+                    if node.powered && !new_powered {
                         self.set_node(node_id, false, 0);
-                    } else if !node.powered && node.state_queue.bit(0) {
+                    } else if !node.powered && new_powered {
                         self.set_node(node_id, true, 15);
                     }
 
                     let node = &mut self.nodes[node_id];
-                    let ones = node.state_queue.count_ones();
-                    if ones != 0 && ones != delay as usize {
+                    if !node.state_queue.all_bits_same(delay) {
                         schedule_tick(&mut self.scheduler, node_id, node, 1, TickPriority::Highest);
                     }
                 }
@@ -499,17 +503,17 @@ impl JITBackend for DirectBackend {
                     let (input_power, _) = get_all_input(node, &self.nodes);
 
                     let node = &mut self.nodes[node_id];
-                    node.state_queue >>= 4;
-                    node.state_queue |= U256::from(input_power) << ((delay as usize - 1) * 4);
+                    node.state_queue.pop_nibble();
+                    node.state_queue.set_nibble(delay - 1, input_power);
 
                     let old_strength = node.output_power;
-                    let new_strength = node.state_queue.byte(0) & 0xF;
+                    let new_strength = node.state_queue.peek_nibble(0);
                     if new_strength != old_strength {
                         self.set_node(node_id, new_strength > 0, new_strength);
                     }
 
                     let node = &mut self.nodes[node_id];
-                    if !are_nibbles_equal(node.state_queue, delay as usize) {
+                    if !node.state_queue.all_nibbles_same(delay) {
                         schedule_tick(&mut self.scheduler, node_id, node, 1, TickPriority::Highest);
                     }
                 }
@@ -745,7 +749,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 return;
             }
             let should_be_powered = get_bool_input(node, nodes);
-            let powered = node.state_queue.bit(delay as usize - 1);
+            let powered = node.state_queue.peek_bit(delay - 1);
             if should_be_powered != powered {
                 let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);
@@ -757,7 +761,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 return;
             }
             let (new_strength, _) = get_all_input(node, nodes);
-            let old_strength = (node.state_queue >> ((delay as usize - 1) * 4)).byte(0) & 0xF;
+            let old_strength = node.state_queue.peek_nibble(delay - 1);
             if new_strength != old_strength {
                 let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);
@@ -826,19 +830,4 @@ fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_o
         }
         ComparatorMode::Subtract => input_strength.saturating_sub(power_on_sides),
     }
-}
-
-fn are_nibbles_equal(num: U256, n: usize) -> bool {
-    let bytes: [u8; 256 / 8] = num.to_le_bytes();
-    let ref_nibble = bytes[0] & 0xF;
-
-    for i in 1..n {
-        let byte = bytes[i / 2];
-        let nibble = if i % 2 == 0 { byte & 0xF } else { byte >> 4 };
-
-        if nibble != ref_nibble {
-            return false;
-        }
-    }
-    true
 }
