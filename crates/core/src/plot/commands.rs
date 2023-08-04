@@ -180,6 +180,11 @@ impl Plot {
                     warn!("{}", msg);
                     self.players[player].send_system_message(msg);
                 }
+                if !self.world.to_be_ticked.is_empty() {
+                    let msg = "Unsettled Redstone ticks detected! This will cause issues. Ensure all signals are stable before compiling.";
+                    warn!("{}", msg);
+                    self.players[player].send_system_message(msg);
+                }
                 if self.io_only_mode {
                     options.io_only = true;
                     self.players[player].send_system_message(
