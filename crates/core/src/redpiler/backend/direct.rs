@@ -483,10 +483,10 @@ impl JITBackend for DirectBackend {
                     // TODO Check for correctness
                     let input_powered = get_bool_input(node, &self.nodes);
                     let node = &mut self.nodes[node_id];
-                    node.state_queue.pop_bit();
+                    node.state_queue.shift_bit();
                     node.state_queue.set_bit(delay - 1, input_powered);
 
-                    let new_powered = node.state_queue.peek_bit(0);
+                    let new_powered = node.state_queue.get_bit(0);
                     if node.powered && !new_powered {
                         self.set_node(node_id, false, 0);
                     } else if !node.powered && new_powered {
@@ -503,11 +503,11 @@ impl JITBackend for DirectBackend {
                     let (input_power, _) = get_all_input(node, &self.nodes);
 
                     let node = &mut self.nodes[node_id];
-                    node.state_queue.pop_nibble();
+                    node.state_queue.shift_nibble();
                     node.state_queue.set_nibble(delay - 1, input_power);
 
                     let old_strength = node.output_power;
-                    let new_strength = node.state_queue.peek_nibble(0);
+                    let new_strength = node.state_queue.get_nibble(0);
                     if new_strength != old_strength {
                         self.set_node(node_id, new_strength > 0, new_strength);
                     }
@@ -749,7 +749,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 return;
             }
             let should_be_powered = get_bool_input(node, nodes);
-            let powered = node.state_queue.peek_bit(delay - 1);
+            let powered = node.state_queue.get_bit(delay - 1);
             if should_be_powered != powered {
                 let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);
@@ -761,7 +761,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 return;
             }
             let (new_strength, _) = get_all_input(node, nodes);
-            let old_strength = node.state_queue.peek_nibble(delay - 1);
+            let old_strength = node.state_queue.get_nibble(delay - 1);
             if new_strength != old_strength {
                 let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);

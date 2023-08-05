@@ -4,9 +4,10 @@
 //! All lines that only consist of repeater, comparator and torch components can be reduced to a `HexBuffer` are of the form `-> falloff + [delay + falloff]* -> invert? ->`
 //! For the special case, where such a line contains at least one repeater or torch, the signal strength information can be erased to create a `BinBuffer`
 //! `-> comparator* -> [torch | repeater | comparator]* ->`
-// TODO
+// TODO Redstone torches "eat" the first signal this is not implemented correctly right now
 
 use super::Pass;
+use crate::redpiler::backend::bitqueue::BitQueue;
 use crate::redpiler::compile_graph::{
     CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeState, NodeType,
 };
@@ -21,14 +22,16 @@ pub struct LineCoalesce;
 impl<W: World> Pass<W> for LineCoalesce {
     fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
         let lines = find_lines(graph);
-        //println!("Histogram: {:?}", lines.iter().counts_by(|l| l.len()).into_iter().sorted_by_key(|(_, count)| *count));
+        //println!("Histogram: {:?}",lines.iter().counts_by(|l| l.len()).into_iter().sorted_by_key(|(len, _)| *len));
+        
         for line in lines.into_iter().filter(|v| v.len() > 2) {
             if let Some(mut prop) = try_match(graph, &line) {
-                // TODO: Split when delay too big (64/256)
+                // TODO: Split when delay too big
                 if ((prop.delay >= 2 && !prop.invert) || prop.delay >= 3)
                     && prop.pre_falloff < 15
                     && prop.post_falloff < 15
-                    && ((prop.delay < 256 && prop.binary) || (prop.delay < 64 && !prop.binary))
+                    && prop.delay < 256
+                    && ((prop.delay <= BitQueue::MAX_BITS && prop.binary) || (prop.delay <= BitQueue::MAX_NIBBLES && !prop.binary))
                 {
                     let mut start = line[0];
                     let end = line[line.len() - 1];
