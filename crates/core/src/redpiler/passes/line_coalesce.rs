@@ -1,19 +1,17 @@
 //! # [`LineCoalesce`]
 //!
-//! Isolates all otherwise unconnected lines of components and tries to reduce them into `Buffer` components.
-//! All lines that only consist of repeater, comparator and torch components can be reduced to a `HexBuffer` are of the form `-> falloff + [delay + falloff]* -> invert? ->`
-//! For the special case, where such a line contains at least one repeater or torch, the signal strength information can be erased to create a `BinBuffer`
-//! `-> comparator* -> [torch | repeater | comparator]* ->`
-// TODO Redstone torches "eat" the first signal this is not implemented correctly right now
+//! Isolates all otherwise unconnected lines of components and tries to combine these lines into a single `Buffer` component.
+//! TODO: Expand explaination
 
 use super::Pass;
 use crate::redpiler::backend::bitqueue::BitQueue;
 use crate::redpiler::compile_graph::{
-    CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeState, NodeType,
+    BufferMode, CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeState, NodeType,
 };
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::world::World;
 use itertools::Itertools;
+use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use rustc_hash::FxHashSet;
 
@@ -21,151 +19,74 @@ pub struct LineCoalesce;
 
 impl<W: World> Pass<W> for LineCoalesce {
     fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
-        let lines = find_lines(graph);
-        //println!("Histogram: {:?}",lines.iter().counts_by(|l| l.len()).into_iter().sorted_by_key(|(len, _)| *len));
-        
-        for line in lines.into_iter().filter(|v| v.len() > 2) {
-            if let Some(mut prop) = try_match(graph, &line) {
-                // TODO: Split when delay too big
-                if ((prop.delay >= 2 && !prop.invert) || prop.delay >= 3)
-                    && prop.pre_falloff < 15
-                    && prop.post_falloff < 15
-                    && prop.delay < 256
-                    && ((prop.delay <= BitQueue::MAX_BITS && prop.binary) || (prop.delay <= BitQueue::MAX_NIBBLES && !prop.binary))
-                {
-                    let mut start = line[0];
-                    let end = line[line.len() - 1];
-                    for &idx in &line[1..(line.len() - 1)] {
-                        graph.remove_node(idx);
-                    }
+        let comparator_lines = find_lines(graph, |node| {
+            matches!(node.ty, NodeType::Comparator(_)) && !node.facing_diode
+        });
+        println!(
+            "Histogram: {:?}",
+            comparator_lines
+                .iter()
+                .counts_by(|l| l.len())
+                .into_iter()
+                .sorted_by_key(|(len, _)| *len)
+        );
 
-                    let mut normalized_output = graph[start].state.output_strength;
-                    if prop.invert {
-                        normalized_output = if normalized_output > 0 { 0 } else { 15 };
-                        let torch_node = CompileNode {
-                            ty: NodeType::Torch,
-                            block: None,
-                            state: NodeState::comparator(normalized_output > 0, normalized_output),
-                            facing_diode: false,
-                            comparator_far_input: None,
-                            is_input: false,
-                            is_output: false,
-                        };
-                        let torch = graph.add_node(torch_node);
-                        graph.add_edge(
-                            start,
-                            torch,
-                            CompileLink {
-                                ty: LinkType::Default,
-                                ss: prop.pre_falloff as u8,
-                            },
-                        );
-                        prop.delay -= 1;
-                        prop.pre_falloff = 0;
-                        start = torch;
-                    }
+        for line in comparator_lines {
+            let line = &line[1..line.len()];
+            if line.len() <= 2 || line.len() >= BitQueue::MAX_NIBBLES {
+                // TODO Split line
+                continue;
+            }
+            let falloff: usize = line
+                .windows(2)
+                .map(|n| graph.find_edge(n[0], n[1]).unwrap())
+                .map(|idx| graph[idx].ss as usize)
+                .sum();
+            if falloff >= 15 {
+                // TODO Delete line
+                continue;
+            }
+            let start = line[0];
+            let end = line[line.len() - 1];
+            let inputs = graph
+                .edges_directed(start, Direction::Incoming)
+                .map(|edge| (edge.source(), edge.weight().ss))
+                .collect_vec();
+            let outputs = graph
+                .edges_directed(end, Direction::Outgoing)
+                .map(|edge| (edge.target(), edge.weight().ss))
+                .collect_vec();
+            let precompile_output = graph[start].state.output_strength;
 
-                    let node = CompileNode {
-                        ty: if prop.binary {
-                            NodeType::BinBuffer(prop.delay as u8)
-                        } else {
-                            NodeType::HexBuffer(prop.delay as u8)
-                        },
-                        block: None,
-                        state: NodeState::comparator(normalized_output > 0, normalized_output),
-                        facing_diode: false,
-                        comparator_far_input: None,
-                        is_input: false,
-                        is_output: false,
-                    };
-                    let buffer = graph.add_node(node);
-                    graph.add_edge(
-                        start,
-                        buffer,
-                        CompileLink {
-                            ty: LinkType::Default,
-                            ss: prop.pre_falloff as u8,
-                        },
-                    );
-                    graph.add_edge(
-                        buffer,
-                        end,
-                        CompileLink {
-                            ty: LinkType::Default,
-                            ss: prop.post_falloff as u8,
-                        },
-                    );
-                }
+            for &idx in line.iter() {
+                println!("Replaced: {:#?}", &graph[idx]);
+                graph.remove_node(idx);
+            }
+
+            let node = CompileNode {
+                ty: NodeType::Buffer(line.len() as u8, BufferMode::ComparatorOnly),
+                block: None,
+                state: NodeState::comparator(precompile_output > 0, precompile_output),
+                facing_diode: false,
+                comparator_far_input: None,
+                is_input: false,
+                is_output: false,
+            };
+            let idx = graph.add_node(node);
+            for input in inputs {
+                graph.add_edge(input.0, idx, CompileLink::default(falloff as u8 + input.1));
+            }
+            for output in outputs {
+                graph.add_edge(idx, output.0, CompileLink::default(output.1));
             }
         }
     }
 }
 
-#[derive(Default)]
-struct LineProperties {
-    delay: usize,
-    invert: bool,
-    binary: bool,
-    pre_falloff: usize,
-    post_falloff: usize,
-}
-
-fn try_match(graph: &mut CompileGraph, line: &[NodeIdx]) -> Option<LineProperties> {
-    if line.len() < 2 {
-        return None;
-    }
-    let mut prop = LineProperties::default();
-
-    let mut last = line[0];
-    let mut index = 1;
-    while index + 1 < line.len() {
-        let idx = line[index];
-        if let NodeType::Comparator(_) = &graph[idx].ty {
-            prop.delay += 1;
-            let edge = graph.find_edge(last, idx).unwrap();
-            let link = &graph[edge];
-            prop.pre_falloff += link.ss as usize;
-        } else {
-            break;
-        }
-        last = idx;
-        index += 1;
-    }
-    while index + 1 < line.len() {
-        let idx = line[index];
-        let node = &graph[idx];
-        let edge = graph.find_edge(last, idx).unwrap();
-        let link = &graph[edge];
-        match node.ty {
-            NodeType::Repeater(1) => {
-                prop.delay += 1;
-                prop.post_falloff = 0;
-                prop.binary = true;
-            }
-            NodeType::Torch => {
-                prop.delay += 1;
-                prop.post_falloff = 0;
-                prop.invert = !prop.invert;
-                prop.binary = true;
-            }
-            NodeType::Comparator(_) => {
-                prop.delay += 1;
-                prop.post_falloff += link.ss as usize;
-            }
-            _ => panic!("Unexpected node type: {:?}", node),
-        };
-        last = idx;
-        index += 1;
-    }
-    let idx = line[index];
-    let edge = graph.find_edge(last, idx).unwrap();
-    let link = &graph[edge];
-    prop.post_falloff += link.ss as usize;
-
-    Some(prop)
-}
-
-fn find_lines(graph: &CompileGraph) -> Vec<Vec<NodeIdx>> {
+fn find_lines<F>(graph: &CompileGraph, predicate: F) -> Vec<Vec<NodeIdx>>
+where
+    F: Fn(&CompileNode) -> bool,
+{
     let mut visited = FxHashSet::default();
 
     let mut lines = vec![];
@@ -174,33 +95,39 @@ fn find_lines(graph: &CompileGraph) -> Vec<Vec<NodeIdx>> {
             continue;
         }
         visited.insert(idx);
-        if !is_line(graph, idx) {
+        if !(is_line(graph, idx, false, false) && predicate(&graph[idx])) {
             continue;
         }
         let mut line = vec![idx];
         // Match backwards
         let mut cur = next(graph, idx, Direction::Incoming);
-        while is_line(graph, cur) {
+        while is_line(graph, cur, false, false) && predicate(&graph[cur]) {
             line.push(cur);
             visited.insert(cur);
             cur = next(graph, cur, Direction::Incoming);
         }
+        if is_line(graph, cur, true, false) && predicate(&graph[cur]) {
+            line.push(cur);
+            visited.insert(cur);
+        }
         line.reverse();
         // Match forward
         let mut cur = next(graph, idx, Direction::Outgoing);
-        while is_line(graph, cur) {
+        while is_line(graph, cur, false, false) && predicate(&graph[cur]) {
             line.push(cur);
             visited.insert(cur);
             cur = next(graph, cur, Direction::Outgoing);
+        }
+        if is_line(graph, cur, false, true) && predicate(&graph[cur]) {
+            line.push(cur);
+            visited.insert(cur);
         }
         lines.push(line);
     }
     return lines;
 }
 
-fn is_line(graph: &CompileGraph, idx: NodeIdx) -> bool {
-    let edge_inc = graph.edges_directed(idx, Direction::Incoming).exactly_one();
-    let edge_out = graph.edges_directed(idx, Direction::Outgoing).exactly_one();
+fn is_line(graph: &CompileGraph, idx: NodeIdx, any_input: bool, any_output: bool) -> bool {
     let node = &graph[idx];
     !node.is_input
         && !node.is_output
@@ -209,10 +136,28 @@ fn is_line(graph: &CompileGraph, idx: NodeIdx) -> bool {
             node.ty,
             NodeType::Repeater(1) | NodeType::Comparator(_) | NodeType::Torch
         )
-        && edge_inc.is_ok_and(|e| e.weight().ty == LinkType::Default)
-        && edge_out.is_ok_and(|e| e.weight().ty == LinkType::Default)
+        && (if any_input {
+            graph
+                .edges_directed(idx, Direction::Incoming)
+                .all(|e| e.weight().ty == LinkType::Default)
+        } else {
+            graph
+                .edges_directed(idx, Direction::Incoming)
+                .exactly_one()
+                .map_or(false, |e| e.weight().ty == LinkType::Default)
+        })
+        && (if any_output {
+            graph
+                .edges_directed(idx, Direction::Outgoing)
+                .all(|e| e.weight().ty == LinkType::Default)
+        } else {
+            graph
+                .edges_directed(idx, Direction::Outgoing)
+                .exactly_one()
+                .map_or(false, |e| e.weight().ty == LinkType::Default)
+        })
 }
 
 fn next(graph: &CompileGraph, idx: NodeIdx, dir: Direction) -> NodeIdx {
-    graph.neighbors_directed(idx, dir).next().unwrap()
+    graph.neighbors_directed(idx, dir).exactly_one().unwrap()
 }
