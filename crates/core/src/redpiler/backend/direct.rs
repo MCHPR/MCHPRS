@@ -1,6 +1,5 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
-use super::bitqueue::BitQueue;
 use super::JITBackend;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{block_powered_mut, bool_to_ss};
@@ -112,8 +111,7 @@ enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-    BinBuffer(u8),
-    HexBuffer(u8),
+    Buffer(u8),
 }
 
 // struct is 128 bytes to fit nicely into cachelines
@@ -133,13 +131,13 @@ pub struct Node {
     /// Only for repeaters
     locked: bool,
     // Only for buffers
-    state_queue: BitQueue,
+    buffer_state: u32,
+    buffer_index: u8,
 
     output_power: u8,
     changed: bool,
     pending_tick: bool,
-    is_input: bool,
-    is_output: bool,
+    is_io: bool,
 }
 
 impl Node {
@@ -206,14 +204,7 @@ impl Node {
             CNodeType::Trapdoor => NodeType::Trapdoor,
             CNodeType::Wire => NodeType::Wire,
             CNodeType::Constant => NodeType::Constant,
-            CNodeType::BinBuffer(delay) => NodeType::BinBuffer(delay),
-            CNodeType::HexBuffer(delay) => NodeType::HexBuffer(delay),
-        };
-
-        let state_queue = match ty {
-            NodeType::BinBuffer(delay) => BitQueue::new_bits(delay, node.state.output_strength > 0),
-            NodeType::HexBuffer(delay) => BitQueue::new_nibbles(delay, node.state.output_strength),
-            _ => BitQueue::default(),
+            CNodeType::Buffer(delay) => NodeType::Buffer(delay),
         };
 
         Node {
@@ -224,13 +215,13 @@ impl Node {
             powered: node.state.powered,
             output_power: node.state.output_strength,
             locked: node.state.repeater_locked,
-            state_queue,
+            buffer_state: node.state.output_strength as u32,
+            buffer_index: 0,
             facing_diode: node.facing_diode,
             comparator_far_input: node.comparator_far_input,
             pending_tick: false,
             changed: false,
-            is_input: node.is_input,
-            is_output: node.is_output,
+            is_io: node.is_input || node.is_output,
         }
     }
 }
@@ -336,13 +327,15 @@ impl DirectBackend {
 }
 
 impl JITBackend for DirectBackend {
-    fn inspect(&mut self, pos: BlockPos) {
+    fn inspect(&mut self, pos: BlockPos) -> Option<(bool, u8)> {
         let Some(node_id) = self.pos_map.get(&pos) else {
             debug!("could not find node at pos {}", pos);
-            return;
+            return None;
         };
 
-        debug!("Node {:?}: {:#?}", node_id, self.nodes[*node_id]);
+        let node = &self.nodes[*node_id];
+        debug!("Node {:?}: {:#?}", node_id, node);
+        return Some((node.powered, node.output_power));
     }
 
     fn reset<W: World>(&mut self, world: &mut W, io_only: bool) {
@@ -361,7 +354,7 @@ impl JITBackend for DirectBackend {
                 world.set_block_entity(pos, block_entity);
             }
 
-            if io_only && !(node.is_input || node.is_output) {
+            if io_only && !node.is_io {
                 world.set_block(pos, block);
             }
         }
@@ -462,9 +455,10 @@ impl JITBackend for DirectBackend {
                             input_power = far_override;
                         }
                     }
+                    let old_strength = node.output_power;
                     let new_strength =
                         calculate_comparator_output(mode, input_power, side_input_power);
-                    if new_strength != node.output_power {
+                    if new_strength != old_strength {
                         self.set_node(node_id, new_strength > 0, new_strength);
                     }
                 }
@@ -479,42 +473,13 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     }
                 }
-                NodeType::BinBuffer(delay) => {
-                    // TODO Check for correctness
-                    let input_powered = get_bool_input(node, &self.nodes);
+                NodeType::Buffer(_) => {
                     let node = &mut self.nodes[node_id];
-                    node.state_queue.shift_bit();
-                    node.state_queue.set_bit(delay - 1, input_powered);
-
-                    let new_powered = node.state_queue.get_bit(0);
-                    if node.powered && !new_powered {
-                        self.set_node(node_id, false, 0);
-                    } else if !node.powered && new_powered {
-                        self.set_node(node_id, true, 15);
-                    }
-
-                    let node = &mut self.nodes[node_id];
-                    if !node.state_queue.all_bits_same(delay) {
-                        schedule_tick(&mut self.scheduler, node_id, node, 1, TickPriority::Highest);
-                    }
-                }
-                NodeType::HexBuffer(delay) => {
-                    // TODO Check for correctness
-                    let (input_power, _) = get_all_input(node, &self.nodes);
-
-                    let node = &mut self.nodes[node_id];
-                    node.state_queue.shift_nibble();
-                    node.state_queue.set_nibble(delay - 1, input_power);
-
-                    let old_strength = node.output_power;
-                    let new_strength = node.state_queue.get_nibble(0);
-                    if new_strength != old_strength {
+                    node.buffer_state >>= 4;
+                    node.buffer_index -= 1;
+                    let new_strength = node.buffer_state as u8 & 0b1111;
+                    if new_strength != node.output_power {
                         self.set_node(node_id, new_strength > 0, new_strength);
-                    }
-
-                    let node = &mut self.nodes[node_id];
-                    if !node.state_queue.all_nibbles_same(delay) {
-                        schedule_tick(&mut self.scheduler, node_id, node, 1, TickPriority::Highest);
                     }
                 }
                 _ => warn!("Node {:?} should not be ticked!", node.ty),
@@ -568,7 +533,7 @@ impl JITBackend for DirectBackend {
             let Some((pos, block)) = &mut self.blocks[i] else {
                 continue;
             };
-            if node.changed && (!io_only || (node.is_input || node.is_output)) {
+            if node.changed && (!io_only || node.is_io) {
                 if let Some(powered) = block_powered_mut(block) {
                     *powered = node.powered
                 }
@@ -743,28 +708,20 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 node.changed = true;
             }
         }
-        NodeType::BinBuffer(delay) => {
-            // TODO Check for correctness
-            if node.pending_tick {
-                return;
-            }
-            let should_be_powered = get_bool_input(node, nodes);
-            let powered = node.state_queue.get_bit(delay - 1);
-            if should_be_powered != powered {
-                let node = &mut nodes[node_id];
-                schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);
-            }
-        }
-        NodeType::HexBuffer(delay) => {
-            // TODO Check for correctness
-            if node.pending_tick {
-                return;
-            }
+        NodeType::Buffer(delay) => {
             let (new_strength, _) = get_all_input(node, nodes);
-            let old_strength = node.state_queue.get_nibble(delay - 1);
+            let old_strength = (node.buffer_state >> (node.buffer_index * 4)) as u8 & 0b1111;
             if new_strength != old_strength {
                 let node = &mut nodes[node_id];
-                schedule_tick(scheduler, node_id, node, 1, TickPriority::Highest);
+                node.buffer_index += 1;
+                node.buffer_state |= (new_strength as u32) << (node.buffer_index * 4);
+                schedule_tick(
+                    scheduler,
+                    node_id,
+                    node,
+                    delay as usize,
+                    TickPriority::Normal,
+                );
             }
         }
         _ => panic!("Node {:?} should not be updated!", node),

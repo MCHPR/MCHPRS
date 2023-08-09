@@ -1,4 +1,3 @@
-pub mod bitqueue;
 pub mod direct;
 
 use super::compile_graph::CompileGraph;
@@ -16,7 +15,7 @@ pub trait JITBackend {
     fn flush<W: World>(&mut self, world: &mut W, io_only: bool);
     fn reset<W: World>(&mut self, world: &mut W, io_only: bool);
     /// Inspect block for debugging
-    fn inspect(&mut self, pos: BlockPos);
+    fn inspect(&mut self, pos: BlockPos) -> Option<(bool, u8)>;
 }
 
 #[cfg(feature = "jit_cranelift")]

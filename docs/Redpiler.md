@@ -52,14 +52,16 @@ Disregarding High-Signal Strength logic, which Redpiler does not support anyways
 
 There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repetears that lock other repeaters. This is very inefficent because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
 
-## The `LineCoalesce` Pass
-
-TODO
-
 ## The `PruneOrphans` Pass
 
 Any redstone components that do not contribute to the functioning of output components (Trapdoors and Lamps) can be disregarded.
-This pass recusively marks all nodes connected to an output node and removes all remaining unmarked nodes.
+This pass recusively marks all nodes connected to an output node and removes all remaining unmarked nodes (Depth-First-Search).
+
+## The `TailCoalesce` Pass
+
+In many cases there are long lines of comparators connecting the memory cell to their output component(s).
+This pass identifies such lines and merges them into `Buffer` components that represent the entire line.
+The first comparator in the line is kept as is to guarded the Buffer from non-`Normal` priority updates.
 
 ## The `ExportGraph` Pass
 

@@ -1,0 +1,19 @@
+[package]
+name = "mchprs_playground"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[[bin]]
+name = "line_lab"
+path = "src/line_lab.rs"
+
+[[bin]]
+name = "statemachine_lab"
+path = "src/statemachine_lab.rs"
+
+[dependencies]
+itertools = "0.10"
+mchprs_core = { path = "../core" }
+mchprs_blocks = { path = "../blocks" }

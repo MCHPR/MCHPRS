@@ -71,7 +71,10 @@ fn for_pos<W: World>(ignore_wires: bool, world: &W, graph: &mut CompileGraph, po
         _ => false,
     };
 
-    if ignore_wires && ty == NodeType::Wire {
+    let is_input = crate::plot::INPUT_BLOCKS.contains(&id);
+    let is_output = crate::plot::OUTPUT_BLOCKS.contains(&id);
+
+    if ignore_wires && ty == NodeType::Wire && !is_input && !is_output {
         return;
     }
 
@@ -82,8 +85,8 @@ fn for_pos<W: World>(ignore_wires: bool, world: &W, graph: &mut CompileGraph, po
 
         facing_diode,
         comparator_far_input: None,
-        is_input: crate::plot::INPUT_BLOCKS.contains(&id),
-        is_output: crate::plot::OUTPUT_BLOCKS.contains(&id),
+        is_input,
+        is_output,
     });
 }
 

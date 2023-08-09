@@ -6,8 +6,8 @@ mod dedup_links;
 mod export_graph;
 mod identify_nodes;
 mod input_search;
-mod line_coalesce;
 mod prune_orphans;
+mod tail_coalesce;
 mod unreachable_output;
 
 use crate::world::World;
@@ -28,7 +28,7 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &constant_coalesce::ConstantCoalesce,
         &coalesce::Coalesce,
         &prune_orphans::PruneOrphans,
-        &line_coalesce::LineCoalesce,
+        &tail_coalesce::TailCoalesce,
         &export_graph::ExportGraph,
     ])
 }

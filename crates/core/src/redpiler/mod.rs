@@ -1,5 +1,5 @@
-mod backend;
-mod compile_graph;
+pub mod backend;
+pub mod compile_graph;
 // mod debug_graph;
 mod passes;
 
@@ -69,6 +69,14 @@ pub struct Compiler {
 }
 
 impl Compiler {
+    pub fn new_unsafe(jit: Option<BackendDispatcher>, options: CompilerOptions) -> Self {
+        Self {
+            is_active: true,
+            jit,
+            options,
+        }
+    }
+
     pub fn is_active(&self) -> bool {
         self.is_active
     }
@@ -176,11 +184,12 @@ impl Compiler {
         self.backend().flush(world, io_only);
     }
 
-    pub fn inspect(&mut self, pos: BlockPos) {
+    pub fn inspect(&mut self, pos: BlockPos) -> Option<(bool, u8)> {
         if let Some(backend) = &mut self.jit {
-            backend.inspect(pos);
+            return backend.inspect(pos);
         } else {
             debug!("cannot inspect when backend is not running");
+            return None;
         }
     }
 }

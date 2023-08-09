@@ -1,6 +1,6 @@
 //! # [`PruneOrphans`]
 //!
-//! This pass removes any nodes in the graph that aren't transitively connected to an output redstone component.
+//! This pass removes any nodes in the graph that aren't transitively connected to an output redstone component by using Depth-First-Search.
 
 use super::Pass;
 use crate::redpiler::compile_graph::CompileGraph;
