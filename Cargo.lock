@@ -1403,15 +1403,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mchprs_playground"
-version = "0.1.0"
-dependencies = [
- "itertools",
- "mchprs_blocks",
- "mchprs_core",
-]
-
-[[package]]
 name = "mchprs_proc_macros"
 version = "0.1.0"
 dependencies = [

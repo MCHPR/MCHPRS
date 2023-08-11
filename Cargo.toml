@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/proc_macros", "crates/redpiler_graph", "crates/playground"]
+members = ["crates/proc_macros", "crates/redpiler_graph"]
 
 [package]
 name = "mchprs"
