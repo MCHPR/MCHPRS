@@ -52,7 +52,8 @@ The folowing options are available at the toplevel (under no header):
 | `block_in_hitbox` | Allow placing blocks inside of players (hitbox logic is simplified) | true |
 | `auto_redpiler` | Use redpiler automatically | true |
 
-To change the plot size edit the constants defined in [plot/mod.rs](./crates/core/src/plot/mod.rs).
+To change the plot size edit the constants defined in [core/src/plot/mod.rs](./crates/core/src/plot/mod.rs).
+Non-I/O redstone components may be optimized away when using redpiler optimizations, prevent this by adding them to [core/build.rs](./crates/core/build.rs).
 
 ### LuckPerms
 

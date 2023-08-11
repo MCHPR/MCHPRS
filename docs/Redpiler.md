@@ -59,9 +59,9 @@ This pass recusively marks all nodes connected to an output node and removes all
 
 ## The `TailCoalesce` Pass
 
-In many cases there are long lines of comparators connecting the memory cell to their output component(s).
-This pass identifies such lines and merges them into `Buffer` components that represent the entire line.
-The first comparator in the line is kept as is to guarded the Buffer from non-`Normal` priority updates.
+In many cases there are long lines of comparators connecting memory cells to their output components.
+This pass identifies such linear subgraphs and merges them into `Buffer` components.
+The first comparator in the line is kept as is to guard the Buffer from non-`Normal` priority updates.
 
 ## The `ExportGraph` Pass
 
