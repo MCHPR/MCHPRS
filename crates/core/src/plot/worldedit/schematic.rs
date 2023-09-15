@@ -2,7 +2,7 @@
 //! https://github.com/SpongePowered/Schematic-Specification/blob/master/versions/schematic-2.md
 
 use super::WorldEditClipboard;
-use crate::server::MC_DATA_VERSION;
+use crate::config::CONFIG;
 use crate::world::storage::PalettedBitBuffer;
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
@@ -222,7 +222,7 @@ pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result
         palette: encoded_pallete,
         metadata,
         version: 2,
-        data_version: MC_DATA_VERSION,
+        data_version: CONFIG.mc_data_version as i32,
     };
     nbt::to_gzip_writer(&mut file, &schematic, Some("Schematic"))?;
 

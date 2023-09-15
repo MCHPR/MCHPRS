@@ -74,5 +74,8 @@ gen_config! {
     schemati: bool = false,
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true,
-    auto_redpiler: bool = true
+    auto_redpiler: bool = true,
+    mc_version: String = "1.18.2".to_string(),
+    mc_data_version: i64 = 2975,
+    protocol_version: i64 = 758
 }
