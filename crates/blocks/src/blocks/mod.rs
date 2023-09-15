@@ -1147,6 +1147,25 @@ blocks! {
         },
         get_name: "iron_trapdoor",
     },
+    Dropper {
+        props: {
+            powered: bool,
+            facing: BlockFacing
+        },
+        get_id: {
+            facing.get_id() * 2
+            + (!powered) as u32
+            + 7053},
+        from_id(id): 7053..=7060 => {
+            facing: BlockFacing::from_id(id >> 1),
+            powered: (id & 1) == 0
+        },
+        from_names(_name): {
+            "dropper" => {powered: false, facing: BlockFacing::default()}
+        },
+        get_name: "dropper",
+        cube: true,
+    },
     Unknown {
         props: {
             id: u32
@@ -1155,7 +1174,6 @@ blocks! {
         from_id(id): _ => { id: id },
         from_names(name): {},
         get_name: "unknown",
-        solid: true,
         cube: true,
     }
 }

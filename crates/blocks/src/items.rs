@@ -353,6 +353,12 @@ items! {
         from_id(_id): 640 => {},
         block: true,
     },
+    Dropper {
+        props: {},
+        get_id: 7053,
+        from_id(_id): 7053 => {},
+        block:true,
+    },
     Unknown {
         props: {
             id: u32

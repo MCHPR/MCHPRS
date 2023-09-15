@@ -356,6 +356,17 @@ impl BlockFacing {
         }
     }
 
+    pub fn block_face(self) -> BlockFace {
+        use BlockFacing::*;
+        match self {
+            North => BlockFace::North,
+            South => BlockFace::South,
+            East => BlockFace::East,
+            West => BlockFace::West,
+            Up => BlockFace::Top,
+            Down => BlockFace::Bottom,
+        }
+    }
     pub fn offset_pos(self, mut pos: BlockPos, n: i32) -> BlockPos {
         match self {
             BlockFacing::North => pos.z -= n,

@@ -124,6 +124,7 @@ fn identify_block<W: World>(
             NodeType::Constant,
             NodeState::ss(redstone::get_comparator_override(block, world, pos)),
         ),
+        Block::Dropper {powered, ..} => (NodeType::Dropper, NodeState::simple(powered)),
         _ => return None,
     };
     Some((ty, state))

@@ -15,6 +15,7 @@ use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::{fmt, mem};
 use tracing::{debug, trace, warn};
+use rand;
 
 #[derive(Debug, Default)]
 struct FinalGraphStats {
@@ -111,6 +112,7 @@ enum NodeType {
     Trapdoor,
     Wire,
     Constant,
+    Dropper,
 }
 
 impl NodeType {
@@ -211,6 +213,7 @@ impl Node {
             CNodeType::Trapdoor => NodeType::Trapdoor,
             CNodeType::Wire => NodeType::Wire,
             CNodeType::Constant => NodeType::Constant,
+            CNodeType::Dropper => NodeType::Dropper,
         };
 
         Node {
@@ -474,6 +477,16 @@ impl JITBackend for DirectBackend {
                         self.set_node(node_id, false, 0);
                     }
                 }
+                NodeType::Dropper => {
+                    let should_be_powered: bool = get_bool_input(node, &self.nodes);
+                    if should_be_powered{
+                        let power: u8 = if rand::random() {15} else {0};
+                        self.set_node(node_id, true, power);
+                    }
+                    else{
+                        self.set_node(node_id, false, 0);
+                    }
+                }
                 _ => warn!("Node {:?} should not be ticked!", node.ty),
             }
         }
@@ -517,7 +530,7 @@ impl JITBackend for DirectBackend {
             }
         }
         // Dot file output
-        // println!("{}", self);
+        println!("{}", self);
     }
 
     fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
@@ -698,6 +711,14 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
                 let node = &mut nodes[node_id];
                 node.output_power = input_power;
                 node.changed = true;
+            }
+        }
+        NodeType::Dropper => {
+            let should_be_powered = get_bool_input(node, nodes);
+            let node = &mut nodes[node_id];
+            if should_be_powered != node.powered {
+                node.powered = should_be_powered;
+                schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
         }
         _ => {} // panic!("Node {:?} should not be updated!", node.state),

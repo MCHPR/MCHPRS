@@ -16,6 +16,7 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
+    Dropper,
 }
 
 impl NodeType {

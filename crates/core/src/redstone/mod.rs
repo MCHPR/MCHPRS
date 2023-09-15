@@ -26,6 +26,7 @@ fn get_weak_power(
         Block::StonePressurePlate { powered: true } => 15,
         Block::Lever { lever } if lever.powered => 15,
         Block::StoneButton { button } if button.powered => 15,
+        Block::Dropper { powered: true , ..} => 15,
         Block::RedstoneRepeater { repeater }
             if repeater.facing.block_face() == side && repeater.powered =>
         {

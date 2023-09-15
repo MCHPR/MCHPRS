@@ -62,10 +62,12 @@ impl<'a, W: World> InputSearchState<'a, W> {
             Block::Lever { .. } => true,
             Block::StoneButton { .. } => true,
             Block::StonePressurePlate { .. } => true,
+            Block::Dropper { facing, .. } if facing.rotate().rotate().block_face() == side => true,
             Block::RedstoneRepeater { repeater } if repeater.facing.block_face() == side => true,
             Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => {
                 true
-            }
+            },
+            
             _ => false,
         }
     }
@@ -334,7 +336,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
             Block::RedstoneWire { .. } => {
                 self.search_wire(id, pos, LinkType::Default, 0);
             }
-            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
+            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } |Block::Dropper { .. } => {
                 for face in &BlockFace::values() {
                     let neighbor_pos = pos.offset(*face);
                     let neighbor_block = self.world.get_block(neighbor_pos);
@@ -349,6 +351,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     );
                 }
             }
+            
             _ => {}
         }
     }

@@ -412,17 +412,7 @@ impl Plot {
                     return false;
                 }
                 if let Ok(speed_arg) = args[0].parse::<f32>() {
-                    if speed_arg < 0.0 {
-                        self.players[player]
-                            .send_error_message("Silly child, you can't have a negative flyspeed!");
-                        return false;
-                    }
-                    if speed_arg > 10.0 {
-                        self.players[player].send_error_message(
-                            "For performance reasons player speed cannot be higher than 10.",
-                        );
-                        return false;
-                    }
+                    
                     if speed_arg.is_nan() {
                         self.players[player]
                             .send_error_message("You can't set your speed to NaN or -NaN.");
@@ -480,12 +470,7 @@ impl Plot {
                     }
                 };
 
-                if !(1..=15).contains(&power) {
-                    self.players[player].send_error_message(
-                        "Container power must be greater than 0 and lower than 15!",
-                    );
-                    return false;
-                }
+
 
                 let item = ItemStack::container_with_ss(container_ty, power);
                 let slot = 36 + self.players[player].selected_slot;
