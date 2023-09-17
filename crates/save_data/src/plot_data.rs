@@ -113,7 +113,9 @@ impl<const NUM_CHUNK_SECTIONS: usize> PlotData<NUM_CHUNK_SECTIONS> {
             return Err(PlotLoadError::TooNew(version));
         }
 
-        Ok(bincode::deserialize_from(file)?)
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf)?;
+        Ok(bincode::deserialize(&buf)?)
     }
 
     pub fn save_to_file(&self, path: impl AsRef<Path>) -> Result<(), PlotSaveError> {
@@ -121,7 +123,8 @@ impl<const NUM_CHUNK_SECTIONS: usize> PlotData<NUM_CHUNK_SECTIONS> {
 
         file.write_all(PLOT_MAGIC)?;
         file.write_u32::<LittleEndian>(VERSION)?;
-        bincode::serialize_into(&file, self)?;
+        let data = bincode::serialize(self)?;
+        file.write_all(&data)?;
         file.sync_data()?;
         Ok(())
     }
