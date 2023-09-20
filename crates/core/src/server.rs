@@ -352,7 +352,7 @@ impl MinecraftServer {
             bed_works: 0,
             coordinate_scale: 1.0,
             piglin_safe: 0,
-            logical_height: 256,
+            logical_height: PLOT_BLOCK_HEIGHT,
             infiniburn: "#minecraft:infiniburn_overworld".to_owned(),
         };
 
