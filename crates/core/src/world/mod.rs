@@ -8,7 +8,9 @@ use storage::Chunk;
 
 pub trait World {
     /// Returns the block located at `pos`
-    fn get_block(&self, pos: BlockPos) -> Block;
+    fn get_block(&self, pos: BlockPos) -> Block {
+        Block::from_id(self.get_block_raw(pos))
+    }
 
     /// Returns the block state id of the block at `pos`
     fn get_block_raw(&self, pos: BlockPos) -> u32;
@@ -16,7 +18,10 @@ pub trait World {
     /// Sets the block at `pos`.
     /// This function may have side effects such as sending update block packets to the player.
     /// Returns true if the block was changed.
-    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool;
+    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
+        let block_id = Block::get_id(block);
+        self.set_block_raw(pos, block_id)
+    }
 
     /// Sets a block in storage without any other side effects. Returns true if a block was changed.
     fn set_block_raw(&mut self, pos: BlockPos, block: u32) -> bool;
@@ -45,5 +50,7 @@ pub trait World {
     /// Returns true if there is a tick entry with `pos`
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool;
 
-    fn is_cursed(&self) -> bool;
+    fn is_cursed(&self) -> bool {
+        false
+    }
 }

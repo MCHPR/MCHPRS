@@ -162,11 +162,6 @@ impl World for PlotWorld {
         )
     }
 
-    /// Sets the block at `pos`.
-    fn set_block(&mut self, pos: BlockPos, block: Block) -> bool {
-        let block_id = Block::get_id(block);
-        self.set_block_raw(pos, block_id)
-    }
 
     /// Returns the block state id of the block at `pos`
     fn get_block_raw(&self, pos: BlockPos) -> u32 {
@@ -178,9 +173,6 @@ impl World for PlotWorld {
         chunk.get_block((pos.x & 0xF) as u32, pos.y as u32, (pos.z & 0xF) as u32)
     }
 
-    fn get_block(&self, pos: BlockPos) -> Block {
-        Block::from_id(self.get_block_raw(pos))
-    }
 
     fn delete_block_entity(&mut self, pos: BlockPos) {
         let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
@@ -242,10 +234,6 @@ impl World for PlotWorld {
 
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
         self.to_be_ticked.iter().any(|e| e.pos == pos)
-    }
-
-    fn is_cursed(&self) -> bool {
-        false
     }
 }
 
