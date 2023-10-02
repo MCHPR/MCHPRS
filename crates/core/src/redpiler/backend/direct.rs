@@ -29,7 +29,7 @@ mod nodes {
     use std::ops::{Index, IndexMut};
 
     #[derive(Debug, Copy, Clone)]
-    pub struct NodeId(u32);
+    pub struct NodeId(pub(crate) u32);
 
     impl NodeId {
         pub fn index(self) -> usize {
@@ -93,8 +93,20 @@ mod nodes {
 
 #[derive(Debug, Clone, Copy)]
 struct DirectLink {
-    weight: u8,
-    to: NodeId,
+    data: u32,
+}
+
+impl DirectLink {
+    pub fn new(to: NodeId, weight: u8) -> Self {
+        Self { data: (to.0 << 8) | weight as u32 }
+    }
+
+    pub fn to(&self) -> NodeId {
+        NodeId(self.data >> 8)
+    }
+    pub fn weight(&self) -> u8 {
+        self.data as u8
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -132,9 +144,9 @@ impl NodeType {
 #[repr(align(128))]
 pub struct Node {
     ty: NodeType,
-    default_inputs: SmallVec<[DirectLink; 7]>,
-    side_inputs: SmallVec<[DirectLink; 2]>,
-    updates: SmallVec<[NodeId; 4]>,
+    default_inputs: SmallVec<[DirectLink; 8]>,
+    side_inputs: SmallVec<[DirectLink; 4]>,
+    updates: SmallVec<[NodeId; 10]>,
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
@@ -166,10 +178,10 @@ impl Node {
                 // Safety: bounds checked
                 NodeId::from_index(idx)
             };
-            let link = DirectLink {
-                to: idx,
-                weight: edge.weight().ss,
-            };
+            let link = DirectLink::new(
+                idx,
+                edge.weight().ss,
+            );
             match edge.weight().ty {
                 LinkType::Default => default_inputs.push(link),
                 LinkType::Side => side_inputs.push(link),
@@ -179,7 +191,7 @@ impl Node {
         stats.side_link_count += side_inputs.len();
 
         use crate::redpiler::compile_graph::NodeType as CNodeType;
-        let updates: SmallVec<[NodeId; 4]> = if node.ty != CNodeType::Constant {
+        let updates = if node.ty != CNodeType::Constant {
             graph
                 .neighbors_directed(node_idx, Direction::Outgoing)
                 .map(|idx| unsafe {
@@ -566,7 +578,7 @@ fn schedule_tick(
 }
 
 fn link_strength(link: DirectLink, nodes: &Nodes) -> u8 {
-    nodes[link.to].output_power.saturating_sub(link.weight)
+    nodes[link.to()].output_power.saturating_sub(link.weight())
 }
 
 fn get_bool_input(node: &Node, nodes: &Nodes) -> bool {
@@ -738,9 +750,9 @@ impl fmt::Display for DirectBackend {
                 write!(
                     f,
                     "n{}->n{}[label=\"{}\"{}];",
-                    link.to.index(),
+                    link.to().index(),
                     id,
-                    link.weight,
+                    link.weight(),
                     color
                 )?;
             }
