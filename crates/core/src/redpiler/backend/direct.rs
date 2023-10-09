@@ -206,7 +206,6 @@ impl Node {
         } else {
             SmallVec::new()
         };
-        *stats.update_groups.entry(updates.len()).or_insert(0) += 1;
         stats.update_link_count += updates.len();
 
         let ty = match node.ty {
