@@ -113,24 +113,6 @@ impl ForwardLink {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct DirectLink {
-    data: u32,
-}
-
-impl DirectLink {
-    pub fn new(to: NodeId, weight: u8) -> Self {
-        Self { data: (to.0 << 8) | weight as u32 }
-    }
-
-    pub fn to(&self) -> NodeId {
-        NodeId(self.data >> 8)
-    }
-    pub fn weight(&self) -> u8 {
-        self.data as u8
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
 enum NodeType {
     Repeater(u8),
     /// A non-locking repeater
@@ -224,6 +206,7 @@ impl Node {
         } else {
             SmallVec::new()
         };
+        *stats.update_groups.entry(updates.len()).or_insert(0) += 1;
         stats.update_link_count += updates.len();
 
         let ty = match node.ty {
@@ -613,10 +596,6 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-fn link_strength(link: DirectLink, nodes: &Nodes) -> u8 {
-    nodes[link.to()].output_power.saturating_sub(link.weight())
-}
-
 const INPUT_MASK: u128 = u128::from_ne_bytes([0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
 
 fn get_bool_input(node: &Node) -> bool {
@@ -765,32 +744,19 @@ impl fmt::Display for DirectBackend {
                 "No Pos".to_string()
             };
             write!(f, "n{}[label=\"{}\\n({})\"];", id, label, pos,)?;
-            let all_inputs = node
-                .default_inputs
-                .iter()
-                .map(|link| (LinkType::Default, link))
-                .chain(node.side_inputs.iter().map(|link| (LinkType::Side, link)));
-            // TODO: fix direct graph serialization
-            // for (link_type, link) in all_inputs {
-            //     let color = match link_type {
-            //         LinkType::Default => "",
-            //         LinkType::Side => ",color=\"blue\"",
-            //     };
-            //     write!(
-            //         f,
-            //         "n{}->n{}[label=\"{}\"{}];",
-            //         link.to().index(),
-            //         id,
-            //         link.weight(),
-            //         color
-            //     )?;
-            // }
-
-
-
-            // for update in &node.updates {
-            //     write!(f, "n{}->n{}[style=dotted];", id, update)?;
-            // }
+            for link in node.updates.iter() {
+                let out_index = link.node().index();
+                let distance = link.ss();
+                let color = if link.side() {",color=\"blue\""} else {""}; 
+                write!(
+                    f,
+                    "n{}->n{}[label=\"{}\"{}];",
+                    id,
+                    out_index,
+                    distance,
+                    color
+                )?;
+            }
         }
         f.write_str("}\n")
     }
