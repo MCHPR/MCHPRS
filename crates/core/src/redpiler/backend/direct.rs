@@ -259,12 +259,13 @@ impl Queues {
 
 #[derive(Default)]
 struct TickScheduler {
-    queues_deque: [Queues; 16],
+    queues_deque: [Queues; Self::NUM_QUEUES],
     pos: usize,
 }
 
 impl TickScheduler {
     const NUM_PRIORITIES: usize = 4;
+    const NUM_QUEUES: usize = 16;
 
     fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
         for (idx, queues) in self.queues_deque.iter().enumerate() {
@@ -287,11 +288,11 @@ impl TickScheduler {
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        self.queues_deque[(self.pos + delay) & 15].0[Self::priority_index(priority)].push(node);
+        self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[Self::priority_index(priority)].push(node);
     }
 
     fn queues_this_tick(&mut self) -> Queues {
-        self.pos = (self.pos + 1) & 15;
+        self.pos = (self.pos + 1) % Self::NUM_QUEUES;
         mem::take(&mut self.queues_deque[self.pos])
     }
 
