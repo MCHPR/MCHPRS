@@ -606,7 +606,8 @@ fn get_bool_input(node: &Node) -> bool {
 }
 
 fn last_index_positive(array: &[u8; 16]) -> u32 {
-    let value = u128::from_ne_bytes(*array);
+    // Note: this might be slower on big-endian systems
+    let value = u128::from_le_bytes(*array);
     if value == 0 {0} else {15 - (value.leading_zeros() >> 3)}
 }
 
