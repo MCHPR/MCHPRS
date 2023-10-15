@@ -29,7 +29,7 @@ mod nodes {
     use std::ops::{Index, IndexMut};
 
     #[derive(Debug, Copy, Clone)]
-    pub struct NodeId(pub(crate) u32);
+    pub struct NodeId(u32);
 
     impl NodeId {
         pub fn index(self) -> usize {
@@ -97,12 +97,15 @@ struct ForwardLink {
 }
 impl ForwardLink {
     pub fn new(id: NodeId, side: bool, ss: u8) -> Self {
-        assert!(id.0 < (1 << 27));
+        assert!(id.index() < (1 << 27));
         assert!(ss < (1 << 4));
-        Self { data:  id.0 << 5 | if side {1 << 4} else {0} | ss as u32}
+        Self { data:  (id.index() as u32) << 5 | if side {1 << 4} else {0} | ss as u32}
     }
     pub fn node(self) -> NodeId {
-        NodeId(self.data >> 5)
+        unsafe {
+            // safety: ForwardLink is contructed using a NodeId
+            NodeId::from_index((self.data >> 5) as usize)
+        }
     }
     pub fn side(self) -> bool {
         self.data & (1 << 4) != 0
@@ -353,7 +356,7 @@ impl DirectBackend {
             };
             inputs[old_power.saturating_sub(distance) as usize] -= 1;
             inputs[new_power.saturating_sub(distance) as usize] += 1;
-            
+
             update_node(&mut self.scheduler, &mut self.nodes, update);
         }
     }
