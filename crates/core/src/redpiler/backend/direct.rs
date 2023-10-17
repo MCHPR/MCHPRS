@@ -605,6 +605,10 @@ fn get_bool_input(node: &Node) -> bool {
     u128::from_ne_bytes(node.default_inputs) & INPUT_MASK != 0
 }
 
+fn get_bool_side(node: &Node) -> bool {
+    u128::from_ne_bytes(node.side_inputs) & INPUT_MASK != 0
+}
+
 fn last_index_positive(array: &[u8; 16]) -> u32 {
     // Note: this might be slower on big-endian systems
     let value = u128::from_le_bytes(*array);
@@ -625,9 +629,8 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
 
     match node.ty {
         NodeType::Repeater(delay) => {
-            let (input_power, side_input_power) = get_all_input(node);
             let node = &mut nodes[node_id];
-            let should_be_locked = side_input_power > 0;
+            let should_be_locked = get_bool_side(node);
             if !node.locked && should_be_locked {
                 set_node_locked(node, true);
             } else if node.locked && !should_be_locked {
@@ -635,7 +638,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
 
             if !node.locked && !node.pending_tick {
-                let should_be_powered = input_power > 0;
+                let should_be_powered = get_bool_input(node);
                 if should_be_powered != node.powered {
                     let priority = if node.facing_diode {
                         TickPriority::Highest
