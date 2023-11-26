@@ -32,11 +32,25 @@ impl<W: World> Pass<W> for IdentifyNodes {
 
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
-        for y in start_pos.y..=end_pos.y {
-            for z in start_pos.z..=end_pos.z {
-                for x in start_pos.x..=end_pos.x {
-                    let pos = BlockPos::new(x, y, z);
-                    for_pos(ignore_wires, plot, graph, pos);
+
+        for chunk_z in (start_pos.z / 16)..=(end_pos.z / 16) {
+            for chunk_x in (start_pos.x / 16)..=(end_pos.x / 16) {
+                let chunk = plot.get_chunk(chunk_x, chunk_z).unwrap();
+                for chunk_y in (start_pos.y / 16)..=(end_pos.y / 16) {
+                    if chunk.sections[chunk_y as usize].block_count() > 0 {
+                        for y in 0..=15 {
+                            for z in 0..=15 {
+                                for x in 0..=15 {
+                                    let pos = BlockPos::new(
+                                        chunk_x * 16 + x,
+                                        chunk_y * 16 + y,
+                                        chunk_z * 16 + z,
+                                    );
+                                    for_pos(ignore_wires, plot, graph, pos);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
