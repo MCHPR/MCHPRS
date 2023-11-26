@@ -3,7 +3,6 @@ use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::config::CONFIG;
 use crate::player::PacketSender;
 use crate::plot::PLOT_BLOCK_HEIGHT;
-use crate::redstone;
 use crate::utils::HyphenatedUUID;
 use mchprs_blocks::block_entities::InventoryEntry;
 use mchprs_blocks::blocks::{Block, FlipDirection, RotateAmt};
@@ -235,17 +234,17 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
         let offset_x = pos.x - cb.offset_x;
         let offset_y = pos.y - cb.offset_y;
         let offset_z = pos.z - cb.offset_z;
-        capture_undo(
-            ctx.plot,
-            ctx.player,
-            BlockPos::new(offset_x, offset_y, offset_z),
-            BlockPos::new(
-                offset_x + cb.size_x as i32,
-                offset_y + cb.size_y as i32,
-                offset_z + cb.size_z as i32,
-            ),
+        let first_pos = BlockPos::new(offset_x, offset_y, offset_z);
+        let second_pos = BlockPos::new(
+            offset_x + cb.size_x as i32,
+            offset_y + cb.size_y as i32,
+            offset_z + cb.size_z as i32,
         );
+        capture_undo(ctx.plot, ctx.player, first_pos, second_pos);
         paste_clipboard(ctx.plot, cb, pos, ctx.has_flag('a'));
+        if ctx.has_flag('u') {
+            update(ctx.plot, first_pos, second_pos);
+        }
         ctx.player.send_worldedit_message(&format!(
             "Your clipboard was pasted. ({:?})",
             start_time.elapsed()
@@ -993,21 +992,21 @@ pub(super) fn execute_rstack(ctx: CommandExecuteContext<'_>) {
 pub(super) fn execute_update(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let operation = worldedit_start_operation(ctx.player);
-    for x in operation.x_range() {
-        for y in operation.y_range() {
-            for z in operation.z_range() {
-                let block_pos = BlockPos::new(x, y, z);
-                let block = ctx.plot.get_block(block_pos);
-                redstone::update(block, ctx.plot, block_pos);
-            }
-        }
-    }
+    let pos = match (ctx.player.first_position, ctx.player.second_position) {
+        (None, None) => Some(ctx.plot.get_corners()),
+        (Some(first_pos), Some(second_pos)) => Some((first_pos, second_pos)),
+        _ => None,
+    };
+    if let Some((first_pos, second_pos)) = pos {
+        update(ctx.plot, first_pos, second_pos);
 
-    ctx.player.send_worldedit_message(&format!(
-        "Your selection was updated sucessfully. ({:?})",
-        start_time.elapsed()
-    ));
+        ctx.player.send_worldedit_message(&format!(
+            "Your selection was updated sucessfully. ({:?})",
+            start_time.elapsed()
+        ));
+    } else {
+        ctx.player.send_error_message("Your selection is incomplete.");
+    }
 }
 
 pub(super) fn execute_replace_container(ctx: CommandExecuteContext<'_>) {

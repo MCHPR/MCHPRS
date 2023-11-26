@@ -301,7 +301,7 @@ impl Plot {
                         return false;
                     }
                     Tps::Limited(tps)
-                } else if args[0] == "unlimited" {
+                } else if !args[0].is_empty() && "unlimited".starts_with(args[0]) {
                     Tps::Unlimited
                 } else {
                     self.players[player].send_error_message("Unable to parse rtps!");
