@@ -5,7 +5,7 @@ mod passes;
 
 use crate::redpiler::passes::make_default_pass_manager;
 use crate::redstone;
-use crate::world::World;
+use crate::world::{World, for_each_block_mut_optimized};
 use backend::JITBackend;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
@@ -130,19 +130,12 @@ impl Compiler {
 
         if self.options.optimize {
             let (first_pos, second_pos) = bounds;
-            let start_pos = first_pos.min(second_pos);
-            let end_pos = first_pos.max(second_pos);
-            for y in start_pos.y..=end_pos.y {
-                for z in start_pos.z..=end_pos.z {
-                    for x in start_pos.x..=end_pos.x {
-                        let pos = BlockPos::new(x, y, z);
-                        let block = world.get_block(pos);
-                        if matches!(block, Block::RedstoneWire { .. }) {
-                            redstone::update(block, world, pos);
-                        }
-                    }
+            for_each_block_mut_optimized(world, first_pos, second_pos, |world, pos| {
+                let block = world.get_block(pos);
+                if matches!(block, Block::RedstoneWire { .. }) {
+                    redstone::update(block, world, pos);
                 }
-            }
+            });
         }
         self.options = Default::default();
     }
