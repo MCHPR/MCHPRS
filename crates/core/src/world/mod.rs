@@ -60,20 +60,20 @@ pub trait World {
 /// Executes the given function for each block excluding most air blocks
 pub fn for_each_block_optimized<F, W: World>(
     world: &W,
-    start_pos: BlockPos,
-    end_pos: BlockPos,
+    first_pos: BlockPos,
+    second_pos: BlockPos,
     mut f: F,
 ) where
     F: FnMut(BlockPos),
 {
-    let start_x = i32::min(start_pos.x, end_pos.x);
-    let end_x = i32::max(start_pos.x, end_pos.x);
+    let start_x = i32::min(first_pos.x, second_pos.x);
+    let end_x = i32::max(first_pos.x, second_pos.x);
 
-    let start_y = i32::min(start_pos.y, end_pos.y);
-    let end_y = i32::max(start_pos.y, end_pos.y);
+    let start_y = i32::min(first_pos.y, second_pos.y);
+    let end_y = i32::max(first_pos.y, second_pos.y);
 
-    let start_z = i32::min(start_pos.z, end_pos.z);
-    let end_z = i32::max(start_pos.z, end_pos.z);
+    let start_z = i32::min(first_pos.z, second_pos.z);
+    let end_z = i32::max(first_pos.z, second_pos.z);
 
     // Iterate over chunks
     for chunk_start_x in (start_x..=end_x).step_by(16) {
@@ -107,20 +107,20 @@ pub fn for_each_block_optimized<F, W: World>(
 /// Executes the given function for each block excluding most air blocks
 pub fn for_each_block_mut_optimized<F, W: World>(
     world: &mut W,
-    start_pos: BlockPos,
-    end_pos: BlockPos,
+    first_pos: BlockPos,
+    second_pos: BlockPos,
     mut f: F,
 ) where
     F: FnMut(&mut W, BlockPos),
 {
-    let start_x = i32::min(start_pos.x, end_pos.x);
-    let end_x = i32::max(start_pos.x, end_pos.x);
+    let start_x = i32::min(first_pos.x, second_pos.x);
+    let end_x = i32::max(first_pos.x, second_pos.x);
 
-    let start_y = i32::min(start_pos.y, end_pos.y);
-    let end_y = i32::max(start_pos.y, end_pos.y);
+    let start_y = i32::min(first_pos.y, second_pos.y);
+    let end_y = i32::max(first_pos.y, second_pos.y);
 
-    let start_z = i32::min(start_pos.z, end_pos.z);
-    let end_z = i32::max(start_pos.z, end_pos.z);
+    let start_z = i32::min(first_pos.z, second_pos.z);
+    let end_z = i32::max(first_pos.z, second_pos.z);
 
     // Iterate over chunks
     for chunk_start_x in (start_x..=end_x).step_by(16) {
