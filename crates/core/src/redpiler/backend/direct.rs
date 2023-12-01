@@ -269,7 +269,7 @@ impl TickScheduler {
 
     fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
         for (idx, queues) in self.queues_deque.iter().enumerate() {
-            let delay = if self.pos >= idx { idx + 16 } else { idx } - self.pos;
+            let delay = if self.pos >= idx { idx + Self::NUM_QUEUES } else { idx } - self.pos;
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
                     let Some((pos, _)) = blocks[node.index()] else {
