@@ -53,6 +53,15 @@ pub trait World {
     fn is_cursed(&self) -> bool {
         false
     }
+
+    fn play_sound(
+        &mut self,
+        pos: BlockPos,
+        sound_id: i32,
+        sound_category: i32,
+        volume: f32,
+        pitch: f32,
+    );
 }
 
 // TODO: I have no idea how to deduplicate this in a sane way

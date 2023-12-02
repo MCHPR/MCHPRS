@@ -353,6 +353,72 @@ items! {
         from_id(_id): 640 => {},
         block: true,
     },
+    NoteBlock {
+        props: {},
+        get_id: 608,
+        from_id(_id): 608 => {},
+        block: true,
+    },
+    Clay {
+        props: {},
+        get_id: 255,
+        from_id(_id): 255 => {},
+        block: true,
+    },
+    GoldBlock {
+        props: {},
+        get_id: 67,
+        from_id(_id): 67 => {},
+        block: true,
+    },
+    PackedIce {
+        props: {},
+        get_id: 390,
+        from_id(_id): 390 => {},
+        block: true,
+    },
+    BoneBlock {
+        props: {},
+        get_id: 449,
+        from_id(_id): 449 => {},
+        block: true,
+    },
+    IronBlock {
+        props: {},
+        get_id: 65,
+        from_id(_id): 65 => {},
+        block: true,
+    },
+    SoulSand {
+        props: {},
+        get_id: 269,
+        from_id(_id): 269 => {},
+        block: true,
+    },
+    Pumpkin {
+        props: {},
+        get_id: 265,
+        from_id(_id): 265 => {},
+        block: true,
+    },
+    EmeraldBlock {
+        props: {},
+        get_id: 317,
+        from_id(_id): 317 => {},
+        block: true,
+    },
+    HayBlock {
+        props: {},
+        get_id: 372,
+        from_id(_id): 372 => {},
+        block: true,
+    },
+    Sand {
+        props: {},
+        get_id: 37,
+        from_id(_id): 37 => {},
+        block: true,
+    },
     Unknown {
         props: {
             id: u32
