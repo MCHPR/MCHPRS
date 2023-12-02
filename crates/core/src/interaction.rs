@@ -88,6 +88,21 @@ pub fn on_use(
             }
             ActionResult::Success
         }
+        Block::NoteBlock {
+            instrument,
+            note,
+            powered,
+        } => {
+            world.set_block(
+                pos,
+                Block::NoteBlock {
+                    instrument,
+                    note: (note + 1) % 25,
+                    powered,
+                },
+            );
+            ActionResult::Success
+        }
         b if b.has_block_entity() => {
             // Open container
             let block_entity = world.get_block_entity(pos);
@@ -219,6 +234,21 @@ pub fn get_state_for_placement(
                 powered: false,
             },
         },
+        Item::NoteBlock {} => Block::NoteBlock {
+            instrument: Instrument::Harp,
+            note: 0,
+            powered: false,
+        },
+        Item::Clay {} => Block::Clay {},
+        Item::GoldBlock {} => Block::GoldBlock {},
+        Item::PackedIce {} => Block::PackedIce {},
+        Item::BoneBlock {} => Block::BoneBlock {},
+        Item::IronBlock {} => Block::IronBlock {},
+        Item::SoulSand {} => Block::SoulSand {},
+        Item::Pumpkin {} => Block::Pumpkin {},
+        Item::EmeraldBlock {} => Block::EmeraldBlock {},
+        Item::HayBlock {} => Block::HayBlock {},
+        Item::Sand {} => Block::Sand {},
         _ => Block::Air {},
     };
     if is_valid_position(block, world, pos) {

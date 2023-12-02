@@ -1,4 +1,4 @@
-use super::{BlockDirection, BlockProperty, BlockTransform, FlipDirection};
+use super::{Block, BlockDirection, BlockProperty, BlockTransform, FlipDirection};
 use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, BlockProperty, BlockTransform)]
@@ -386,6 +386,158 @@ impl FromStr for TrapdoorHalf {
         Ok(match s {
             "top" => TrapdoorHalf::Top,
             "bottom" => TrapdoorHalf::Bottom,
+            _ => return Err(()),
+        })
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Instrument {
+    Harp,
+    Basedrum,
+    Snare,
+    Hat,
+    Bass,
+    Flute,
+    Bell,
+    Guitar,
+    Chime,
+    Xylophone,
+    IronXylophone,
+    CowBell,
+    Didgeridoo,
+    Bit,
+    Banjo,
+    Pling,
+}
+
+impl Instrument {
+    pub fn get_id(self) -> u32 {
+        self as u32
+    }
+
+    pub fn from_id(id: u32) -> Self {
+        match id {
+            0 => Instrument::Harp,
+            1 => Instrument::Basedrum,
+            2 => Instrument::Snare,
+            3 => Instrument::Hat,
+            4 => Instrument::Bass,
+            5 => Instrument::Flute,
+            6 => Instrument::Bell,
+            7 => Instrument::Guitar,
+            8 => Instrument::Chime,
+            9 => Instrument::Xylophone,
+            10 => Instrument::IronXylophone,
+            11 => Instrument::CowBell,
+            12 => Instrument::Didgeridoo,
+            13 => Instrument::Bit,
+            14 => Instrument::Banjo,
+            15 => Instrument::Pling,
+            _ => unreachable!(),
+        }
+    }
+
+    pub fn from_block_below(block: Block) -> Instrument {
+        match block {
+            // All stone materials
+            Block::Stone {}
+            | Block::CoalBlock {}
+            | Block::Quartz {}
+            | Block::Sandstone {}
+            | Block::Concrete { .. }
+            | Block::Terracotta {}
+            | Block::ColoredTerracotta { .. } => Instrument::Basedrum,
+            // All sand/aggregate materials: ConcretePowder
+            Block::Sand {} => Instrument::Snare,
+            // All glass materials: GlassPane
+            Block::Glass {} | Block::StainedGlass { .. } => Instrument::Hat,
+            // All wood materials: Log, Plank
+            Block::Sign { .. }
+            | Block::NoteBlock { .. }
+            | Block::Barrel {}
+            | Block::Composter { .. } => Instrument::Bass,
+            Block::Clay {} => Instrument::Flute,
+            Block::GoldBlock {} => Instrument::Bell,
+            Block::Wool { .. } => Instrument::Guitar,
+            Block::PackedIce {} => Instrument::Chime,
+            Block::BoneBlock {} => Instrument::Xylophone,
+            Block::IronBlock {} => Instrument::IronXylophone,
+            Block::SoulSand {} => Instrument::CowBell,
+            Block::Pumpkin {} => Instrument::Didgeridoo,
+            Block::EmeraldBlock {} => Instrument::Bit,
+            Block::HayBlock {} => Instrument::Banjo,
+            Block::Glowstone { .. } => Instrument::Pling,
+            _ => Instrument::Harp,
+        }
+    }
+
+    pub fn to_sound_id(&self) -> i32 {
+        match self {
+            Instrument::Harp => 705,
+            Instrument::Basedrum => 699,
+            Instrument::Snare => 708,
+            Instrument::Hat => 706,
+            Instrument::Bass => 700,
+            Instrument::Flute => 703,
+            Instrument::Bell => 701,
+            Instrument::Guitar => 704,
+            Instrument::Chime => 702,
+            Instrument::Xylophone => 709,
+            Instrument::IronXylophone => 710,
+            Instrument::CowBell => 711,
+            Instrument::Didgeridoo => 712,
+            Instrument::Bit => 713,
+            Instrument::Banjo => 714,
+            Instrument::Pling => 707,
+        }
+    }
+}
+
+impl ToString for Instrument {
+    fn to_string(&self) -> String {
+        match self {
+            Instrument::Harp => "harp".to_owned(),
+            Instrument::Basedrum => "basedrum".to_owned(),
+            Instrument::Snare => "snare".to_owned(),
+            Instrument::Hat => "hat".to_owned(),
+            Instrument::Bass => "bass".to_owned(),
+            Instrument::Flute => "flute".to_owned(),
+            Instrument::Bell => "bell".to_owned(),
+            Instrument::Guitar => "guitar".to_owned(),
+            Instrument::Chime => "chime".to_owned(),
+            Instrument::Xylophone => "xylophone".to_owned(),
+            Instrument::IronXylophone => "iron_xylophone".to_owned(),
+            Instrument::CowBell => "cow_bell".to_owned(),
+            Instrument::Didgeridoo => "didgeridoo".to_owned(),
+            Instrument::Bit => "bit".to_owned(),
+            Instrument::Banjo => "banjo".to_owned(),
+            Instrument::Pling => "pling".to_owned(),
+        }
+    }
+}
+
+impl FromStr for Instrument {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "harp" => Instrument::Harp,
+            "basedrum" => Instrument::Basedrum,
+            "snare" => Instrument::Snare,
+            "hat" => Instrument::Hat,
+            "bass" => Instrument::Bass,
+            "flute" => Instrument::Flute,
+            "bell" => Instrument::Bell,
+            "guitar" => Instrument::Guitar,
+            "chime" => Instrument::Chime,
+            "xylophone" => Instrument::Xylophone,
+            "iron_xylophone" => Instrument::IronXylophone,
+            "cow_bell" => Instrument::CowBell,
+            "didgeridoo" => Instrument::Didgeridoo,
+            "bit" => Instrument::Bit,
+            "banjo" => Instrument::Banjo,
+            "pling" => Instrument::Pling,
             _ => return Err(()),
         })
     }
