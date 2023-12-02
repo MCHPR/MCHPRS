@@ -56,12 +56,13 @@ pub trait World {
 
     fn play_sound(
         &mut self,
-        pos: BlockPos,
-        sound_id: i32,
-        sound_category: i32,
-        volume: f32,
-        pitch: f32,
-    );
+        _pos: BlockPos,
+        _sound_id: i32,
+        _sound_category: i32,
+        _volume: f32,
+        _pitch: f32,
+    ) {
+    }
 }
 
 // TODO: I have no idea how to deduplicate this in a sane way
