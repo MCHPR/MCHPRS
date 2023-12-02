@@ -60,6 +60,7 @@ noop_block_transform!(
     ButtonFace,
     LeverFace,
     ComparatorMode,
+    Instrument,
 );
 
 impl BlockTransform for BlockDirection {
@@ -1190,6 +1191,145 @@ blocks! {
             }
         },
         get_name: "iron_trapdoor",
+    },
+    NoteBlock {
+        props: {
+            instrument: Instrument,
+            note: u32,
+            powered: bool
+        },
+        get_id: {
+            instrument.get_id() * 50
+                + note * 2
+                + !powered as u32
+                + 281
+        },
+        from_id_offset: 281,
+        from_id(id): 281..=1080 => {
+            instrument: Instrument::from_id((id >> 1) / 25),
+            note: (id >> 1) % 25,
+            powered: (id & 1) == 0
+        },
+        from_names(_name): {
+            "note_block" => {
+                instrument: Instrument::Harp,
+                note: 0,
+                powered: false
+            }
+        },
+        get_name: "note_block",
+        solid: true,
+        cube: true,
+    },
+    Clay {
+        props: {},
+        get_id: 4016,
+        from_id(_id): 4016 => {},
+        from_names(_name): {
+            "clay" => {}
+        },
+        get_name: "clay",
+        solid: true,
+        cube: true,
+    },
+    GoldBlock {
+        props: {},
+        get_id: 1483,
+        from_id(_id): 1483 => {},
+        from_names(_name): {
+            "gold_block" => {}
+        },
+        get_name: "gold_block",
+        solid: true,
+        cube: true,
+    },
+    PackedIce {
+        props: {},
+        get_id: 8134,
+        from_id(_id): 8134 => {},
+        from_names(_name): {
+            "packed_ice" => {}
+        },
+        get_name: "packed_ice",
+        solid: true,
+        cube: true,
+    },
+    BoneBlock {
+        props: {},
+        get_id: 9507,
+        from_id(_id): 9506..=9508 => {},
+        from_names(_name): {
+            "bone_block" => {}
+        },
+        get_name: "bone_block",
+        solid: true,
+        cube: true,
+    },
+    IronBlock {
+        props: {},
+        get_id: 1484,
+        from_id(_id): 1484 => {},
+        from_names(_name): {
+            "iron_block" => {}
+        },
+        get_name: "iron_block",
+        solid: true,
+        cube: true,
+    },
+    SoulSand {
+        props: {},
+        get_id: 4069,
+        from_id(_id): 4069 => {},
+        from_names(_name): {
+            "soul_sand" => {}
+        },
+        get_name: "soul_sand",
+        solid: true,
+        cube: true,
+    },
+    Pumpkin {
+        props: {},
+        get_id: 4067,
+        from_id(_id): 4067 => {},
+        from_names(_name): {
+            "pumpkin" => {}
+        },
+        get_name: "pumpkin",
+        solid: true,
+        cube: true,
+    },
+    EmeraldBlock {
+        props: {},
+        get_id: 5609,
+        from_id(_id): 5609 => {},
+        from_names(_name): {
+            "emerald_block" => {}
+        },
+        get_name: "emerald_block",
+        solid: true,
+        cube: true,
+    },
+    HayBlock {
+        props: {},
+        get_id: 8114,
+        from_id(_id): 8113..=8115 => {},
+        from_names(_name): {
+            "hay_block" => {}
+        },
+        get_name: "hay_block",
+        solid: true,
+        cube: true,
+    },
+    Sand {
+        props: {},
+        get_id: 66,
+        from_id(_id): 66 => {},
+        from_names(_name): {
+            "sand" => {}
+        },
+        get_name: "sand",
+        solid: true,
+        cube: true,
     },
     Unknown {
         props: {

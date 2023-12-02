@@ -232,6 +232,32 @@ impl World for PlotWorld {
     fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
         self.to_be_ticked.iter().any(|e| e.pos == pos)
     }
+
+    fn play_sound(
+        &mut self,
+        pos: BlockPos,
+        sound_id: i32,
+        sound_category: i32,
+        volume: f32,
+        pitch: f32,
+    ) {
+        // We do not know the players location here, so we send the sound packet to all players
+        // A notchian server would only send to players in hearing distance (volume.clamp(0.0, 1.0) * 16.0)
+        let sound_effect_data = CSoundEffect {
+            sound_id,
+            sound_category,
+            x: pos.x * 8 + 4,
+            y: pos.y * 8 + 4,
+            z: pos.z * 8 + 4,
+            volume,
+            pitch,
+        }
+        .encode();
+
+        for player in &self.packet_senders {
+            player.send_packet(&sound_effect_data);
+        }
+    }
 }
 
 impl Plot {
