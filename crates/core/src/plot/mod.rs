@@ -512,6 +512,7 @@ impl Plot {
     fn reset_timings(&mut self) {
         self.lag_time = Duration::ZERO;
         self.last_update_time = Instant::now();
+        self.last_nspt = None;
         self.timings.reset_timings();
     }
 
@@ -784,102 +785,61 @@ impl Plot {
         // Only tick if there are players in the plot
         if !self.players.is_empty() {
             self.timings.set_ticking(true);
-            self.last_player_time = Instant::now();
-            match self.tps {
+            let now = Instant::now();
+            self.last_player_time = now;
+
+            let max_batch_size = match self.last_nspt {
+                Some(Duration::ZERO) | None => 1,
+                Some(last_nspt) => {
+                    let ticks_fit = (WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos()) as u64;
+                    // A tick previously took longer than the world send rate.
+                    // Run at least one just so we're not stuck doing nothing
+                    ticks_fit.max(1)
+                }
+            };
+
+            let batch_size = match self.tps {
                 Tps::Limited(tps) if tps != 0 => {
-                    let dur_per_tick = Duration::from_micros(1_000_000 / tps as u64);
-                    self.lag_time += self.last_update_time.elapsed();
-                    self.last_update_time = Instant::now();
-                    if self.lag_time > dur_per_tick {
-                        // TODO: there are some problems here: redpiler should not automatically
-                        // compiler as early as it is, meaning we are not running as many ticks
-                        // as we should for some reason.
-                        let batch_size =
-                            self.lag_time.as_micros() as u64 / dur_per_tick.as_micros() as u64;
-                        // 50000 here is arbitrary. We just need a number that's not too high so we actually
-                        // get around to sending block updates.
-                        let batch_size = batch_size.min(50000);
-                        if !self.redpiler.is_active() && self.auto_redpiler {
-                            let mut ticks_completed = batch_size;
-                            for i in 0..batch_size {
-                                // If we're running behind, just stop right here and we can start redpiler
-                                if self.timings.is_running_behind() {
-                                    ticks_completed = i;
-                                    break;
-                                }
-                                self.tick();
-                            }
-                            if ticks_completed > 0 {
-                                self.last_nspt =
-                                    Some(self.last_update_time.elapsed() / ticks_completed as u32);
-                            }
-                            // Check if we stopped early, and if so, start redpiler
-                            if ticks_completed != batch_size {
-                                self.start_redpiler(Default::default());
-                            } else {
-                                self.lag_time -= dur_per_tick * batch_size as u32;
-                            }
-                        } else {
-                            // Limit the batch size to however many ticks we can fit inside the world send rate.
-                            let batch_size = batch_size.min(match self.last_nspt {
-                                Some(Duration::ZERO) | None => 5,
-                                Some(last_nspt) => {
-                                    let ticks_fit =
-                                        WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos();
-                                    if ticks_fit == 0 {
-                                        // A tick previously took longer than the world send rate.
-                                        // Run at least one just so we're not stuck doing nothing
-                                        1
-                                    } else {
-                                        ticks_fit
-                                    }
-                                }
-                            } as u64);
-                            if batch_size != 0 {
-                                // Redpiler is either already running or will not be automatically started,
-                                // so there's nothing special to do here, just run the batch
-                                for _ in 0..batch_size {
-                                    self.tick();
-                                }
-                                self.lag_time -= dur_per_tick * batch_size as u32;
-                                self.last_nspt =
-                                    Some(self.last_update_time.elapsed() / (batch_size as u32));
-                            }
+                    let dur_per_tick = Duration::from_nanos(1_000_000_000 / tps as u64);
+                    self.lag_time += now - self.last_update_time;
+                    let batch_size = (self.lag_time.as_nanos() / dur_per_tick.as_nanos()) as u64;
+                    self.lag_time -= dur_per_tick * batch_size as u32;
+                    batch_size.min(max_batch_size)
+                }
+                Tps::Unlimited => max_batch_size,
+                _ => 0,
+            };
+
+            self.last_update_time = now;
+            if batch_size != 0 {
+                // 50_000 (= 3.33 MHz) here is arbitrary.
+                // We just need a number that's not too high so we actually get around to sending block updates.
+                let batch_size = batch_size.min(50_000) as u32;
+                let mut ticks_completed = batch_size;
+                if self.redpiler.is_active() {
+                    for _ in 0..batch_size {
+                        self.tick();
+                    }
+                    self.redpiler.flush(&mut self.world);
+                } else {
+                    for i in 0..batch_size {
+                        self.tick();
+                        if now.elapsed() > Duration::from_millis(200) {
+                            ticks_completed = i + 1;
+                            break;
                         }
                     }
                 }
-                Tps::Unlimited => {
-                    if !self.redpiler.is_active() && self.auto_redpiler {
-                        self.start_redpiler(Default::default());
-                    }
-                    self.last_update_time = Instant::now();
-                    let batch_size = match self.last_nspt {
-                        Some(Duration::ZERO) | None => 5,
-                        Some(last_nspt) => {
-                            let ticks_fit = WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos();
-                            if ticks_fit == 0 {
-                                // A tick previously took longer than the world send rate.
-                                // Run at least one just so we're not stuck doing nothing
-                                1
-                            } else {
-                                ticks_fit
-                            }
-                        }
-                    } as u64;
-                    if batch_size != 0 {
-                        let batch_size = batch_size.min(50000) as u32;
-                        for _ in 0..batch_size {
-                            self.tick();
-                        }
-                        self.last_nspt = Some(self.last_update_time.elapsed() / batch_size);
-                    }
-                }
-                _ => {}
+                self.last_nspt = Some(self.last_update_time.elapsed() / ticks_completed);
             }
 
-            if self.redpiler.is_active() {
-                self.redpiler.flush(&mut self.world);
+            if self.auto_redpiler
+                && !self.redpiler.is_active()
+                && (self.tps == Tps::Unlimited || self.timings.is_running_behind())
+            {
+                self.start_redpiler(Default::default());
             }
+
             let now = Instant::now();
             let time_since_last_world_send = now - self.last_world_send_time;
             if time_since_last_world_send > WORLD_SEND_RATE {
