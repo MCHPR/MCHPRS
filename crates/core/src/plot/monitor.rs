@@ -1,4 +1,5 @@
 use mchprs_save_data::plot_data::Tps;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -44,7 +45,7 @@ struct MonitorData {
     too_slow: AtomicBool,
     ticking: AtomicBool,
     running: AtomicBool,
-    timings_record: Mutex<Vec<u32>>,
+    timings_record: Mutex<VecDeque<u32>>,
 }
 
 #[derive(Debug)]
@@ -195,9 +196,9 @@ impl TimingsMonitor {
                 // have a max size of 1800 entries.
                 let mut timings_record = data.timings_record.lock().unwrap();
                 if timings_record.len() == 1800 {
-                    timings_record.pop();
+                    timings_record.pop_back();
                 }
-                timings_record.insert(0, ticks_passed);
+                timings_record.push_front(ticks_passed);
             }
         })
     }
