@@ -542,3 +542,7 @@ impl FromStr for Instrument {
         })
     }
 }
+
+pub fn noteblock_note_to_pitch(note: u32) -> f32 {
+    f32::powf(2.0, (note as f32 - 12.0) / 12.0)
+}

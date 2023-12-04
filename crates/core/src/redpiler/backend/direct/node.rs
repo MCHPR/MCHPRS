@@ -2,7 +2,7 @@ use mchprs_blocks::blocks::ComparatorMode;
 use smallvec::SmallVec;
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NodeId(u32);
 
 impl NodeId {
@@ -119,6 +119,7 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
+    NoteBlock,
 }
 
 impl NodeType {
@@ -130,6 +131,7 @@ impl NodeType {
                 | NodeType::Lever
                 | NodeType::Trapdoor
                 | NodeType::PressurePlate
+                | NodeType::NoteBlock
         )
     }
 }

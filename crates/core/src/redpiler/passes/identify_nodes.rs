@@ -13,8 +13,8 @@ use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::redstone;
 use crate::world::{for_each_block_optimized, World};
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, RedstoneComparator, RedstoneRepeater};
-use mchprs_blocks::BlockPos;
+use mchprs_blocks::blocks::{Block, Instrument, RedstoneComparator, RedstoneRepeater};
+use mchprs_blocks::{BlockFace, BlockPos};
 
 pub struct IdentifyNodes;
 
@@ -117,6 +117,18 @@ fn identify_block<W: World>(
         }
         Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
         Block::RedstoneBlock {} => (NodeType::Constant, NodeState::ss(15)),
+        Block::NoteBlock {
+            instrument: _,
+            note,
+            powered,
+        } if world.get_block(pos.offset(BlockFace::Top)) == (Block::Air {}) => {
+            let below = world.get_block(pos.offset(BlockFace::Bottom));
+            let instrument = Instrument::from_block_below(below);
+            (
+                NodeType::NoteBlock { instrument, note },
+                NodeState::simple(powered),
+            )
+        }
         block if redstone::has_comparator_override(block) => (
             NodeType::Constant,
             NodeState::ss(redstone::get_comparator_override(block, world, pos)),

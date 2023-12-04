@@ -1,4 +1,4 @@
-use mchprs_blocks::blocks::ComparatorMode;
+use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 
@@ -16,11 +16,15 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
+    NoteBlock { instrument: Instrument, note: u32 },
 }
 
 impl NodeType {
     pub fn is_output(self) -> bool {
-        matches!(self, NodeType::Lamp | NodeType::Trapdoor)
+        matches!(
+            self,
+            NodeType::Lamp | NodeType::Trapdoor | NodeType::NoteBlock { .. }
+        )
     }
 }
 
