@@ -3,12 +3,13 @@
 //! scenerio (i.e. regular buiding)
 
 pub mod comparator;
+pub mod noteblock;
 pub mod repeater;
 pub mod wire;
 
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{noteblock_note_to_pitch, Block, ButtonFace, Instrument, LeverFace};
+use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
 
@@ -234,8 +235,7 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
             let should_be_powered = redstone_lamp_should_be_lit(world, pos);
             if powered != should_be_powered {
                 // Hack: Update the instrument only just before the noteblock is updated
-                let instrument =
-                    Instrument::from_block_below(world.get_block(pos.offset(BlockFace::Bottom)));
+                let instrument = noteblock::get_noteblock_instrument(world, pos);
                 let new_block = Block::NoteBlock {
                     instrument,
                     note,
@@ -250,15 +250,9 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
 
                 if should_be_powered
                     && is_not_powered
-                    && world.get_block(pos.offset(BlockFace::Top)) == (Block::Air {})
+                    && noteblock::is_noteblock_unblocked(world, pos)
                 {
-                    world.play_sound(
-                        pos,
-                        instrument.to_sound_id(),
-                        2, // Sound Caregory ID for Records
-                        3.0,
-                        noteblock_note_to_pitch(note),
-                    );
+                    noteblock::play_note(world, pos, instrument, note);
                 }
                 world.set_block(pos, new_block);
             }

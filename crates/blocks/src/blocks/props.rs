@@ -497,23 +497,24 @@ impl Instrument {
 impl ToString for Instrument {
     fn to_string(&self) -> String {
         match self {
-            Instrument::Harp => "harp".to_owned(),
-            Instrument::Basedrum => "basedrum".to_owned(),
-            Instrument::Snare => "snare".to_owned(),
-            Instrument::Hat => "hat".to_owned(),
-            Instrument::Bass => "bass".to_owned(),
-            Instrument::Flute => "flute".to_owned(),
-            Instrument::Bell => "bell".to_owned(),
-            Instrument::Guitar => "guitar".to_owned(),
-            Instrument::Chime => "chime".to_owned(),
-            Instrument::Xylophone => "xylophone".to_owned(),
-            Instrument::IronXylophone => "iron_xylophone".to_owned(),
-            Instrument::CowBell => "cow_bell".to_owned(),
-            Instrument::Didgeridoo => "didgeridoo".to_owned(),
-            Instrument::Bit => "bit".to_owned(),
-            Instrument::Banjo => "banjo".to_owned(),
-            Instrument::Pling => "pling".to_owned(),
+            Instrument::Harp => "harp",
+            Instrument::Basedrum => "basedrum",
+            Instrument::Snare => "snare",
+            Instrument::Hat => "hat",
+            Instrument::Bass => "bass",
+            Instrument::Flute => "flute",
+            Instrument::Bell => "bell",
+            Instrument::Guitar => "guitar",
+            Instrument::Chime => "chime",
+            Instrument::Xylophone => "xylophone",
+            Instrument::IronXylophone => "iron_xylophone",
+            Instrument::CowBell => "cow_bell",
+            Instrument::Didgeridoo => "didgeridoo",
+            Instrument::Bit => "bit",
+            Instrument::Banjo => "banjo",
+            Instrument::Pling => "pling",
         }
+        .to_owned()
     }
 }
 

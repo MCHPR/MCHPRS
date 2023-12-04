@@ -10,11 +10,11 @@
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeState, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::redstone;
+use crate::redstone::{self, noteblock};
 use crate::world::{for_each_block_optimized, World};
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, Instrument, RedstoneComparator, RedstoneRepeater};
-use mchprs_blocks::{BlockFace, BlockPos};
+use mchprs_blocks::blocks::{Block, RedstoneComparator, RedstoneRepeater};
+use mchprs_blocks::BlockPos;
 
 pub struct IdentifyNodes;
 
@@ -121,9 +121,8 @@ fn identify_block<W: World>(
             instrument: _,
             note,
             powered,
-        } if world.get_block(pos.offset(BlockFace::Top)) == (Block::Air {}) => {
-            let below = world.get_block(pos.offset(BlockFace::Bottom));
-            let instrument = Instrument::from_block_below(below);
+        } if noteblock::is_noteblock_unblocked(world, pos) => {
+            let instrument = noteblock::get_noteblock_instrument(world, pos);
             (
                 NodeType::NoteBlock { instrument, note },
                 NodeState::simple(powered),
