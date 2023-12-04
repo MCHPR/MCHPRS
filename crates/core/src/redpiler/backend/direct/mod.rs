@@ -10,9 +10,10 @@ use crate::redpiler::compile_graph::CompileGraph;
 use crate::redpiler::task_monitor::TaskMonitor;
 use crate::redpiler::{block_powered_mut, CompilerOptions};
 use crate::redstone::bool_to_ss;
+use crate::redstone::noteblock;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{noteblock_note_to_pitch, Block, ComparatorMode, Instrument};
+use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
 use node::{Node, NodeId, NodeType, Nodes};
@@ -233,13 +234,7 @@ impl JITBackend for DirectBackend {
             match event {
                 Event::NoteBlockPlay(node_id) => {
                     let &(pos, instrument, note) = self.noteblock_map.get(&node_id).unwrap();
-                    world.play_sound(
-                        pos,
-                        instrument.to_sound_id(),
-                        2, // Sound Caregory ID for Records
-                        3.0,
-                        noteblock_note_to_pitch(note),
-                    );
+                    noteblock::play_note(world, pos, instrument, note);
                 }
             }
         }
