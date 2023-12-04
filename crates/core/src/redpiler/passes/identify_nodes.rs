@@ -12,11 +12,11 @@ use crate::redpiler::compile_graph::{
     Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType,
 };
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::redstone::{self, comparator};
+use crate::redstone::{self, comparator, noteblock};
 use crate::world::{for_each_block_optimized, World};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, Instrument};
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
@@ -158,9 +158,8 @@ fn identify_block<W: World>(
             instrument: _,
             note,
             powered,
-        } if world.get_block(pos.offset(BlockFace::Top)) == (Block::Air {}) => {
-            let below = world.get_block(pos.offset(BlockFace::Bottom));
-            let instrument = Instrument::from_block_below(below);
+        } if noteblock::is_noteblock_unblocked(world, pos) => {
+            let instrument = noteblock::get_noteblock_instrument(world, pos);
             (
                 NodeType::NoteBlock { instrument, note },
                 NodeState::simple(powered),
