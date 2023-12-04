@@ -67,6 +67,7 @@ fn convert_node(
             CNodeType::Trapdoor => NodeType::Trapdoor,
             CNodeType::Wire => NodeType::Wire,
             CNodeType::Constant => NodeType::Constant,
+            CNodeType::NoteBlock { .. } => NodeType::NoteBlock,
         },
         block: node.block.map(|(pos, id)| {
             (

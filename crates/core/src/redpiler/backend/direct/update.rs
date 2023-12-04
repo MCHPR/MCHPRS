@@ -4,7 +4,14 @@ use super::node::{NodeId, NodeType};
 use super::*;
 
 #[inline(always)]
-pub(super) fn update_node(scheduler: &mut TickScheduler, node: &mut Node, node_id: NodeId) {
+pub(super) fn update_node(
+    scheduler: &mut TickScheduler,
+    sound_events: &mut Vec<Event>,
+    nodes: &mut Nodes,
+    node_id: NodeId,
+) {
+    let node = &mut nodes[node_id];
+
     match node.ty {
         NodeType::Repeater {
             delay,
@@ -84,6 +91,16 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, node: &mut Node, node_i
             if node.output_power != input_power {
                 node.output_power = input_power;
                 node.changed = true;
+            }
+        }
+        NodeType::NoteBlock { .. } => {
+            let should_be_powered = get_bool_input(node);
+            if node.powered != should_be_powered {
+                let node = &mut nodes[node_id];
+                set_node(node, should_be_powered);
+                if should_be_powered {
+                    sound_events.push(Event::NoteBlockPlay(node_id));
+                }
             }
         }
         _ => {} // unreachable!("Node {:?} should not be updated!", node.ty),

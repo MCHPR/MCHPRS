@@ -54,13 +54,14 @@ pub trait World {
         false
     }
 
+    #[allow(unused_variables)]
     fn play_sound(
         &mut self,
-        _pos: BlockPos,
-        _sound_id: i32,
-        _sound_category: i32,
-        _volume: f32,
-        _pitch: f32,
+        pos: BlockPos,
+        sound_id: i32,
+        sound_category: i32,
+        volume: f32,
+        pitch: f32,
     ) {
     }
 }
