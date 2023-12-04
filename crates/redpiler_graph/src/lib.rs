@@ -41,6 +41,7 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
+    NoteBlock,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]

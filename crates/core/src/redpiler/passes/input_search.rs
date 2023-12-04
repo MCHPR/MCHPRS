@@ -324,7 +324,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
             Block::RedstoneWire { .. } => {
                 self.search_wire(id, pos, LinkType::Default, 0);
             }
-            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } => {
+            Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } | Block::NoteBlock { .. } => {
                 for face in &BlockFace::values() {
                     let neighbor_pos = pos.offset(*face);
                     let neighbor_block = self.world.get_block(neighbor_pos);

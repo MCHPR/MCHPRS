@@ -8,7 +8,7 @@ pub mod wire;
 
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, ButtonFace, Instrument, LeverFace};
+use mchprs_blocks::blocks::{noteblock_note_to_pitch, Block, ButtonFace, Instrument, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
 
@@ -242,8 +242,14 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
                     powered: should_be_powered,
                 };
 
-                world.set_block(pos, new_block);
+                // TODO: There is a weird double activation bug, so we need to check if block is not already powered
+                let is_not_powered = matches!(
+                    world.get_block(pos),
+                    Block::NoteBlock { powered: false, .. }
+                );
+
                 if should_be_powered
+                    && is_not_powered
                     && world.get_block(pos.offset(BlockFace::Top)) == (Block::Air {})
                 {
                     world.play_sound(
@@ -251,9 +257,10 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
                         instrument.to_sound_id(),
                         2, // Sound Caregory ID for Records
                         3.0,
-                        f32::powf(2.0, (note as f32 - 12.0) / 12.0),
+                        noteblock_note_to_pitch(note),
                     );
                 }
+                world.set_block(pos, new_block);
             }
         }
         _ => {}
