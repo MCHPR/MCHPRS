@@ -96,9 +96,11 @@ struct ForwardLink {
     data: u32
 }
 impl ForwardLink {
-    pub fn new(id: NodeId, side: bool, ss: u8) -> Self {
+    pub fn new(id: NodeId, side: bool, mut ss: u8) -> Self {
         assert!(id.index() < (1 << 27));
-        assert!(ss < (1 << 4));
+        if ss >= 16 {
+            ss = 15;
+        }
         Self { data:  (id.index() as u32) << 5 | if side {1 << 4} else {0} | ss as u32}
     }
     pub fn node(self) -> NodeId {
