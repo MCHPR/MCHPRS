@@ -601,14 +601,14 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-const INPUT_MASK: u128 = u128::from_ne_bytes([0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
+const BOOL_INPUT_MASK: u128 = u128::from_ne_bytes([0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
 
 fn get_bool_input(node: &Node) -> bool {
-    u128::from_ne_bytes(node.default_inputs) & INPUT_MASK != 0
+    u128::from_ne_bytes(node.default_inputs) & BOOL_INPUT_MASK != 0
 }
 
 fn get_bool_side(node: &Node) -> bool {
-    u128::from_ne_bytes(node.side_inputs) & INPUT_MASK != 0
+    u128::from_ne_bytes(node.side_inputs) & BOOL_INPUT_MASK != 0
 }
 
 fn last_index_positive(array: &[u8; 16]) -> u32 {
