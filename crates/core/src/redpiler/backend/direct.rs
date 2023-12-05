@@ -93,7 +93,7 @@ mod nodes {
 
 #[derive(Debug, Clone, Copy)]
 struct ForwardLink {
-    data: u32
+    data: u32,
 }
 impl ForwardLink {
     pub fn new(id: NodeId, side: bool, mut ss: u8) -> Self {
@@ -101,7 +101,9 @@ impl ForwardLink {
         if ss >= 16 {
             ss = 15;
         }
-        Self { data:  (id.index() as u32) << 5 | if side {1 << 4} else {0} | ss as u32}
+        Self {
+            data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | ss as u32,
+        }
     }
     pub fn node(self) -> NodeId {
         unsafe {
@@ -155,7 +157,7 @@ pub struct Node {
     default_inputs: [u8; 16],
     side_inputs: [u8; 16],
     updates: SmallVec<[ForwardLink; 18]>,
-    
+
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
@@ -203,7 +205,7 @@ impl Node {
                     assert!(idx < nodes_len);
                     // Safety: bounds checked
                     let target_id = NodeId::from_index(idx);
-                    
+
                     let weight = edge.weight();
                     ForwardLink::new(target_id, weight.ty == LinkType::Side, weight.ss)
                 })
@@ -271,7 +273,11 @@ impl TickScheduler {
 
     fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
         for (idx, queues) in self.queues_deque.iter().enumerate() {
-            let delay = if self.pos >= idx { idx + Self::NUM_QUEUES } else { idx } - self.pos;
+            let delay = if self.pos >= idx {
+                idx + Self::NUM_QUEUES
+            } else {
+                idx
+            } - self.pos;
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
                     let Some((pos, _)) = blocks[node.index()] else {
@@ -290,7 +296,8 @@ impl TickScheduler {
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[Self::priority_index(priority)].push(node);
+        self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[Self::priority_index(priority)]
+            .push(node);
     }
 
     fn queues_this_tick(&mut self) -> Queues {
@@ -601,7 +608,9 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-const BOOL_INPUT_MASK: u128 = u128::from_ne_bytes([0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]);
+const BOOL_INPUT_MASK: u128 = u128::from_ne_bytes([
+    0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+]);
 
 fn get_bool_input(node: &Node) -> bool {
     u128::from_ne_bytes(node.default_inputs) & BOOL_INPUT_MASK != 0
@@ -614,7 +623,11 @@ fn get_bool_side(node: &Node) -> bool {
 fn last_index_positive(array: &[u8; 16]) -> u32 {
     // Note: this might be slower on big-endian systems
     let value = u128::from_le_bytes(*array);
-    if value == 0 {0} else {15 - (value.leading_zeros() >> 3)}
+    if value == 0 {
+        0
+    } else {
+        15 - (value.leading_zeros() >> 3)
+    }
 }
 
 fn get_all_input(node: &Node) -> (u8, u8) {
@@ -756,14 +769,11 @@ impl fmt::Display for DirectBackend {
             for link in node.updates.iter() {
                 let out_index = link.node().index();
                 let distance = link.ss();
-                let color = if link.side() {",color=\"blue\""} else {""}; 
+                let color = if link.side() { ",color=\"blue\"" } else { "" };
                 write!(
                     f,
                     "n{}->n{}[label=\"{}\"{}];",
-                    id,
-                    out_index,
-                    distance,
-                    color
+                    id, out_index, distance, color
                 )?;
             }
         }
