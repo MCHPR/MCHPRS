@@ -105,7 +105,7 @@ impl ForwardLink {
     }
     pub fn node(self) -> NodeId {
         unsafe {
-            // safety: ForwardLink is contructed using a NodeId
+            // safety: ForwardLink is constructed using a NodeId
             NodeId::from_index((self.data >> 5) as usize)
         }
     }
