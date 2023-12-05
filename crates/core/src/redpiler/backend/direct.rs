@@ -95,6 +95,7 @@ mod nodes {
 struct ForwardLink {
     data: u32,
 }
+
 impl ForwardLink {
     pub fn new(id: NodeId, side: bool, mut ss: u8) -> Self {
         assert!(id.index() < (1 << 27));
@@ -105,15 +106,18 @@ impl ForwardLink {
             data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | ss as u32,
         }
     }
+
     pub fn node(self) -> NodeId {
         unsafe {
             // safety: ForwardLink is constructed using a NodeId
             NodeId::from_index((self.data >> 5) as usize)
         }
     }
+
     pub fn side(self) -> bool {
         self.data & (1 << 4) != 0
     }
+
     pub fn ss(self) -> u8 {
         (self.data & 0b1111) as u8
     }
