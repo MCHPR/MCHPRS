@@ -7,7 +7,7 @@ use super::{Plot, PlotWorld};
 use crate::player::{PacketSender, Player, PlayerPos};
 use crate::redstone;
 use crate::world::storage::PalettedBitBuffer;
-use crate::world::{World, for_each_block_mut_optimized};
+use crate::world::{for_each_block_mut_optimized, World};
 use execute::*;
 use mchprs_blocks::block_entities::{BlockEntity, ContainerType};
 use mchprs_blocks::blocks::Block;
@@ -697,6 +697,9 @@ static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
             description: "Updates all blocks in the selection",
             permission_node: "mchprs.we.update",
             requires_positions: false,
+            flags: &[
+                flag!('p', None, "Update the entire plot"),
+            ],
             ..Default::default()
         },
         "/help" => WorldeditCommand {

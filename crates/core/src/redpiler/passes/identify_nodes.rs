@@ -30,10 +30,7 @@ impl<W: World> Pass<W> for IdentifyNodes {
 
         let (first_pos, second_pos) = input.bounds;
 
-        let start_pos = first_pos.min(second_pos);
-        let end_pos = first_pos.max(second_pos);
-
-        for_each_block_optimized(plot, start_pos, end_pos, |pos| {
+        for_each_block_optimized(plot, first_pos, second_pos, |pos| {
             for_pos(ignore_wires, plot, graph, pos)
         });
     }

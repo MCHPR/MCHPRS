@@ -5,7 +5,7 @@ mod passes;
 
 use crate::redpiler::passes::make_default_pass_manager;
 use crate::redstone;
-use crate::world::{World, for_each_block_mut_optimized};
+use crate::world::{for_each_block_mut_optimized, World};
 use backend::JITBackend;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;

@@ -992,21 +992,26 @@ pub(super) fn execute_rstack(ctx: CommandExecuteContext<'_>) {
 pub(super) fn execute_update(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let pos = match (ctx.player.first_position, ctx.player.second_position) {
-        (None, None) => Some(ctx.plot.get_corners()),
-        (Some(first_pos), Some(second_pos)) => Some((first_pos, second_pos)),
-        _ => None,
-    };
-    if let Some((first_pos, second_pos)) = pos {
-        update(ctx.plot, first_pos, second_pos);
-
-        ctx.player.send_worldedit_message(&format!(
-            "Your selection was updated sucessfully. ({:?})",
-            start_time.elapsed()
-        ));
+    let (first_pos, second_pos) = if ctx.has_flag('p') {
+        ctx.plot.get_corners()
     } else {
-        ctx.player.send_error_message("Your selection is incomplete.");
-    }
+        if let (Some(first_pos), Some(second_pos)) =
+            (ctx.player.first_position, ctx.player.second_position)
+        {
+            (first_pos, second_pos)
+        } else {
+            ctx.player
+                .send_error_message("Your selection is incomplete.");
+            return;
+        }
+    };
+
+    update(ctx.plot, first_pos, second_pos);
+
+    ctx.player.send_worldedit_message(&format!(
+        "Your selection was updated sucessfully. ({:?})",
+        start_time.elapsed()
+    ));
 }
 
 pub(super) fn execute_replace_container(ctx: CommandExecuteContext<'_>) {
