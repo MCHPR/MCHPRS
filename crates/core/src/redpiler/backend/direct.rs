@@ -183,6 +183,11 @@ impl Node {
         stats: &mut FinalGraphStats,
     ) -> Self {
         let node = &graph[node_idx];
+        
+        const MAX_INPUTS: usize = 255;
+        
+        let mut default_input_count = 0;
+        let mut side_input_count = 0;
 
         let mut default_inputs = [0; 16];
         let mut side_inputs = [0; 16];
@@ -192,8 +197,20 @@ impl Node {
             let source = edge.source();
             let ss = graph[source].state.output_strength.saturating_sub(distance);
             match weight.ty {
-                LinkType::Default => default_inputs[ss as usize] += 1,
-                LinkType::Side => side_inputs[ss as usize] += 1,
+                LinkType::Default => {
+                    if default_input_count >= MAX_INPUTS {
+                        panic!("Exceeded the maximum number of default inputs {}", MAX_INPUTS);
+                    }
+                    default_input_count += 1;
+                    default_inputs[ss as usize] += 1;
+                },
+                LinkType::Side => {
+                    if side_input_count >= MAX_INPUTS {
+                        panic!("Exceeded the maximum number of side inputs {}", MAX_INPUTS);
+                    }
+                    side_input_count += 1;
+                    side_inputs[ss as usize] += 1;
+                }
             }
         }
         stats.default_link_count += default_inputs.len();
