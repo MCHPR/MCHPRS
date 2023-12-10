@@ -213,8 +213,8 @@ impl Node {
                 }
             }
         }
-        stats.default_link_count += default_inputs.len();
-        stats.side_link_count += side_inputs.len();
+        stats.default_link_count += default_input_count;
+        stats.side_link_count += side_input_count;
 
         use crate::redpiler::compile_graph::NodeType as CNodeType;
         let updates = if node.ty != CNodeType::Constant {
@@ -238,7 +238,7 @@ impl Node {
 
         let ty = match node.ty {
             CNodeType::Repeater(delay) => {
-                if side_inputs.is_empty() {
+                if side_input_count == 0 {
                     NodeType::SimpleRepeater(delay)
                 } else {
                     NodeType::Repeater(delay)
