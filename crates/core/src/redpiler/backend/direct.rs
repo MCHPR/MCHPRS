@@ -151,14 +151,20 @@ impl NodeType {
     }
 }
 
+#[repr(align(16))]
+#[derive(Debug, Clone, Default)]
+struct NodeInput {
+    ss_counts: [u8; 16],
+}
+
 // struct is 128 bytes to fit nicely into cachelines
 // which are usualy 64 bytes, it can vary but is almost always a power of 2
 #[derive(Debug, Clone)]
 #[repr(align(128))]
 pub struct Node {
     ty: NodeType,
-    default_inputs: [u8; 16],
-    side_inputs: [u8; 16],
+    default_inputs: NodeInput,
+    side_inputs: NodeInput,
     updates: SmallVec<[ForwardLink; 18]>,
 
     facing_diode: bool,
@@ -188,8 +194,8 @@ impl Node {
         let mut default_input_count = 0;
         let mut side_input_count = 0;
 
-        let mut default_inputs = [0; 16];
-        let mut side_inputs = [0; 16];
+        let mut default_inputs = NodeInput {ss_counts: [0; 16]};
+        let mut side_inputs = NodeInput {ss_counts: [0; 16]};
         for edge in graph.edges_directed(node_idx, Direction::Incoming) {
             let weight = edge.weight();
             let distance = weight.ss;
@@ -204,14 +210,14 @@ impl Node {
                         );
                     }
                     default_input_count += 1;
-                    default_inputs[ss as usize] += 1;
+                    default_inputs.ss_counts[ss as usize] += 1;
                 }
                 LinkType::Side => {
                     if side_input_count >= MAX_INPUTS {
                         panic!("Exceeded the maximum number of side inputs {}", MAX_INPUTS);
                     }
                     side_input_count += 1;
-                    side_inputs[ss as usize] += 1;
+                    side_inputs.ss_counts[ss as usize] += 1;
                 }
             }
         }
@@ -397,8 +403,8 @@ impl DirectBackend {
 
             // Safety: signal strength is never larger than 15
             unsafe {
-                *inputs.get_unchecked_mut(old_power as usize) -= 1;   
-                *inputs.get_unchecked_mut(new_power as usize) += 1;
+                *inputs.ss_counts.get_unchecked_mut(old_power as usize) -= 1;   
+                *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
             }
 
             update_node(&mut self.scheduler, &mut self.nodes, update);
@@ -647,11 +653,11 @@ const BOOL_INPUT_MASK: u128 = u128::from_ne_bytes([
 ]);
 
 fn get_bool_input(node: &Node) -> bool {
-    u128::from_ne_bytes(node.default_inputs) & BOOL_INPUT_MASK != 0
+    u128::from_le_bytes(node.default_inputs.ss_counts) & BOOL_INPUT_MASK != 0
 }
 
 fn get_bool_side(node: &Node) -> bool {
-    u128::from_ne_bytes(node.side_inputs) & BOOL_INPUT_MASK != 0
+    u128::from_le_bytes(node.side_inputs.ss_counts) & BOOL_INPUT_MASK != 0
 }
 
 fn last_index_positive(array: &[u8; 16]) -> u32 {
@@ -665,9 +671,9 @@ fn last_index_positive(array: &[u8; 16]) -> u32 {
 }
 
 fn get_all_input(node: &Node) -> (u8, u8) {
-    let input_power = last_index_positive(&node.default_inputs) as u8;
+    let input_power = last_index_positive(&node.default_inputs.ss_counts) as u8;
 
-    let side_input_power = last_index_positive(&node.side_inputs) as u8;
+    let side_input_power = last_index_positive(&node.side_inputs.ss_counts) as u8;
 
     (input_power, side_input_power)
 }
