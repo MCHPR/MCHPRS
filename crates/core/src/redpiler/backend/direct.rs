@@ -387,8 +387,15 @@ impl DirectBackend {
             } else {
                 &mut update_ref.default_inputs
             };
-            inputs[old_power.saturating_sub(distance) as usize] -= 1;
-            inputs[new_power.saturating_sub(distance) as usize] += 1;
+ 
+            let old_power = old_power.saturating_sub(distance);
+            let new_power = new_power.saturating_sub(distance);
+
+            // Safety: signal strength is never larger than 15
+            unsafe {
+                *inputs.get_unchecked_mut(old_power as usize) -= 1;   
+                *inputs.get_unchecked_mut(new_power as usize) += 1;
+            }
 
             update_node(&mut self.scheduler, &mut self.nodes, update);
         }
