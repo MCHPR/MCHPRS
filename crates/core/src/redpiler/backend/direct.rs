@@ -391,6 +391,10 @@ impl DirectBackend {
             let old_power = old_power.saturating_sub(distance);
             let new_power = new_power.saturating_sub(distance);
 
+            if old_power == new_power {
+                continue;
+            }
+
             // Safety: signal strength is never larger than 15
             unsafe {
                 *inputs.get_unchecked_mut(old_power as usize) -= 1;   
