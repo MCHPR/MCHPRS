@@ -194,8 +194,8 @@ impl Node {
         let mut default_input_count = 0;
         let mut side_input_count = 0;
 
-        let mut default_inputs = NodeInput {ss_counts: [0; 16]};
-        let mut side_inputs = NodeInput {ss_counts: [0; 16]};
+        let mut default_inputs = NodeInput { ss_counts: [0; 16] };
+        let mut side_inputs = NodeInput { ss_counts: [0; 16] };
         for edge in graph.edges_directed(node_idx, Direction::Incoming) {
             let weight = edge.weight();
             let distance = weight.ss;
@@ -393,7 +393,7 @@ impl DirectBackend {
             } else {
                 &mut update_ref.default_inputs
             };
- 
+
             let old_power = old_power.saturating_sub(distance);
             let new_power = new_power.saturating_sub(distance);
 
@@ -403,7 +403,7 @@ impl DirectBackend {
 
             // Safety: signal strength is never larger than 15
             unsafe {
-                *inputs.ss_counts.get_unchecked_mut(old_power as usize) -= 1;   
+                *inputs.ss_counts.get_unchecked_mut(old_power as usize) -= 1;
                 *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
             }
 
