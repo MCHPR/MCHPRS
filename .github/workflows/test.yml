@@ -19,5 +19,15 @@ jobs:
       with:
           toolchain: stable
     - uses: Swatinem/rust-cache@v1
+    
     - name: Build
-      run: cargo test --verbose
+      uses: actions-rs/cargo@v1
+      with:
+        command: test
+        args: --verbose
+
+    - name: Check formatting
+      uses: actions-rs/cargo@v1
+      with:
+        command: fmt
+        args: --all -- --check
