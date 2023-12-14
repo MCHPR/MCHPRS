@@ -54,3 +54,102 @@ pub trait World {
         false
     }
 }
+
+// TODO: I have no idea how to deduplicate this in a sane way
+
+/// Executes the given function for each block excluding most air blocks
+pub fn for_each_block_optimized<F, W: World>(
+    world: &W,
+    first_pos: BlockPos,
+    second_pos: BlockPos,
+    mut f: F,
+) where
+    F: FnMut(BlockPos),
+{
+    let start_x = i32::min(first_pos.x, second_pos.x);
+    let end_x = i32::max(first_pos.x, second_pos.x);
+
+    let start_y = i32::min(first_pos.y, second_pos.y);
+    let end_y = i32::max(first_pos.y, second_pos.y);
+
+    let start_z = i32::min(first_pos.z, second_pos.z);
+    let end_z = i32::max(first_pos.z, second_pos.z);
+
+    // Iterate over chunks
+    for chunk_start_x in (start_x..=end_x).step_by(16) {
+        for chunk_start_z in (start_z..=end_z).step_by(16) {
+            let chunk = world
+                .get_chunk(chunk_start_x.div_euclid(16), chunk_start_z.div_euclid(16))
+                .unwrap();
+            for chunk_start_y in (start_y..=end_y).step_by(16) {
+                // Check if the chunk even has non air blocks
+                if chunk.sections[chunk_start_y as usize / 16].block_count() > 0 {
+                    // Calculate the end position of the current chunk
+                    let chunk_end_x = i32::min(chunk_start_x + 16 - 1, end_x);
+                    let chunk_end_y = i32::min(chunk_start_y + 16 - 1, end_y);
+                    let chunk_end_z = i32::min(chunk_start_z + 16 - 1, end_z);
+
+                    // Iterate over each position within the current chunk
+                    for y in chunk_start_y..=chunk_end_y {
+                        for z in chunk_start_z..=chunk_end_z {
+                            for x in chunk_start_x..=chunk_end_x {
+                                let pos = BlockPos::new(x, y, z);
+                                f(pos);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Executes the given function for each block excluding most air blocks
+pub fn for_each_block_mut_optimized<F, W: World>(
+    world: &mut W,
+    first_pos: BlockPos,
+    second_pos: BlockPos,
+    mut f: F,
+) where
+    F: FnMut(&mut W, BlockPos),
+{
+    let start_x = i32::min(first_pos.x, second_pos.x);
+    let end_x = i32::max(first_pos.x, second_pos.x);
+
+    let start_y = i32::min(first_pos.y, second_pos.y);
+    let end_y = i32::max(first_pos.y, second_pos.y);
+
+    let start_z = i32::min(first_pos.z, second_pos.z);
+    let end_z = i32::max(first_pos.z, second_pos.z);
+
+    // Iterate over chunks
+    for chunk_start_x in (start_x..=end_x).step_by(16) {
+        for chunk_start_z in (start_z..=end_z).step_by(16) {
+            for chunk_start_y in (start_y..=end_y).step_by(16) {
+                // Check if the chunk even has non air blocks
+                if world
+                    .get_chunk(chunk_start_x.div_euclid(16), chunk_start_z.div_euclid(16))
+                    .unwrap()
+                    .sections[chunk_start_y as usize / 16]
+                    .block_count()
+                    > 0
+                {
+                    // Calculate the end position of the current chunk
+                    let chunk_end_x = i32::min(chunk_start_x + 16 - 1, end_x);
+                    let chunk_end_y = i32::min(chunk_start_y + 16 - 1, end_y);
+                    let chunk_end_z = i32::min(chunk_start_z + 16 - 1, end_z);
+
+                    // Iterate over each position within the current chunk
+                    for y in chunk_start_y..=chunk_end_y {
+                        for z in chunk_start_z..=chunk_end_z {
+                            for x in chunk_start_x..=chunk_end_x {
+                                let pos = BlockPos::new(x, y, z);
+                                f(world, pos);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

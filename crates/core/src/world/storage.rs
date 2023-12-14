@@ -386,6 +386,10 @@ impl ChunkSection {
         }
         &self.multi_block
     }
+
+    pub fn block_count(&self) -> u32 {
+        self.block_count
+    }
 }
 
 impl Default for ChunkSection {
@@ -416,7 +420,8 @@ impl Chunk {
     pub fn encode_packet(&self) -> PacketEncoder {
         // Integer arithmetic trick: ceil(log2(x)) can be calculated with 32 - (x - 1).leading_zeros().
         // See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
-        const HEIGHTMAP_BITS: u8 = (32 - ((PLOT_BLOCK_HEIGHT as u32 + 1) - 1).leading_zeros()) as u8;
+        const HEIGHTMAP_BITS: u8 =
+            (32 - ((PLOT_BLOCK_HEIGHT as u32 + 1) - 1).leading_zeros()) as u8;
         let mut heightmap_buffer = BitBuffer::create(HEIGHTMAP_BITS, 16 * 16);
         for x in 0..16 {
             for z in 0..16 {

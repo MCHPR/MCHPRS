@@ -162,7 +162,6 @@ impl World for PlotWorld {
         )
     }
 
-
     /// Returns the block state id of the block at `pos`
     fn get_block_raw(&self, pos: BlockPos) -> u32 {
         let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
@@ -172,7 +171,6 @@ impl World for PlotWorld {
         let chunk = &self.chunks[chunk_index];
         chunk.get_block((pos.x & 0xF) as u32, pos.y as u32, (pos.z & 0xF) as u32)
     }
-
 
     fn delete_block_entity(&mut self, pos: BlockPos) {
         let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {

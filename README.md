@@ -79,7 +79,7 @@ server_context = "global"
 ### General Commands
 | Command | Alias | Description |
 | --- | --- |--- |
-| `/rtps [rtps]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two game ticks in a redstone tick) |
+| `/rtps [rtps\|unlimited]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two game ticks in a redstone tick) |
 | `/radvance [ticks]` | `/radv` | Advances the plot by `[ticks]` redstone ticks. |
 | `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
 | `/teleport [x] [y] [z]` | `/tp` | Teleports you to `[x] [y] [z]`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
@@ -122,7 +122,7 @@ These are the commands that are currently implemented:
 | `//replace` | None | Replace all blocks in a selection with another |
 | `//copy` | `//c` | Copy the selection to the clipboard |
 | `//cut` | `//x` | Cut the selection to the clipboard |
-| `//paste` | `//v` | Paste the clipboard's contents |
+| `//paste` | `//v` | Paste the clipboard's contents (`-a` to ignore air, `-u` to also update) |
 | `//undo` | None | Undoes the last action (from history) |
 | `//redo` | None | Redoes the last action (from history) |
 | `//rstack` | `//rs` | Stack with more options, Refer to [RedstoneTools](https://github.com/paulikauro/RedstoneTools) |
@@ -136,7 +136,7 @@ These are the commands that are currently implemented:
 | `//shift` | None | Shift the selection area |
 | `//flip` | `//f` | Flip the contents of the clipboard across the origin |
 | `//rotate` | `//r` | Rotate the contents of the clipboard |
-| `//update` | None | Updates all blocks in the selection |
+| `//update` | None | Updates all blocks in the selection (`-p` to update the entire plot) |
 | `//help` | None | Displays help for WorldEdit commands |
 
 ## Acknowledgments

@@ -5,8 +5,9 @@ mod schematic;
 
 use super::{Plot, PlotWorld};
 use crate::player::{PacketSender, Player, PlayerPos};
+use crate::redstone;
 use crate::world::storage::PalettedBitBuffer;
-use crate::world::World;
+use crate::world::{for_each_block_mut_optimized, World};
 use execute::*;
 use mchprs_blocks::block_entities::{BlockEntity, ContainerType};
 use mchprs_blocks::blocks::Block;
@@ -540,7 +541,8 @@ static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
             execute_fn: execute_paste,
             description: "Paste the clipboard's contents",
             flags: &[
-                flag!('a', None, "Skip air blocks")
+                flag!('a', None, "Skip air blocks"),
+                flag!('u', None, "Also update all affected blocks"),
             ],
             permission_node: "worldedit.clipboard.paste",
             ..Default::default()
@@ -694,7 +696,10 @@ static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
             execute_fn: execute_update,
             description: "Updates all blocks in the selection",
             permission_node: "mchprs.we.update",
-            requires_positions: true,
+            requires_positions: false,
+            flags: &[
+                flag!('p', None, "Update the entire plot"),
+            ],
             ..Default::default()
         },
         "/help" => WorldeditCommand {
@@ -1135,4 +1140,11 @@ fn expand_selection(player: &mut Player, amount: BlockPos, contract: bool) {
     if Some(p2) != player.second_position {
         player.worldedit_set_second_position(p2);
     }
+}
+
+fn update(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
+    for_each_block_mut_optimized(plot, first_pos, second_pos, |plot, pos| {
+        let block = plot.get_block(pos);
+        redstone::update(block, plot, pos);
+    });
 }

@@ -11,7 +11,7 @@ use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeState, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::redstone;
-use crate::world::World;
+use crate::world::{for_each_block_optimized, World};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, RedstoneComparator, RedstoneRepeater};
 use mchprs_blocks::BlockPos;
@@ -30,16 +30,9 @@ impl<W: World> Pass<W> for IdentifyNodes {
 
         let (first_pos, second_pos) = input.bounds;
 
-        let start_pos = first_pos.min(second_pos);
-        let end_pos = first_pos.max(second_pos);
-        for y in start_pos.y..=end_pos.y {
-            for z in start_pos.z..=end_pos.z {
-                for x in start_pos.x..=end_pos.x {
-                    let pos = BlockPos::new(x, y, z);
-                    for_pos(ignore_wires, plot, graph, pos);
-                }
-            }
-        }
+        for_each_block_optimized(plot, first_pos, second_pos, |pos| {
+            for_pos(ignore_wires, plot, graph, pos)
+        });
     }
 
     fn should_run(&self, _: &CompilerOptions) -> bool {
