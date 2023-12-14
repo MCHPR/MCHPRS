@@ -92,9 +92,34 @@ mod nodes {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct DirectLink {
-    weight: u8,
-    to: NodeId,
+struct ForwardLink {
+    data: u32,
+}
+
+impl ForwardLink {
+    pub fn new(id: NodeId, side: bool, ss: u8) -> Self {
+        assert!(id.index() < (1 << 27));
+        // the clamp_weights compile pass should ensure ss < 16
+        assert!(ss < 16);
+        Self {
+            data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | ss as u32,
+        }
+    }
+
+    pub fn node(self) -> NodeId {
+        unsafe {
+            // safety: ForwardLink is constructed using a NodeId
+            NodeId::from_index((self.data >> 5) as usize)
+        }
+    }
+
+    pub fn side(self) -> bool {
+        self.data & (1 << 4) != 0
+    }
+
+    pub fn ss(self) -> u8 {
+        (self.data & 0b1111) as u8
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -126,15 +151,22 @@ impl NodeType {
     }
 }
 
+#[repr(align(16))]
+#[derive(Debug, Clone, Default)]
+struct NodeInput {
+    ss_counts: [u8; 16],
+}
+
 // struct is 128 bytes to fit nicely into cachelines
 // which are usualy 64 bytes, it can vary but is almost always a power of 2
 #[derive(Debug, Clone)]
 #[repr(align(128))]
 pub struct Node {
     ty: NodeType,
-    default_inputs: SmallVec<[DirectLink; 7]>,
-    side_inputs: SmallVec<[DirectLink; 2]>,
-    updates: SmallVec<[NodeId; 4]>,
+    default_inputs: NodeInput,
+    side_inputs: NodeInput,
+    updates: SmallVec<[ForwardLink; 18]>,
+
     facing_diode: bool,
     comparator_far_input: Option<u8>,
 
@@ -157,36 +189,54 @@ impl Node {
     ) -> Self {
         let node = &graph[node_idx];
 
-        let mut default_inputs = SmallVec::new();
-        let mut side_inputs = SmallVec::new();
+        const MAX_INPUTS: usize = 255;
+
+        let mut default_input_count = 0;
+        let mut side_input_count = 0;
+
+        let mut default_inputs = NodeInput { ss_counts: [0; 16] };
+        let mut side_inputs = NodeInput { ss_counts: [0; 16] };
         for edge in graph.edges_directed(node_idx, Direction::Incoming) {
-            let idx = nodes_map[&edge.source()];
-            assert!(idx < nodes_len);
-            let idx = unsafe {
-                // Safety: bounds checked
-                NodeId::from_index(idx)
-            };
-            let link = DirectLink {
-                to: idx,
-                weight: edge.weight().ss,
-            };
-            match edge.weight().ty {
-                LinkType::Default => default_inputs.push(link),
-                LinkType::Side => side_inputs.push(link),
+            let weight = edge.weight();
+            let distance = weight.ss;
+            let source = edge.source();
+            let ss = graph[source].state.output_strength.saturating_sub(distance);
+            match weight.ty {
+                LinkType::Default => {
+                    if default_input_count >= MAX_INPUTS {
+                        panic!(
+                            "Exceeded the maximum number of default inputs {}",
+                            MAX_INPUTS
+                        );
+                    }
+                    default_input_count += 1;
+                    default_inputs.ss_counts[ss as usize] += 1;
+                }
+                LinkType::Side => {
+                    if side_input_count >= MAX_INPUTS {
+                        panic!("Exceeded the maximum number of side inputs {}", MAX_INPUTS);
+                    }
+                    side_input_count += 1;
+                    side_inputs.ss_counts[ss as usize] += 1;
+                }
             }
         }
-        stats.default_link_count += default_inputs.len();
-        stats.side_link_count += side_inputs.len();
+        stats.default_link_count += default_input_count;
+        stats.side_link_count += side_input_count;
 
         use crate::redpiler::compile_graph::NodeType as CNodeType;
-        let updates: SmallVec<[NodeId; 4]> = if node.ty != CNodeType::Constant {
+        let updates = if node.ty != CNodeType::Constant {
             graph
-                .neighbors_directed(node_idx, Direction::Outgoing)
-                .map(|idx| unsafe {
+                .edges_directed(node_idx, Direction::Outgoing)
+                .map(|edge| unsafe {
+                    let idx = edge.target();
                     let idx = nodes_map[&idx];
                     assert!(idx < nodes_len);
                     // Safety: bounds checked
-                    NodeId::from_index(idx)
+                    let target_id = NodeId::from_index(idx);
+
+                    let weight = edge.weight();
+                    ForwardLink::new(target_id, weight.ty == LinkType::Side, weight.ss)
                 })
                 .collect()
         } else {
@@ -196,7 +246,7 @@ impl Node {
 
         let ty = match node.ty {
             CNodeType::Repeater(delay) => {
-                if side_inputs.is_empty() {
+                if side_input_count == 0 {
                     NodeType::SimpleRepeater(delay)
                 } else {
                     NodeType::Repeater(delay)
@@ -242,16 +292,21 @@ impl Queues {
 
 #[derive(Default)]
 struct TickScheduler {
-    queues_deque: [Queues; 16],
+    queues_deque: [Queues; Self::NUM_QUEUES],
     pos: usize,
 }
 
 impl TickScheduler {
     const NUM_PRIORITIES: usize = 4;
+    const NUM_QUEUES: usize = 16;
 
     fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
         for (idx, queues) in self.queues_deque.iter().enumerate() {
-            let delay = if self.pos >= idx { idx + 16 } else { idx } - self.pos;
+            let delay = if self.pos >= idx {
+                idx + Self::NUM_QUEUES
+            } else {
+                idx
+            } - self.pos;
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
                     let Some((pos, _)) = blocks[node.index()] else {
@@ -270,11 +325,12 @@ impl TickScheduler {
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        self.queues_deque[(self.pos + delay) & 15].0[Self::priority_index(priority)].push(node);
+        self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[Self::priority_index(priority)]
+            .push(node);
     }
 
     fn queues_this_tick(&mut self) -> Queues {
-        self.pos = (self.pos + 1) & 15;
+        self.pos = (self.pos + 1) % Self::NUM_QUEUES;
         mem::take(&mut self.queues_deque[self.pos])
     }
 
@@ -319,11 +375,38 @@ impl DirectBackend {
 
     fn set_node(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
         let node = &mut self.nodes[node_id];
+        let old_power = node.output_power;
+
         node.changed = true;
         node.powered = powered;
         node.output_power = new_power;
         for i in 0..node.updates.len() {
-            let update = self.nodes[node_id].updates[i];
+            let node = &self.nodes[node_id];
+            let update_link = node.updates[i];
+            let side = update_link.side();
+            let distance = update_link.ss();
+            let update = update_link.node();
+
+            let update_ref = &mut self.nodes[update];
+            let inputs = if side {
+                &mut update_ref.side_inputs
+            } else {
+                &mut update_ref.default_inputs
+            };
+
+            let old_power = old_power.saturating_sub(distance);
+            let new_power = new_power.saturating_sub(distance);
+
+            if old_power == new_power {
+                continue;
+            }
+
+            // Safety: signal strength is never larger than 15
+            unsafe {
+                *inputs.ss_counts.get_unchecked_mut(old_power as usize) -= 1;
+                *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
+            }
+
             update_node(&mut self.scheduler, &mut self.nodes, update);
         }
     }
@@ -405,7 +488,7 @@ impl JITBackend for DirectBackend {
                         continue;
                     }
 
-                    let should_be_powered = get_bool_input(node, &self.nodes);
+                    let should_be_powered = get_bool_input(node);
                     if node.powered && !should_be_powered {
                         self.set_node(node_id, false, 0);
                     } else if !node.powered {
@@ -423,7 +506,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::SimpleRepeater(delay) => {
-                    let should_be_powered = get_bool_input(node, &self.nodes);
+                    let should_be_powered = get_bool_input(node);
                     if node.powered && !should_be_powered {
                         self.set_node(node_id, false, 0);
                     } else if !node.powered {
@@ -441,7 +524,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::Torch => {
-                    let should_be_off = get_bool_input(node, &self.nodes);
+                    let should_be_off = get_bool_input(node);
                     let lit = node.powered;
                     if lit && should_be_off {
                         self.set_node(node_id, false, 0);
@@ -450,7 +533,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::Comparator(mode) => {
-                    let (mut input_power, side_input_power) = get_all_input(node, &self.nodes);
+                    let (mut input_power, side_input_power) = get_all_input(node);
                     if let Some(far_override) = node.comparator_far_input {
                         if input_power < 15 {
                             input_power = far_override;
@@ -464,7 +547,7 @@ impl JITBackend for DirectBackend {
                     }
                 }
                 NodeType::Lamp => {
-                    let should_be_lit = get_bool_input(node, &self.nodes);
+                    let should_be_lit = get_bool_input(node);
                     if node.powered && !should_be_lit {
                         self.set_node(node_id, false, 0);
                     }
@@ -565,33 +648,32 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-fn link_strength(link: DirectLink, nodes: &Nodes) -> u8 {
-    nodes[link.to].output_power.saturating_sub(link.weight)
+const BOOL_INPUT_MASK: u128 = u128::from_ne_bytes([
+    0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+]);
+
+fn get_bool_input(node: &Node) -> bool {
+    u128::from_le_bytes(node.default_inputs.ss_counts) & BOOL_INPUT_MASK != 0
 }
 
-fn get_bool_input(node: &Node, nodes: &Nodes) -> bool {
-    node.default_inputs
-        .iter()
-        .copied()
-        .any(|link| link_strength(link, nodes) > 0)
+fn get_bool_side(node: &Node) -> bool {
+    u128::from_le_bytes(node.side_inputs.ss_counts) & BOOL_INPUT_MASK != 0
 }
 
-fn get_all_input(node: &Node, nodes: &Nodes) -> (u8, u8) {
-    let input_power = node
-        .default_inputs
-        .iter()
-        .copied()
-        .map(|link| link_strength(link, nodes))
-        .max()
-        .unwrap_or(0);
+fn last_index_positive(array: &[u8; 16]) -> u32 {
+    // Note: this might be slower on big-endian systems
+    let value = u128::from_le_bytes(*array);
+    if value == 0 {
+        0
+    } else {
+        15 - (value.leading_zeros() >> 3)
+    }
+}
 
-    let side_input_power = node
-        .side_inputs
-        .iter()
-        .copied()
-        .map(|link| link_strength(link, nodes))
-        .max()
-        .unwrap_or(0);
+fn get_all_input(node: &Node) -> (u8, u8) {
+    let input_power = last_index_positive(&node.default_inputs.ss_counts) as u8;
+
+    let side_input_power = last_index_positive(&node.side_inputs.ss_counts) as u8;
 
     (input_power, side_input_power)
 }
@@ -602,9 +684,8 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
 
     match node.ty {
         NodeType::Repeater(delay) => {
-            let (input_power, side_input_power) = get_all_input(node, nodes);
             let node = &mut nodes[node_id];
-            let should_be_locked = side_input_power > 0;
+            let should_be_locked = get_bool_side(node);
             if !node.locked && should_be_locked {
                 set_node_locked(node, true);
             } else if node.locked && !should_be_locked {
@@ -612,7 +693,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
 
             if !node.locked && !node.pending_tick {
-                let should_be_powered = input_power > 0;
+                let should_be_powered = get_bool_input(node);
                 if should_be_powered != node.powered {
                     let priority = if node.facing_diode {
                         TickPriority::Highest
@@ -629,7 +710,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             if node.pending_tick {
                 return;
             }
-            let should_be_powered = get_bool_input(node, nodes);
+            let should_be_powered = get_bool_input(node);
             if node.powered != should_be_powered {
                 let priority = if node.facing_diode {
                     TickPriority::Highest
@@ -646,7 +727,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             if node.pending_tick {
                 return;
             }
-            let should_be_off = get_bool_input(node, nodes);
+            let should_be_off = get_bool_input(node);
             let lit = node.powered;
             if lit == should_be_off {
                 let node = &mut nodes[node_id];
@@ -657,7 +738,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             if node.pending_tick {
                 return;
             }
-            let (mut input_power, side_input_power) = get_all_input(node, nodes);
+            let (mut input_power, side_input_power) = get_all_input(node);
             if let Some(far_override) = node.comparator_far_input {
                 if input_power < 15 {
                     input_power = far_override;
@@ -676,7 +757,7 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::Lamp => {
-            let should_be_lit = get_bool_input(node, nodes);
+            let should_be_lit = get_bool_input(node);
             let lit = node.powered;
             let node = &mut nodes[node_id];
             if lit && !should_be_lit {
@@ -686,14 +767,14 @@ fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId
             }
         }
         NodeType::Trapdoor => {
-            let should_be_powered = get_bool_input(node, nodes);
+            let should_be_powered = get_bool_input(node);
             if node.powered != should_be_powered {
                 let node = &mut nodes[node_id];
                 set_node(node, should_be_powered);
             }
         }
         NodeType::Wire => {
-            let (input_power, _) = get_all_input(node, nodes);
+            let (input_power, _) = get_all_input(node);
             if node.output_power != input_power {
                 let node = &mut nodes[node_id];
                 node.output_power = input_power;
@@ -725,28 +806,16 @@ impl fmt::Display for DirectBackend {
                 "No Pos".to_string()
             };
             write!(f, "n{}[label=\"{}\\n({})\"];", id, label, pos,)?;
-            let all_inputs = node
-                .default_inputs
-                .iter()
-                .map(|link| (LinkType::Default, link))
-                .chain(node.side_inputs.iter().map(|link| (LinkType::Side, link)));
-            for (link_type, link) in all_inputs {
-                let color = match link_type {
-                    LinkType::Default => "",
-                    LinkType::Side => ",color=\"blue\"",
-                };
+            for link in node.updates.iter() {
+                let out_index = link.node().index();
+                let distance = link.ss();
+                let color = if link.side() { ",color=\"blue\"" } else { "" };
                 write!(
                     f,
                     "n{}->n{}[label=\"{}\"{}];",
-                    link.to.index(),
-                    id,
-                    link.weight,
-                    color
+                    id, out_index, distance, color
                 )?;
             }
-            // for update in &node.updates {
-            //     write!(f, "n{}->n{}[style=dotted];", id, update)?;
-            // }
         }
         f.write_str("}\n")
     }
