@@ -12,6 +12,13 @@ use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
 
+pub fn bool_to_ss(b: bool) -> u8 {
+    match b {
+        true => 15,
+        false => 0,
+    }
+}
+
 fn get_weak_power(
     block: Block,
     world: &impl World,
@@ -69,18 +76,20 @@ fn get_strong_power(
     match block {
         Block::RedstoneTorch { lit: true } if side == BlockFace::Bottom => 15,
         Block::RedstoneWallTorch { lit: true, .. } if side == BlockFace::Bottom => 15,
-        Block::Lever { lever } => match side {
-            BlockFace::Top if lever.face == LeverFace::Floor && lever.powered => 15,
-            BlockFace::Bottom if lever.face == LeverFace::Ceiling && lever.powered => 15,
-            _ if lever.facing == side.to_direction() && lever.powered => 15,
-            _ => 0,
-        },
-        Block::StoneButton { button } => match side {
-            BlockFace::Top if button.face == ButtonFace::Floor && button.powered => 15,
-            BlockFace::Bottom if button.face == ButtonFace::Ceiling && button.powered => 15,
-            _ if button.facing == side.to_direction() && button.powered => 15,
-            _ => 0,
-        },
+        Block::Lever { lever } => bool_to_ss(
+            match side {
+                BlockFace::Top => lever.face == LeverFace::Floor,
+                BlockFace::Bottom => lever.face == LeverFace::Ceiling,
+                _ => lever.face == LeverFace::Wall && lever.facing == side.to_direction(),
+            } && lever.powered,
+        ),
+        Block::StoneButton { button } => bool_to_ss(
+            match side {
+                BlockFace::Top => button.face == ButtonFace::Floor,
+                BlockFace::Bottom => button.face == ButtonFace::Ceiling,
+                _ => button.face == ButtonFace::Wall && button.facing == side.to_direction(),
+            } && button.powered,
+        ),
         Block::StonePressurePlate { powered: true } if side == BlockFace::Top => 15,
         Block::RedstoneWire { .. } => get_weak_power(block, world, pos, side, dust_power),
         Block::RedstoneRepeater { .. } => get_weak_power(block, world, pos, side, dust_power),

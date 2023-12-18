@@ -1,8 +1,9 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 use super::JITBackend;
+use crate::redpiler::block_powered_mut;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
-use crate::redpiler::{block_powered_mut, bool_to_ss};
+use crate::redstone::bool_to_ss;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ComparatorMode};
