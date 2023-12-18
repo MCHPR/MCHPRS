@@ -205,7 +205,7 @@ impl BlockColorVariant {
             13 => Green,
             14 => Red,
             15 => Black,
-            _ => unreachable!(),
+            _ => panic!("invalid BlockColorVariant with id {}", id),
         }
     }
 }
