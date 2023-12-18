@@ -341,7 +341,7 @@ impl BlockFacing {
             3 => BlockFacing::West,
             4 => BlockFacing::Up,
             5 => BlockFacing::Down,
-            _ => BlockFacing::West,
+            _ => panic!("invalid BlockFacing with id {}", id),
         }
     }
 
