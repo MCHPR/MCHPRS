@@ -262,7 +262,7 @@ impl BlockDirection {
             1 => BlockDirection::South,
             2 => BlockDirection::West,
             3 => BlockDirection::East,
-            _ => panic!("Invalid BlockDirection"),
+            _ => panic!("invalid BlockDirection with id {}", id),
         }
     }
 
