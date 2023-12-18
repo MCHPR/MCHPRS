@@ -15,13 +15,6 @@ use tracing::{debug, error, trace, warn};
 
 use self::backend::BackendDispatcher;
 
-fn bool_to_ss(b: bool) -> u8 {
-    match b {
-        true => 15,
-        false => 0,
-    }
-}
-
 fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     Some(match block {
         Block::RedstoneComparator { comparator } => &mut comparator.powered,
