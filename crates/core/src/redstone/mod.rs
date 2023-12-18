@@ -49,7 +49,7 @@ fn get_weak_power(
             BlockFace::Top => wire.power,
             BlockFace::Bottom => 0,
             _ => {
-                let direction = side.to_direction();
+                let direction = side.unwrap_direction();
                 if wire::get_current_side(
                     wire::get_regulated_sides(wire, world, pos),
                     direction.opposite(),
@@ -80,14 +80,14 @@ fn get_strong_power(
             match side {
                 BlockFace::Top => lever.face == LeverFace::Floor,
                 BlockFace::Bottom => lever.face == LeverFace::Ceiling,
-                _ => lever.face == LeverFace::Wall && lever.facing == side.to_direction(),
+                _ => lever.face == LeverFace::Wall && lever.facing == side.unwrap_direction(),
             } && lever.powered,
         ),
         Block::StoneButton { button } => bool_to_ss(
             match side {
                 BlockFace::Top => button.face == ButtonFace::Floor,
                 BlockFace::Bottom => button.face == ButtonFace::Ceiling,
-                _ => button.face == ButtonFace::Wall && button.facing == side.to_direction(),
+                _ => button.face == ButtonFace::Wall && button.facing == side.unwrap_direction(),
             } && button.powered,
         ),
         Block::StonePressurePlate { powered: true } if side == BlockFace::Top => 15,

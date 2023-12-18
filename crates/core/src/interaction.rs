@@ -121,7 +121,7 @@ pub fn get_state_for_placement(
                 _ => LeverFace::Wall,
             };
             let facing = if lever_face == LeverFace::Wall {
-                context.block_face.to_direction()
+                context.block_face.unwrap_direction()
             } else {
                 context.player.get_direction()
             };
@@ -133,13 +133,13 @@ pub fn get_state_for_placement(
             BlockFace::Top | BlockFace::Bottom => Block::RedstoneTorch { lit: true },
             face => Block::RedstoneWallTorch {
                 lit: true,
-                facing: face.to_direction(),
+                facing: face.unwrap_direction(),
             },
         },
         Item::TripwireHook {} => match context.block_face {
             BlockFace::Bottom | BlockFace::Top => Block::Air {},
             direction => Block::TripwireHook {
-                direction: direction.to_direction(),
+                direction: direction.unwrap_direction(),
             },
         },
         Item::StoneButton {} => {
@@ -149,7 +149,7 @@ pub fn get_state_for_placement(
                 _ => ButtonFace::Wall,
             };
             let facing = if button_face == ButtonFace::Wall {
-                context.block_face.to_direction()
+                context.block_face.unwrap_direction()
             } else {
                 context.player.get_direction()
             };
@@ -187,7 +187,7 @@ pub fn get_state_for_placement(
             },
             _ => Block::WallSign {
                 sign_type: SignType(sign_type),
-                facing: context.block_face.to_direction(),
+                facing: context.block_face.unwrap_direction(),
             },
         },
         Item::Redstone {} => Block::RedstoneWire {
@@ -210,7 +210,7 @@ pub fn get_state_for_placement(
                 powered: false,
             },
             _ => Block::IronTrapdoor {
-                facing: context.block_face.to_direction(),
+                facing: context.block_face.unwrap_direction(),
                 half: if context.cursor_y > 0.5 {
                     TrapdoorHalf::Top
                 } else {
