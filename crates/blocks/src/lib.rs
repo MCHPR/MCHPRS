@@ -134,7 +134,7 @@ impl BlockFace {
             3 => BlockFace::South,
             4 => BlockFace::West,
             5 => BlockFace::East,
-            _ => BlockFace::West,
+            _ => panic!("invalid BlockFace with id {}", id),
         }
     }
 }
