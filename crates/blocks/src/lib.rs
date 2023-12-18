@@ -150,13 +150,13 @@ impl BlockFace {
         matches!(self, North | South | East | West)
     }
 
-    pub fn to_direction(self) -> BlockDirection {
+    pub fn unwrap_direction(self) -> BlockDirection {
         match self {
             BlockFace::North => BlockDirection::North,
             BlockFace::South => BlockDirection::South,
             BlockFace::East => BlockDirection::East,
             BlockFace::West => BlockDirection::West,
-            _ => BlockDirection::West,
+            _ => panic!("called `unwrap_direction` on {:?}", self),
         }
     }
 }

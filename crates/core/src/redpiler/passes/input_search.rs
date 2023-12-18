@@ -78,12 +78,12 @@ impl<'a, W: World> InputSearchState<'a, W> {
             Block::Lever { lever } => match side {
                 BlockFace::Top => lever.face == LeverFace::Floor,
                 BlockFace::Bottom => lever.face == LeverFace::Ceiling,
-                _ => lever.face == LeverFace::Wall && lever.facing == side.to_direction(),
+                _ => lever.face == LeverFace::Wall && lever.facing == side.unwrap_direction(),
             },
             Block::StoneButton { button } => match side {
                 BlockFace::Top => button.face == ButtonFace::Floor,
                 BlockFace::Bottom => button.face == ButtonFace::Ceiling,
-                _ => button.face == ButtonFace::Wall && button.facing == side.to_direction(),
+                _ => button.face == ButtonFace::Wall && button.facing == side.unwrap_direction(),
             },
             Block::RedstoneRepeater { .. } => self.provides_weak_power(block, side),
             Block::RedstoneComparator { .. } => self.provides_weak_power(block, side),
@@ -125,7 +125,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                         }
                         BlockFace::Bottom => {}
                         _ => {
-                            let direction = side.to_direction();
+                            let direction = side.unwrap_direction();
                             if search_wire
                                 && !wire::get_current_side(
                                     wire::get_regulated_sides(wire, self.world, pos),
@@ -150,7 +150,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 BlockFace::Top => self.search_wire(start_node, pos, link_ty, distance),
                 BlockFace::Bottom => {}
                 _ => {
-                    let direction = side.to_direction();
+                    let direction = side.unwrap_direction();
                     if search_wire
                         && !wire::get_current_side(
                             wire::get_regulated_sides(wire, self.world, pos),
