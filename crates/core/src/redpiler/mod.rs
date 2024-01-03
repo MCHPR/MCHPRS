@@ -30,11 +30,16 @@ fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     })
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq, Eq, Debug)]
 pub struct CompilerOptions {
+    /// Enable optimization passes which may significantly increase compile times.
     pub optimize: bool,
+    /// Export the graph to a binary format. See the [`redpiler_graph`] crate.
     pub export: bool,
+    /// Only flush lamp, button, lever, pressure plate, or trapdoor updates.
     pub io_only: bool,
+    /// Update all blocks in the input region after reset.
+    pub update: bool,
 }
 
 impl CompilerOptions {
@@ -42,12 +47,30 @@ impl CompilerOptions {
         let mut co: CompilerOptions = Default::default();
         let options = str.split_whitespace();
         for option in options {
-            match option {
-                "--optimize" | "-O" => co.optimize = true,
-                "--export" | "-E" => co.export = true,
-                "--io-only" | "-I" => co.io_only = true,
+            if option.starts_with("--") {
+                match option {
+                    "--optimize" => co.optimize = true,
+                    "--export" => co.export = true,
+                    "--io-only" => co.io_only = true,
+                    "--update" => co.update = true,
+                    // FIXME: use actual error handling
+                    _ => warn!("Unrecognized option: {}", option),
+                }
+            } else if let Some(str) = option.strip_prefix('-') {
+                for c in str.chars() {
+                    let lower = c.to_lowercase().to_string();
+                    match lower.as_str() {
+                        "o" => co.optimize = true,
+                        "e" => co.export = true,
+                        "i" => co.io_only = true,
+                        "u" => co.update = true,
+                        // FIXME: use actual error handling
+                        _ => warn!("Unrecognized option: -{}", c),
+                    }
+                }
+            } else {
                 // FIXME: use actual error handling
-                _ => warn!("Unrecognized option: {}", option),
+                warn!("Unrecognized option: {}", option);
             }
         }
         co
@@ -121,13 +144,11 @@ impl Compiler {
             }
         }
 
-        if self.options.optimize {
+        if self.options.update {
             let (first_pos, second_pos) = bounds;
             for_each_block_mut_optimized(world, first_pos, second_pos, |world, pos| {
                 let block = world.get_block(pos);
-                if matches!(block, Block::RedstoneWire { .. }) {
-                    redstone::update(block, world, pos);
-                }
+                redstone::update(block, world, pos);
             });
         }
         self.options = Default::default();
@@ -174,4 +195,23 @@ impl Compiler {
 pub struct CompilerInput<'w, W: World> {
     pub world: &'w W,
     pub bounds: (BlockPos, BlockPos),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_options() {
+        let input = "-io -u --export";
+        let expected_options = CompilerOptions {
+            io_only: true,
+            optimize: true,
+            export: true,
+            update: true,
+        };
+        let options = CompilerOptions::parse(input);
+
+        assert_eq!(options, expected_options);
+    }
 }

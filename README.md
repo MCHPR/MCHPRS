@@ -86,7 +86,7 @@ server_context = "global"
 | `/speed [speed]` | None | Sets your flyspeed. |
 | `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
 | `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
-| `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. Available flags: --io-only --optimize --export (or in short: -I -O -E) |
+| `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. Available flags: --io-only --optimize --export --update (or in short: -ioeu) |
 | `/redpiler reset` | `/rp r` | Stops redpiler. |
 | `/toggleautorp` | None | Toggles automatic redpiler compilation. |
 | `/stop` | None | Stops the server. |
