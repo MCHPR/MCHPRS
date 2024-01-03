@@ -39,6 +39,10 @@ impl<W: World> Pass<W> for Coalesce {
             coalesce_outgoing(graph, source, idx);
         }
     }
+
+    fn status_message(&self) -> &'static str {
+        "Combining duplicate logic"
+    }
 }
 
 fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: NodeIdx) {

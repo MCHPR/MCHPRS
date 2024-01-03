@@ -39,6 +39,10 @@ impl<W: World> Pass<W> for IdentifyNodes {
         // Mandatory
         true
     }
+
+    fn status_message(&self) -> &'static str {
+        "Identifying nodes"
+    }
 }
 
 fn for_pos<W: World>(ignore_wires: bool, world: &W, graph: &mut CompileGraph, pos: BlockPos) {

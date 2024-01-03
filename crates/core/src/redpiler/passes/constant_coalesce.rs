@@ -42,4 +42,8 @@ impl<W: World> Pass<W> for ConstantCoalesce {
             }
         }
     }
+
+    fn status_message(&self) -> &'static str {
+        "Coalescing constants"
+    }
 }

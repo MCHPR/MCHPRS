@@ -19,6 +19,10 @@ impl<W: World> Pass<W> for ConstantFold {
             trace!("Fold iteration: {} nodes", num_folded);
         }
     }
+
+    fn status_message(&self) -> &'static str {
+        "Constant folding"
+    }
 }
 
 fn fold(graph: &mut CompileGraph) -> usize {

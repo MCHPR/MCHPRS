@@ -1,19 +1,22 @@
 mod backend;
 mod compile_graph;
+mod task_monitor;
 // mod debug_graph;
 mod passes;
 
 use crate::redpiler::passes::make_default_pass_manager;
 use crate::redstone;
 use crate::world::{for_each_block_mut_optimized, World};
+use backend::BackendDispatcher;
 use backend::JITBackend;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
+use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
 
-use self::backend::BackendDispatcher;
+pub use task_monitor::TaskMonitor;
 
 fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     Some(match block {
@@ -108,15 +111,18 @@ impl Compiler {
         bounds: (BlockPos, BlockPos),
         options: CompilerOptions,
         ticks: Vec<TickEntry>,
+        monitor: Arc<TaskMonitor>,
     ) {
         debug!("Starting compile");
         let start = Instant::now();
 
-        self.is_active = true;
-
         let input = CompilerInput { world, bounds };
         let pass_manager = make_default_pass_manager::<W>();
-        let graph = pass_manager.run_passes(&options, &input);
+        let graph = pass_manager.run_passes(&options, &input, monitor.clone());
+
+        if monitor.cancelled() {
+            return;
+        }
 
         // TODO: Remove this once there is proper backend switching
         if self.jit.is_none() {
@@ -125,14 +131,19 @@ impl Compiler {
 
         if let Some(jit) = &mut self.jit {
             trace!("Compiling backend");
+            monitor.set_message("Compiling backend".to_string());
             let start = Instant::now();
-            jit.compile(graph, ticks);
+
+            jit.compile(graph, ticks, monitor.clone());
+
+            monitor.inc_progress();
             trace!("Backend compiled in {:?}", start.elapsed());
         } else {
             error!("Cannot compile without JIT variant selected");
         }
 
         self.options = options;
+        self.is_active = true;
         debug!("Compile completed in {:?}", start.elapsed());
     }
 

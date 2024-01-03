@@ -524,8 +524,10 @@ impl Plot {
         self.scoreboard
             .set_redpiler_options(&self.players, &options);
         let bounds = self.world.get_corners();
+        // TODO: move redpiler compile to new thread and use monitor
+        let monitor = Default::default();
         self.redpiler
-            .compile(&mut self.world, bounds, options, ticks);
+            .compile(&mut self.world, bounds, options, ticks, monitor);
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Running);
 

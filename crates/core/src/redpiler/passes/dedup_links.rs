@@ -45,4 +45,8 @@ impl<W: World> Pass<W> for DedupLinks {
             }
         }
     }
+
+    fn status_message(&self) -> &'static str {
+        "Deduplicating links"
+    }
 }

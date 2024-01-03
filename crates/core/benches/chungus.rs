@@ -34,7 +34,8 @@ fn init_compiler() -> Compiler {
 
     let options = CompilerOptions::parse("-O");
     let bounds = world.get_corners();
-    compiler.compile(&mut world, bounds, options, Vec::new());
+    let monitor = Default::default();
+    compiler.compile(&mut world, bounds, options, Vec::new(), monitor);
     compiler.on_use_block(START_BUTTON);
     compiler
 }

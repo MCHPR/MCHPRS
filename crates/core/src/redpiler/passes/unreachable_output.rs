@@ -65,4 +65,8 @@ impl<W: World> Pass<W> for UnreachableOutput {
             }
         }
     }
+
+    fn status_message(&self) -> &'static str {
+        "Pruning unreachable comparator outputs"
+    }
 }

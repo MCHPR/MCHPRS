@@ -3,6 +3,7 @@
 use super::JITBackend;
 use crate::redpiler::block_powered_mut;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
+use crate::redpiler::task_monitor::TaskMonitor;
 use crate::redstone::bool_to_ss;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
@@ -14,6 +15,7 @@ use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
+use std::sync::Arc;
 use std::{fmt, mem};
 use tracing::{debug, trace, warn};
 
@@ -565,7 +567,7 @@ impl JITBackend for DirectBackend {
         self.scheduler.end_tick(queues);
     }
 
-    fn compile(&mut self, graph: CompileGraph, ticks: Vec<TickEntry>) {
+    fn compile(&mut self, graph: CompileGraph, ticks: Vec<TickEntry>, _monitor: Arc<TaskMonitor>) {
         let mut nodes_map =
             FxHashMap::with_capacity_and_hasher(graph.node_count(), Default::default());
         for node in graph.node_indices() {

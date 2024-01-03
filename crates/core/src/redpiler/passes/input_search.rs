@@ -31,6 +31,10 @@ impl<W: World> Pass<W> for InputSearch {
         // Mandatory
         true
     }
+
+    fn status_message(&self) -> &'static str {
+        "Searching for links"
+    }
 }
 
 struct InputSearchState<'a, W: World> {

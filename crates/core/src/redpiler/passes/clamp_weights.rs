@@ -14,4 +14,8 @@ impl<W: World> Pass<W> for ClampWeights {
         // Mandatory
         true
     }
+
+    fn status_message(&self) -> &'static str {
+        "Clamping weights"
+    }
 }

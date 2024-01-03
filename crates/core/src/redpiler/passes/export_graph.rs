@@ -99,4 +99,8 @@ impl<W: World> Pass<W> for ExportGraph {
     fn should_run(&self, options: &CompilerOptions) -> bool {
         options.export
     }
+
+    fn status_message(&self) -> &'static str {
+        "Exporting graph"
+    }
 }
