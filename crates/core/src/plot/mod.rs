@@ -518,16 +518,41 @@ impl Plot {
 
     fn start_redpiler(&mut self, options: CompilerOptions) {
         debug!("Starting redpiler");
-        let ticks = self.world.to_be_ticked.drain(..).collect();
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Compiling);
         self.scoreboard
             .set_redpiler_options(&self.players, &options);
+
         let bounds = self.world.get_corners();
-        // TODO: move redpiler compile to new thread and use monitor
+        // TODO: use monitor
         let monitor = Default::default();
-        self.redpiler
-            .compile(&mut self.world, bounds, options, ticks, monitor);
+        let ticks = self.world.to_be_ticked.drain(..).collect();
+
+        let mut players_need_updates = HashSet::new();
+        thread::scope(|s| {
+            let handle = s.spawn(|| {
+                self.redpiler
+                    .compile(&mut self.world, bounds, options, ticks, monitor)
+            });
+            while !handle.is_finished() {
+                // We'll update the players so that they don't time out.
+                for player_idx in 0..self.players.len() {
+                    if self.players[player_idx].update() {
+                        // Unforunately we can't update a players view position
+                        // since we don't have access to the world, but we can
+                        // save the players that need updating for later.
+                        players_need_updates.insert(player_idx);
+                    }
+                }
+                thread::sleep(Duration::from_millis(20));
+            }
+        });
+
+        // Now that we have ownership of the world again, we can update player view positions
+        for player_idx in players_need_updates {
+            self.update_view_pos_for_player(player_idx, false);
+        }
+
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Running);
 
