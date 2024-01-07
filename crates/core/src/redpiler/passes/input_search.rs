@@ -367,6 +367,6 @@ impl<'a, W: World> InputSearchState<'a, W> {
     }
 }
 
-fn is_wire(world: &dyn World, pos: BlockPos) -> bool {
+fn is_wire(world: &impl World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos), Block::RedstoneWire { .. })
 }
