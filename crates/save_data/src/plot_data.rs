@@ -14,7 +14,7 @@ use std::path::Path;
 use std::{fmt, io};
 use thiserror::Error;
 
-const VERSION: u32 = 0;
+pub const VERSION: u32 = 1;
 
 #[derive(Error, Debug)]
 pub enum PlotLoadError {
@@ -32,6 +32,9 @@ pub enum PlotLoadError {
 
     #[error(transparent)]
     Io(#[from] io::Error),
+
+    #[error("plot data version {0} too new to be loaded")]
+    ConversionUnavailable(u32),
 }
 
 impl From<PlotSaveError> for PlotLoadError {
@@ -76,6 +79,15 @@ pub enum Tps {
     Unlimited,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WorldSendRate(pub u32);
+
+impl Default for WorldSendRate {
+    fn default() -> Self {
+        Self(60)
+    }
+}
+
 impl fmt::Display for Tps {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -88,6 +100,7 @@ impl fmt::Display for Tps {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PlotData<const NUM_CHUNK_SECTIONS: usize> {
     pub tps: Tps,
+    pub world_send_rate: WorldSendRate,
     pub chunk_data: Vec<ChunkData<NUM_CHUNK_SECTIONS>>,
     pub pending_ticks: Vec<TickEntry>,
 }
@@ -106,9 +119,10 @@ impl<const NUM_CHUNK_SECTIONS: usize> PlotData<NUM_CHUNK_SECTIONS> {
         }
 
         let version = file.read_u32::<LittleEndian>()?;
-        // if version < VERSION {
-        //     return fixer::try_fix(path, FixInfo::OldVersion(version))?.ok_or(PlotLoadError::ConversionFailed(version));
-        // }
+        if version < VERSION {
+            return fixer::try_fix(path, FixInfo::OldVersion { version })?
+                .ok_or(PlotLoadError::ConversionFailed(version));
+        }
         if version > VERSION {
             return Err(PlotLoadError::TooNew(version));
         }

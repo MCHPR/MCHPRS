@@ -1,6 +1,6 @@
 use super::{Plot, PlotWorld, PLOT_SECTIONS, PLOT_WIDTH};
 use anyhow::{Context, Result};
-use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps};
+use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use once_cell::sync::Lazy;
 use std::path::Path;
 use std::time::Duration;
@@ -55,6 +55,7 @@ static EMPTY_PLOT: Lazy<PlotData<PLOT_SECTIONS>> = Lazy::new(|| {
             world.chunks.iter_mut().map(|c| c.save()).collect();
         PlotData {
             tps: Tps::Limited(10),
+            world_send_rate: WorldSendRate::default(),
             chunk_data,
             pending_ticks: Vec::new(),
         }

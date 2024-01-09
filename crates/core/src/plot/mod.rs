@@ -23,7 +23,7 @@ use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::SlotData;
 use mchprs_network::PlayerPacketSender;
-use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps};
+use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use mchprs_world::{TickEntry, TickPriority};
 use monitor::TimingsMonitor;
 use scoreboard::RedpilerState;
@@ -54,8 +54,6 @@ pub const PLOT_SECTIONS: usize = 16;
 /// The plot height in blocks
 pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
 
-pub const WORLD_SEND_RATE: Duration = Duration::from_millis(15);
-
 pub struct Plot {
     pub world: PlotWorld,
     pub players: Vec<Player>,
@@ -70,6 +68,7 @@ pub struct Plot {
 
     // Timings
     tps: Tps,
+    world_send_rate: WorldSendRate,
     last_update_time: Instant,
     lag_time: Duration,
     last_nspt: Option<Duration>,
@@ -815,10 +814,13 @@ impl Plot {
             let now = Instant::now();
             self.last_player_time = now;
 
+            let world_send_rate =
+                Duration::from_nanos(1_000_000_000 / self.world_send_rate.0 as u64);
+
             let max_batch_size = match self.last_nspt {
                 Some(Duration::ZERO) | None => 1,
                 Some(last_nspt) => {
-                    let ticks_fit = (WORLD_SEND_RATE.as_nanos() / last_nspt.as_nanos()) as u64;
+                    let ticks_fit = (world_send_rate.as_nanos() / last_nspt.as_nanos()) as u64;
                     // A tick previously took longer than the world send rate.
                     // Run at least one just so we're not stuck doing nothing
                     ticks_fit.max(1)
@@ -869,7 +871,7 @@ impl Plot {
 
             let now = Instant::now();
             let time_since_last_world_send = now - self.last_world_send_time;
-            if time_since_last_world_send > WORLD_SEND_RATE {
+            if time_since_last_world_send > world_send_rate {
                 self.last_world_send_time = now;
                 self.world.flush_block_changes();
             }
@@ -955,6 +957,7 @@ impl Plot {
             packet_senders: Vec::new(),
         };
         let tps = plot_data.tps;
+        let world_send_rate = plot_data.world_send_rate;
         Plot {
             last_player_time: Instant::now(),
             last_update_time: Instant::now(),
@@ -970,6 +973,7 @@ impl Plot {
             running: true,
             auto_redpiler: CONFIG.auto_redpiler,
             tps,
+            world_send_rate,
             always_running,
             redpiler: Default::default(),
             timings: TimingsMonitor::new(tps),
@@ -1005,6 +1009,7 @@ impl Plot {
             world.chunks.iter_mut().map(|c| c.save()).collect();
         let data = PlotData {
             tps: self.tps,
+            world_send_rate: self.world_send_rate,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
         };

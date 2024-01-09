@@ -13,7 +13,7 @@ use mchprs_network::packets::clientbound::{
 };
 use mchprs_network::packets::PacketEncoder;
 use mchprs_network::PlayerPacketSender;
-use mchprs_save_data::plot_data::Tps;
+use mchprs_save_data::plot_data::{Tps, WorldSendRate};
 use once_cell::sync::Lazy;
 use std::ops::Add;
 use std::str::FromStr;
@@ -490,6 +490,31 @@ impl Plot {
                 let item = ItemStack::container_with_ss(container_ty, power);
                 let slot = 36 + self.players[player].selected_slot;
                 self.players[player].set_inventory_slot(slot, Some(item));
+            }
+            "/worldsendrate" | "/wsr" => {
+                if args.len() != 1 {
+                    self.players[player].send_error_message("Usage: /worldsendrate <hertz>");
+                    return false;
+                }
+
+                let Ok(hertz) = args[0].parse::<u32>() else {
+                    self.players[player].send_error_message("Unable to parse send rate!");
+                    return false;
+                };
+                if hertz == 0 {
+                    self.players[player].send_error_message("The world send rate cannot be 0!");
+                    return false;
+                }
+                if hertz > 1000 {
+                    self.players[player]
+                        .send_error_message("The world send rate cannot go higher than 1000!");
+                    return false;
+                }
+
+                self.world_send_rate = WorldSendRate(hertz);
+                self.reset_timings();
+                self.players[player]
+                    .send_system_message("The world send rate was successfully set.");
             }
             _ => self.players[player].send_error_message("Command not found!"),
         }

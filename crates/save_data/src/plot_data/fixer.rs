@@ -8,14 +8,18 @@
 //! module may become quite big.
 
 use super::{PlotData, PlotLoadError};
+use crate::plot_data::VERSION;
 use std::fs;
 use std::path::Path;
+use tracing::debug;
 
 mod pre_header;
+mod pre_worldsendrate;
 
+#[derive(Debug)]
 pub enum FixInfo {
     InvalidHeader,
-    // OldVersion(u32),
+    OldVersion { version: u32 },
 }
 
 fn make_backup(path: impl AsRef<Path>) -> Result<(), PlotLoadError> {
@@ -38,19 +42,24 @@ pub fn try_fix<const NUM_SECTIONS: usize>(
     path: impl AsRef<Path>,
     info: FixInfo,
 ) -> Result<Option<PlotData<NUM_SECTIONS>>, PlotLoadError> {
+    debug!("Trying to fix plot with {:?}", info);
     let result = match info {
         FixInfo::InvalidHeader => {
             let data = fs::read(&path)?;
             pre_header::try_fix(&data)
         }
-        // We don't have old versions yet
-        // FixInfo::OldVersion(_) => None,
+        FixInfo::OldVersion { version: 0 } => {
+            let data = fs::read(&path)?;
+            pre_worldsendrate::try_fix(&data)
+        }
+        _ => None,
     };
 
     Ok(match result {
         Some(data) => {
             make_backup(&path)?;
             data.save_to_file(&path)?;
+            debug!("Successfully converted plot to version {}", VERSION);
             Some(data)
         }
         None => None,
