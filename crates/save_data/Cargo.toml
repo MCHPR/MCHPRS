@@ -14,3 +14,4 @@ rustc-hash = "1.1"
 mchprs_world = { path = "../world" }
 mchprs_blocks = { path = "../blocks" }
 serde-big-array = "0.5"
+tracing = "0.1"
