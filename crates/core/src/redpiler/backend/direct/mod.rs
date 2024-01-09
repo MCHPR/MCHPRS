@@ -346,7 +346,7 @@ impl fmt::Display for DirectBackend {
                 let color = if link.side() { ",color=\"blue\"" } else { "" };
                 write!(
                     f,
-                    "n{}->n{}[label=\"{}\"{}];",
+                    "n{} -> n{} [label=\"{}\"{}];",
                     id, out_index, distance, color
                 )?;
             }
