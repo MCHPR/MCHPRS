@@ -43,6 +43,8 @@ pub struct CompilerOptions {
     pub io_only: bool,
     /// Update all blocks in the input region after reset.
     pub update: bool,
+    /// Export a dot file of the graph after backend compile (backend dependent)
+    pub export_dot_graph: bool,
 }
 
 impl CompilerOptions {
@@ -56,6 +58,7 @@ impl CompilerOptions {
                     "--export" => co.export = true,
                     "--io-only" => co.io_only = true,
                     "--update" => co.update = true,
+                    "--export-dot" => co.export_dot_graph = true,
                     // FIXME: use actual error handling
                     _ => warn!("Unrecognized option: {}", option),
                 }
@@ -134,7 +137,7 @@ impl Compiler {
             monitor.set_message("Compiling backend".to_string());
             let start = Instant::now();
 
-            jit.compile(graph, ticks, monitor.clone());
+            jit.compile(graph, ticks, &options, monitor.clone());
 
             monitor.inc_progress();
             trace!("Backend compiled in {:?}", start.elapsed());
@@ -220,6 +223,7 @@ mod tests {
             optimize: true,
             export: true,
             update: true,
+            export_dot_graph: false,
         };
         let options = CompilerOptions::parse(input);
 

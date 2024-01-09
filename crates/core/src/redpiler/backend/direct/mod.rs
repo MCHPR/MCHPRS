@@ -6,7 +6,7 @@ mod tick;
 mod update;
 
 use super::JITBackend;
-use crate::redpiler::block_powered_mut;
+use crate::redpiler::{block_powered_mut, CompilerOptions};
 use crate::redpiler::compile_graph::CompileGraph;
 use crate::redpiler::task_monitor::TaskMonitor;
 use crate::redstone::bool_to_ss;
@@ -248,8 +248,8 @@ impl JITBackend for DirectBackend {
         }
     }
 
-    fn compile(&mut self, graph: CompileGraph, ticks: Vec<TickEntry>, monitor: Arc<TaskMonitor>) {
-        compile::compile(self, graph, ticks, monitor);
+    fn compile(&mut self, graph: CompileGraph, ticks: Vec<TickEntry>, options: &CompilerOptions, monitor: Arc<TaskMonitor>) {
+        compile::compile(self, graph, ticks, options, monitor);
     }
 }
 
