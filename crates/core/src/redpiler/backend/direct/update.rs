@@ -6,7 +6,7 @@ use super::*;
 #[inline(always)]
 pub(super) fn update_node(
     scheduler: &mut TickScheduler,
-    sound_events: &mut Vec<Event>,
+    events: &mut Vec<Event>,
     nodes: &mut Nodes,
     node_id: NodeId,
 ) {
@@ -99,7 +99,7 @@ pub(super) fn update_node(
                 let node = &mut nodes[node_id];
                 set_node(node, should_be_powered);
                 if should_be_powered {
-                    sound_events.push(Event::NoteBlockPlay(node_id));
+                    events.push(Event::NoteBlockPlay(node_id));
                 }
             }
         }

@@ -241,7 +241,7 @@ impl World for PlotWorld {
         volume: f32,
         pitch: f32,
     ) {
-        // We do not know the players location here, so we send the sound packet to all players
+        // FIXME: We do not know the players location here, so we send the sound packet to all players
         // A notchian server would only send to players in hearing distance (volume.clamp(0.0, 1.0) * 16.0)
         let sound_effect_data = CSoundEffect {
             sound_id,
