@@ -2,9 +2,9 @@ pub mod direct;
 
 use std::sync::Arc;
 
-use super::CompilerOptions;
 use super::compile_graph::CompileGraph;
 use super::task_monitor::TaskMonitor;
+use super::CompilerOptions;
 use crate::world::World;
 use enum_dispatch::enum_dispatch;
 use mchprs_blocks::BlockPos;
@@ -12,7 +12,13 @@ use mchprs_world::TickEntry;
 
 #[enum_dispatch]
 pub trait JITBackend {
-    fn compile(&mut self, graph: CompileGraph, ticks: Vec<TickEntry>, options: &CompilerOptions, monitor: Arc<TaskMonitor>);
+    fn compile(
+        &mut self,
+        graph: CompileGraph,
+        ticks: Vec<TickEntry>,
+        options: &CompilerOptions,
+        monitor: Arc<TaskMonitor>,
+    );
     fn tick(&mut self);
     fn on_use_block(&mut self, pos: BlockPos);
     fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool);
