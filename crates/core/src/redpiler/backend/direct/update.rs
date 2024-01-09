@@ -1,15 +1,12 @@
 use mchprs_world::TickPriority;
 
-use super::node::{NodeId, NodeType, Nodes};
+use super::node::{NodeId, NodeType};
 use super::*;
 
 #[inline(always)]
-pub(super) fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node_id: NodeId) {
-    let node = &nodes[node_id];
-
+pub(super) fn update_node(scheduler: &mut TickScheduler, node: &mut Node, node_id: NodeId) {
     match node.ty {
         NodeType::Repeater(delay) => {
-            let node = &mut nodes[node_id];
             let should_be_locked = get_bool_side(node);
             if !node.locked && should_be_locked {
                 set_node_locked(node, true);
@@ -44,7 +41,6 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node
                 } else {
                     TickPriority::High
                 };
-                let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, delay as usize, priority);
             }
         }
@@ -55,7 +51,6 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node
             let should_be_off = get_bool_input(node);
             let lit = node.powered;
             if lit == should_be_off {
-                let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
         }
@@ -77,14 +72,12 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node
                 } else {
                     TickPriority::Normal
                 };
-                let node = &mut nodes[node_id];
                 schedule_tick(scheduler, node_id, node, 1, priority);
             }
         }
         NodeType::Lamp => {
             let should_be_lit = get_bool_input(node);
             let lit = node.powered;
-            let node = &mut nodes[node_id];
             if lit && !should_be_lit {
                 schedule_tick(scheduler, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
@@ -94,14 +87,12 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, nodes: &mut Nodes, node
         NodeType::Trapdoor => {
             let should_be_powered = get_bool_input(node);
             if node.powered != should_be_powered {
-                let node = &mut nodes[node_id];
                 set_node(node, should_be_powered);
             }
         }
         NodeType::Wire => {
             let (input_power, _) = get_all_input(node);
             if node.output_power != input_power {
-                let node = &mut nodes[node_id];
                 node.output_power = input_power;
                 node.changed = true;
             }

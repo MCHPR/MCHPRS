@@ -149,7 +149,7 @@ impl DirectBackend {
                 *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
             }
 
-            update::update_node(&mut self.scheduler, &mut self.nodes, update);
+            update::update_node(&mut self.scheduler, update_ref, update);
         }
     }
 }
