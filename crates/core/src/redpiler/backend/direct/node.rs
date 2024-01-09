@@ -64,7 +64,7 @@ impl IndexMut<NodeId> for Nodes {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct ForwardLink {
     data: u32,
 }
@@ -92,6 +92,16 @@ impl ForwardLink {
 
     pub fn ss(self) -> u8 {
         (self.data & 0b1111) as u8
+    }
+}
+
+impl std::fmt::Debug for ForwardLink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ForwardLink")
+            .field("node", &self.node())
+            .field("side", &self.side())
+            .field("ss", &self.ss())
+            .finish()
     }
 }
 
