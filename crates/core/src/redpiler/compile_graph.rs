@@ -23,7 +23,10 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-    NoteBlock { instrument: Instrument, note: u32 },
+    NoteBlock {
+        instrument: Instrument,
+        note: u32,
+    },
 }
 
 #[derive(Debug, Clone, Default)]
