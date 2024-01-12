@@ -294,6 +294,16 @@ impl BlockDirection {
             East => North,
         }
     }
+
+    pub fn from_rotation(rotation: u32) -> Option<BlockDirection> {
+        match rotation {
+            0 => Some(BlockDirection::South),
+            4 => Some(BlockDirection::West),
+            8 => Some(BlockDirection::North),
+            12 => Some(BlockDirection::East),
+            _ => None,
+        }
+    }
 }
 
 impl FromStr for BlockDirection {
@@ -422,6 +432,22 @@ impl FromStr for BlockFacing {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct SignType(pub u32);
+
+impl SignType {
+    pub fn from_item_type(sign_type: u32) -> Self {
+        Self(match sign_type {
+            0 => 0, // Oak
+            1 => 1, // Spruce
+            2 => 2, // Birch
+            3 => 4, // Jungle
+            4 => 3, // Acacia
+            5 => 5, // Dark Oak
+            6 => 6, // Crimson
+            7 => 7, // Warped
+            _ => sign_type,
+        })
+    }
+}
 
 impl BlockProperty for SignType {
     // Don't encode
