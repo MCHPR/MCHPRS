@@ -545,7 +545,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: &[
                     1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49, 53, 60, 61, 63,
+                    47, 49, 53, 60, 61, 63, 65, 66, 67, 71, 73,
                 ],
                 redirect_node: None,
                 name: None,
@@ -1130,6 +1130,87 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 name: Some("filename"),
                 parser: Some(Parser::String(0)),
                 suggestions_type: Some("minecraft:ask_server"),
+            },
+            // 65: /toggleautorp
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("toggleautorp"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 66: /redpiler
+            Node {
+                flags: CommandFlags::LITERAL.bits() as i8,
+                children: &[68, 69, 70], // Children are compile, inspect, reset
+                redirect_node: None,
+                name: Some("redpiler"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 67: /rp
+            Node {
+                flags: (CommandFlags::REDIRECT | CommandFlags::LITERAL).bits() as i8,
+                children: &[],
+                redirect_node: Some(66), // Redirect to /redpiler
+                name: Some("rp"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 68: /redpiler compile
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("compile"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 69: /redpiler inspect
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("inspect"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 70: /redpiler reset
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("reset"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 71: /worldsendrate
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: &[72],
+                redirect_node: None,
+                name: Some("worldsendrate"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 72: /worldsendrate [rticks]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("hertz"),
+                parser: Some(Parser::Integer(0, 1000)),
+                suggestions_type: None,
+            },
+            // 73: /wsr
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: &[],
+                redirect_node: Some(71),
+                name: Some("wsr"),
+                parser: None,
+                suggestions_type: None,
             },
         ],
         root_index: 0,
