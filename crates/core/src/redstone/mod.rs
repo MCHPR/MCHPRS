@@ -350,6 +350,31 @@ pub fn get_comparator_override(block: Block, world: &impl World, pos: BlockPos) 
     }
 }
 
+pub fn get_comparator_far_input(
+    world: &impl World,
+    pos: BlockPos,
+    facing: BlockDirection,
+) -> Option<u8> {
+    let face = facing.opposite().block_face();
+    let input_pos = pos.offset(face);
+    let input_block = world.get_block(input_pos);
+    if !input_block.is_solid() || has_comparator_override(input_block) {
+        return None;
+    }
+
+    let far_input_pos = input_pos.offset(face);
+    let far_input_block = world.get_block(far_input_pos);
+    if has_comparator_override(far_input_block) {
+        Some(get_comparator_override(
+            far_input_block,
+            world,
+            far_input_pos,
+        ))
+    } else {
+        None
+    }
+}
+
 pub fn is_diode(block: Block) -> bool {
     matches!(
         block,

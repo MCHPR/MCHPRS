@@ -1,14 +1,22 @@
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_blocks::BlockPos;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
+use rustc_hash::FxHashSet;
 
 pub type NodeIdx = NodeIndex;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NodeType {
-    Repeater(u8),
+    Repeater {
+        delay: u8,
+        facing_diode: bool,
+    },
     Torch,
-    Comparator(ComparatorMode),
+    Comparator {
+        mode: ComparatorMode,
+        far_input: Option<u8>,
+        facing_diode: bool,
+    },
     Lamp,
     Button,
     Lever,
@@ -16,12 +24,6 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-}
-
-impl NodeType {
-    pub fn is_output(self) -> bool {
-        matches!(self, NodeType::Lamp | NodeType::Trapdoor)
-    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -64,14 +66,24 @@ impl NodeState {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct Annotations {}
+
 #[derive(Debug)]
 pub struct CompileNode {
     pub ty: NodeType,
     pub block: Option<(BlockPos, u32)>,
     pub state: NodeState,
 
-    pub facing_diode: bool,
-    pub comparator_far_input: Option<u8>,
+    pub is_input: bool,
+    pub is_output: bool,
+    pub annotations: Annotations,
+}
+
+impl CompileNode {
+    pub fn is_removable(&self) -> bool {
+        !self.is_input && !self.is_output
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,3 +119,28 @@ impl CompileLink {
 }
 
 pub type CompileGraph = StableGraph<CompileNode, CompileLink>;
+
+pub fn weakly_connected_components(graph: &CompileGraph) -> Vec<Vec<NodeIdx>> {
+    let mut visited = FxHashSet::with_capacity_and_hasher(graph.node_count(), Default::default());
+    let mut components = vec![];
+
+    for node in graph.node_indices() {
+        if !visited.contains(&node) {
+            visited.insert(node);
+
+            let mut component = vec![node];
+            let mut index = 0;
+            while component.len() > index {
+                for neighbor in graph.neighbors_undirected(component[index]) {
+                    if !visited.contains(&neighbor) {
+                        visited.insert(neighbor);
+                        component.push(neighbor);
+                    }
+                }
+                index += 1;
+            }
+            components.push(component);
+        }
+    }
+    components
+}

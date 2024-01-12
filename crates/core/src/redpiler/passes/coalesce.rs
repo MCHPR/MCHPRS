@@ -2,6 +2,7 @@ use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::world::World;
+use itertools::Itertools;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
 
@@ -18,22 +19,21 @@ impl<W: World> Pass<W> for Coalesce {
             let node = &graph[idx];
             // Comparators depend on the link weight as well as the type,
             // we could implement that later if it's beneficial enough.
-            if matches!(node.ty, NodeType::Comparator(_)) || node.ty.is_output() {
+            if matches!(node.ty, NodeType::Comparator { .. }) || !node.is_removable() {
                 continue;
             }
 
-            let mut edges = graph.edges_directed(idx, Direction::Incoming);
-            let Some(edge) = edges.next() else {
+            let Ok(edge) = graph.edges_directed(idx, Direction::Incoming).exactly_one() else {
                 continue;
             };
 
-            if edge.weight().ty == LinkType::Side || edges.next().is_some() {
+            if edge.weight().ty != LinkType::Default {
                 continue;
             }
 
             let source = edge.source();
             // Comparators might output less than 15 ss
-            if matches!(graph[source].ty, NodeType::Comparator(_)) {
+            if matches!(graph[source].ty, NodeType::Comparator { .. }) {
                 continue;
             }
             coalesce_outgoing(graph, source, idx);
@@ -59,7 +59,7 @@ fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: No
         let into = &graph[into_idx];
 
         if dest.ty == into.ty
-            && dest.facing_diode == into.facing_diode
+            && dest.is_removable()
             && graph
                 .neighbors_directed(dest_idx, Direction::Incoming)
                 .count()

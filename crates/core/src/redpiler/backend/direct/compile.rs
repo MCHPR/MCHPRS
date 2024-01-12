@@ -84,16 +84,24 @@ fn compile_node(
     };
     stats.update_link_count += updates.len();
 
-    let ty = match node.ty {
-        CNodeType::Repeater(delay) => {
-            if side_input_count == 0 {
-                NodeType::SimpleRepeater(delay)
-            } else {
-                NodeType::Repeater(delay)
-            }
-        }
+    let ty = match &node.ty {
+        CNodeType::Repeater {
+            delay,
+            facing_diode,
+        } => NodeType::Repeater {
+            delay: *delay,
+            facing_diode: *facing_diode,
+        },
         CNodeType::Torch => NodeType::Torch,
-        CNodeType::Comparator(mode) => NodeType::Comparator(mode),
+        CNodeType::Comparator {
+            mode,
+            far_input,
+            facing_diode,
+        } => NodeType::Comparator {
+            mode: *mode,
+            far_input: *far_input,
+            facing_diode: *facing_diode,
+        },
         CNodeType::Lamp => NodeType::Lamp,
         CNodeType::Button => NodeType::Button,
         CNodeType::Lever => NodeType::Lever,
@@ -111,10 +119,9 @@ fn compile_node(
         powered: node.state.powered,
         output_power: node.state.output_strength,
         locked: node.state.repeater_locked,
-        facing_diode: node.facing_diode,
-        comparator_far_input: node.comparator_far_input,
         pending_tick: false,
         changed: false,
+        is_io: node.is_input || node.is_output,
     }
 }
 
