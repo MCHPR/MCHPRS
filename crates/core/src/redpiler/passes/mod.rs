@@ -1,3 +1,4 @@
+mod analog_repeaters;
 mod clamp_weights;
 mod coalesce;
 mod constant_coalesce;
@@ -24,6 +25,7 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &input_search::InputSearch,
         &clamp_weights::ClampWeights,
         &dedup_links::DedupLinks,
+        &analog_repeaters::AnalogRepeaters,
         &constant_fold::ConstantFold,
         &unreachable_output::UnreachableOutput,
         &constant_coalesce::ConstantCoalesce,
