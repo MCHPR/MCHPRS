@@ -114,7 +114,7 @@ impl DirectBackend {
         node.output_power = new_power;
         for i in 0..node.updates.len() {
             let node = &self.nodes[node_id];
-            let update_link = node.updates[i];
+            let update_link = unsafe { *node.updates.get_unchecked(i) };
             let side = update_link.side();
             let distance = update_link.ss();
             let update = update_link.node();

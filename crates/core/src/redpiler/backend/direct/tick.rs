@@ -3,8 +3,8 @@ use super::*;
 
 impl DirectBackend {
     pub fn tick_node(&mut self, node_id: NodeId) {
-        self.nodes[node_id].pending_tick = false;
         let node = &mut self.nodes[node_id];
+        node.pending_tick = false;
 
         match node.ty {
             NodeType::Repeater { delay, .. } => {
@@ -29,12 +29,9 @@ impl DirectBackend {
                 }
             }
             NodeType::Torch => {
-                let should_be_off = get_bool_input(node);
-                let lit = node.powered;
-                if lit && should_be_off {
-                    self.set_node(node_id, false, 0);
-                } else if !lit && !should_be_off {
-                    self.set_node(node_id, true, 15);
+                let should_be_powered = !get_bool_input(node);
+                if node.powered != should_be_powered {
+                    self.set_node(node_id, should_be_powered, bool_to_ss(should_be_powered));
                 }
             }
             NodeType::Comparator {
@@ -63,7 +60,7 @@ impl DirectBackend {
                     self.set_node(node_id, false, 0);
                 }
             }
-            _ => warn!("Node {:?} should not be ticked!", node.ty),
+            _ => {} //unreachable!("Node {:?} should not be ticked!", node.ty),
         }
     }
 }

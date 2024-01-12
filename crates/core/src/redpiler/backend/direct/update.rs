@@ -14,7 +14,7 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, node: &mut Node, node_i
             if should_be_locked != node.locked {
                 set_node_locked(node, should_be_locked);
             }
-            if should_be_locked || node.pending_tick {
+            if node.locked || node.pending_tick {
                 return;
             }
 
@@ -87,6 +87,6 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, node: &mut Node, node_i
                 node.changed = true;
             }
         }
-        _ => {} // panic!("Node {:?} should not be updated!", node.state),
+        _ => {} // unreachable!("Node {:?} should not be updated!", node.ty),
     }
 }
