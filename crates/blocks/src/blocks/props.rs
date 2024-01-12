@@ -36,7 +36,7 @@ impl RedstoneRepeater {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, Hash)]
 pub enum ComparatorMode {
     #[default]
     Compare,

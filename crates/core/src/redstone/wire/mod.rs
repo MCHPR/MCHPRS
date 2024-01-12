@@ -193,14 +193,14 @@ pub fn get_regulated_sides(wire: RedstoneWire, world: &impl World, pos: BlockPos
     state
 }
 
-fn is_dot(wire: RedstoneWire) -> bool {
+pub(crate) fn is_dot(wire: RedstoneWire) -> bool {
     wire.north == RedstoneWireSide::None
         && wire.south == RedstoneWireSide::None
         && wire.east == RedstoneWireSide::None
         && wire.west == RedstoneWireSide::None
 }
 
-fn is_cross(wire: RedstoneWire) -> bool {
+pub(crate) fn is_cross(wire: RedstoneWire) -> bool {
     wire.north == RedstoneWireSide::Side
         && wire.south == RedstoneWireSide::Side
         && wire.east == RedstoneWireSide::Side

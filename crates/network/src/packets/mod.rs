@@ -373,7 +373,7 @@ impl PacketEncoder {
         PacketEncoder { buffer, packet_id }
     }
 
-    // This function is seperate because it is needed when writing packet headers
+    // This function is separate because it is needed when writing packet headers
     fn varint(val: i32) -> Vec<u8> {
         let mut val = val as u32;
         let mut buf = Vec::new();
