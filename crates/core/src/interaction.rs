@@ -182,11 +182,11 @@ pub fn get_state_for_placement(
         Item::Sign { sign_type } => match context.block_face {
             BlockFace::Bottom => Block::Air {},
             BlockFace::Top => Block::Sign {
-                sign_type: SignType(sign_type),
+                sign_type: SignType::from_item_type(sign_type),
                 rotation: (((180.0 + context.player.yaw) * 16.0 / 360.0) + 0.5).floor() as u32 & 15,
             },
             _ => Block::WallSign {
-                sign_type: SignType(sign_type),
+                sign_type: SignType::from_item_type(sign_type),
                 facing: context.block_face.unwrap_direction(),
             },
         },

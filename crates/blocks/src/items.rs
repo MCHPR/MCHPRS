@@ -318,7 +318,7 @@ items! {
         },
         get_id: 768 + sign_type,
         from_id_offset: 768,
-        from_id(id): 768..=773 => {
+        from_id(id): 768..=775 => {
             sign_type: id
         },
         block: true,

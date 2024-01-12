@@ -418,11 +418,23 @@ blocks! {
             sign_type: SignType,
             facing: BlockDirection
         },
-        get_id: (sign_type.0 << 3) + (facing.get_id() << 1) + 3803,
-        from_id_offset: 3803,
-        from_id(id): 3803..=3849 => {
-            sign_type: SignType(id >> 3),
-            facing: BlockDirection::from_id((id & 0b110) >> 1)
+        get_id: 1 + (sign_type.0 << 3) + (facing.get_id() << 1) + match sign_type.0 {
+            0..=5 => 3802,
+            6..=7 => 15973 - (6 << 3),
+            _ => unreachable!(),
+        },
+        from_id_offset: 0,
+        from_id(id): 3802..=3849 | 15973..=15988 => {
+            sign_type: SignType(match id {
+                3802..=3849 => (id - 3802) >> 3,
+                15973..=15988 => ((id - 15973) >> 3) + 6,
+                _ => unreachable!(),
+            }),
+            facing: BlockDirection::from_id((match id {
+                3802..=3849 => id - 3802,
+                15973..=15988 => id - 15973,
+                _ => unreachable!(),
+            } & 0b110) >> 1)
         },
         from_names(_name): {
             "oak_wall_sign" => {
@@ -437,16 +449,24 @@ blocks! {
                 sign_type: SignType(2),
                 facing: Default::default()
             },
-            "jungle_wall_sign" => {
+            "acacia_wall_sign" => {
                 sign_type: SignType(3),
                 facing: Default::default()
             },
-            "acacia_wall_sign" => {
+            "jungle_wall_sign" => {
                 sign_type: SignType(4),
                 facing: Default::default()
             },
             "dark_oak_wall_sign" => {
                 sign_type: SignType(5),
+                facing: Default::default()
+            },
+            "crimson_wall_sign" => {
+                sign_type: SignType(6),
+                facing: Default::default()
+            },
+            "warped_wall_sign" => {
+                sign_type: SignType(7),
                 facing: Default::default()
             }
         },
@@ -454,9 +474,11 @@ blocks! {
             0 => "oak_wall_sign",
             1 => "spruce_wall_sign",
             2 => "birch_wall_sign",
-            3 => "jungle_wall_sign",
-            4 => "acacia_wall_sign",
+            3 => "acacia_wall_sign",
+            4 => "jungle_wall_sign",
             5 => "dark_oak_wall_sign",
+            6 => "crimson_wall_sign",
+            7 => "warped_wall_sign",
             _ => "invalid_wall_sign"
         },
     },
@@ -511,11 +533,23 @@ blocks! {
             sign_type: SignType,
             rotation: u32
         },
-        get_id: (sign_type.0 << 5) + (rotation << 1) + 3439,
-        from_id_offset: 3439,
-        from_id(id): 3439..=3629 => {
-            sign_type: SignType(id >> 5),
-            rotation: (id & 0b11110) >> 1
+        get_id: 1 + (sign_type.0 << 5) + (rotation << 1) + match sign_type.0 {
+            0..=5 => 3438,
+            6..=7 => 15909 - (6 << 5),
+            _ => unreachable!(),
+        },
+        from_id_offset: 0,
+        from_id(id): 3438..=3629 | 15909..=15972 => {
+            sign_type: SignType(match id {
+                3438..=3629 => (id - 3438) >> 5,
+                15909..=15972 => ((id - 15909) >> 5) + 6,
+                _ => unreachable!(),
+            }),
+            rotation: (match id {
+                3438..=3629 => id - 3438,
+                15909..=15972 => id - 15909,
+                _ => unreachable!(),
+            } & 0b11110) >> 1
         },
         from_names(_name): {
             "oak_sign" => {
@@ -530,16 +564,24 @@ blocks! {
                 sign_type: SignType(2),
                 rotation: 0
             },
-            "jungle_sign" => {
+            "acacia_sign" => {
                 sign_type: SignType(3),
                 rotation: 0
             },
-            "acacia_sign" => {
+            "jungle_sign" => {
                 sign_type: SignType(4),
                 rotation: 0
             },
             "dark_oak_sign" => {
                 sign_type: SignType(5),
+                rotation: 0
+            },
+            "crimson_sign" => {
+                sign_type: SignType(6),
+                rotation: 0
+            },
+            "warped_sign" => {
+                sign_type: SignType(7),
                 rotation: 0
             }
         },
@@ -547,9 +589,11 @@ blocks! {
             0 => "oak_sign",
             1 => "spruce_sign",
             2 => "birch_sign",
-            3 => "jungle_sign",
-            4 => "acacia_sign",
+            3 => "acacia_sign",
+            4 => "jungle_sign",
             5 => "dark_oak_sign",
+            6 => "crimson_sign",
+            7 => "warped_sign",
             _ => "invalid_sign"
         },
     },
