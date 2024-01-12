@@ -10,7 +10,7 @@ Redpiler was inspired by the design of modern compilers such as LLVM. As such, R
 
 ## The `IdentifyNodes` Pass
 
-At the start of the compile, the graph is completely empty. This mandatory pass populates the graph with nodes using the given input world. This input is usually the plot the player is in, but it can also be a WorldEdit selection if Redpiler was invoked with certain flags. 
+At the start of the compile, the graph is completely empty. This mandatory pass populates the graph with nodes using the given input world. This input is usually the plot the player is in, but it can also be a WorldEdit selection if Redpiler was invoked with certain flags.
 
 The pass iterates through all the blocks in the input, and tries to identify them as Redstone components. If a block is a Repeater, Comparator, Torch, Stone Button, Lamp, Lever, Stone Pressure Plate, a new node is created in the graph with the appropriate node type containing the necessary state information. If an optimization flag is not set, Redstone Wires are also added to the graph.
 
@@ -18,7 +18,7 @@ Blocks that have a comparator override such as Barrels, Furnaces, Hoppers, Cauld
 
 ## The `InputSearch` Pass
 
-Now that the graph been populated with nodes, Redpiler can now start finding the connections between Redstone components. This mandatory pass populates the graph with links. 
+Now that the graph been populated with nodes, Redpiler can now start finding the connections between Redstone components. This mandatory pass populates the graph with links.
 
 This pass is the most complex out of them all, but it is also one of the most important aspects of Redpiler. One of the major reasons vanilla Minecraft is so slow at processing redstone is because of  the fact that when a component is updated, which can happen several times in a tick, it has to look for all sources of input. This can take a relatively very long time, and Redpiler solves this issue by only looking once and saving this information in the form of the links in the graph.
 
@@ -40,17 +40,22 @@ While nodes that are never updated in theory have no affect on the number of ins
 
 ## The `UnreachableOutput` Pass
 
-If the side of a Comparator in subtract mode is constant, then the maximum output of the comparator is equal to the difference of the maximum side input and the maximum default input. Outgoing links that have a weight greater than or equal to the maxium output of the comparator can be safely removed. 
+If the side of a Comparator in subtract mode is constant, then the maximum output of the comparator is equal to the difference of the maximum side input and the maximum default input. Outgoing links that have a weight greater than or equal to the maxium output of the comparator can be safely removed.
 
 This optimization implements a simplified version of this idea. First, it iterates through all comparators in subtract mode and checks if a comparator has a single constant side input. If it does, it takes the difference between 15 and the constant strength, clamped at 0. If there are any outgoing links that have a weight greater than or equal to the difference, then it is removed from the graph.
 
 ## The `ConstantCoalesce` Pass
 
-Disregarding High-Signal Strength logic, which Redpiler does not support anyways, the value of a constant is ever only in between 0 and 15. Effectively, there are only 16 different constant values possible. This optimization pass creates the 16 different constant nodes for all values, and removes all other constant nodes in the graph. The outgoing edges of the old constant nodes are transformed to source from the new constant nodes. 
+Disregarding High-Signal Strength logic, which Redpiler does not support anyways, the value of a constant is ever only in between 0 and 15. Effectively, there are only 16 different constant values possible. This optimization pass creates the 16 different constant nodes for all values, and removes all other constant nodes in the graph. The outgoing edges of the old constant nodes are transformed to source from the new constant nodes.
 
 ## The `Coalesce` Pass
 
 There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repetears that lock other repeaters. This is very inefficent because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
+
+## The `PruneOrphans` Pass
+
+Any redstone components that do not contribute to the functioning of output components (Trapdoors and Lamps) can be disregarded.
+This pass recusively marks all nodes connected to an output node and removes all remaining unmarked nodes (Depth-First-Search).
 
 ## The `ExportGraph` Pass
 
@@ -58,7 +63,7 @@ This pass is neither a mandatory pass nor an optimization pass. This pass is onl
 
 # The Backend
 
-Once the graph has been created, it is sent to a Redpiler backend which is responsible for the runtime execution of the Redstone circuit. A backend may implement redstone executation in any way, whether that is by just-in-time compiling redstone or by interpreting the graph. 
+Once the graph has been created, it is sent to a Redpiler backend which is responsible for the runtime execution of the Redstone circuit. A backend may implement redstone executation in any way, whether that is by just-in-time compiling redstone or by interpreting the graph.
 
 ## How Redstone Works
 
