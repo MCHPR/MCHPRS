@@ -312,18 +312,6 @@ impl<'a, W: World> InputSearchState<'a, W> {
                         .add_edge(self.pos_map[&input_pos], id, CompileLink::default(0));
                 } else {
                     self.search_diode_inputs(id, pos, facing);
-
-                    let far_input_pos = input_pos.offset(facing.block_face());
-                    let far_input_block = self.world.get_block(far_input_pos);
-                    if input_block.is_solid() && redstone::has_comparator_override(far_input_block)
-                    {
-                        let far_override = redstone::get_comparator_override(
-                            far_input_block,
-                            self.world,
-                            far_input_pos,
-                        );
-                        self.graph[id].comparator_far_input = Some(far_override);
-                    }
                 }
             }
             Block::RedstoneRepeater { repeater } => {

@@ -26,7 +26,13 @@ impl<W: World> Pass<W> for UnreachableOutput {
                 continue;
             }
 
-            if graph[idx].ty != NodeType::Comparator(ComparatorMode::Subtract) {
+            if !matches!(
+                graph[idx].ty,
+                NodeType::Comparator {
+                    mode: ComparatorMode::Subtract,
+                    ..
+                }
+            ) {
                 continue;
             }
 

@@ -72,8 +72,8 @@ pub struct ForwardLink {
 impl ForwardLink {
     pub fn new(id: NodeId, side: bool, ss: u8) -> Self {
         assert!(id.index() < (1 << 27));
-        // the clamp_weights compile pass should ensure ss < 16
-        assert!(ss < 16);
+        // the clamp_weights compile pass should ensure ss < 15
+        assert!(ss < 15);
         Self {
             data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | ss as u32,
         }
@@ -107,11 +107,16 @@ impl std::fmt::Debug for ForwardLink {
 
 #[derive(Debug, Clone, Copy)]
 pub enum NodeType {
-    Repeater(u8),
-    /// A non-locking repeater
-    SimpleRepeater(u8),
+    Repeater {
+        delay: u8,
+        facing_diode: bool,
+    },
     Torch,
-    Comparator(ComparatorMode),
+    Comparator {
+        mode: ComparatorMode,
+        far_input: Option<u8>,
+        facing_diode: bool,
+    },
     Lamp,
     Button,
     Lever,
@@ -119,19 +124,6 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-}
-
-impl NodeType {
-    pub fn is_io_block(self) -> bool {
-        matches!(
-            self,
-            NodeType::Lamp
-                | NodeType::Button
-                | NodeType::Lever
-                | NodeType::Trapdoor
-                | NodeType::PressurePlate
-        )
-    }
 }
 
 #[repr(align(16))]
@@ -149,9 +141,7 @@ pub struct Node {
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
     pub updates: SmallVec<[ForwardLink; 18]>,
-
-    pub facing_diode: bool,
-    pub comparator_far_input: Option<u8>,
+    pub is_io: bool,
 
     /// Powered or lit
     pub powered: bool,

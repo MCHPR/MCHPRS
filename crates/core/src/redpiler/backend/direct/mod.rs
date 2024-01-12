@@ -173,14 +173,14 @@ impl JITBackend for DirectBackend {
             let Some((pos, block)) = self.blocks[i] else {
                 continue;
             };
-            if matches!(node.ty, NodeType::Comparator(_)) {
+            if matches!(node.ty, NodeType::Comparator { .. }) {
                 let block_entity = BlockEntity::Comparator {
                     output_strength: node.output_power,
                 };
                 world.set_block_entity(pos, block_entity);
             }
 
-            if io_only && !node.ty.is_io_block() {
+            if io_only && !node.is_io {
                 world.set_block(pos, block);
             }
         }
@@ -232,7 +232,7 @@ impl JITBackend for DirectBackend {
             let Some((pos, block)) = &mut self.blocks[i] else {
                 continue;
             };
-            if node.changed && (!io_only || node.ty.is_io_block()) {
+            if node.changed && (!io_only || node.is_io) {
                 if let Some(powered) = block_powered_mut(block) {
                     *powered = node.powered
                 }

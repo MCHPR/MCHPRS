@@ -40,11 +40,23 @@ fn convert_node(
         .map(|idx| nodes_map[&idx])
         .collect();
 
+    let facing_diode = match node.ty {
+        CNodeType::Repeater { facing_diode, .. } | CNodeType::Comparator { facing_diode, .. } => {
+            facing_diode
+        }
+        _ => false,
+    };
+
+    let comparator_far_input = match node.ty {
+        CNodeType::Comparator { far_input, .. } => far_input,
+        _ => None,
+    };
+
     Node {
         ty: match node.ty {
-            CNodeType::Repeater(delay) => NodeType::Repeater(delay),
+            CNodeType::Repeater { delay, .. } => NodeType::Repeater(delay),
             CNodeType::Torch => NodeType::Torch,
-            CNodeType::Comparator(mode) => NodeType::Comparator(match mode {
+            CNodeType::Comparator { mode, .. } => NodeType::Comparator(match mode {
                 CComparatorMode::Compare => ComparatorMode::Compare,
                 CComparatorMode::Subtract => ComparatorMode::Subtract,
             }),
@@ -71,8 +83,8 @@ fn convert_node(
             powered: node.state.powered,
             repeater_locked: node.state.repeater_locked,
         },
-        comparator_far_input: node.comparator_far_input,
-        facing_diode: node.facing_diode,
+        comparator_far_input,
+        facing_diode,
         inputs,
         updates,
     }

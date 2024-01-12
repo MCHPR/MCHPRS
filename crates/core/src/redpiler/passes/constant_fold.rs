@@ -63,8 +63,10 @@ fn fold(graph: &mut CompileGraph) -> usize {
         }
 
         let new_power = match graph[idx].ty {
-            NodeType::Comparator(mode) => {
-                if let Some(far_override) = graph[idx].comparator_far_input {
+            NodeType::Comparator {
+                mode, far_input, ..
+            } => {
+                if let Some(far_override) = far_input {
                     if default_power < 15 {
                         default_power = far_override;
                     }
@@ -80,7 +82,7 @@ fn fold(graph: &mut CompileGraph) -> usize {
                     ComparatorMode::Subtract => default_power.saturating_sub(side_power),
                 }
             }
-            NodeType::Repeater(_) => {
+            NodeType::Repeater { .. } => {
                 if graph[idx].state.repeater_locked {
                     graph[idx].state.output_strength
                 } else if default_power > 0 {
