@@ -67,8 +67,7 @@ impl TickScheduler {
     }
 
     fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[Self::priority_index(priority)]
-            .push(node);
+        self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[priority as usize].push(node);
     }
 
     fn queues_this_tick(&mut self) -> Queues {
@@ -90,15 +89,6 @@ impl TickScheduler {
             TickPriority::High,
             TickPriority::Normal,
         ]
-    }
-
-    fn priority_index(priority: TickPriority) -> usize {
-        match priority {
-            TickPriority::Highest => 0,
-            TickPriority::Higher => 1,
-            TickPriority::High => 2,
-            TickPriority::Normal => 3,
-        }
     }
 }
 
