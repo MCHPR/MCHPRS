@@ -1,5 +1,7 @@
+use crate::redpiler::backend::direct::node::NonMaxU8;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{CompilerOptions, TaskMonitor};
+use itertools::Itertools;
 use mchprs_blocks::blocks::Block;
 use mchprs_world::TickEntry;
 use petgraph::visit::EdgeRef;
@@ -68,6 +70,10 @@ fn compile_node(
     let updates = if node.ty != CNodeType::Constant {
         graph
             .edges_directed(node_idx, Direction::Outgoing)
+            .sorted_by_key(|edge| nodes_map[&edge.target()])
+            .into_group_map_by(|edge| std::mem::discriminant(&graph[edge.target()].ty))
+            .into_values()
+            .flatten()
             .map(|edge| unsafe {
                 let idx = edge.target();
                 let idx = nodes_map[&idx];
@@ -99,7 +105,7 @@ fn compile_node(
             facing_diode,
         } => NodeType::Comparator {
             mode: *mode,
-            far_input: *far_input,
+            far_input: far_input.map(|value| NonMaxU8::new(value).unwrap()),
             facing_diode: *facing_diode,
         },
         CNodeType::Lamp => NodeType::Lamp,

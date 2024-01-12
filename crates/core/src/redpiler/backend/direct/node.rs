@@ -1,5 +1,6 @@
 use mchprs_blocks::blocks::ComparatorMode;
 use smallvec::SmallVec;
+use std::num::NonZeroU8;
 use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Copy, Clone)]
@@ -114,7 +115,7 @@ pub enum NodeType {
     Torch,
     Comparator {
         mode: ComparatorMode,
-        far_input: Option<u8>,
+        far_input: Option<NonMaxU8>,
         facing_diode: bool,
     },
     Lamp,
@@ -132,15 +133,25 @@ pub struct NodeInput {
     pub ss_counts: [u8; 16],
 }
 
-// struct is 128 bytes to fit nicely into cachelines
-// which are usualy 64 bytes, it can vary but is almost always a power of 2
+#[derive(Debug, Clone, Copy)]
+pub struct NonMaxU8(NonZeroU8);
+
+impl NonMaxU8 {
+    pub fn new(value: u8) -> Option<Self> {
+        NonZeroU8::new(value + 1).map(|x| Self(x))
+    }
+
+    pub fn get(self) -> u8 {
+        self.0.get() - 1
+    }
+}
+
 #[derive(Debug, Clone)]
-#[repr(align(128))]
 pub struct Node {
     pub ty: NodeType,
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
-    pub updates: SmallVec<[ForwardLink; 18]>,
+    pub updates: SmallVec<[ForwardLink; 10]>,
     pub is_io: bool,
 
     /// Powered or lit

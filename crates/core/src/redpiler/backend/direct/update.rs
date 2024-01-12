@@ -34,9 +34,8 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, node: &mut Node, node_i
             if node.pending_tick {
                 return;
             }
-            let should_be_off = get_bool_input(node);
-            let lit = node.powered;
-            if lit == should_be_off {
+            let should_be_powered = !get_bool_input(node);
+            if node.powered != should_be_powered {
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
         }
@@ -51,7 +50,7 @@ pub(super) fn update_node(scheduler: &mut TickScheduler, node: &mut Node, node_i
             let (mut input_power, side_input_power) = get_all_input(node);
             if let Some(far_override) = far_input {
                 if input_power < 15 {
-                    input_power = far_override;
+                    input_power = far_override.get();
                 }
             }
             let old_strength = node.output_power;

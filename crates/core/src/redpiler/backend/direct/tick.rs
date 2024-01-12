@@ -40,7 +40,7 @@ impl DirectBackend {
                 let (mut input_power, side_input_power) = get_all_input(node);
                 if let Some(far_override) = far_input {
                     if input_power < 15 {
-                        input_power = far_override;
+                        input_power = far_override.get();
                     }
                 }
                 let old_strength = node.output_power;
