@@ -302,16 +302,16 @@ fn get_all_input(node: &Node) -> (u8, u8) {
     (input_power, side_input_power)
 }
 
+// This function is optimized for input values from 0 to 15 and does not work correctly outside that range
 fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_on_sides: u8) -> u8 {
-    match mode {
-        ComparatorMode::Compare => {
-            if input_strength >= power_on_sides {
-                input_strength
-            } else {
-                0
-            }
+    let difference = input_strength.wrapping_sub(power_on_sides);
+    if difference <= 15 {
+        match mode {
+            ComparatorMode::Compare => input_strength,
+            ComparatorMode::Subtract => difference,
         }
-        ComparatorMode::Subtract => input_strength.saturating_sub(power_on_sides),
+    } else {
+        0
     }
 }
 
