@@ -45,6 +45,14 @@ pub struct CompilerOptions {
     pub update: bool,
     /// Export a dot file of the graph after backend compile (backend dependent)
     pub export_dot_graph: bool,
+    /// The backend variant to be used after compilation
+    pub backend_variant: BackendVariant,
+}
+
+#[derive(Debug, Default, PartialEq, Eq)]
+pub enum BackendVariant {
+    #[default]
+    Direct,
 }
 
 impl CompilerOptions {
@@ -102,7 +110,7 @@ impl Compiler {
         }
     }
 
-    /// Use just-in-time compilation with a `JITBackend` such as `CraneliftBackend` or `LLVMBackend`.
+    /// Use just-in-time compilation with a `JITBackend` such as the `DirectBackend`.
     /// Requires recompilation to take effect.
     pub fn use_jit(&mut self, jit: BackendDispatcher) {
         self.jit = Some(jit);
@@ -127,9 +135,18 @@ impl Compiler {
             return;
         }
 
-        // TODO: Remove this once there is proper backend switching
-        if self.jit.is_none() {
-            self.use_jit(Default::default());
+        let replace_jit = match self.jit {
+            Some(BackendDispatcher::DirectBackend(_)) => {
+                options.backend_variant != BackendVariant::Direct
+            }
+            None => true,
+        };
+        if replace_jit {
+            debug!("Switching jit backend");
+            let jit = match options.backend_variant {
+                BackendVariant::Direct => BackendDispatcher::DirectBackend(Default::default()),
+            };
+            self.use_jit(jit);
         }
 
         if let Some(jit) = &mut self.jit {
@@ -224,6 +241,7 @@ mod tests {
             export: true,
             update: true,
             export_dot_graph: false,
+            backend_variant: BackendVariant::default(),
         };
         let options = CompilerOptions::parse(input);
 

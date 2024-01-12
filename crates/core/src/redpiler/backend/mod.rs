@@ -28,19 +28,9 @@ pub trait JITBackend {
     fn inspect(&mut self, pos: BlockPos);
 }
 
-#[cfg(feature = "jit_cranelift")]
-use cranelift::CraneliftBackend;
 use direct::DirectBackend;
 
 #[enum_dispatch(JITBackend)]
 pub enum BackendDispatcher {
     DirectBackend,
-    #[cfg(feature = "jit_cranelift")]
-    CraneliftBackend,
-}
-
-impl Default for BackendDispatcher {
-    fn default() -> Self {
-        Self::DirectBackend(Default::default())
-    }
 }
