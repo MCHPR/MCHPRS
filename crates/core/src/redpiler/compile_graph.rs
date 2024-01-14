@@ -1,7 +1,6 @@
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_blocks::BlockPos;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
-use rustc_hash::FxHashSet;
 
 pub type NodeIdx = NodeIndex;
 
@@ -119,28 +118,3 @@ impl CompileLink {
 }
 
 pub type CompileGraph = StableGraph<CompileNode, CompileLink>;
-
-pub fn weakly_connected_components(graph: &CompileGraph) -> Vec<Vec<NodeIdx>> {
-    let mut visited = FxHashSet::with_capacity_and_hasher(graph.node_count(), Default::default());
-    let mut components = vec![];
-
-    for node in graph.node_indices() {
-        if !visited.contains(&node) {
-            visited.insert(node);
-
-            let mut component = vec![node];
-            let mut index = 0;
-            while component.len() > index {
-                for neighbor in graph.neighbors_undirected(component[index]) {
-                    if !visited.contains(&neighbor) {
-                        visited.insert(neighbor);
-                        component.push(neighbor);
-                    }
-                }
-                index += 1;
-            }
-            components.push(component);
-        }
-    }
-    components
-}
