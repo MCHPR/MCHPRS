@@ -1,4 +1,3 @@
-use crate::redpiler::backend::direct::node::NonMaxU8;
 use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::redpiler::{CompilerOptions, TaskMonitor};
 use itertools::Itertools;
@@ -11,7 +10,7 @@ use smallvec::SmallVec;
 use std::sync::Arc;
 use tracing::trace;
 
-use super::node::{ForwardLink, Node, NodeId, NodeInput, NodeType, Nodes};
+use super::node::{ForwardLink, Node, NodeId, NodeInput, NodeType, Nodes, NonMaxU8};
 use super::DirectBackend;
 
 #[derive(Debug, Default)]
