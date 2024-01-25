@@ -1,3 +1,9 @@
+//! # [`AnalogRepeaters`]
+//!
+//! This pass optimizes all instances of "analog repeaters", by replacing them with an equivalent comparator.
+//! An analog repeater is a comparator, that is only connected to exactly 15 repeaters each with distances 0 counting to 14,
+//! and then merging into only one comparator, each with again distances 0 counting to 14.
+
 use super::Pass;
 use crate::redpiler::compile_graph::{
     Annotations, CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeType,
@@ -46,6 +52,9 @@ impl<W: World> Pass<W> for AnalogRepeaters {
             else {
                 continue 'next;
             };
+            if !matches!(graph[end_idx].ty, NodeType::Comparator { .. }) {
+                continue 'next;
+            }
             let mut incomming = [false; 15];
             let mut outgoing = [false; 15];
             for &repeater in repeaters.iter() {

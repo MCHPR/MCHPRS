@@ -142,7 +142,7 @@ impl Compiler {
             None => true,
         };
         if replace_jit {
-            debug!("Switching jit backend");
+            debug!("Switching jit backend to {:?}", options.backend_variant);
             let jit = match options.backend_variant {
                 BackendVariant::Direct => BackendDispatcher::DirectBackend(Default::default()),
             };
