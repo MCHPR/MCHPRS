@@ -10,9 +10,10 @@ use crate::redpiler::compile_graph::CompileGraph;
 use crate::redpiler::task_monitor::TaskMonitor;
 use crate::redpiler::{block_powered_mut, CompilerOptions};
 use crate::redstone::bool_to_ss;
+use crate::redstone::noteblock;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, ComparatorMode};
+use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, TickPriority};
 use node::{Node, NodeId, NodeType, Nodes};
@@ -102,12 +103,18 @@ impl TickScheduler {
     }
 }
 
+enum Event {
+    NoteBlockPlay(NodeId),
+}
+
 #[derive(Default)]
 pub struct DirectBackend {
     nodes: Nodes,
     blocks: Vec<Option<(BlockPos, Block)>>,
     pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
+    events: Vec<Event>,
+    noteblock_map: FxHashMap<NodeId, (BlockPos, Instrument, u32)>,
 }
 
 impl DirectBackend {
@@ -149,7 +156,12 @@ impl DirectBackend {
                 *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
             }
 
-            update::update_node(&mut self.scheduler, update_ref, update);
+            update::update_node(
+                &mut self.scheduler,
+                &mut self.events,
+                &mut self.nodes,
+                update,
+            );
         }
     }
 }
@@ -228,6 +240,14 @@ impl JITBackend for DirectBackend {
     }
 
     fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
+        for event in self.events.drain(..) {
+            match event {
+                Event::NoteBlockPlay(node_id) => {
+                    let &(pos, instrument, note) = self.noteblock_map.get(&node_id).unwrap();
+                    noteblock::play_note(world, pos, instrument, note);
+                }
+            }
+        }
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
             let Some((pos, block)) = &mut self.blocks[i] else {
                 continue;

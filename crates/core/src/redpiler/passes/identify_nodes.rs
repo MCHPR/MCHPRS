@@ -10,7 +10,7 @@
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeState, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::redstone;
+use crate::redstone::{self, noteblock};
 use crate::world::{for_each_block_optimized, World};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, RedstoneComparator, RedstoneRepeater};
@@ -117,6 +117,17 @@ fn identify_block<W: World>(
         }
         Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
         Block::RedstoneBlock {} => (NodeType::Constant, NodeState::ss(15)),
+        Block::NoteBlock {
+            instrument: _,
+            note,
+            powered,
+        } if noteblock::is_noteblock_unblocked(world, pos) => {
+            let instrument = noteblock::get_noteblock_instrument(world, pos);
+            (
+                NodeType::NoteBlock { instrument, note },
+                NodeState::simple(powered),
+            )
+        }
         block if redstone::has_comparator_override(block) => (
             NodeType::Constant,
             NodeState::ss(redstone::get_comparator_override(block, world, pos)),

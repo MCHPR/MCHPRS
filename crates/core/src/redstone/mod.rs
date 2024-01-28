@@ -3,6 +3,7 @@
 //! scenerio (i.e. regular buiding)
 
 pub mod comparator;
+pub mod noteblock;
 pub mod repeater;
 pub mod wire;
 
@@ -223,6 +224,36 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
                     half,
                     powered: should_be_powered,
                 };
+                world.set_block(pos, new_block);
+            }
+        }
+        Block::NoteBlock {
+            instrument: _instrument,
+            note,
+            powered,
+        } => {
+            let should_be_powered = redstone_lamp_should_be_lit(world, pos);
+            if powered != should_be_powered {
+                // Hack: Update the instrument only just before the noteblock is updated
+                let instrument = noteblock::get_noteblock_instrument(world, pos);
+                let new_block = Block::NoteBlock {
+                    instrument,
+                    note,
+                    powered: should_be_powered,
+                };
+
+                // TODO: There is a weird double activation bug, so we need to check if block is not already powered
+                let is_not_powered = matches!(
+                    world.get_block(pos),
+                    Block::NoteBlock { powered: false, .. }
+                );
+
+                if should_be_powered
+                    && is_not_powered
+                    && noteblock::is_noteblock_unblocked(world, pos)
+                {
+                    noteblock::play_note(world, pos, instrument, note);
+                }
                 world.set_block(pos, new_block);
             }
         }

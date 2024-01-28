@@ -29,6 +29,7 @@ fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
         Block::StonePressurePlate { powered } => powered,
         Block::RedstoneLamp { lit } => lit,
         Block::IronTrapdoor { powered, .. } => powered,
+        Block::NoteBlock { powered, .. } => powered,
         _ => return None,
     })
 }
