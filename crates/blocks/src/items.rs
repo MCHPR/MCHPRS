@@ -368,6 +368,10 @@ impl Item {
             "snowball" => Some(Item::Snowball {}),
             "totem_of_undying" => Some(Item::TotemOfUndying {}),
             "milk_bucket" => Some(Item::MilkBucket {}),
+            // Convert some common types of items to fix signal strength of containers
+            "redstone" => Some(Item::Redstone {}),
+            "stick" => Some(Item::Redstone {}),
+            "wooden_shovel" => Some(Item::TotemOfUndying {}),
             _ => None,
         }
     }
