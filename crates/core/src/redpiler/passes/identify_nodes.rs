@@ -12,7 +12,7 @@ use crate::redpiler::compile_graph::{
     Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType,
 };
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::redstone;
+use crate::redstone::{self, comparator};
 use crate::world::{for_each_block_optimized, World};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
@@ -126,7 +126,7 @@ fn identify_block<W: World>(
         Block::RedstoneComparator { comparator } => (
             NodeType::Comparator {
                 mode: comparator.mode,
-                far_input: redstone::get_comparator_far_input(world, pos, comparator.facing),
+                far_input: comparator::get_far_input(world, pos, comparator.facing),
                 facing_diode: redstone::is_diode(
                     world.get_block(pos.offset(comparator.facing.opposite().block_face())),
                 ),
@@ -154,9 +154,9 @@ fn identify_block<W: World>(
         }
         Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
         Block::RedstoneBlock {} => (NodeType::Constant, NodeState::ss(15)),
-        block if redstone::has_comparator_override(block) => (
+        block if comparator::has_override(block) => (
             NodeType::Constant,
-            NodeState::ss(redstone::get_comparator_override(block, world, pos)),
+            NodeState::ss(comparator::get_override(block, world, pos)),
         ),
         _ => return None,
     };

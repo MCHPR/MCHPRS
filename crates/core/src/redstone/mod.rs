@@ -318,63 +318,6 @@ pub fn update_surrounding_blocks(world: &mut impl World, pos: BlockPos) {
     }
 }
 
-pub fn has_comparator_override(block: Block) -> bool {
-    matches!(
-        block,
-        Block::Barrel { .. }
-            | Block::Furnace { .. }
-            | Block::Hopper { .. }
-            | Block::Cauldron { .. }
-            | Block::Composter { .. }
-            | Block::Cake { .. }
-    )
-}
-
-pub fn get_comparator_override(block: Block, world: &impl World, pos: BlockPos) -> u8 {
-    match block {
-        Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
-            if let Some(BlockEntity::Container {
-                comparator_override,
-                ..
-            }) = world.get_block_entity(pos)
-            {
-                *comparator_override
-            } else {
-                0
-            }
-        }
-        Block::Cauldron { level } => level,
-        Block::Composter { level } => level,
-        Block::Cake { bites } => 14 - 2 * bites,
-        _ => 0,
-    }
-}
-
-pub fn get_comparator_far_input(
-    world: &impl World,
-    pos: BlockPos,
-    facing: BlockDirection,
-) -> Option<u8> {
-    let face = facing.block_face();
-    let input_pos = pos.offset(face);
-    let input_block = world.get_block(input_pos);
-    if !input_block.is_solid() || has_comparator_override(input_block) {
-        return None;
-    }
-
-    let far_input_pos = input_pos.offset(face);
-    let far_input_block = world.get_block(far_input_pos);
-    if has_comparator_override(far_input_block) {
-        Some(get_comparator_override(
-            far_input_block,
-            world,
-            far_input_pos,
-        ))
-    } else {
-        None
-    }
-}
-
 pub fn is_diode(block: Block) -> bool {
     matches!(
         block,
