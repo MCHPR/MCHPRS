@@ -25,17 +25,65 @@ fn get_power_on_sides(comp: RedstoneComparator, world: &impl World, pos: BlockPo
     )
 }
 
+pub fn has_override(block: Block) -> bool {
+    matches!(
+        block,
+        Block::Barrel { .. }
+            | Block::Furnace { .. }
+            | Block::Hopper { .. }
+            | Block::Cauldron { .. }
+            | Block::Composter { .. }
+            | Block::Cake { .. }
+    )
+}
+
+pub fn get_override(block: Block, world: &impl World, pos: BlockPos) -> u8 {
+    match block {
+        Block::Barrel { .. } | Block::Furnace { .. } | Block::Hopper { .. } => {
+            match world.get_block_entity(pos) {
+                Some(BlockEntity::Container {
+                    comparator_override,
+                    ..
+                }) => *comparator_override,
+                Some(_) => unreachable!("Backing blockentity type is invalid"),
+                None => unreachable!("Backing blockentity does not exist"),
+            }
+        }
+        Block::Cauldron { level } => level,
+        Block::Composter { level } => level,
+        Block::Cake { bites } => 14 - 2 * bites,
+        _ => unreachable!("Block does not override comparators"),
+    }
+}
+
+pub fn get_far_input(world: &impl World, pos: BlockPos, facing: BlockDirection) -> Option<u8> {
+    let face = facing.block_face();
+    let input_pos = pos.offset(face);
+    let input_block = world.get_block(input_pos);
+    if !input_block.is_solid() || has_override(input_block) {
+        return None;
+    }
+
+    let far_input_pos = input_pos.offset(face);
+    let far_input_block = world.get_block(far_input_pos);
+    if has_override(far_input_block) {
+        Some(get_override(far_input_block, world, far_input_pos))
+    } else {
+        None
+    }
+}
+
 fn calculate_input_strength(comp: RedstoneComparator, world: &impl World, pos: BlockPos) -> u8 {
     let base_input_strength = super::diode_get_input_strength(world, pos, comp.facing);
     let input_pos = pos.offset(comp.facing.block_face());
     let input_block = world.get_block(input_pos);
-    if super::has_comparator_override(input_block) {
-        super::get_comparator_override(input_block, world, input_pos)
+    if has_override(input_block) {
+        get_override(input_block, world, input_pos)
     } else if base_input_strength < 15 && input_block.is_solid() {
         let far_input_pos = input_pos.offset(comp.facing.block_face());
         let far_input_block = world.get_block(far_input_pos);
-        if super::has_comparator_override(far_input_block) {
-            super::get_comparator_override(far_input_block, world, far_input_pos)
+        if has_override(far_input_block) {
+            get_override(far_input_block, world, far_input_pos)
         } else {
             base_input_strength
         }

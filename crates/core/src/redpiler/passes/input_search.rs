@@ -6,7 +6,7 @@
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::redstone::{self, wire};
+use crate::redstone::{self, comparator, wire};
 use crate::world::World;
 use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
@@ -307,7 +307,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
                 let input_pos = pos.offset(facing.block_face());
                 let input_block = self.world.get_block(input_pos);
-                if redstone::has_comparator_override(input_block) {
+                if comparator::has_override(input_block) {
                     self.graph
                         .add_edge(self.pos_map[&input_pos], id, CompileLink::default(0));
                 } else {
