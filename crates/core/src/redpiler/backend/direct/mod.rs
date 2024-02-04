@@ -317,36 +317,46 @@ fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_o
 
 impl fmt::Display for DirectBackend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("digraph{")?;
+        writeln!(f, "digraph {{")?;
         for (id, node) in self.nodes.inner().iter().enumerate() {
             if matches!(node.ty, NodeType::Wire) {
                 continue;
             }
             let label = match node.ty {
-                NodeType::Constant => format!("Constant: {}", node.output_power),
-                _ => format!("{:?}", node.ty)
-                    .split_whitespace()
-                    .next()
-                    .unwrap()
-                    .to_string(),
+                NodeType::Repeater { delay, .. } => format!("Repeater({})", delay),
+                NodeType::Torch => format!("Torch"),
+                NodeType::Comparator { mode, .. } => format!(
+                    "Comparator({})",
+                    match mode {
+                        ComparatorMode::Compare => "Cmp",
+                        ComparatorMode::Subtract => "Sub",
+                    }
+                ),
+                NodeType::Lamp => format!("Lamp"),
+                NodeType::Button => format!("Button"),
+                NodeType::Lever => format!("Lever"),
+                NodeType::PressurePlate => format!("PressurePlate"),
+                NodeType::Trapdoor => format!("Trapdoor"),
+                NodeType::Wire => format!("Wire"),
+                NodeType::Constant => format!("Constant({})", node.output_power),
             };
             let pos = if let Some((pos, _)) = self.blocks[id] {
                 format!("{}, {}, {}", pos.x, pos.y, pos.z)
             } else {
                 "No Pos".to_string()
             };
-            write!(f, "n{}[label=\"{}\\n({})\"];", id, label, pos,)?;
+            writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id, label, pos)?;
             for link in node.updates.iter() {
                 let out_index = link.node().index();
                 let distance = link.ss();
                 let color = if link.side() { ",color=\"blue\"" } else { "" };
-                write!(
+                writeln!(
                     f,
-                    "n{} -> n{} [label=\"{}\"{}];",
+                    "    n{} -> n{} [ label = \"{}\"{} ];",
                     id, out_index, distance, color
                 )?;
             }
         }
-        f.write_str("}\n")
+        writeln!(f, "}}")
     }
 }
