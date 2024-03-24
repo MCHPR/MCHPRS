@@ -133,7 +133,7 @@ Levers can never be updated nor ticked.
 
 ## The Direct Backend
 
-There are several types of backends, but the one which is in use today is known as the [Direct backend](https://github.com/MCHPR/MCHPRS/blob/master/crates/core/src/redpiler/backend/direct.rs). While this backend does not have a JIT compiler, it does implement several optimizations when compared to vanilla:
+There are several types of backends, but the one which is in use today is known as the [Direct backend](https://github.com/MCHPR/MCHPRS/tree/master/crates/core/src/redpiler/backend/direct). While this backend does not have a JIT compiler, it does implement several optimizations when compared to vanilla:
 
 - Small buffer optimization (SBO) - This not only reduces allocations, but it also helps with memory fragmentation that can lead to cache misses.
 - Node sizes are kept as small as possible in memory to allow the node list to fit into small CPU caches.
