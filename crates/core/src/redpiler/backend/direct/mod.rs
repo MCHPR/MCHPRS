@@ -188,6 +188,8 @@ impl JITBackend for DirectBackend {
         }
 
         self.pos_map.clear();
+        self.noteblock_map.clear();
+        self.events.clear();
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
