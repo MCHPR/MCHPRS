@@ -27,7 +27,7 @@ fn compile_node(
     node_idx: NodeIdx,
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
-    noteblock_map: &mut FxHashMap<NodeId, (BlockPos, Instrument, u32)>,
+    noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
     stats: &mut FinalGraphStats,
 ) -> Node {
     let node = &graph[node_idx];
@@ -117,14 +117,9 @@ fn compile_node(
         CNodeType::Wire => NodeType::Wire,
         CNodeType::Constant => NodeType::Constant,
         CNodeType::NoteBlock { instrument, note } => {
-            let idx = nodes_map[&node_idx];
-            assert!(idx < nodes_len);
-            let idx = unsafe {
-                // Safety: bounds checked
-                NodeId::from_index(idx)
-            };
-            noteblock_map.insert(idx, (node.block.unwrap().0, *instrument, *note));
-            NodeType::NoteBlock
+            let noteblock_id = noteblock_info.len().try_into().unwrap();
+            noteblock_info.push((node.block.unwrap().0, *instrument, *note));
+            NodeType::NoteBlock { noteblock_id }
         }
     };
 
@@ -166,7 +161,7 @@ pub fn compile(
                 idx,
                 nodes_len,
                 &nodes_map,
-                &mut backend.noteblock_map,
+                &mut backend.noteblock_info,
                 &mut stats,
             )
         })
