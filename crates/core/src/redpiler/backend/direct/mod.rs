@@ -94,7 +94,7 @@ impl TickScheduler {
 }
 
 enum Event {
-    NoteBlockPlay(NodeId),
+    NoteBlockPlay { noteblock_id: u16 },
 }
 
 #[derive(Default)]
@@ -104,7 +104,7 @@ pub struct DirectBackend {
     pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
     events: Vec<Event>,
-    noteblock_map: FxHashMap<NodeId, (BlockPos, Instrument, u32)>,
+    noteblock_info: Vec<(BlockPos, Instrument, u32)>,
 }
 
 impl DirectBackend {
@@ -188,7 +188,7 @@ impl JITBackend for DirectBackend {
         }
 
         self.pos_map.clear();
-        self.noteblock_map.clear();
+        self.noteblock_info.clear();
         self.events.clear();
     }
 
@@ -234,8 +234,8 @@ impl JITBackend for DirectBackend {
     fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
         for event in self.events.drain(..) {
             match event {
-                Event::NoteBlockPlay(node_id) => {
-                    let &(pos, instrument, note) = self.noteblock_map.get(&node_id).unwrap();
+                Event::NoteBlockPlay { noteblock_id } => {
+                    let (pos, instrument, note) = self.noteblock_info[noteblock_id as usize];
                     noteblock::play_note(world, pos, instrument, note);
                 }
             }
@@ -361,7 +361,7 @@ impl fmt::Display for DirectBackend {
                 NodeType::Trapdoor => format!("Trapdoor"),
                 NodeType::Wire => format!("Wire"),
                 NodeType::Constant => format!("Constant({})", node.output_power),
-                NodeType::NoteBlock => format!("NoteBlock"),
+                NodeType::NoteBlock { .. } => format!("NoteBlock"),
             };
             let pos = if let Some((pos, _)) = self.blocks[id] {
                 format!("{}, {}, {}", pos.x, pos.y, pos.z)

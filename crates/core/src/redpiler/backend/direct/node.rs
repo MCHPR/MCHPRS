@@ -125,7 +125,9 @@ pub enum NodeType {
     Trapdoor,
     Wire,
     Constant,
-    NoteBlock,
+    NoteBlock {
+        noteblock_id: u16,
+    },
 }
 
 impl NodeType {
@@ -137,7 +139,7 @@ impl NodeType {
                 | NodeType::Lever
                 | NodeType::Trapdoor
                 | NodeType::PressurePlate
-                | NodeType::NoteBlock
+                | NodeType::NoteBlock { .. }
         )
     }
 }
