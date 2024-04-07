@@ -89,7 +89,10 @@ fn for_pos<W: World>(
         ty,
         NodeType::Button | NodeType::Lever | NodeType::PressurePlate
     );
-    let is_output = matches!(ty, NodeType::Trapdoor | NodeType::Lamp);
+    let is_output = matches!(
+        ty,
+        NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. }
+    );
     // || matches!(block, Block::RedstoneWire { wire } if wire::is_dot(wire));
 
     if ignore_wires && ty == NodeType::Wire && !(is_input | is_output) {

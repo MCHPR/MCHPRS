@@ -96,7 +96,6 @@ pub(super) fn update_node(
         NodeType::NoteBlock { noteblock_id } => {
             let should_be_powered = get_bool_input(node);
             if node.powered != should_be_powered {
-                let node = &mut nodes[node_id];
                 set_node(node, should_be_powered);
                 if should_be_powered {
                     events.push(Event::NoteBlockPlay { noteblock_id });
