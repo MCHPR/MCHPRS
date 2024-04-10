@@ -61,9 +61,9 @@ impl ContainerType {
     pub fn window_type(self) -> u8 {
         // https://wiki.vg/Inventory
         match self {
-            ContainerType::Furnace => 13,
+            ContainerType::Furnace => 14,
             ContainerType::Barrel => 2,
-            ContainerType::Hopper => 15,
+            ContainerType::Hopper => 16,
         }
     }
 }
