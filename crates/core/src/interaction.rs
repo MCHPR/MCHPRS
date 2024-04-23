@@ -3,6 +3,7 @@ use crate::player::Player;
 use crate::plot::PlotWorld;
 use crate::plot::PLOT_BLOCK_HEIGHT;
 use crate::redstone;
+use crate::redstone::noteblock;
 use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::*;
@@ -88,19 +89,21 @@ pub fn on_use(
             }
             ActionResult::Success
         }
-        Block::NoteBlock {
-            instrument,
-            note,
-            powered,
-        } => {
+        Block::NoteBlock { note, powered, .. } => {
+            let note = (note + 1) % 25;
+            let instrument = noteblock::get_noteblock_instrument(world, pos);
+
             world.set_block(
                 pos,
                 Block::NoteBlock {
                     instrument,
-                    note: (note + 1) % 25,
+                    note,
                     powered,
                 },
             );
+
+            noteblock::play_note(world, pos, instrument, note);
+
             ActionResult::Success
         }
         b if b.has_block_entity() => {
