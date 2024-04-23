@@ -102,7 +102,9 @@ pub fn on_use(
                 },
             );
 
-            noteblock::play_note(world, pos, instrument, note);
+            if noteblock::is_noteblock_unblocked(world, pos) {
+                noteblock::play_note(world, pos, instrument, note);
+            }
 
             ActionResult::Success
         }
