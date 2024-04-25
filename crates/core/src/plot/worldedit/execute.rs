@@ -115,7 +115,7 @@ pub(super) fn execute_replace(ctx: CommandExecuteContext<'_>) {
 pub(super) fn execute_count(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let filter = ctx.arguments[0].unwrap_pattern();
+    let filter = ctx.arguments[0].unwrap_mask();
 
     let mut blocks_counted = 0;
     let operation = worldedit_start_operation(ctx.player);
