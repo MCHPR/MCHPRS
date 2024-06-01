@@ -104,12 +104,12 @@ fn is_false(field: &bool) -> bool {
 }
 
 pub struct ChatComponentBuilder {
-    component: ChatComponent,
+    component: TextComponent,
 }
 
 impl ChatComponentBuilder {
     pub fn new(text: String) -> Self {
-        let component = ChatComponent {
+        let component = TextComponent {
             text,
             ..Default::default()
         };
@@ -131,13 +131,13 @@ impl ChatComponentBuilder {
         self
     }
 
-    pub fn finish(self) -> ChatComponent {
+    pub fn finish(self) -> TextComponent {
         self.component
     }
 }
 
 #[derive(Serialize, Default, Debug, Clone)]
-pub struct ChatComponent {
+pub struct TextComponent {
     pub text: String,
     #[serde(skip_serializing_if = "is_false")]
     pub bold: bool,
@@ -154,13 +154,15 @@ pub struct ChatComponent {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "clickEvent")]
     pub click_event: Option<ClickEvent>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub extra: Vec<TextComponent>,
 }
 
-impl ChatComponent {
-    pub fn from_legacy_text(message: &str) -> Vec<ChatComponent> {
+impl TextComponent {
+    pub fn from_legacy_text(message: &str) -> Vec<TextComponent> {
         let mut components = Vec::new();
 
-        let mut cur_component: ChatComponent = Default::default();
+        let mut cur_component: TextComponent = Default::default();
 
         let mut chars = message.chars();
         'main_loop: while let Some(c) = chars.next() {
@@ -250,5 +252,15 @@ impl ChatComponent {
 
     pub fn encode_json(&self) -> String {
         serde_json::to_string(self).unwrap()
+    }
+
+    pub fn is_text_only(&self) -> bool {
+        !self.bold
+            && !self.italic
+            && !self.underlined
+            && !self.strikethrough
+            && !self.obfuscated
+            && self.color.is_none()
+            && self.click_event.is_none()
     }
 }
