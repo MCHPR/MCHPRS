@@ -33,4 +33,5 @@ tracing-appender = "0.2"
 tracing = "0.1"
 
 [patch.crates-io]
-hematite-nbt = { git = "https://github.com/StackDoubleFlow/hematite_nbt" }
+# hematite-nbt = { git = "https://github.com/StackDoubleFlow/hematite_nbt" }
+hematite-nbt = { path = "../hematite_nbt" }

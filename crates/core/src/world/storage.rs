@@ -434,15 +434,17 @@ impl Chunk {
         for section in &self.sections {
             chunk_sections.push(section.encode_packet());
         }
-        let mut heightmaps = nbt::Blob::new();
+        let mut heightmaps = nbt::Map::new();
         let heightmap_longs: Vec<i64> = heightmap_buffer
             .longs
             .into_iter()
             .map(|x| x as i64)
             .collect();
         heightmaps
-            .insert("MOTION_BLOCKING", heightmap_longs)
-            .unwrap();
+            .insert(
+                "MOTION_BLOCKING".to_string(),
+                nbt::Value::LongArray(heightmap_longs),
+            );
         let mut block_entities = Vec::new();
         for (pos, block_entity) in &self.block_entities {
             if let Some(nbt) = block_entity.to_nbt(true) {
@@ -450,7 +452,7 @@ impl Chunk {
                     x: pos.x as i8,
                     z: pos.z as i8,
                     y: pos.y as i16,
-                    data: nbt,
+                    data: nbt.content,
                     ty: block_entity.ty(),
                 })
             }
@@ -484,7 +486,7 @@ impl Chunk {
                 .collect(),
             chunk_x: x,
             chunk_z: z,
-            heightmaps: nbt::Blob::new(),
+            heightmaps: nbt::Map::new(),
             block_entities: vec![],
         }
         .encode()
