@@ -1,23 +1,29 @@
 pub mod clientbound;
 pub mod serverbound;
 
+use crate::nbt_util::NBTCompound;
+
 use super::NetworkState;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use mchprs_text::TextComponent;
 use serde::Serialize;
 use serverbound::*;
+use tracing::error;
 use std::io::{self, Cursor, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
+pub const COMPRESSION_THRESHOLD: usize = 256;
+
 #[derive(Debug)]
 pub struct SlotData {
     pub item_id: i32,
     pub item_count: i8,
-    pub nbt: Option<nbt::Blob>,
+    pub nbt: Option<NBTCompound>,
 }
 
 #[derive(Debug)]
@@ -79,8 +85,9 @@ fn read_decompressed<T: PacketDecoderExt>(
     state: &mut NetworkState,
 ) -> DecodeResult<Box<dyn ServerBoundPacket>> {
     let packet_id = reader.read_varint()?;
+    dbg!(packet_id);
     Ok(match *state {
-        NetworkState::Handshake if packet_id == 0x00 => {
+        NetworkState::Handshaking if packet_id == 0x00 => {
             let handshake = SHandshake::decode(reader)?;
             match handshake.next_state {
                 1 => *state = NetworkState::Status,
@@ -91,28 +98,36 @@ fn read_decompressed<T: PacketDecoderExt>(
         }
         NetworkState::Status if packet_id == 0x00 => Box::new(SRequest::decode(reader)?),
         NetworkState::Status if packet_id == 0x01 => Box::new(SPing::decode(reader)?),
-        NetworkState::Login if packet_id == 0x00 => {
+        NetworkState::Login if packet_id == 0x00 => Box::new(SLoginStart::decode(reader)?),
+        NetworkState::Login if packet_id == 0x03 => {
+            *state = NetworkState::Configuration;
+            Box::new(SLoginAcknowledged::decode(reader)?)
+        }
+        NetworkState::Configuration if packet_id == 0x00 => {
+            Box::new(SClientInformation::decode(reader)?)
+        }
+        NetworkState::Configuration if packet_id == 0x02 => {
             *state = NetworkState::Play;
-            Box::new(SLoginStart::decode(reader)?)
+            Box::new(SAcknowledgeFinishConfiguration::decode(reader)?)
         }
         _ => match packet_id {
-            0x03 => Box::new(SChatMessage::decode(reader)?),
-            0x05 => Box::new(SClientSettings::decode(reader)?),
-            0x06 => Box::new(STabComplete::decode(reader)?),
-            0x0A => Box::new(SPluginMessage::decode(reader)?),
-            0x0F => Box::new(SKeepAlive::decode(reader)?),
-            0x11 => Box::new(SPlayerPosition::decode(reader)?),
-            0x12 => Box::new(SPlayerPositionAndRotation::decode(reader)?),
-            0x13 => Box::new(SPlayerRotation::decode(reader)?),
-            0x14 => Box::new(SPlayerMovement::decode(reader)?),
-            0x19 => Box::new(SPlayerAbilities::decode(reader)?),
-            0x1A => Box::new(SPlayerDigging::decode(reader)?),
-            0x1B => Box::new(SEntityAction::decode(reader)?),
-            0x25 => Box::new(SHeldItemChange::decode(reader)?),
-            0x28 => Box::new(SCreativeInventoryAction::decode(reader)?),
-            0x2B => Box::new(SUpdateSign::decode(reader)?),
-            0x2C => Box::new(SAnimation::decode(reader)?),
-            0x2E => Box::new(SPlayerBlockPlacemnt::decode(reader)?),
+            0x05 => Box::new(SChatMessage::decode(reader)?),
+            0x09 => Box::new(SClientInformation::decode(reader)?),
+            0x0A => Box::new(SCommandSuggestionsRequest::decode(reader)?),
+            0x10 => Box::new(SPluginMessage::decode(reader)?),
+            0x15 => Box::new(SKeepAlive::decode(reader)?),
+            0x17 => Box::new(SSetPlayerPosition::decode(reader)?),
+            0x18 => Box::new(SSetPlayerPositionAndRotation::decode(reader)?),
+            0x19 => Box::new(SPlayerRotation::decode(reader)?),
+            0x1A => Box::new(SSetPlayerOnGround::decode(reader)?),
+            0x20 => Box::new(SPlayerAbilities::decode(reader)?),
+            0x21 => Box::new(SPlayerAction::decode(reader)?),
+            0x22 => Box::new(SPlayerCommand::decode(reader)?),
+            0x2C => Box::new(SSetHeldItem::decode(reader)?),
+            0x2F => Box::new(SSetCreativeModeSlot::decode(reader)?),
+            0x32 => Box::new(SUpdateSign::decode(reader)?),
+            0x33 => Box::new(SSwingArm::decode(reader)?),
+            0x35 => Box::new(SUseItemOn::decode(reader)?),
             _ => Box::new(SUnknown),
         },
     })
@@ -241,22 +256,26 @@ pub trait PacketDecoderExt: Read + Sized {
         Ok((x as i32, y as i32, z as i32))
     }
 
-    fn read_nbt_blob(&mut self) -> DecodeResult<Option<nbt::Blob>> {
-        match nbt::Blob::from_reader(self) {
-            Ok(nbt) => Ok(Some(nbt)),
-            Err(nbt::Error::NoRootCompound) => Ok(None),
-            Err(err) => Err(err.into()),
+    fn read_nbt_compound(&mut self) -> DecodeResult<Option<NBTCompound>> {
+        let id = self.read_byte()? as u8;
+        if id == 0 {
+            return Ok(None);
         }
+
+        let compound = match nbt::Value::from_reader(id, self)? {
+            nbt::Value::Compound(compound) => Some(compound),
+            _ => None,
+        };
+
+        Ok(compound)
     }
 }
 
 pub trait PacketEncoderExt: Write {
-    fn write_boolean(&mut self, val: bool) {
-        self.write_all(&[val as u8]).unwrap();
-    }
     fn write_bytes(&mut self, val: &[u8]) {
         self.write_all(val).unwrap();
     }
+
     fn write_varint(&mut self, val: i32) {
         let _ = self.write_all(&PacketEncoder::varint(val));
     }
@@ -311,6 +330,10 @@ pub trait PacketEncoderExt: Write {
         self.write_all(val.as_bytes()).unwrap();
     }
 
+    fn write_identifier(&mut self, val: &str) {
+        self.write_string(32767, val);
+    }
+
     fn write_uuid(&mut self, val: u128) {
         self.write_u128::<BigEndian>(val).unwrap();
     }
@@ -330,14 +353,27 @@ pub trait PacketEncoderExt: Write {
     }
 
     fn write_nbt<T: Serialize>(&mut self, nbt: &T) {
-        let _ = nbt::to_writer(self, nbt, None);
+        let mut encoder = nbt::ser::Encoder::new(self, None, true);
+        if let Err(err) = nbt.serialize(&mut encoder) {
+            error!("There was en error encoding NBT in a packet: {}", err);
+        }
     }
 
-    fn write_nbt_blob(&mut self, blob: &nbt::Blob)
-    where
-        Self: Sized,
-    {
-        blob.to_writer(self).unwrap();
+    // fn write_nbt_compound(&mut self, value: &NBTCompound)
+    // where
+    //     Self: Sized,
+    // {
+    //     todo!()
+    // }
+
+    fn write_text_component(&mut self, value: &TextComponent) where Self: Sized {
+        if value.is_text_only() {
+            let value = nbt::Value::String(value.text.clone());
+            self.write_unsigned_byte(value.id());
+            let _ = value.to_writer(self);
+        } else {
+            self.write_nbt(value);
+        }
     }
 
     fn write_slot_data(&mut self, slot_data: &Option<SlotData>)
@@ -349,7 +385,7 @@ pub trait PacketEncoderExt: Write {
             self.write_varint(slot.item_id);
             self.write_byte(slot.item_count);
             if let Some(nbt) = &slot.nbt {
-                self.write_nbt_blob(nbt);
+                self.write_nbt(nbt);
             } else {
                 self.write_byte(0); // End tag
             }
@@ -370,6 +406,7 @@ pub struct PacketEncoder {
 
 impl PacketEncoder {
     fn new(buffer: Vec<u8>, packet_id: u32) -> PacketEncoder {
+        println!("Encoding packet with id {:#02x}", packet_id);
         PacketEncoder { buffer, packet_id }
     }
 
@@ -394,7 +431,7 @@ impl PacketEncoder {
         // TODO: zero allocation
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
         let data = [packet_id.as_slice(), self.buffer.as_slice()].concat();
-        if self.buffer.len() < 256 {
+        if self.buffer.len() < COMPRESSION_THRESHOLD {
             // Data Length adds another byte
             let packet_length = PacketEncoder::varint((1 + data.len()) as i32);
 
