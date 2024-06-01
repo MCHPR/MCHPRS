@@ -966,7 +966,6 @@ dependencies = [
 [[package]]
 name = "hematite-nbt"
 version = "0.5.2"
-source = "git+https://github.com/StackDoubleFlow/hematite_nbt#50bf06b3de166603dfef611b9f4773fdb118f8ff"
 dependencies = [
  "byteorder",
  "cesu8",
@@ -1395,6 +1394,7 @@ dependencies = [
  "mchprs_network",
  "mchprs_proc_macros",
  "mchprs_save_data",
+ "mchprs_text",
  "mchprs_utils",
  "mchprs_world",
  "md5",
@@ -1424,6 +1424,7 @@ dependencies = [
  "byteorder",
  "flate2",
  "hematite-nbt",
+ "mchprs_text",
  "serde",
  "tracing",
 ]
@@ -1449,6 +1450,16 @@ dependencies = [
  "serde-big-array",
  "thiserror",
  "tracing",
+]
+
+[[package]]
+name = "mchprs_text"
+version = "0.1.0"
+dependencies = [
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

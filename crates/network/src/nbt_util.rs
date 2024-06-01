@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+pub type NBTCompound = nbt::Map<String, nbt::Value>;
+
 #[derive(Serialize, Clone)]
 struct NBTMapEntry<T: Serialize> {
     name: String,

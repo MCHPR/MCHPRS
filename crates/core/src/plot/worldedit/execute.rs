@@ -1,15 +1,14 @@
 use super::*;
-use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::config::CONFIG;
 use crate::player::PacketSender;
 use crate::plot::PLOT_BLOCK_HEIGHT;
-use crate::utils::HyphenatedUUID;
+use crate::utils::{self, HyphenatedUUID};
 use mchprs_blocks::block_entities::InventoryEntry;
 use mchprs_blocks::blocks::{Block, FlipDirection, RotateAmt};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
-use mchprs_network::packets::SlotData;
+use mchprs_text::{ChatComponentBuilder, ColorCode};
 use once_cell::sync::Lazy;
 use schematic::{load_schematic, save_schematic};
 use std::time::Instant;
@@ -22,17 +21,13 @@ pub(super) fn execute_wand(ctx: CommandExecuteContext<'_>) {
         nbt: None,
     };
     ctx.player.inventory[(ctx.player.selected_slot + 36) as usize] = Some(item);
-    let entity_equipment = CEntityEquipment {
+    let entity_equipment = CSetEquipment {
         entity_id: ctx.player.entity_id as i32,
-        equipment: vec![CEntityEquipmentEquipment {
+        equipment: vec![CSetEquipmentEquipment {
             slot: 0,
             item: ctx.player.inventory[(ctx.player.selected_slot + 36) as usize]
                 .as_ref()
-                .map(|item| SlotData {
-                    item_count: item.count as i8,
-                    item_id: item.item_type.get_id() as i32,
-                    nbt: item.nbt.clone(),
-                }),
+                .map(|item| utils::encode_slot_data(&item)),
         }],
     }
     .encode();

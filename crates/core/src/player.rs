@@ -1,9 +1,8 @@
-use crate::chat::ChatComponent;
 use crate::config::CONFIG;
 use crate::permissions::{self, PlayerPermissionsCache};
 use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::plot::PLOT_SCALE;
-use crate::utils::HyphenatedUUID;
+use crate::utils::{self, HyphenatedUUID};
 use byteorder::{BigEndian, ReadBytesExt};
 use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
 use mchprs_blocks::items::{Item, ItemStack};
@@ -11,6 +10,7 @@ use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::{PacketEncoder, SlotData};
 use mchprs_network::{PlayerConn, PlayerPacketSender};
+use mchprs_text::TextComponent;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -371,7 +371,7 @@ impl Player {
             return;
         }
 
-        let player_position_and_look = CPlayerPositionAndLook {
+        let player_position_and_look = CSynchronizePlayerPosition {
             x: pos.x,
             y: pos.y,
             z: pos.z,
@@ -379,29 +379,28 @@ impl Player {
             pitch: 0f32,
             flags: 0x08 | 0x10, // pitch and yaw are relative
             teleport_id: 0,
-            dismount_vehicle: false,
         }
         .encode();
         self.pos = pos;
         self.client.send_packet(&player_position_and_look);
     }
 
-    /// Sends the `ChatMessage` packet containing the raw json data.
+    /// Sends the `ChatMessage` packet containing the raw text component
     /// Position 0: chat (chat box)
-    pub fn send_raw_chat(&self, sender: u128, message: String) {
-        let chat_message = CChatMessage {
-            message,
-            sender,
-            position: 0,
+    pub fn send_raw_chat(&self, sender: u128, message: TextComponent) {
+        let chat_message = CSystemChatMessage {
+            content: message,
+            overlay: false,
         }
         .encode();
         self.client.send_packet(&chat_message);
     }
 
     /// Sends a raw chat message to the player
-    pub fn send_chat_message(&self, sender: u128, message: &[ChatComponent]) {
-        let json = json!({ "text": "", "extra": message }).to_string();
-        self.send_raw_chat(sender, json);
+    pub fn send_chat_message(&self, sender: u128, message: &[TextComponent]) {
+        let mut component: TextComponent = Default::default();
+        component.extra = message.to_vec();
+        self.send_raw_chat(sender, component);
     }
 
     pub fn send_no_permission_message(&self) {
@@ -438,7 +437,7 @@ impl Player {
     }
 
     pub fn worldedit_send_cui(&self, message: &str) {
-        let cui_plugin_message = CPluginMessage {
+        let cui_plugin_message = CPlayPluginMessage {
             channel: String::from("worldedit:cui"),
             data: Vec::from(message.as_bytes()),
         }
@@ -464,8 +463,8 @@ impl Player {
 
     pub fn set_gamemode(&mut self, gamemode: Gamemode) {
         self.gamemode = gamemode;
-        let change_game_state = CChangeGameState {
-            reason: CChangeGameStateReason::ChangeGamemode,
+        let change_game_state = CGameEvent {
+            reason: CGameEventType::ChangeGamemode,
             value: self.gamemode.get_id() as f32,
         }
         .encode();
@@ -490,15 +489,8 @@ impl Player {
         let mut slots: Vec<Option<SlotData>> =
             (0..container_type.num_slots()).map(|_| None).collect();
         for entry in inventory {
-            let nbt = entry
-                .nbt
-                .clone()
-                .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
-            slots[entry.slot as usize] = Some(SlotData {
-                item_id: entry.id as i32,
-                item_count: entry.count,
-                nbt,
-            });
+            let item_stack = utils::inventory_entry_to_stack(entry);
+            slots[entry.slot as usize] = Some(utils::encode_slot_data(&item_stack));
         }
 
         let open_window = COpenWindow {
@@ -509,7 +501,7 @@ impl Player {
         .encode();
         self.client.send_packet(&open_window);
 
-        let window_items = CWindowItems {
+        let window_items = CSetContainerContent {
             window_id: 1,
             state_id: 0,
             slot_data: slots,
@@ -520,20 +512,35 @@ impl Player {
     }
 
     pub fn set_inventory_slot(&mut self, slot: u32, item: Option<ItemStack>) {
-        let set_slot = CSetSlot {
+        let set_slot = CSetContainerSlot {
             window_id: 0,
             state_id: 0,
             slot: slot as i16,
-            slot_data: item.as_ref().map(|item| SlotData {
-                item_id: item.item_type.get_id() as i32,
-                item_count: item.count as i8,
-                nbt: item.nbt.clone(),
-            }),
+            slot_data: item.as_ref().map(|item| utils::encode_slot_data(item)),
         }
         .encode();
         self.client.send_packet(&set_slot);
 
         self.inventory[slot as usize] = item;
+    }
+
+    pub fn spawn_packet(&self) -> CSpawnEntity {
+        CSpawnEntity {
+            entity_id: self.entity_id as i32,
+            entity_uuid: self.uuid,
+            entity_type: 122, // minecraft::player
+            pitch: self.pitch,
+            yaw: self.yaw,
+            // TODO: probably not the same
+            head_yaw: self.yaw,
+            data: 0, // unused
+            x: self.pos.x,
+            y: self.pos.y,
+            z: self.pos.z,
+            velocity_x: 0,
+            velocity_y: 0,
+            velocity_z: 0,
+        }
     }
 }
 
@@ -543,10 +550,13 @@ pub trait PacketSender {
     /// Sends the `ChatMessage` packet containing the raw json data.
     /// Position 1: system message (chat box)
     fn send_raw_system_message(&self, message: String) {
-        let chat_message = CChatMessage {
-            message,
-            sender: 0,
-            position: 1,
+        let chat_message = CSystemChatMessage {
+            content: {
+                let mut component: TextComponent = Default::default();
+                component.text = message;
+                component
+            },
+            overlay: false,
         }
         .encode();
         self.send_packet(&chat_message);

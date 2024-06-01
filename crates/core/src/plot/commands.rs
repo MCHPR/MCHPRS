@@ -1,5 +1,4 @@
 use super::{database, worldedit, Plot, PlotWorld};
-use crate::chat::ChatComponent;
 use crate::player::{Gamemode, PacketSender, PlayerPos};
 use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
@@ -8,12 +7,12 @@ use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use mchprs_blocks::items::ItemStack;
 use mchprs_network::packets::clientbound::{
-    CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
-    ClientBoundPacket,
+    CCommands, CCommandsNode as Node, CDeclareCommandsNodeParser as Parser, ClientBoundPacket,
 };
 use mchprs_network::packets::PacketEncoder;
 use mchprs_network::PlayerPacketSender;
 use mchprs_save_data::plot_data::{Tps, WorldSendRate};
+use mchprs_text::TextComponent;
 use once_cell::sync::Lazy;
 use std::ops::Add;
 use std::str::FromStr;
@@ -276,7 +275,7 @@ impl Plot {
                     if let Some(report) = report {
                         self.players[player].send_chat_message(
                             0,
-                            &ChatComponent::from_legacy_text(&format!(
+                            &TextComponent::from_legacy_text(&format!(
                                 "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
                                 report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
                             )),
@@ -284,7 +283,7 @@ impl Plot {
                     } else {
                         self.players[player].send_chat_message(
                             0,
-                            &ChatComponent::from_legacy_text(&format!(
+                            &TextComponent::from_legacy_text(&format!(
                                 "&6No timings data. &a({})",
                                 self.tps
                             )),
@@ -538,7 +537,7 @@ bitflags! {
 /// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
 pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
-    CDeclareCommands {
+    CCommands {
         nodes: &[
             // 0: Root Node
             Node {
