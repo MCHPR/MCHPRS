@@ -476,6 +476,8 @@ pub fn use_item_on_block(
                         pos_x: block_pos.x,
                         pos_y: block_pos.y,
                         pos_z: block_pos.z,
+                        // TODO: editing back text
+                        is_front_text: true,
                     }
                     .encode();
                     ctx.player.client.send_packet(&open_sign_editor);

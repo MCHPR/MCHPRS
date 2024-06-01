@@ -1,24 +1,21 @@
-use crate::chat::ChatComponent;
 use crate::config::CONFIG;
-use crate::permissions;
 use crate::player::{Gamemode, PacketSender, Player};
 use crate::plot::commands::DECLARE_COMMANDS;
 use crate::plot::{self, database, Plot, PLOT_BLOCK_HEIGHT};
 use crate::utils::HyphenatedUUID;
+use crate::{permissions, utils};
 use backtrace::Backtrace;
 use bus::Bus;
 use mchprs_network::packets::clientbound::{
-    CDisconnectLogin, CHeldItemChange, CJoinGame, CJoinGameBiomeEffects,
-    CJoinGameBiomeEffectsMoodSound, CJoinGameBiomeElement, CJoinGameDimensionCodec,
-    CJoinGameDimensionElement, CLoginSuccess, CPlayerInfo, CPlayerInfoAddPlayer,
-    CPlayerPositionAndLook, CPluginMessage, CPong, CResponse, CSetCompression, CTimeUpdate,
-    CWindowItems, ClientBoundPacket,
+    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent, CGameEventType, CLogin, CLoginSuccess, CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome, CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec, CRegistryDimension, CResponse, CSetCompression, CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime
 };
 use mchprs_network::packets::serverbound::{
-    SHandshake, SLoginStart, SPing, SRequest, ServerBoundPacketHandler,
+    SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginStart, SPing, SRequest,
+    ServerBoundPacketHandler,
 };
-use mchprs_network::packets::{PacketEncoderExt, SlotData};
+use mchprs_network::packets::{PacketEncoderExt, SlotData, COMPRESSION_THRESHOLD};
 use mchprs_network::{NetworkServer, NetworkState, PlayerPacketSender};
+use mchprs_text::TextComponent;
 use mchprs_utils::map;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
@@ -29,9 +26,9 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
 
-pub const MC_VERSION: &str = "1.18.2";
-pub const MC_DATA_VERSION: i32 = 2975;
-pub const PROTOCOL_VERSION: i32 = 758;
+pub const MC_VERSION: &str = "1.20.4";
+pub const MC_DATA_VERSION: i32 = 3700;
+pub const PROTOCOL_VERSION: i32 = 765;
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
@@ -66,7 +63,7 @@ pub enum Message {
 pub enum BroadcastMessage {
     /// This message is broadcasted for chat messages. It contains the uuid of the player and
     /// the raw json data to send to the clients.
-    Chat(u128, Vec<ChatComponent>),
+    Chat(u128, Vec<TextComponent>),
     /// This message is broadcasted when a player joins the server. It is used to update
     /// the tab-list on all connected clients.
     PlayerJoinedInfo(PlayerJoinInfo),
@@ -94,6 +91,7 @@ pub enum PrivMessage {
 pub struct PlayerJoinInfo {
     pub username: String,
     pub uuid: u128,
+    pub gamemode: Gamemode,
 }
 
 #[derive(Debug, Clone)]
@@ -295,11 +293,135 @@ impl MinecraftServer {
         }
     }
 
+    fn handle_player_enter_play(&mut self, client_idx: usize) {
+        let client = self.network.handshaking_clients.remove(client_idx);
+
+        let uuid = client.uuid.clone().unwrap();
+        let username = client.username.clone().unwrap();
+        let player = Player::load_player(uuid, username, client.into());
+
+        let join_game = CLogin {
+            entity_id: player.entity_id as i32,
+            is_hardcore: false,
+            dimension_names: vec!["mchprs:world".to_owned()],
+            max_players: 0,
+            view_distance: CONFIG.view_distance as i32,
+            simulation_distance: CONFIG.view_distance as i32,
+            reduced_debug_info: false,
+            enable_respawn_screen: false,
+            do_limited_crafting: false,
+            dimension_type: "mchprs:dimension".to_owned(),
+            dimension_name: "mchprs:plotworld".to_owned(),
+            hashed_seed: 0,
+            gamemode: player.gamemode.get_id() as u8,
+            previous_gamemode: 1,
+            is_debug: false,
+            is_flat: true,
+            death_location: None,
+            portal_cooldown: 0,
+        }
+        .encode();
+        player.client.send_packet(&join_game);
+
+        // Send the player's position and rotation.
+        let player_pos_and_look = CSynchronizePlayerPosition {
+            x: player.pos.x,
+            y: player.pos.y,
+            z: player.pos.z,
+            yaw: player.yaw,
+            pitch: player.pitch,
+            flags: 0,
+            teleport_id: 0,
+        }
+        .encode();
+        player.client.send_packet(&player_pos_and_look);
+
+        // Send the player list to the newly connected player.
+        // (This is the list you see when you press tab in-game)
+        let mut add_player_list = Vec::new();
+        for (&uuid, player) in &self.online_players {
+            let mut actions: CPlayerInfoActions = Default::default();
+            actions.add_player = Some(CPlayerInfoAddPlayer {
+                name: player.username.clone(),
+                properties: Vec::new(),
+            });
+            actions.update_gamemode = Some(player.gamemode.get_id());
+            add_player_list.push(CPlayerInfoUpdatePlayer {
+                uuid,
+                actions,
+            });
+        }
+        add_player_list.push({
+            let mut actions: CPlayerInfoActions = Default::default();
+            actions.add_player = Some(CPlayerInfoAddPlayer {
+                name: player.username.clone(),
+                properties: Vec::new(),
+            });
+            actions.update_gamemode = Some(player.gamemode.get_id());
+            CPlayerInfoUpdatePlayer {
+                uuid: player.uuid,
+                actions
+            }
+        });
+
+        let player_info = CPlayerInfoUpdate {
+            players: add_player_list,
+        }.encode();
+        player.client.send_packet(&player_info);
+
+        // Send the player's inventory
+        let slot_data: Vec<Option<SlotData>> = player
+            .inventory
+            .iter()
+            .map(|op| op.as_ref().map(|item| utils::encode_slot_data(item)))
+            .collect();
+        let window_items = CSetContainerContent {
+            window_id: 0,
+            state_id: 0,
+            slot_data,
+            carried_item: None,
+        }
+        .encode();
+        player.client.send_packet(&window_items);
+
+        // Send the player's selected item slot
+        let held_item_change = CSetHeldItem {
+            slot: player.selected_slot as i8,
+        }
+        .encode();
+        player.client.send_packet(&held_item_change);
+
+        player.client.send_packet(&DECLARE_COMMANDS);
+
+        let time_update = UpdateTime {
+            world_age: 0,
+            // Noon
+            time_of_day: -6000,
+        }
+        .encode();
+        player.client.send_packet(&time_update);
+
+        player.update_player_abilities();
+
+        let game_event = CGameEvent {
+            reason: CGameEventType::WaitForChunks,
+            value: 0.0,
+        }.encode();
+        player.client.send_packet(&game_event);
+
+        self.plot_sender
+            .send(Message::PlayerJoined(player))
+            .unwrap();
+    }
+
     fn handle_player_login(&mut self, client_idx: usize, login_start: SLoginStart) {
         let clients = &mut self.network.handshaking_clients;
         let username = login_start.name;
         clients[client_idx].username = Some(username.clone());
-        let set_compression = CSetCompression { threshold: 256 }.encode();
+        let set_compression = CSetCompression {
+            threshold: COMPRESSION_THRESHOLD as i32,
+        }
+        .encode();
         clients[client_idx].send_packet(&set_compression);
         clients[client_idx].set_compressed(true);
 
@@ -325,200 +447,16 @@ impl MinecraftServer {
         let uuid = clients[client_idx]
             .uuid
             .unwrap_or_else(|| Player::generate_offline_uuid(&username));
+        clients[client_idx].uuid = Some(uuid);
 
         let login_success = CLoginSuccess {
             uuid,
             username: username.clone(),
+            // TODO: send player properties
+            properties: Vec::new(),
         }
         .encode();
         clients[client_idx].send_packet(&login_success);
-
-        let client = clients.remove(client_idx);
-
-        let player = Player::load_player(uuid, username, client.into());
-
-        let dimension = CJoinGameDimensionElement {
-            natural: 1,
-            ambient_light: 1.0,
-            has_ceiling: 0,
-            has_skylight: 1,
-            fixed_time: 6000,
-            shrunk: 0,
-            ultrawarm: 0,
-            has_raids: 0,
-            min_y: 0,
-            height: PLOT_BLOCK_HEIGHT,
-            respawn_anchor_works: 0,
-            bed_works: 0,
-            coordinate_scale: 1.0,
-            piglin_safe: 0,
-            logical_height: PLOT_BLOCK_HEIGHT,
-            infiniburn: "#minecraft:infiniburn_overworld".to_owned(),
-        };
-
-        let join_game = CJoinGame {
-            entity_id: player.entity_id as i32,
-            is_hardcore: false,
-            gamemode: player.gamemode.get_id() as u8,
-            previous_gamemode: 1,
-            world_count: 1,
-            world_names: vec!["mchprs:world".to_owned()],
-            dimension_codec: CJoinGameDimensionCodec {
-                dimensions: map! {
-                    "mchprs:dimension" => dimension.clone()
-                },
-                biomes: map! {
-                    "mchprs:plot" => CJoinGameBiomeElement {
-                        precipitation: "none".to_owned(),
-                        effects: CJoinGameBiomeEffects {
-                            sky_color: 0x7BA4FF,
-                            water_fog_color: 0x050533,
-                            fog_color: 0xC0D8FF,
-                            water_color: 0x3F76E4,
-                            mood_sound: CJoinGameBiomeEffectsMoodSound {
-                                tick_delay: 6000,
-                                offset: 2.0,
-                                sound: "minecraft:ambient.cave".to_owned(),
-                                block_search_extent: 8,
-                            }
-                        },
-                        depth: 0.1,
-                        temperature: 0.5,
-                        scale: 0.2,
-                        downfall: 0.5,
-                        category: "none".to_owned(),
-                    },
-                    // Apparently the client NEEDS this to exist
-                    "minecraft:plains" => CJoinGameBiomeElement {
-                        precipitation: "none".to_owned(),
-                        effects: CJoinGameBiomeEffects {
-                            sky_color: 7907327,
-                            water_fog_color: 329011,
-                            fog_color: 12638463,
-                            water_color: 4159204,
-                            mood_sound: CJoinGameBiomeEffectsMoodSound {
-                                tick_delay: 6000,
-                                offset: 2.0,
-                                sound: "minecraft:ambient.cave".to_owned(),
-                                block_search_extent: 8,
-                            }
-                        },
-                        depth: 0.125,
-                        temperature: 0.8,
-                        scale: 0.5,
-                        downfall: 0.4,
-                        category: "none".to_owned(),
-                    }
-                },
-            },
-            dimension,
-            world_name: "mchprs:world".to_owned(),
-            hashed_seed: 0,
-            max_players: 0,
-            view_distance: CONFIG.view_distance as i32,
-            simulation_distance: CONFIG.view_distance as i32,
-            reduced_debug_info: false,
-            enable_respawn_screen: false,
-            is_debug: false,
-            is_flat: true,
-        }
-        .encode();
-        player.client.send_packet(&join_game);
-
-        // Sends the custom brand name to the player
-        // (This can be seen in the f3 debug menu in-game)
-        let brand = CPluginMessage {
-            channel: String::from("minecraft:brand"),
-            data: {
-                let mut data = Vec::new();
-                data.write_string(32767, "Minecraft High Performance Redstone");
-                data
-            },
-        }
-        .encode();
-        player.client.send_packet(&brand);
-
-        // Send the player's position and rotation.
-        let player_pos_and_look = CPlayerPositionAndLook {
-            x: player.pos.x,
-            y: player.pos.y,
-            z: player.pos.z,
-            yaw: player.yaw,
-            pitch: player.pitch,
-            flags: 0,
-            teleport_id: 0,
-            dismount_vehicle: false,
-        }
-        .encode();
-        player.client.send_packet(&player_pos_and_look);
-
-        // Send the player list to the newly connected player.
-        // (This is the list you see when you press tab in-game)
-        let mut add_player_list = Vec::new();
-        for (uuid, player) in &self.online_players {
-            add_player_list.push(CPlayerInfoAddPlayer {
-                uuid: *uuid,
-                name: player.username.clone(),
-                display_name: None,
-                gamemode: player.gamemode.get_id(),
-                ping: 0,
-                properties: Vec::new(),
-            });
-        }
-        add_player_list.push(CPlayerInfoAddPlayer {
-            uuid: player.uuid,
-            name: player.username.clone(),
-            display_name: None,
-            gamemode: player.gamemode.get_id(),
-            ping: 0,
-            properties: Vec::new(),
-        });
-        let player_info = CPlayerInfo::AddPlayer(add_player_list).encode();
-        player.client.send_packet(&player_info);
-
-        // Send the player's inventory
-        let slot_data: Vec<Option<SlotData>> = player
-            .inventory
-            .iter()
-            .map(|op| {
-                op.as_ref().map(|item| SlotData {
-                    item_count: item.count as i8,
-                    item_id: item.item_type.get_id() as i32,
-                    nbt: item.nbt.clone(),
-                })
-            })
-            .collect();
-        let window_items = CWindowItems {
-            window_id: 0,
-            state_id: 0,
-            slot_data,
-            carried_item: None,
-        }
-        .encode();
-        player.client.send_packet(&window_items);
-
-        // Send the player's selected item slot
-        let held_item_change = CHeldItemChange {
-            slot: player.selected_slot as i8,
-        }
-        .encode();
-        player.client.send_packet(&held_item_change);
-
-        player.client.send_packet(&DECLARE_COMMANDS);
-
-        let time_update = CTimeUpdate {
-            world_age: 0,
-            // Noon
-            time_of_day: -6000,
-        }
-        .encode();
-        player.client.send_packet(&time_update);
-
-        player.update_player_abilities();
-
-        self.plot_sender
-            .send(Message::PlayerJoined(player))
-            .unwrap();
     }
 
     fn handle_message(&mut self, message: Message) {
@@ -529,6 +467,7 @@ impl MinecraftServer {
                 let player_join_info = PlayerJoinInfo {
                     username: player.username.clone(),
                     uuid: player.uuid,
+                    gamemode: player.gamemode,
                 };
                 database::ensure_user(&format!("{:032x}", player.uuid), &player.username);
                 self.broadcaster
@@ -547,7 +486,7 @@ impl MinecraftServer {
                 info!("<{}> {}", username, message);
                 self.broadcaster.broadcast(BroadcastMessage::Chat(
                     uuid,
-                    ChatComponent::from_legacy_text(
+                    TextComponent::from_legacy_text(
                         &CONFIG
                             .chat_format
                             .replace("{username}", &username)
@@ -745,5 +684,102 @@ impl ServerBoundPacketHandler for MinecraftServer {
 
     fn handle_login_start(&mut self, login_start: SLoginStart, client_idx: usize) {
         self.handle_player_login(client_idx, login_start);
+    }
+
+    fn handle_login_acknowledged(
+        &mut self,
+        _login_acknowledged: SLoginAcknowledged,
+        client_idx: usize,
+    ) {
+        // The client has been switched to the Configuration state
+        let client = &mut self.network.handshaking_clients[client_idx];
+
+        // Sends the custom brand name to the player
+        // (This can be seen in the f3 debug menu in-game)
+        let brand = CConfigurationPluginMessage {
+            channel: String::from("minecraft:brand"),
+            data: {
+                let mut data = Vec::new();
+                data.write_string(32767, "Minecraft High Performance Redstone");
+                data
+            },
+        }
+        .encode();
+        client.send_packet(&brand);
+
+        let dimension = CRegistryDimension {
+            fixed_time: Some(6000),
+            has_skylight: true,
+            has_ceiling: false,
+            ultrawarm: false,
+            natural: true,
+            coordinate_scale: 1.0,
+            bed_works: false,
+            respawn_anchor_works: false,
+            min_y: 0,
+            height: PLOT_BLOCK_HEIGHT,
+            logical_height: PLOT_BLOCK_HEIGHT,
+            infiniburn: "#minecraft:infiniburn_overworld".to_owned(),
+            effects: "#minecraft:overworld".to_owned(),
+            ambient_light: 1.0,
+            piglin_safe: false,
+            has_raids: false,
+            monster_spawn_block_light_limit: 0,
+            monster_spawn_light_level: 0,
+        };
+
+        let codec = CRegistryDataCodec {
+            dimensions: map! {
+                "mchprs:dimension" => dimension.clone()
+            },
+            biomes: map! {
+                "mchprs:plot" => CRegistryBiome {
+                    has_precipitation: false,
+                    temperature: 0.5,
+                    downfall: 0.5,
+                    effects: CRegistryBiomeEffects {
+                        sky_color: 0x7BA4FF,
+                        water_fog_color: 0x050533,
+                        fog_color: 0xC0D8FF,
+                        water_color: 0x3F76E4,
+                    },
+                }
+                // Apparently the client NEEDS this to exist
+                // "minecraft:plains" => CRegistryBiome {
+                //     precipitation: "none".to_owned(),
+                //     effects: CRegistryBiomeEffects {
+                //         sky_color: 7907327,
+                //         water_fog_color: 329011,
+                //         fog_color: 12638463,
+                //         water_color: 4159204,
+                //         mood_sound: CJoinGameBiomeEffectsMoodSound {
+                //             tick_delay: 6000,
+                //             offset: 2.0,
+                //             sound: "minecraft:ambient.cave".to_owned(),
+                //             block_search_extent: 8,
+                //         }
+                //     },
+                //     depth: 0.125,
+                //     temperature: 0.8,
+                //     scale: 0.5,
+                //     downfall: 0.4,
+                //     category: "none".to_owned(),
+                // }
+            },
+        };
+        let registry_data = CRegistryData {
+            registry_codec: codec,
+        };
+        client.send_packet(&registry_data.encode());
+
+        client.send_packet(&CFinishConfiguration.encode());
+    }
+
+    fn handle_acknowledge_finish_configuration(
+        &mut self,
+        _ackowledge_finish_configuration: SAcknowledgeFinishConfiguration,
+        client_idx: usize,
+    ) {
+        self.handle_player_enter_play(client_idx);
     }
 }
