@@ -1,5 +1,6 @@
-.idea/
-run/
-target/
-test_proxy/
-generators
+/.idea
+/run
+/target
+/test_proxy
+/generators
+/.direnv
