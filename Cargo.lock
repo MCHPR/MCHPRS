@@ -966,6 +966,7 @@ dependencies = [
 [[package]]
 name = "hematite-nbt"
 version = "0.5.2"
+source = "git+https://github.com/StackDoubleFlow/hematite_nbt#8a33b2187443ee2f8641243b19987a4b6caea8c3"
 dependencies = [
  "byteorder",
  "cesu8",
