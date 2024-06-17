@@ -6,7 +6,7 @@ use mchprs_save_data::plot_data::{ChunkData, ChunkSectionData};
 
 use mchprs_network::packets::clientbound::{
     C3BMultiBlockChangeRecord, CChunkData, CChunkDataBlockEntity, CChunkDataSection,
-    CMultiBlockChange, ClientBoundPacket,
+    CUpdateSectionBlocks, ClientBoundPacket,
 };
 use mchprs_network::packets::{PacketEncoder, PalettedContainer};
 use rustc_hash::FxHashMap;
@@ -242,7 +242,7 @@ impl PalettedBitBuffer {
 pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
-    multi_block: CMultiBlockChange,
+    multi_block: CUpdateSectionBlocks,
     changed_blocks: [i16; 16 * 16 * 16],
     changed: bool,
 }
@@ -292,7 +292,7 @@ impl ChunkSection {
         ChunkSection {
             buffer,
             block_count: data.block_count as u32,
-            multi_block: CMultiBlockChange {
+            multi_block: CUpdateSectionBlocks {
                 chunk_x: 0,
                 chunk_y: 0,
                 chunk_z: 0,
@@ -365,7 +365,7 @@ impl ChunkSection {
         }
     }
 
-    fn multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &CMultiBlockChange {
+    fn multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &CUpdateSectionBlocks {
         self.multi_block.chunk_x = chunk_x;
         self.multi_block.chunk_y = chunk_y;
         self.multi_block.chunk_z = chunk_z;
@@ -397,7 +397,7 @@ impl Default for ChunkSection {
         ChunkSection {
             buffer: PalettedBitBuffer::new(4096, 9),
             block_count: 0,
-            multi_block: CMultiBlockChange {
+            multi_block: CUpdateSectionBlocks {
                 chunk_x: 0,
                 chunk_y: 0,
                 chunk_z: 0,
@@ -574,7 +574,7 @@ impl Chunk {
         }
     }
 
-    pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CMultiBlockChange> {
+    pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CUpdateSectionBlocks> {
         let x = self.x;
         let z = self.z;
         self.sections
