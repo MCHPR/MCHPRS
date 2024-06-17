@@ -306,7 +306,7 @@ impl Player {
     /// Manages keep alives and packet reading. Return true if the view position should be updated.
     pub fn update(&mut self) -> bool {
         if self.last_keep_alive_received.elapsed().as_secs() > 30 {
-            self.kick(json!({ "text": "Timed out." }).to_string());
+            self.kick("Timed out.".into());
         }
         if self.last_keep_alive_sent.elapsed().as_secs() > 10 {
             self.send_keep_alive();
@@ -446,7 +446,7 @@ impl Player {
     }
 
     /// Sends the player the disconnect packet, it is still up to the player to end the network stream.
-    pub fn kick(&self, reason: String) {
+    pub fn kick(&self, reason: TextComponent) {
         let disconnect = CDisconnect { reason }.encode();
         self.client.send_packet(&disconnect);
     }
@@ -493,10 +493,10 @@ impl Player {
             slots[entry.slot as usize] = Some(utils::encode_slot_data(&item_stack));
         }
 
-        let open_window = COpenWindow {
+        let open_window = COpenScreen {
             window_id: 1,
             window_type: container_type.window_type() as i32,
-            window_title: r#"{"text":"Container"}"#.to_owned(),
+            window_title: "Container".into(),
         }
         .encode();
         self.client.send_packet(&open_window);

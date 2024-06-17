@@ -264,3 +264,14 @@ impl TextComponent {
             && self.click_event.is_none()
     }
 }
+
+impl<S> From<S> for TextComponent
+where
+    S: Into<String>,
+{
+    fn from(value: S) -> Self {
+        let mut tc: TextComponent = Default::default();
+        tc.text = value.into();
+        tc
+    }
+}
