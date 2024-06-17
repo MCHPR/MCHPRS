@@ -7,7 +7,7 @@ use crate::{permissions, utils};
 use backtrace::Backtrace;
 use bus::Bus;
 use mchprs_network::packets::clientbound::{
-    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent, CGameEventType, CLogin, CLoginSuccess, CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome, CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec, CRegistryDimension, CResponse, CSetCompression, CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime
+    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent, CGameEventType, CLogin, CLoginSuccess, CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome, CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec, CRegistryDimensionType, CResponse, CSetCompression, CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime
 };
 use mchprs_network::packets::serverbound::{
     SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginStart, SPing, SRequest,
@@ -303,15 +303,15 @@ impl MinecraftServer {
         let join_game = CLogin {
             entity_id: player.entity_id as i32,
             is_hardcore: false,
-            dimension_names: vec!["mchprs:world".to_owned()],
-            max_players: 0,
+            dimension_names: vec!["minecraft:overworld".to_owned()],
+            max_players: CONFIG.max_players as i32,
             view_distance: CONFIG.view_distance as i32,
             simulation_distance: CONFIG.view_distance as i32,
             reduced_debug_info: false,
             enable_respawn_screen: false,
             do_limited_crafting: false,
-            dimension_type: "mchprs:dimension".to_owned(),
-            dimension_name: "mchprs:plotworld".to_owned(),
+            dimension_type: "minecraft:overworld".to_owned(),
+            dimension_name: "minecraft:overworld".to_owned(),
             hashed_seed: 0,
             gamemode: player.gamemode.get_id() as u8,
             previous_gamemode: 1,
@@ -707,7 +707,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
         .encode();
         client.send_packet(&brand);
 
-        let dimension = CRegistryDimension {
+        let dimension = CRegistryDimensionType {
             fixed_time: Some(6000),
             has_skylight: true,
             has_ceiling: false,
@@ -729,8 +729,8 @@ impl ServerBoundPacketHandler for MinecraftServer {
         };
 
         let codec = CRegistryDataCodec {
-            dimensions: map! {
-                "mchprs:dimension" => dimension.clone()
+            dimension_types: map! {
+                "minecraft:overworld" => dimension.clone()
             },
             biomes: map! {
                 "mchprs:plot" => CRegistryBiome {
