@@ -110,7 +110,7 @@ impl ClientBoundPacket for CFinishConfiguration {
 }
 
 #[derive(Serialize, Clone)]
-pub struct CRegistryDimension {
+pub struct CRegistryDimensionType {
     pub fixed_time: Option<i64>,
     pub has_skylight: bool,
     pub has_ceiling: bool,
@@ -148,9 +148,16 @@ pub struct CRegistryBiome {
     pub effects: CRegistryBiomeEffects,
 }
 
+#[derive(Serialize, Clone, Default)]
+pub struct CRegistryDamageType {
+    message_id: String,
+    scaling: String,
+    exhaustion: f32,
+}
+
 pub struct CRegistryDataCodec {
     /// The `minecraft:dimension_type registry`. It defines the types of dimension that can be attributed to a world, along with all their characteristics.
-    pub dimensions: HashMap<String, CRegistryDimension>,
+    pub dimension_types: HashMap<String, CRegistryDimensionType>,
     /// The `minecraft:worldgen/biome` registry. It defines several aesthetic characteristics of the biomes present in the game.
     pub biomes: HashMap<String, CRegistryBiome>,
 }
@@ -158,25 +165,60 @@ pub struct CRegistryDataCodec {
 #[derive(Serialize)]
 struct CRegistryDataCodecInner {
     #[serde(rename = "minecraft:dimension_type")]
-    pub dimensions: NBTMap<CRegistryDimension>,
+    pub dimensions: NBTMap<CRegistryDimensionType>,
     #[serde(rename = "minecraft:worldgen/biome")]
     pub biomes: NBTMap<CRegistryBiome>,
+    #[serde(rename = "minecraft:damage_type")]
+    pub damage_types: NBTMap<()>,
 }
 
 impl CRegistryDataCodec {
     fn encode(&self, buf: &mut Vec<u8>) {
-        let mut dimension_map: NBTMap<CRegistryDimension> =
+        let mut dimension_map: NBTMap<CRegistryDimensionType> =
             NBTMap::new("minecraft:dimension_type".to_owned());
-        for (name, element) in &self.dimensions {
+        for (name, element) in &self.dimension_types {
             dimension_map.push_element(name.clone(), element.clone());
         }
         let mut biome_map = NBTMap::new("minecraft:worldgen/biome".to_owned());
         for (name, element) in &self.biomes {
             biome_map.push_element(name.clone(), element.clone());
         }
+
+        // The game will throw if it doesn't have these.
+        let required_types = [
+            "in_fire",
+            "lightning_bolt",
+            "on_fire",
+            "lava",
+            "hot_floor",
+            "in_wall",
+            "cramming",
+            "drown",
+            "starve",
+            "cactus",
+            "fall",
+            "fly_into_wall",
+            "fell_out_of_world",
+            "generic",
+            "magic",
+            "wither",
+            "dragon_breath",
+            "dry_out",
+            "sweet_berry_bush",
+            "freeze",
+            "stalagmite",
+            "outside_border",
+            "generic_kill",
+        ];
+        let mut damage_map = NBTMap::new("minecraft:damage_type".to_owned());
+        for ty in required_types {
+            damage_map.push_element(format!("minecraft:{ty}"), Default::default());
+        }
+
         let codec = CRegistryDataCodecInner {
             dimensions: dimension_map,
             biomes: biome_map,
+            damage_types: damage_map,
         };
         buf.write_nbt(&codec);
     }
@@ -330,9 +372,9 @@ impl CDeclareCommandsNodeParser {
                 buf.write_varint(6); // minecraft:entity
                 buf.write_byte(*flags);
             }
-            Vec2 => buf.write_varint(11), // minecraft:vec2
-            Vec3 => buf.write_varint(10), // minecraft:vec3
-            BlockPos => buf.write_varint(8), // minecraft:block_pos
+            Vec2 => buf.write_varint(11),       // minecraft:vec2
+            Vec3 => buf.write_varint(10),       // minecraft:vec3
+            BlockPos => buf.write_varint(8),    // minecraft:block_pos
             BlockState => buf.write_varint(12), // minecraft:block_state
             Integer(min, max) => {
                 buf.write_varint(3); // brigadier:integer
@@ -447,13 +489,13 @@ impl ClientBoundPacket for CPlayPluginMessage {
 }
 
 pub struct CDisconnect {
-    pub reason: String,
+    pub reason: TextComponent,
 }
 
 impl ClientBoundPacket for CDisconnect {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_string(32767, &self.reason);
+        buf.write_text_component(&self.reason);
         PacketEncoder::new(buf, 0x1B)
     }
 }
@@ -538,6 +580,8 @@ impl ClientBoundPacket for CChunkData {
         buf.write_int(self.chunk_z);
         buf.write_nbt(&self.heightmaps);
         let mut data = Vec::new();
+        // TODO: remove
+        assert_eq!(self.chunk_sections.len(), 16);
         for chunk_section in &self.chunk_sections {
             data.write_short(chunk_section.block_count);
             let containers = [&chunk_section.block_states, &chunk_section.biomes];
@@ -703,7 +747,7 @@ impl ClientBoundPacket for COpenSignEditor {
     }
 }
 
-pub struct CEntityPosition {
+pub struct CUpdateEntityPosition {
     pub entity_id: i32,
     pub delta_x: i16,
     pub delta_y: i16,
@@ -711,7 +755,7 @@ pub struct CEntityPosition {
     pub on_ground: bool,
 }
 
-impl ClientBoundPacket for CEntityPosition {
+impl ClientBoundPacket for CUpdateEntityPosition {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
@@ -719,11 +763,11 @@ impl ClientBoundPacket for CEntityPosition {
         buf.write_short(self.delta_y);
         buf.write_short(self.delta_z);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x29)
+        PacketEncoder::new(buf, 0x2C)
     }
 }
 
-pub struct CEntityPositionAndRotation {
+pub struct CUpdateEntityPositionAndRotation {
     pub entity_id: i32,
     pub delta_x: i16,
     pub delta_y: i16,
@@ -733,7 +777,7 @@ pub struct CEntityPositionAndRotation {
     pub on_ground: bool,
 }
 
-impl ClientBoundPacket for CEntityPositionAndRotation {
+impl ClientBoundPacket for CUpdateEntityPositionAndRotation {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
@@ -743,7 +787,7 @@ impl ClientBoundPacket for CEntityPositionAndRotation {
         buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x2A)
+        PacketEncoder::new(buf, 0x2D)
     }
 }
 
@@ -761,23 +805,23 @@ impl ClientBoundPacket for CEntityRotation {
         buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x2B)
+        PacketEncoder::new(buf, 0x2E)
     }
 }
 
-pub struct COpenWindow {
+pub struct COpenScreen {
     pub window_id: i32,
     pub window_type: i32,
-    pub window_title: String,
+    pub window_title: TextComponent,
 }
 
-impl ClientBoundPacket for COpenWindow {
+impl ClientBoundPacket for COpenScreen {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.window_id);
         buf.write_varint(self.window_type);
-        buf.write_string(32767, &self.window_title);
-        PacketEncoder::new(buf, 0x2E)
+        buf.write_text_component(&self.window_title);
+        PacketEncoder::new(buf, 0x31)
     }
 }
 
@@ -905,7 +949,11 @@ pub struct CPlayerInfoUpdate {
 impl ClientBoundPacket for CPlayerInfoUpdate {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
-        let mask = self.players.first().map(|player| player.actions.get_mask()).unwrap_or(0);
+        let mask = self
+            .players
+            .first()
+            .map(|player| player.actions.get_mask())
+            .unwrap_or(0);
         buf.write_unsigned_byte(mask);
         buf.write_varint(self.players.len() as i32);
         for player in &self.players {
@@ -994,14 +1042,14 @@ pub struct C3BMultiBlockChangeRecord {
 }
 
 #[derive(Debug)]
-pub struct CMultiBlockChange {
+pub struct CUpdateSectionBlocks {
     pub chunk_x: i32,
     pub chunk_z: i32,
     pub chunk_y: u32,
     pub records: Vec<C3BMultiBlockChangeRecord>,
 }
 
-impl ClientBoundPacket for CMultiBlockChange {
+impl ClientBoundPacket for CUpdateSectionBlocks {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::with_capacity(self.records.len() * 8 + 12);
         let pos = ((self.chunk_x as i64 & 0x3FFFFF) << 42)
@@ -1018,7 +1066,7 @@ impl ClientBoundPacket for CMultiBlockChange {
             buf.write_varlong(long as i64);
         }
 
-        PacketEncoder::new(buf, 0x3F)
+        PacketEncoder::new(buf, 0x47)
     }
 }
 
@@ -1131,7 +1179,7 @@ impl ClientBoundPacket for CUpdateScore {
         if let Some(number_format) = &self.number_format {
             number_format.write_to_buf(&mut buf);
         }
-        PacketEncoder::new(buf, 0x56)
+        PacketEncoder::new(buf, 0x5C)
     }
 }
 
@@ -1225,7 +1273,7 @@ impl ClientBoundPacket for CSoundEffect {
     }
 }
 
-pub struct CEntityTeleport {
+pub struct CTeleportEntity {
     pub entity_id: i32,
     pub x: f64,
     pub y: f64,
@@ -1235,7 +1283,7 @@ pub struct CEntityTeleport {
     pub on_ground: bool,
 }
 
-impl ClientBoundPacket for CEntityTeleport {
+impl ClientBoundPacket for CTeleportEntity {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
@@ -1245,13 +1293,13 @@ impl ClientBoundPacket for CEntityTeleport {
         buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x62)
+        PacketEncoder::new(buf, 0x6D)
     }
 }
 
 pub struct CSystemChatMessage {
     pub content: TextComponent,
-    pub overlay: bool
+    pub overlay: bool,
 }
 
 impl ClientBoundPacket for CSystemChatMessage {

@@ -313,7 +313,7 @@ impl ServerBoundPacketHandler for Plot {
             || (new.y - old.y).abs() > 8.0
             || (new.z - old.z).abs() > 8.0
         {
-            CEntityTeleport {
+            CTeleportEntity {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
@@ -327,7 +327,7 @@ impl ServerBoundPacketHandler for Plot {
             let delta_x = ((player_position.x * 32.0 - old.x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position.y * 32.0 - old.y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position.z * 32.0 - old.z * 32.0) * 128.0) as i16;
-            CEntityPosition {
+            CUpdateEntityPosition {
                 delta_x,
                 delta_y,
                 delta_z,
@@ -364,7 +364,7 @@ impl ServerBoundPacketHandler for Plot {
             || (new.y - old.y).abs() > 8.0
             || (new.z - old.z).abs() > 8.0
         {
-            CEntityTeleport {
+            CTeleportEntity {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
@@ -378,7 +378,7 @@ impl ServerBoundPacketHandler for Plot {
             let delta_x = ((player_position_and_rotation.x * 32.0 - old.x * 32.0) * 128.0) as i16;
             let delta_y = ((player_position_and_rotation.y * 32.0 - old.y * 32.0) * 128.0) as i16;
             let delta_z = ((player_position_and_rotation.z * 32.0 - old.z * 32.0) * 128.0) as i16;
-            CEntityPositionAndRotation {
+            CUpdateEntityPositionAndRotation {
                 delta_x,
                 delta_y,
                 delta_z,
