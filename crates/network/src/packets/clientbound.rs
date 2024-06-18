@@ -165,11 +165,11 @@ pub struct CRegistryDataCodec {
 #[derive(Serialize)]
 struct CRegistryDataCodecInner {
     #[serde(rename = "minecraft:dimension_type")]
-    pub dimensions: NBTMap<CRegistryDimensionType>,
+    pub dimension_types: NBTMap<CRegistryDimensionType>,
     #[serde(rename = "minecraft:worldgen/biome")]
     pub biomes: NBTMap<CRegistryBiome>,
     #[serde(rename = "minecraft:damage_type")]
-    pub damage_types: NBTMap<()>,
+    pub damage_types: NBTMap<CRegistryDamageType>,
 }
 
 impl CRegistryDataCodec {
@@ -184,7 +184,7 @@ impl CRegistryDataCodec {
             biome_map.push_element(name.clone(), element.clone());
         }
 
-        // The game will throw if it doesn't have these.
+        // The game will throw if it doesn't have these. See MC-267103.
         let required_types = [
             "in_fire",
             "lightning_bolt",
@@ -198,6 +198,7 @@ impl CRegistryDataCodec {
             "cactus",
             "fall",
             "fly_into_wall",
+            "out_of_world",
             "fell_out_of_world",
             "generic",
             "magic",
@@ -212,11 +213,18 @@ impl CRegistryDataCodec {
         ];
         let mut damage_map = NBTMap::new("minecraft:damage_type".to_owned());
         for ty in required_types {
-            damage_map.push_element(format!("minecraft:{ty}"), Default::default());
+            damage_map.push_element(
+                format!("minecraft:{ty}"),
+                CRegistryDamageType {
+                    message_id: "generic".into(),
+                    scaling: "always".into(),
+                    ..Default::default()
+                },
+            );
         }
 
         let codec = CRegistryDataCodecInner {
-            dimensions: dimension_map,
+            dimension_types: dimension_map,
             biomes: biome_map,
             damage_types: damage_map,
         };
@@ -324,7 +332,7 @@ impl ClientBoundPacket for CBlockUpdate {
 
 pub struct CCommandSuggestionsResponseMatch {
     pub match_: String,
-    pub tooltip: Option<String>,
+    pub tooltip: Option<TextComponent>,
 }
 
 pub struct CCommandSuggestionsResponse {
@@ -345,7 +353,7 @@ impl ClientBoundPacket for CCommandSuggestionsResponse {
             buf.write_string(32767, &m.match_);
             buf.write_bool(m.tooltip.is_some());
             if let Some(tooltip) = &m.tooltip {
-                buf.write_string(32767, tooltip);
+                buf.write_text_component(tooltip);
             }
         }
 
@@ -580,8 +588,6 @@ impl ClientBoundPacket for CChunkData {
         buf.write_int(self.chunk_z);
         buf.write_nbt(&self.heightmaps);
         let mut data = Vec::new();
-        // TODO: remove
-        assert_eq!(self.chunk_sections.len(), 16);
         for chunk_section in &self.chunk_sections {
             data.write_short(chunk_section.block_count);
             let containers = [&chunk_section.block_states, &chunk_section.biomes];
