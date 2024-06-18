@@ -111,6 +111,7 @@ fn read_decompressed<T: PacketDecoderExt>(
             Box::new(SAcknowledgeFinishConfiguration::decode(reader)?)
         }
         _ => match packet_id {
+            0x04 => Box::new(SChatCommand::decode(reader)?),
             0x05 => Box::new(SChatMessage::decode(reader)?),
             0x09 => Box::new(SClientInformation::decode(reader)?),
             0x0A => Box::new(SCommandSuggestionsRequest::decode(reader)?),
