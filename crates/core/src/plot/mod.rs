@@ -924,15 +924,16 @@ impl Plot {
                     let block_x = (x << 4) | rx;
                     let block_z = (z << 4) | rz;
 
-                    if block_x % PLOT_BLOCK_WIDTH == 0
+                    let block = if block_x % PLOT_BLOCK_WIDTH == 0
                         || block_z % PLOT_BLOCK_WIDTH == 0
                         || (block_x + 1) % PLOT_BLOCK_WIDTH == 0
                         || (block_z + 1) % PLOT_BLOCK_WIDTH == 0
                     {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 4564); // Stone Bricks
+                        Block::StoneBricks {}
                     } else {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 278); // Sandstone
-                    }
+                        Block::Sandstone {}
+                    };
+                    chunk.set_block(rx as u32, ry as u32, rz as u32, block.get_id());
                 }
             }
         }
