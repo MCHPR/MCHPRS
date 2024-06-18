@@ -11,11 +11,11 @@ use flate2::Compression;
 use mchprs_text::TextComponent;
 use serde::Serialize;
 use serverbound::*;
-use tracing::error;
 use std::io::{self, Cursor, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use tracing::error;
 
 pub const COMPRESSION_THRESHOLD: usize = 256;
 
@@ -359,14 +359,10 @@ pub trait PacketEncoderExt: Write {
         }
     }
 
-    // fn write_nbt_compound(&mut self, value: &NBTCompound)
-    // where
-    //     Self: Sized,
-    // {
-    //     todo!()
-    // }
-
-    fn write_text_component(&mut self, value: &TextComponent) where Self: Sized {
+    fn write_text_component(&mut self, value: &TextComponent)
+    where
+        Self: Sized,
+    {
         if value.is_text_only() {
             let value = nbt::Value::String(value.text.clone());
             self.write_unsigned_byte(value.id());
@@ -400,8 +396,6 @@ impl PacketEncoderExt for Vec<u8> {}
 pub struct PacketEncoder {
     buffer: Vec<u8>,
     packet_id: u32,
-    // c_cache: Option<Vec<u8>>,
-    // unc_cache: Option<Vec<u8>>,
 }
 
 impl PacketEncoder {
@@ -452,17 +446,10 @@ impl PacketEncoder {
             w.write_all(&compressed)?;
         }
 
-        // self.c_cache = Some(finished);
-        // return self.c_cache.as_ref().unwrap();
-
         Ok(())
     }
 
     pub fn write_uncompressed(&self, mut w: impl Write) -> io::Result<()> {
-        // if let Some(data) = &self.unc_cache {
-        //     return &data;
-        // }
-
         let packet_id = PacketEncoder::varint(self.packet_id as i32);
         let length = PacketEncoder::varint((self.buffer.len() + packet_id.len()) as i32);
 
@@ -470,9 +457,6 @@ impl PacketEncoder {
         w.write_all(&length)?;
         w.write_all(&packet_id)?;
         w.write_all(&self.buffer)?;
-
-        // self.unc_cache = Some([&length[..], &packet_id[..], &self.buffer[..]].concat());
-        // return self.c_cache.as_ref().unwrap();
 
         Ok(())
     }
