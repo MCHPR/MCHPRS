@@ -146,6 +146,8 @@ impl NetworkClient {
     }
 
     pub fn send_packet(&self, data: &PacketEncoder) {
+        // TODO: every call to `send_packet` with the same PacketEncoder will
+        // lead to re-encoding the packet. It might be good to cache this.
         if self.compressed.load(Ordering::Relaxed) {
             let _ = data.write_compressed(&self.stream);
         } else {
