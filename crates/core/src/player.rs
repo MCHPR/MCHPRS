@@ -10,7 +10,7 @@ use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::{PacketEncoder, SlotData};
 use mchprs_network::{PlayerConn, PlayerPacketSender};
-use mchprs_text::TextComponent;
+use mchprs_text::{ChatColor, ChatComponentBuilder, ColorCode, TextComponent};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -410,11 +410,9 @@ impl Player {
     /// Sends the player a light purple system message (`message` is not in json format)
     pub fn send_worldedit_message(&self, message: &str) {
         self.send_raw_system_message(
-            json!({
-                "text": message,
-                "color": "light_purple"
-            })
-            .to_string(),
+            ChatComponentBuilder::new(message.to_string())
+                .color_code(ColorCode::LightPurple)
+                .finish(),
         );
     }
 
@@ -549,13 +547,9 @@ pub trait PacketSender {
 
     /// Sends the `ChatMessage` packet containing the raw json data.
     /// Position 1: system message (chat box)
-    fn send_raw_system_message(&self, message: String) {
+    fn send_raw_system_message(&self, message: TextComponent) {
         let chat_message = CSystemChatMessage {
-            content: {
-                let mut component: TextComponent = Default::default();
-                component.text = message;
-                component
-            },
+            content: message,
             overlay: false,
         }
         .encode();
@@ -565,23 +559,19 @@ pub trait PacketSender {
     /// Sends the player a red system message (`message` is not in json format)
     fn send_error_message(&self, message: &str) {
         self.send_raw_system_message(
-            json!({
-                "text": message,
-                "color": "red"
-            })
-            .to_string(),
+            ChatComponentBuilder::new(message.to_string())
+                .color_code(ColorCode::Red)
+                .finish(),
         );
     }
 
     /// Sends the player a yellow system message (`message` is not in json format)
     fn send_system_message(&self, message: &str) {
         self.send_raw_system_message(
-            json!({
-                "text": message,
-                "color": "yellow"
-            })
-            .to_string(),
-        );
+            ChatComponentBuilder::new(message.to_string())
+                .color_code(ColorCode::Yellow)
+                .finish(),
+        )
     }
 }
 
