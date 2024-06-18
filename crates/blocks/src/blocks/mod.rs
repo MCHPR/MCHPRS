@@ -1331,6 +1331,17 @@ blocks! {
         solid: true,
         cube: true,
     },
+    StoneBricks {
+        props: {},
+        get_id: 6537,
+        from_id(_id): 6537 => {},
+        from_names(_name): {
+            "stone_bricks" => {}
+        },
+        get_name: "stone_bricks",
+        solid: true,
+        cube: true,
+    },
     Unknown {
         props: {
             id: u32
