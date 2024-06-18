@@ -1062,7 +1062,6 @@ impl ClientBoundPacket for CUpdateSectionBlocks {
             | ((self.chunk_z as i64 & 0x3FFFFF) << 20)
             | (self.chunk_y as i64 & 0xFFFFF);
         buf.write_long(pos);
-        buf.write_bool(true); // Always inverse the preceding Update Light packet's "Trust Edges" bool
         buf.write_varint(self.records.len() as i32); // Length of record array
         for record in &self.records {
             let long = ((record.block_id as u64) << 12)

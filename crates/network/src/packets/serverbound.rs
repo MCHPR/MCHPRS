@@ -18,6 +18,7 @@ pub trait ServerBoundPacketHandler {
     ) {
     }
     // Play
+    fn handle_chat_command(&mut self, _packet: SChatCommand, _player_idx: usize) {}
     fn handle_chat_message(&mut self, _packet: SChatMessage, _player_idx: usize) {}
     fn handle_command_suggestions_request(
         &mut self,
@@ -185,6 +186,50 @@ impl ServerBoundPacket for SAcknowledgeFinishConfiguration {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_acknowledge_finish_configuration(*self, player_idx);
+    }
+}
+
+struct SChatCommandArgumentSignature {
+    argument_name: String,
+    signature: Vec<u8>,
+}
+
+pub struct SChatCommand {
+    pub command: String,
+    pub timestamp: i64,
+    pub salt: i64,
+    pub argument_signatures: Vec<SChatCommandArgumentSignature>,
+    pub message_count: i32,
+    pub acknowledged: [u8; 3],
+}
+
+impl ServerBoundPacket for SChatCommand {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let command = decoder.read_string()?;
+        let timestamp = decoder.read_long()?;
+        let salt = decoder.read_long()?;
+        let mut argument_signatures = Vec::new();
+        let num_signatures = decoder.read_varint()?;
+        for _ in 0..num_signatures {
+            argument_signatures.push(SChatCommandArgumentSignature {
+                argument_name: decoder.read_string()?,
+                signature: decoder.read_bytes(256)?,
+            });
+        }
+        let message_count = decoder.read_varint()?;
+        let acknowledged = decoder.read_bytes(3)?.try_into().unwrap();
+        Ok(SChatCommand {
+            command,
+            timestamp,
+            salt,
+            argument_signatures,
+            message_count,
+            acknowledged,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_chat_command(*self, player_idx);
     }
 }
 
