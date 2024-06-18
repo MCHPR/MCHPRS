@@ -249,6 +249,7 @@ pub fn get_state_for_placement(
         Item::EmeraldBlock {} => Block::EmeraldBlock {},
         Item::HayBlock {} => Block::HayBlock {},
         Item::Sand {} => Block::Sand {},
+        Item::StoneBricks {} => Block::StoneBricks {},
         _ => Block::Air {},
     };
     if is_valid_position(block, world, pos) {
