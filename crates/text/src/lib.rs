@@ -78,7 +78,7 @@ impl ColorCode {
 
 #[derive(Serialize, Debug, Clone)]
 #[serde(untagged)]
-pub enum ChatColor {
+pub enum TextColor {
     Hex(String),
     ColorCode(ColorCode),
 }
@@ -97,17 +97,17 @@ pub struct ClickEvent {
     value: String,
 }
 
-/// This is only used for `ChatComponent` serialize
+/// This is only used for `TextComponent` serialize
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_false(field: &bool) -> bool {
     !*field
 }
 
-pub struct ChatComponentBuilder {
+pub struct TextComponentBuilder {
     component: TextComponent,
 }
 
-impl ChatComponentBuilder {
+impl TextComponentBuilder {
     pub fn new(text: String) -> Self {
         let component = TextComponent {
             text,
@@ -116,13 +116,13 @@ impl ChatComponentBuilder {
         Self { component }
     }
 
-    /* pub fn color(mut self, color: ChatColor) -> Self {
+    pub fn color(mut self, color: TextColor) -> Self {
         self.component.color = Some(color);
         self
-    } */
+    }
 
     pub fn color_code(mut self, color: ColorCode) -> Self {
-        self.component.color = Some(ChatColor::ColorCode(color));
+        self.component.color = Some(TextColor::ColorCode(color));
         self
     }
 
@@ -150,7 +150,7 @@ pub struct TextComponent {
     #[serde(skip_serializing_if = "is_false")]
     pub obfuscated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub color: Option<ChatColor>,
+    pub color: Option<TextColor>,
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "clickEvent")]
     pub click_event: Option<ClickEvent>,
@@ -183,7 +183,7 @@ impl TextComponent {
                             _ => {
                                 components.push(cur_component);
                                 cur_component = Default::default();
-                                cur_component.color = Some(ChatColor::ColorCode(color));
+                                cur_component.color = Some(TextColor::ColorCode(color));
                             }
                         }
                         continue;
@@ -209,7 +209,7 @@ impl TextComponent {
                 }
                 components.push(cur_component);
                 cur_component = Default::default();
-                cur_component.color = Some(ChatColor::Hex(hex));
+                cur_component.color = Some(TextColor::Hex(hex));
                 continue;
             }
             cur_component.text.push(c);

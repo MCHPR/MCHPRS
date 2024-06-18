@@ -10,7 +10,7 @@ use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::{PacketEncoder, SlotData};
 use mchprs_network::{PlayerConn, PlayerPacketSender};
-use mchprs_text::{ChatColor, ChatComponentBuilder, ColorCode, TextComponent};
+use mchprs_text::{ColorCode, TextColor, TextComponent, TextComponentBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::fmt;
@@ -410,7 +410,7 @@ impl Player {
     /// Sends the player a light purple system message (`message` is not in json format)
     pub fn send_worldedit_message(&self, message: &str) {
         self.send_raw_system_message(
-            ChatComponentBuilder::new(message.to_string())
+            TextComponentBuilder::new(message.to_string())
                 .color_code(ColorCode::LightPurple)
                 .finish(),
         );
@@ -559,7 +559,7 @@ pub trait PacketSender {
     /// Sends the player a red system message (`message` is not in json format)
     fn send_error_message(&self, message: &str) {
         self.send_raw_system_message(
-            ChatComponentBuilder::new(message.to_string())
+            TextComponentBuilder::new(message.to_string())
                 .color_code(ColorCode::Red)
                 .finish(),
         );
@@ -568,7 +568,7 @@ pub trait PacketSender {
     /// Sends the player a yellow system message (`message` is not in json format)
     fn send_system_message(&self, message: &str) {
         self.send_raw_system_message(
-            ChatComponentBuilder::new(message.to_string())
+            TextComponentBuilder::new(message.to_string())
                 .color_code(ColorCode::Yellow)
                 .finish(),
         )

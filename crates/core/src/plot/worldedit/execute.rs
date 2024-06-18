@@ -8,7 +8,7 @@ use mchprs_blocks::blocks::{Block, FlipDirection, RotateAmt};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
-use mchprs_text::{ChatComponentBuilder, ColorCode};
+use mchprs_text::{ColorCode, TextComponentBuilder};
 use once_cell::sync::Lazy;
 use schematic::{load_schematic, save_schematic};
 use std::time::Instant;
@@ -748,55 +748,55 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
     };
 
     let mut message = vec![
-        ChatComponentBuilder::new("--------------".to_owned())
+        TextComponentBuilder::new("--------------".to_owned())
             .color_code(ColorCode::Yellow)
             .strikethrough(true)
             .finish(),
-        ChatComponentBuilder::new(format!(" Help for /{} ", command_name)).finish(),
-        ChatComponentBuilder::new("--------------\n".to_owned())
+        TextComponentBuilder::new(format!(" Help for /{} ", command_name)).finish(),
+        TextComponentBuilder::new("--------------\n".to_owned())
             .color_code(ColorCode::Yellow)
             .strikethrough(true)
             .finish(),
-        ChatComponentBuilder::new(command.description.to_owned())
+        TextComponentBuilder::new(command.description.to_owned())
             .color_code(ColorCode::Gray)
             .finish(),
-        ChatComponentBuilder::new("\nUsage: ".to_owned())
+        TextComponentBuilder::new("\nUsage: ".to_owned())
             .color_code(ColorCode::Gray)
             .finish(),
-        ChatComponentBuilder::new(format!("/{}", command_name))
+        TextComponentBuilder::new(format!("/{}", command_name))
             .color_code(ColorCode::Gold)
             .finish(),
     ];
 
     for arg in command.arguments {
         message.append(&mut vec![
-            ChatComponentBuilder::new(" [".to_owned())
+            TextComponentBuilder::new(" [".to_owned())
                 .color_code(ColorCode::Yellow)
                 .finish(),
-            ChatComponentBuilder::new(arg.name.to_owned())
+            TextComponentBuilder::new(arg.name.to_owned())
                 .color_code(ColorCode::Gold)
                 .finish(),
-            ChatComponentBuilder::new("]".to_owned())
+            TextComponentBuilder::new("]".to_owned())
                 .color_code(ColorCode::Yellow)
                 .finish(),
         ]);
     }
 
     message.push(
-        ChatComponentBuilder::new("\nArguments:".to_owned())
+        TextComponentBuilder::new("\nArguments:".to_owned())
             .color_code(ColorCode::Gray)
             .finish(),
     );
 
     for arg in command.arguments {
         message.append(&mut vec![
-            ChatComponentBuilder::new("\n  [".to_owned())
+            TextComponentBuilder::new("\n  [".to_owned())
                 .color_code(ColorCode::Yellow)
                 .finish(),
-            ChatComponentBuilder::new(arg.name.to_owned())
+            TextComponentBuilder::new(arg.name.to_owned())
                 .color_code(ColorCode::Gold)
                 .finish(),
-            ChatComponentBuilder::new("]".to_owned())
+            TextComponentBuilder::new("]".to_owned())
                 .color_code(ColorCode::Yellow)
                 .finish(),
         ]);
@@ -815,14 +815,14 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
         };
         if let Some(default) = default {
             message.push(
-                ChatComponentBuilder::new(format!(" (defaults to {})", default))
+                TextComponentBuilder::new(format!(" (defaults to {})", default))
                     .color_code(ColorCode::Gray)
                     .finish(),
             );
         }
 
         message.push(
-            ChatComponentBuilder::new(format!(": {}", arg.description))
+            TextComponentBuilder::new(format!(": {}", arg.description))
                 .color_code(ColorCode::Gray)
                 .finish(),
         );
@@ -830,17 +830,17 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
 
     if !command.flags.is_empty() {
         message.push(
-            ChatComponentBuilder::new("\nFlags:".to_owned())
+            TextComponentBuilder::new("\nFlags:".to_owned())
                 .color_code(ColorCode::Gray)
                 .finish(),
         );
 
         for flag in command.flags {
             message.append(&mut vec![
-                ChatComponentBuilder::new(format!("\n  -{}", flag.letter))
+                TextComponentBuilder::new(format!("\n  -{}", flag.letter))
                     .color_code(ColorCode::Gold)
                     .finish(),
-                ChatComponentBuilder::new(format!(": {}", flag.description))
+                TextComponentBuilder::new(format!(": {}", flag.description))
                     .color_code(ColorCode::Gray)
                     .finish(),
             ]);
