@@ -419,6 +419,12 @@ items! {
         from_id(_id): 57 => {},
         block: true,
     },
+    StoneBricks {
+        props: {},
+        get_id: 339,
+        from_id(_id): 339 => {},
+        block: true,
+    },
     Unknown {
         props: {
             id: u32
