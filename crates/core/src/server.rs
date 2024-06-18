@@ -7,7 +7,11 @@ use crate::{permissions, utils};
 use backtrace::Backtrace;
 use bus::Bus;
 use mchprs_network::packets::clientbound::{
-    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent, CGameEventType, CLogin, CLoginSuccess, CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome, CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec, CRegistryDimensionType, CResponse, CSetCompression, CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime
+    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent,
+    CGameEventType, CLogin, CLoginSuccess, CPlayerInfoActions, CPlayerInfoAddPlayer,
+    CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome, CRegistryBiomeEffects,
+    CRegistryData, CRegistryDataCodec, CRegistryDimensionType, CResponse, CSetCompression,
+    CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime,
 };
 use mchprs_network::packets::serverbound::{
     SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginStart, SPing, SRequest,
@@ -346,10 +350,7 @@ impl MinecraftServer {
                 properties: Vec::new(),
             });
             actions.update_gamemode = Some(player.gamemode.get_id());
-            add_player_list.push(CPlayerInfoUpdatePlayer {
-                uuid,
-                actions,
-            });
+            add_player_list.push(CPlayerInfoUpdatePlayer { uuid, actions });
         }
         add_player_list.push({
             let mut actions: CPlayerInfoActions = Default::default();
@@ -360,13 +361,14 @@ impl MinecraftServer {
             actions.update_gamemode = Some(player.gamemode.get_id());
             CPlayerInfoUpdatePlayer {
                 uuid: player.uuid,
-                actions
+                actions,
             }
         });
 
         let player_info = CPlayerInfoUpdate {
             players: add_player_list,
-        }.encode();
+        }
+        .encode();
         player.client.send_packet(&player_info);
 
         // Send the player's inventory
@@ -406,7 +408,8 @@ impl MinecraftServer {
         let game_event = CGameEvent {
             reason: CGameEventType::WaitForChunks,
             value: 0.0,
-        }.encode();
+        }
+        .encode();
         player.client.send_packet(&game_event);
 
         self.plot_sender
@@ -743,28 +746,19 @@ impl ServerBoundPacketHandler for MinecraftServer {
                         fog_color: 0xC0D8FF,
                         water_color: 0x3F76E4,
                     },
+                },
+                // Apparently the client NEEDS this to exist (MC-267103)
+                "minecraft:plains" => CRegistryBiome {
+                    has_precipitation: false,
+                    temperature: 0.8,
+                    downfall: 0.4,
+                    effects: CRegistryBiomeEffects {
+                        sky_color: 7907327,
+                        water_fog_color: 329011,
+                        fog_color: 12638463,
+                        water_color: 4159204,
+                    },
                 }
-                // Apparently the client NEEDS this to exist
-                // "minecraft:plains" => CRegistryBiome {
-                //     precipitation: "none".to_owned(),
-                //     effects: CRegistryBiomeEffects {
-                //         sky_color: 7907327,
-                //         water_fog_color: 329011,
-                //         fog_color: 12638463,
-                //         water_color: 4159204,
-                //         mood_sound: CJoinGameBiomeEffectsMoodSound {
-                //             tick_delay: 6000,
-                //             offset: 2.0,
-                //             sound: "minecraft:ambient.cave".to_owned(),
-                //             block_search_extent: 8,
-                //         }
-                //     },
-                //     depth: 0.125,
-                //     temperature: 0.8,
-                //     scale: 0.5,
-                //     downfall: 0.4,
-                //     category: "none".to_owned(),
-                // }
             },
         };
         let registry_data = CRegistryData {

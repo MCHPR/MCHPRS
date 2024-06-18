@@ -440,11 +440,10 @@ impl Chunk {
             .into_iter()
             .map(|x| x as i64)
             .collect();
-        heightmaps
-            .insert(
-                "MOTION_BLOCKING".to_string(),
-                nbt::Value::LongArray(heightmap_longs),
-            );
+        heightmaps.insert(
+            "MOTION_BLOCKING".to_string(),
+            nbt::Value::LongArray(heightmap_longs),
+        );
         let mut block_entities = Vec::new();
         for (pos, block_entity) in &self.block_entities {
             if let Some(nbt) = block_entity.to_nbt(true) {
