@@ -4,7 +4,7 @@ use mchprs_network::packets::clientbound::{
     CDisplayObjective, CResetScore, CUpdateObjectives, CUpdateScore, ClientBoundPacket,
     ObjectiveNumberFormat,
 };
-use mchprs_text::{ChatComponentBuilder, ColorCode};
+use mchprs_text::{ColorCode, TextComponentBuilder};
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
 pub enum RedpilerState {
@@ -80,7 +80,7 @@ impl Scoreboard {
             &CUpdateObjectives {
                 objective_name: "redpiler_status".into(),
                 mode: 0,
-                objective_value: ChatComponentBuilder::new("Redpiler Status".into())
+                objective_value: TextComponentBuilder::new("Redpiler Status".into())
                     .color_code(ColorCode::Red)
                     .finish(),
                 ty: 0,
