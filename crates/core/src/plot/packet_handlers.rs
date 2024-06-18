@@ -267,16 +267,17 @@ impl ServerBoundPacketHandler for Plot {
         }
     }
 
+    fn handle_chat_command(&mut self, chat_command: SChatCommand, player: usize) {
+        self.players[player]
+            .command_queue
+            .push(chat_command.command);
+    }
+
     fn handle_chat_message(&mut self, chat_message: SChatMessage, player: usize) {
         let message = chat_message.message;
-        if message.starts_with('/') {
-            self.players[player].command_queue.push(message);
-        } else {
-            let player = &self.players[player];
-            let broadcast_message =
-                Message::ChatInfo(player.uuid, player.username.clone(), message);
-            self.message_sender.send(broadcast_message).unwrap();
-        }
+        let player = &self.players[player];
+        let broadcast_message = Message::ChatInfo(player.uuid, player.username.clone(), message);
+        self.message_sender.send(broadcast_message).unwrap();
     }
 
     fn handle_client_information(&mut self, client_settings: SClientInformation, player: usize) {
