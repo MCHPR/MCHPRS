@@ -14,7 +14,11 @@ use std::path::Path;
 use std::{fmt, io};
 use thiserror::Error;
 
-pub const VERSION: u32 = 1;
+/// Version History:
+/// 0: Initial plot data file with header (MC 1.18.2)
+/// 1: Add world send rate
+/// 2: Update to MC 1.20.4
+pub const VERSION: u32 = 2;
 
 #[derive(Error, Debug)]
 pub enum PlotLoadError {
