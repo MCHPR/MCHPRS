@@ -49,7 +49,7 @@ pub trait ServerBoundPacketHandler {
     fn handle_unknown(&mut self, _packet: SUnknown, _player_idx: usize) {}
 }
 
-pub trait ServerBoundPacket: Send {
+pub trait ServerBoundPacket: Send + std::fmt::Debug {
     fn decode<T: PacketDecoderExt>(reader: &mut T) -> DecodeResult<Self>
     where
         Self: Sized;
@@ -57,6 +57,7 @@ pub trait ServerBoundPacket: Send {
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize);
 }
 
+#[derive(Debug)]
 pub struct SUnknown;
 
 impl ServerBoundPacket for SUnknown {
@@ -69,6 +70,7 @@ impl ServerBoundPacket for SUnknown {
     }
 }
 
+#[derive(Debug)]
 pub struct SHandshake {
     pub protocol_version: i32,
     pub server_address: String,
@@ -91,6 +93,7 @@ impl ServerBoundPacket for SHandshake {
     }
 }
 
+#[derive(Debug)]
 pub struct SRequest;
 
 impl ServerBoundPacket for SRequest {
@@ -103,6 +106,7 @@ impl ServerBoundPacket for SRequest {
     }
 }
 
+#[derive(Debug)]
 pub struct SPing {
     pub payload: i64,
 }
@@ -119,6 +123,7 @@ impl ServerBoundPacket for SPing {
     }
 }
 
+#[derive(Debug)]
 pub struct SLoginStart {
     pub name: String,
 }
@@ -135,6 +140,7 @@ impl ServerBoundPacket for SLoginStart {
     }
 }
 
+#[derive(Debug)]
 pub struct SLoginAcknowledged;
 
 impl ServerBoundPacket for SLoginAcknowledged {
@@ -147,6 +153,7 @@ impl ServerBoundPacket for SLoginAcknowledged {
     }
 }
 
+#[derive(Debug)]
 pub struct SClientInformation {
     pub locale: String,
     pub view_distance: i8,
@@ -177,6 +184,7 @@ impl ServerBoundPacket for SClientInformation {
     }
 }
 
+#[derive(Debug)]
 pub struct SAcknowledgeFinishConfiguration;
 
 impl ServerBoundPacket for SAcknowledgeFinishConfiguration {
@@ -189,11 +197,13 @@ impl ServerBoundPacket for SAcknowledgeFinishConfiguration {
     }
 }
 
+#[derive(Debug)]
 struct SChatCommandArgumentSignature {
     argument_name: String,
     signature: Vec<u8>,
 }
 
+#[derive(Debug)]
 pub struct SChatCommand {
     pub command: String,
     pub timestamp: i64,
@@ -233,6 +243,7 @@ impl ServerBoundPacket for SChatCommand {
     }
 }
 
+#[derive(Debug)]
 pub struct SChatMessage {
     pub message: String,
     pub timestamp: i64,
@@ -270,6 +281,7 @@ impl ServerBoundPacket for SChatMessage {
     }
 }
 
+#[derive(Debug)]
 pub struct SCommandSuggestionsRequest {
     pub transaction_id: i32,
     pub text: String,
@@ -288,6 +300,7 @@ impl ServerBoundPacket for SCommandSuggestionsRequest {
     }
 }
 
+#[derive(Debug)]
 pub struct SPluginMessage {
     pub channel: String,
     pub data: Vec<u8>,
@@ -306,6 +319,7 @@ impl ServerBoundPacket for SPluginMessage {
     }
 }
 
+#[derive(Debug)]
 pub struct SKeepAlive {
     pub id: i64,
 }
@@ -322,6 +336,7 @@ impl ServerBoundPacket for SKeepAlive {
     }
 }
 
+#[derive(Debug)]
 pub struct SSetPlayerPosition {
     pub x: f64,
     pub y: f64,
@@ -344,6 +359,7 @@ impl ServerBoundPacket for SSetPlayerPosition {
     }
 }
 
+#[derive(Debug)]
 pub struct SSetPlayerPositionAndRotation {
     pub x: f64,
     pub y: f64,
@@ -370,6 +386,7 @@ impl ServerBoundPacket for SSetPlayerPositionAndRotation {
     }
 }
 
+#[derive(Debug)]
 pub struct SPlayerRotation {
     pub yaw: f32,
     pub pitch: f32,
@@ -390,6 +407,7 @@ impl ServerBoundPacket for SPlayerRotation {
     }
 }
 
+#[derive(Debug)]
 pub struct SSetPlayerOnGround {
     pub on_ground: bool,
 }
@@ -406,6 +424,7 @@ impl ServerBoundPacket for SSetPlayerOnGround {
     }
 }
 
+#[derive(Debug)]
 pub struct SPlayerAbilities {
     pub is_flying: bool,
 }
@@ -422,6 +441,7 @@ impl ServerBoundPacket for SPlayerAbilities {
     }
 }
 
+#[derive(Debug)]
 pub struct SPlayerAction {
     pub status: i32,
     pub x: i32,
@@ -452,6 +472,7 @@ impl ServerBoundPacket for SPlayerAction {
     }
 }
 
+#[derive(Debug)]
 pub struct SPlayerCommand {
     pub entity_id: i32,
     pub action_id: i32,
@@ -472,6 +493,7 @@ impl ServerBoundPacket for SPlayerCommand {
     }
 }
 
+#[derive(Debug)]
 pub struct SSwingArm {
     pub hand: i32,
 }
@@ -488,6 +510,7 @@ impl ServerBoundPacket for SSwingArm {
     }
 }
 
+#[derive(Debug)]
 pub struct SUseItemOn {
     pub hand: i32,
     pub x: i32,
@@ -530,6 +553,7 @@ impl ServerBoundPacket for SUseItemOn {
     }
 }
 
+#[derive(Debug)]
 pub struct SSetHeldItem {
     pub slot: i16,
 }
@@ -546,6 +570,7 @@ impl ServerBoundPacket for SSetHeldItem {
     }
 }
 
+#[derive(Debug)]
 pub struct SSetCreativeModeSlot {
     pub slot: i16,
     pub clicked_item: Option<SlotData>,
@@ -571,6 +596,7 @@ impl ServerBoundPacket for SSetCreativeModeSlot {
     }
 }
 
+#[derive(Debug)]
 pub struct SUpdateSign {
     pub x: i32,
     pub y: i32,
