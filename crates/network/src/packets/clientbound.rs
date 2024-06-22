@@ -1018,6 +1018,7 @@ impl ClientBoundPacket for CResetScore {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.entity_name);
+        buf.write_bool(self.objective_name.is_some());
         if let Some(objective_name) = &self.objective_name {
             buf.write_string(32767, &objective_name);
         }
@@ -1178,13 +1179,15 @@ impl ClientBoundPacket for CUpdateScore {
         buf.write_string(32767, &self.entity_name);
         buf.write_string(32767, &self.objective_name);
         buf.write_varint(self.value as i32);
+        buf.write_bool(self.display_name.is_some());
         if let Some(display_name) = &self.display_name {
             buf.write_text_component(display_name);
         }
+        buf.write_bool(self.number_format.is_some());
         if let Some(number_format) = &self.number_format {
             number_format.write_to_buf(&mut buf);
         }
-        PacketEncoder::new(buf, 0x5C)
+        PacketEncoder::new(buf, 0x5F)
     }
 }
 
