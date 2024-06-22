@@ -15,7 +15,7 @@ use std::io::{self, Cursor, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tracing::error;
+use tracing::{error, trace};
 
 pub const COMPRESSION_THRESHOLD: usize = 256;
 
@@ -85,8 +85,7 @@ fn read_decompressed<T: PacketDecoderExt>(
     state: &mut NetworkState,
 ) -> DecodeResult<Box<dyn ServerBoundPacket>> {
     let packet_id = reader.read_varint()?;
-    dbg!(packet_id);
-    Ok(match *state {
+    let packet: Box<dyn ServerBoundPacket> = match *state {
         NetworkState::Handshaking if packet_id == 0x00 => {
             let handshake = SHandshake::decode(reader)?;
             match handshake.next_state {
@@ -131,7 +130,10 @@ fn read_decompressed<T: PacketDecoderExt>(
             0x35 => Box::new(SUseItemOn::decode(reader)?),
             _ => Box::new(SUnknown),
         },
-    })
+    };
+
+    trace!("Received packet with id {:#02x}: {:?}", packet_id, packet);
+    Ok(packet)
 }
 
 pub fn read_packet<T: PacketDecoderExt>(
@@ -401,7 +403,7 @@ pub struct PacketEncoder {
 
 impl PacketEncoder {
     fn new(buffer: Vec<u8>, packet_id: u32) -> PacketEncoder {
-        println!("Encoding packet with id {:#02x}", packet_id);
+        trace!("Encoding packet with id {:#02x}", packet_id);
         PacketEncoder { buffer, packet_id }
     }
 
