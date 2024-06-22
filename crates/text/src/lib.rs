@@ -260,6 +260,7 @@ impl TextComponent {
             && !self.underlined
             && !self.strikethrough
             && !self.obfuscated
+            && self.extra.is_empty()
             && self.color.is_none()
             && self.click_event.is_none()
     }
