@@ -573,6 +573,8 @@ impl Plot {
             let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
             if lever_or_button && !self.players[player].crouching {
                 self.redpiler.on_use_block(block_pos);
+                self.redpiler.flush(&mut self.world);
+                self.world.flush_block_changes();
                 return;
             } else {
                 match self.redpiler.current_flags() {
