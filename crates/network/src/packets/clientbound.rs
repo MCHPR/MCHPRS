@@ -1141,6 +1141,29 @@ impl ClientBoundPacket for CSetEntityMetadata {
     }
 }
 
+pub struct CSetEquipmentEquipment {
+    pub slot: i8,
+    pub item: Option<SlotData>,
+}
+
+pub struct CSetEquipment {
+    pub entity_id: i32,
+    pub equipment: Vec<CSetEquipmentEquipment>,
+}
+
+impl ClientBoundPacket for CSetEquipment {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.entity_id);
+        for slot in &self.equipment {
+            buf.write_byte(slot.slot);
+            buf.write_slot_data(&slot.item);
+        }
+
+        PacketEncoder::new(buf, 0x59)
+    }
+}
+
 pub enum ObjectiveNumberFormat {
     Blank,
     Styled { styling: NBTCompound },
@@ -1188,29 +1211,6 @@ impl ClientBoundPacket for CUpdateScore {
             number_format.write_to_buf(&mut buf);
         }
         PacketEncoder::new(buf, 0x5F)
-    }
-}
-
-pub struct CSetEquipmentEquipment {
-    pub slot: i32,
-    pub item: Option<SlotData>,
-}
-
-pub struct CSetEquipment {
-    pub entity_id: i32,
-    pub equipment: Vec<CSetEquipmentEquipment>,
-}
-
-impl ClientBoundPacket for CSetEquipment {
-    fn encode(&self) -> PacketEncoder {
-        let mut buf = Vec::new();
-        buf.write_varint(self.entity_id);
-        for slot in &self.equipment {
-            buf.write_varint(slot.slot);
-            buf.write_slot_data(&slot.item);
-        }
-
-        PacketEncoder::new(buf, 0x5A)
     }
 }
 
