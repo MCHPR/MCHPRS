@@ -780,7 +780,7 @@ blocks! {
     Target {
         props: {},
         get_id: 19381,
-        from_id(_id): 19396 => {},
+        from_id(_id): 19381 => {},
         from_names(_name): {
             "target" => {}
         },
