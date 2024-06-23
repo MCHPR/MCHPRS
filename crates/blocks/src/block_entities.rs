@@ -13,9 +13,10 @@ pub struct InventoryEntry {
     pub nbt: Option<Vec<u8>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
-    pub rows: [String; 4],
+    pub front_rows: [String; 4],
+    pub back_rows: [String; 4],
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -85,11 +86,11 @@ impl BlockEntity {
     /// The protocol id for the block entity
     pub fn ty(&self) -> i32 {
         match self {
-            BlockEntity::Comparator { .. } => 17,
+            BlockEntity::Comparator { .. } => 18,
             BlockEntity::Container { ty, .. } => match ty {
                 ContainerType::Furnace => 0,
-                ContainerType::Barrel => 25,
-                ContainerType::Hopper => 16,
+                ContainerType::Barrel => 26,
+                ContainerType::Hopper => 17,
             },
             BlockEntity::Sign(_) => 7,
         }
@@ -169,17 +170,38 @@ impl BlockEntity {
                 nbt_unwrap_val!(&nbt["Items"], Value::List),
                 ContainerType::Hopper,
             ),
-            "minecraft:sign" => Some({
-                BlockEntity::Sign(Box::new(SignBlockEntity {
-                    rows: [
-                        // This cloning is really dumb
-                        nbt_unwrap_val!(nbt["Text1"].clone(), Value::String),
-                        nbt_unwrap_val!(nbt["Text2"].clone(), Value::String),
-                        nbt_unwrap_val!(nbt["Text3"].clone(), Value::String),
-                        nbt_unwrap_val!(nbt["Text4"].clone(), Value::String),
-                    ],
-                }))
-            }),
+            "minecraft:sign" => {
+                let sign = if nbt.contains_key("Text1") {
+                    // This is the pre-1.20 encoding
+                    SignBlockEntity {
+                        front_rows: [
+                            // This cloning is really dumb
+                            nbt_unwrap_val!(nbt["Text1"].clone(), Value::String),
+                            nbt_unwrap_val!(nbt["Text2"].clone(), Value::String),
+                            nbt_unwrap_val!(nbt["Text3"].clone(), Value::String),
+                            nbt_unwrap_val!(nbt["Text4"].clone(), Value::String),
+                        ],
+                        back_rows: Default::default(),
+                    }
+                } else {
+                    let get_side = |side| {
+                        let messages =
+                            nbt_unwrap_val!(&nbt[side], Value::Compound).get("messages")?;
+                        let mut messages = nbt_unwrap_val!(messages, Value::List).iter().cloned();
+                        Some([
+                            nbt_unwrap_val!(messages.next()?, Value::String),
+                            nbt_unwrap_val!(messages.next()?, Value::String),
+                            nbt_unwrap_val!(messages.next()?, Value::String),
+                            nbt_unwrap_val!(messages.next()?, Value::String),
+                        ])
+                    };
+                    SignBlockEntity {
+                        front_rows: get_side("front_text")?,
+                        back_rows: get_side("back_text")?,
+                    }
+                };
+                Some(BlockEntity::Sign(Box::new(sign)))
+            }
             _ => None,
         }
     }
@@ -192,12 +214,20 @@ impl BlockEntity {
         use nbt::Value;
         match self {
             BlockEntity::Sign(sign) => Some({
-                let [r1, r2, r3, r4] = sign.rows.clone();
+                let front = sign.front_rows.iter().map(|str| Value::String(str.clone()));
+                let back = sign.front_rows.iter().map(|str| Value::String(str.clone()));
                 nbt::Blob::with_content(map! {
-                    "Text1" => Value::String(r1),
-                    "Text2" => Value::String(r2),
-                    "Text3" => Value::String(r3),
-                    "Text4" => Value::String(r4),
+                    "is_waxed" => Value::Byte(0),
+                    "front_text" => Value::Compound(map! {
+                        "has_glowing_text" => Value::Byte(0),
+                        "color" => Value::String("black".into()),
+                        "messages" => Value::List(front.collect())
+                    }),
+                    "back_text" => Value::Compound(map! {
+                        "has_glowing_text" => Value::Byte(0),
+                        "color" => Value::String("black".into()),
+                        "messages" => Value::List(back.collect())
+                    }),
                     "id" => Value::String("minecraft:sign".to_owned())
                 })
             }),

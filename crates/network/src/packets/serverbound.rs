@@ -601,19 +601,27 @@ pub struct SUpdateSign {
     pub x: i32,
     pub y: i32,
     pub z: i32,
+    pub is_front_text: bool,
     pub lines: [String; 4],
 }
 
 impl ServerBoundPacket for SUpdateSign {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let (x, y, z) = decoder.read_position()?;
+        let is_front_text = decoder.read_bool()?;
         let lines = [
             decoder.read_string()?,
             decoder.read_string()?,
             decoder.read_string()?,
             decoder.read_string()?,
         ];
-        Ok(SUpdateSign { x, y, z, lines })
+        Ok(SUpdateSign {
+            x,
+            y,
+            z,
+            is_front_text,
+            lines,
+        })
     }
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
