@@ -3,6 +3,7 @@ use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ComparatorMode, RedstoneComparator};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
+use tracing::warn;
 
 fn get_power_on_side(world: &impl World, pos: BlockPos, side: BlockDirection) -> u8 {
     let side_pos = pos.offset(side.block_face());
@@ -45,8 +46,12 @@ pub fn get_override(block: Block, world: &impl World, pos: BlockPos) -> u8 {
                     comparator_override,
                     ..
                 }) => *comparator_override,
-                Some(_) => unreachable!("Backing blockentity type is invalid"),
-                None => unreachable!("Backing blockentity does not exist"),
+                Some(other) => {
+                    warn!("Backing container blockentity type is invalid: {other:?}");
+                    0
+                }
+                // Empty containers may not have any block entity data
+                None => 0,
             }
         }
         Block::Cauldron { level } => level,
