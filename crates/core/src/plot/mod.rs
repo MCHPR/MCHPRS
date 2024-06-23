@@ -7,26 +7,28 @@ mod scoreboard;
 pub mod worldedit;
 
 use crate::config::CONFIG;
+use crate::interaction::UseOnBlockContext;
 use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
 use crate::world::storage::Chunk;
 use crate::world::World;
-use crate::{redstone, utils};
+use crate::{interaction, redstone, utils};
 use anyhow::Context;
 use bus::BusReader;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
+use mchprs_blocks::items::Item;
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
+use mchprs_network::packets::serverbound::SUseItemOn;
 use mchprs_network::PlayerPacketSender;
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use mchprs_text::TextComponent;
 use mchprs_world::{TickEntry, TickPriority};
 use monitor::TimingsMonitor;
 use scoreboard::RedpilerState;
-use serde_json::json;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::path::Path;
@@ -52,6 +54,8 @@ pub const NUM_CHUNKS: usize = PLOT_WIDTH.pow(2) as usize;
 pub const PLOT_SECTIONS: usize = 24;
 /// The plot height in blocks
 pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
+
+const ERROR_IO_ONLY: &str = "This plot cannot be interacted with while redpiler is active with `--io-only`. To stop redpiler, run `/redpiler reset`.";
 
 pub struct Plot {
     pub world: PlotWorld,
@@ -507,6 +511,181 @@ impl Plot {
         }
         self.players[player_idx].last_chunk_x = chunk_x;
         self.players[player_idx].last_chunk_z = chunk_z;
+    }
+
+    fn handle_use_item_impl(&mut self, use_item_on: &SUseItemOn, player: usize) {
+        let block_pos = BlockPos::new(use_item_on.x, use_item_on.y, use_item_on.z);
+        let block_face = BlockFace::from_id(use_item_on.face as u32);
+
+        let cancel = |plot: &mut Plot| {
+            plot.send_block_change(block_pos, plot.world.get_block_raw(block_pos));
+
+            let offset_pos = block_pos.offset(block_face);
+            plot.send_block_change(offset_pos, plot.world.get_block_raw(offset_pos));
+        };
+
+        let selected_slot = self.players[player].selected_slot as usize;
+        let item_in_hand = if use_item_on.hand == 0 {
+            // Slot in hotbar
+            self.players[player].inventory[selected_slot + 36].clone()
+        } else {
+            // Slot for left hand
+            self.players[player].inventory[45].clone()
+        };
+
+        if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
+            self.players[player].send_system_message("Can't interact with blocks outside of plot");
+            cancel(self);
+            return;
+        }
+
+        if let Some(item) = &item_in_hand {
+            let has_permission = self.players[player].has_permission("worldedit.selection.pos");
+            if item.item_type == (Item::WEWand {}) && has_permission {
+                let same = self.players[player]
+                    .second_position
+                    .map_or(false, |p| p == block_pos);
+                if !same {
+                    self.players[player].worldedit_set_second_position(block_pos);
+                }
+                cancel(self);
+                // FIXME: Because the client sends another packet after this for the left hand for most blocks,
+                // redpiler will get reset anyways.
+                return;
+            }
+        }
+
+        if let Some(owner) = self.owner {
+            let player = &mut self.players[player];
+            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
+                player.send_no_permission_message();
+                cancel(self);
+                return;
+            }
+        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
+            self.players[player].send_no_permission_message();
+            cancel(self);
+            return;
+        }
+
+        if self.redpiler.is_active() {
+            let block = self.world.get_block(block_pos);
+            let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
+            if lever_or_button && !self.players[player].crouching {
+                self.redpiler.on_use_block(block_pos);
+                return;
+            } else {
+                match self.redpiler.current_flags() {
+                    Some(flags) if flags.io_only => {
+                        self.players[player].send_error_message(ERROR_IO_ONLY);
+                        cancel(self);
+                        return;
+                    }
+                    _ => {}
+                }
+                self.reset_redpiler();
+            }
+        }
+
+        if let Some(item) = item_in_hand {
+            let cancelled = interaction::use_item_on_block(
+                &item,
+                &mut self.world,
+                UseOnBlockContext {
+                    block_face,
+                    block_pos,
+                    player: &mut self.players[player],
+                    cursor_y: use_item_on.cursor_y,
+                },
+            );
+            if cancelled {
+                cancel(self);
+            }
+            self.world.flush_block_changes();
+            return;
+        }
+
+        let block = self.world.get_block(block_pos);
+        if !self.players[player].crouching {
+            interaction::on_use(
+                block,
+                &mut self.world,
+                &mut self.players[player],
+                block_pos,
+                None,
+            );
+            self.world.flush_block_changes();
+        }
+    }
+
+    fn handle_player_digging(&mut self, block_pos: BlockPos, player: usize) {
+        let block = self.world.get_block(block_pos);
+
+        if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
+            self.players[player].send_system_message("Can't break blocks outside of plot");
+            return;
+        }
+
+        // This worldedit wand stuff should probably be done in another file. It's good enough for now.
+        let item_in_hand = self.players[player].inventory
+            [self.players[player].selected_slot as usize + 36]
+            .clone();
+        if let Some(item) = item_in_hand {
+            let has_permission = self.players[player].has_permission("worldedit.selection.pos");
+            if item.item_type == (Item::WEWand {}) && has_permission {
+                self.send_block_change(block_pos, block.get_id());
+                if let Some(pos) = self.players[player].first_position {
+                    if pos == block_pos {
+                        return;
+                    }
+                }
+                self.players[player].worldedit_set_first_position(block_pos);
+                return;
+            }
+        }
+
+        if let Some(owner) = self.owner {
+            let player = &mut self.players[player];
+            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
+                player.send_no_permission_message();
+                self.send_block_change(block_pos, block.get_id());
+                return;
+            }
+        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
+            self.players[player].send_no_permission_message();
+            self.send_block_change(block_pos, block.get_id());
+            return;
+        }
+
+        match self.redpiler.current_flags() {
+            Some(flags) if flags.io_only => {
+                self.players[player].send_error_message(ERROR_IO_ONLY);
+                self.send_block_change(block_pos, block.get_id());
+                return;
+            }
+            _ => {}
+        }
+
+        self.reset_redpiler();
+
+        interaction::destroy(block, &mut self.world, block_pos);
+        self.world.flush_block_changes();
+
+        let effect = CWorldEvent {
+            event: 2001,
+            x: block_pos.x,
+            y: block_pos.y,
+            z: block_pos.z,
+            data: block.get_id() as i32,
+            disable_relative_volume: false,
+        }
+        .encode();
+        for other_player in 0..self.players.len() {
+            if player == other_player {
+                continue;
+            };
+            self.players[other_player].client.send_packet(&effect);
+        }
     }
 
     /// After an expensive operation or change in timings, it's important to

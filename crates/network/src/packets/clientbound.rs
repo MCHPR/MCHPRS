@@ -296,6 +296,18 @@ impl ClientBoundPacket for CEntityAnimation {
     }
 }
 
+pub struct CAcknowledgeBlockChange {
+    pub sequence_id: i32,
+}
+
+impl ClientBoundPacket for CAcknowledgeBlockChange {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.sequence_id);
+        PacketEncoder::new(buf, 0x05)
+    }
+}
+
 pub struct CBlockEntityData {
     pub x: i32,
     pub y: i32,
@@ -1041,7 +1053,7 @@ impl ClientBoundPacket for CSetHeadRotation {
 }
 
 #[derive(Debug)]
-pub struct C3BMultiBlockChangeRecord {
+pub struct CUpdateSectionBlocksRecord {
     pub x: u8,
     pub y: u8,
     pub z: u8,
@@ -1053,7 +1065,7 @@ pub struct CUpdateSectionBlocks {
     pub chunk_x: i32,
     pub chunk_z: i32,
     pub chunk_y: u32,
-    pub records: Vec<C3BMultiBlockChangeRecord>,
+    pub records: Vec<CUpdateSectionBlocksRecord>,
 }
 
 impl ClientBoundPacket for CUpdateSectionBlocks {
