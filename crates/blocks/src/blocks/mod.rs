@@ -535,7 +535,7 @@ blocks! {
             rotation: u32
         },
         get_id: (sign_type.0 << 5) + (rotation << 1) + match sign_type.0 {
-            0..=5 => 3438,
+            0..=5 => 4303,
             6..=7 => 19277 - (6 << 5),
             _ => unreachable!(),
         },

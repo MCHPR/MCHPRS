@@ -226,7 +226,7 @@ fn apply_annotations<W: World>(
 
 fn parse_sign_annotations(entity: Option<&BlockEntity>) -> Vec<NodeAnnotation> {
     if let Some(BlockEntity::Sign(sign)) = entity {
-        sign.rows
+        sign.front_rows
             .iter()
             .flat_map(|row| serde_json::from_str(row))
             .flat_map(|json: Value| NodeAnnotation::parse(json.as_object()?.get("text")?.as_str()?))
