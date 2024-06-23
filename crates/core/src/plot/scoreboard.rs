@@ -123,7 +123,7 @@ impl Scoreboard {
         if options.io_only {
             flags.push("§b- io only");
         }
-        if options.io_only {
+        if options.update {
             flags.push("§b- update");
         }
 
