@@ -5,8 +5,8 @@ use mchprs_blocks::BlockPos;
 use mchprs_save_data::plot_data::{ChunkData, ChunkSectionData};
 
 use mchprs_network::packets::clientbound::{
-    C3BMultiBlockChangeRecord, CChunkData, CChunkDataBlockEntity, CChunkDataSection,
-    CUpdateSectionBlocks, ClientBoundPacket,
+    CChunkData, CChunkDataBlockEntity, CChunkDataSection, CUpdateSectionBlocks,
+    CUpdateSectionBlocksRecord, ClientBoundPacket,
 };
 use mchprs_network::packets::{PacketEncoder, PalettedContainer};
 use rustc_hash::FxHashMap;
@@ -373,7 +373,7 @@ impl ChunkSection {
             for (i, block) in self.changed_blocks.iter().enumerate() {
                 if *block >= 0 {
                     self.buffer.set_entry(i, *block as u32);
-                    self.multi_block.records.push(C3BMultiBlockChangeRecord {
+                    self.multi_block.records.push(CUpdateSectionBlocksRecord {
                         block_id: *block as u32,
                         x: (i & 0xF) as u8,
                         y: (i >> 8) as u8,
