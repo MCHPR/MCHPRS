@@ -9,9 +9,12 @@ use crate::redstone;
 use crate::world::{for_each_block_mut_optimized, World};
 use backend::BackendDispatcher;
 use backend::JITBackend;
+use compile_graph::{CompileGraph, CompileLink, CompileNode};
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
+use rustc_hash::FxHashMap;
+use serde::Serialize;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
@@ -92,6 +95,12 @@ impl CompilerOptions {
     }
 }
 
+#[derive(Serialize)]
+enum SerializableElement {
+    Node(CompileNode),
+    Edge(usize, usize, CompileLink),
+}
+
 #[derive(Default)]
 pub struct Compiler {
     is_active: bool,
@@ -131,6 +140,19 @@ impl Compiler {
         let input = CompilerInput { world, bounds };
         let pass_manager = make_default_pass_manager::<W>();
         let graph = pass_manager.run_passes(&options, &input, monitor.clone());
+
+        let mut ser_graph = Vec::new();
+        let mut node_map = FxHashMap::default();
+        for node_idx in graph.node_indices() {
+            node_map.insert(node_idx, node_map.len());
+            ser_graph.push(SerializableElement::Node(graph[node_idx].clone()));
+        }
+        for edge_idx in graph.edge_indices() {
+            let (start, end) = graph.edge_endpoints(edge_idx).unwrap();
+            let edge = graph[edge_idx].clone();
+            ser_graph.push(SerializableElement::Edge(node_map[&start], node_map[&end], edge));
+        }
+        std::fs::write("mandelbrot_graph.bc", &bincode::serialize(&ser_graph).unwrap()).unwrap();
 
         if monitor.cancelled() {
             return;

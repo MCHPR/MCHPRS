@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use super::{Block, BlockDirection, BlockProperty, BlockTransform, FlipDirection};
 use std::str::FromStr;
 
@@ -36,7 +38,7 @@ impl RedstoneRepeater {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Default, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ComparatorMode {
     #[default]
     Compare,
@@ -391,7 +393,7 @@ impl FromStr for TrapdoorHalf {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Instrument {
     Harp,
     Basedrum,
