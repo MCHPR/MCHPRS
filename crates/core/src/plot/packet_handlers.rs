@@ -5,7 +5,7 @@ use crate::player::{PacketSender, PlayerPos, SkinParts};
 use crate::server::Message;
 use crate::utils::{self, HyphenatedUUID};
 use crate::world::World;
-use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntity};
+use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos};
@@ -597,14 +597,22 @@ impl ServerBoundPacketHandler for Plot {
             .lines
             .iter()
             .map(|line| json!({ "text": line }).to_string());
-        let block_entity = BlockEntity::Sign(Box::new(SignBlockEntity {
-            rows: [
-                rows.next().unwrap(),
-                rows.next().unwrap(),
-                rows.next().unwrap(),
-                rows.next().unwrap(),
-            ],
-        }));
-        self.world.set_block_entity(pos, block_entity);
+        let rows = [
+            rows.next().unwrap(),
+            rows.next().unwrap(),
+            rows.next().unwrap(),
+            rows.next().unwrap(),
+        ];
+        let mut block_entity = match self.world.get_block_entity(pos) {
+            Some(BlockEntity::Sign(sign)) => sign.as_ref().clone(),
+            _ => Default::default(),
+        };
+        if packet.is_front_text {
+            block_entity.front_rows = rows;
+        } else {
+            block_entity.back_rows = rows;
+        }
+        self.world
+            .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));
     }
 }
