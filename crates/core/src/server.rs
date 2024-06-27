@@ -350,6 +350,7 @@ impl MinecraftServer {
                 properties: Vec::new(),
             });
             actions.update_gamemode = Some(player.gamemode.get_id());
+            actions.update_listed = Some(true);
             add_player_list.push(CPlayerInfoUpdatePlayer { uuid, actions });
         }
         add_player_list.push({
@@ -359,6 +360,7 @@ impl MinecraftServer {
                 properties: Vec::new(),
             });
             actions.update_gamemode = Some(player.gamemode.get_id());
+            actions.update_listed = Some(true);
             CPlayerInfoUpdatePlayer {
                 uuid: player.uuid,
                 actions,
