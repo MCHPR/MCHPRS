@@ -15,7 +15,7 @@ use crate::utils::HyphenatedUUID;
 use crate::world::storage::Chunk;
 use crate::world::World;
 use crate::{interaction, redstone, utils};
-use anyhow::Context;
+use anyhow::{Context, Error};
 use bus::BusReader;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
@@ -1191,16 +1191,21 @@ impl Plot {
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
-    ) -> Plot {
+    ) -> Result<Plot, (Error, Sender<Message>)> {
         let plot_path = format!("./world/plots/p{},{}", x, z);
-        if Path::new(&plot_path).exists() {
-            let data = data::load_plot(plot_path)
-                .with_context(|| format!("error loading plot {},{}", x, z))
-                .unwrap();
-            Plot::from_data(data, x, z, rx, tx, priv_rx, always_running)
+        Ok(if Path::new(&plot_path).exists() {
+            match data::load_plot(plot_path) {
+                Ok(data) => Plot::from_data(data, x, z, rx, tx, priv_rx, always_running),
+                Err(err) => {
+                    return Result::Err((
+                        err.context(format!("error loading plot {},{}", x, z)),
+                        tx,
+                    ))
+                }
+            }
         } else {
             Plot::from_data(data::empty_plot(), x, z, rx, tx, priv_rx, always_running)
-        }
+        })
     }
 
     fn save(&mut self) {
@@ -1249,6 +1254,17 @@ impl Plot {
         }
     }
 
+    /// This function is used in case of an error. It will try to send the player to spawn if this isn't already a spawn plot.
+    fn send_player_away(plot_x: i32, plot_z: i32, player: &mut Player) {
+        let (px, pz) = if plot_x == 0 && plot_z == 0 {
+            // Can't send players to spawn if spawn crashed!
+            Plot::get_center(1, 0)
+        } else {
+            Plot::get_center(0, 0)
+        };
+        player.teleport(PlayerPos::new(px, 64.0, pz));
+    }
+
     pub fn load_and_run(
         x: i32,
         z: i32,
@@ -1260,10 +1276,19 @@ impl Plot {
     ) {
         thread::Builder::new()
             .name(format!("p{},{}", x, z))
-            .spawn(move || {
-                let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
-                plot.run(initial_player);
-            })
+            .spawn(
+                move || match Plot::load(x, z, rx, tx, priv_rx, always_running) {
+                    Ok(mut plot) => plot.run(initial_player),
+                    Err((err, tx)) => {
+                        if let Some(mut player) = initial_player {
+                            player.send_error_message("There was an error loading that plot.");
+                            Plot::send_player_away(x, z, &mut player);
+                            tx.send(Message::PlayerLeavePlot(player)).unwrap();
+                        }
+                        tx.send(Message::PlotUnload(x, z)).unwrap();
+                    }
+                },
+            )
             .unwrap();
     }
 }
@@ -1275,13 +1300,7 @@ impl Drop for Plot {
                 player.save(); // just in case
 
                 let world = &self.world;
-                let (px, pz) = if world.x == 0 && world.z == 0 {
-                    // Can't send players to spawn if spawn crashed!
-                    Plot::get_center(1, 0)
-                } else {
-                    Plot::get_center(0, 0)
-                };
-                player.teleport(PlayerPos::new(px, 64.0, pz));
+                Plot::send_player_away(world.x, world.z, player);
 
                 player.send_error_message("The plot you were previously in has crashed!");
             }
@@ -1294,6 +1313,10 @@ impl Drop for Plot {
                     .unwrap();
             }
         }
+        let world = &self.world;
+        self.message_sender
+            .send(Message::PlotUnload(world.x, world.z))
+            .unwrap();
 
         self.reset_redpiler();
         self.world
@@ -1301,10 +1324,6 @@ impl Drop for Plot {
             .iter_mut()
             .for_each(|chunk| chunk.compress());
         self.save();
-        let world = &self.world;
-        self.message_sender
-            .send(Message::PlotUnload(world.x, world.z))
-            .unwrap();
     }
 }
 
