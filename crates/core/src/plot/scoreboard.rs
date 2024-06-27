@@ -24,9 +24,18 @@ impl RedpilerState {
     }
 }
 
-#[derive(Default)]
 pub struct Scoreboard {
     current_state: Vec<String>,
+}
+
+impl Default for Scoreboard {
+    fn default() -> Scoreboard {
+        let mut sb = Scoreboard {
+            current_state: vec![],
+        };
+        sb.set_redpiler_state(&[], RedpilerState::Stopped);
+        sb
+    }
 }
 
 impl Scoreboard {
