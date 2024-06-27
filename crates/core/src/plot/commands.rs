@@ -46,6 +46,7 @@ impl Plot {
             "visit" | "v" => "plots.visit",
             "teleport" | "tp" => "plots.visit",
             "lock" | "unlock" => "plots.lock",
+            "sel" | "select" => "plots.select",
             _ => {
                 self.players[player].send_error_message("Invalid argument for /plot");
                 return;
@@ -161,6 +162,11 @@ impl Plot {
                 } else {
                     self.players[player].send_system_message("You are not locked to this plot.");
                 }
+            }
+            "select" | "sel" => {
+                let corners = self.world.get_corners();
+                self.players[player].worldedit_set_first_position(corners.0);
+                self.players[player].worldedit_set_second_position(corners.1);
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
@@ -602,7 +608,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46, 58, 59],
+                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46, 58, 59, 74, 75],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -1211,6 +1217,24 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 children: &[],
                 redirect_node: Some(71),
                 name: Some("wsr"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 74: /p select
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("select"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 75: /p sel
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: &[],
+                redirect_node: Some(74),
+                name: Some("sel"),
                 parser: None,
                 suggestions_type: None,
             },

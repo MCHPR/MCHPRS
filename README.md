@@ -104,6 +104,7 @@ These are the commands that are currently implemented:
 | `/plot tp [x] [z]` | None | Teleports you to the plot at `[x] [y]`. Supports relative coordinates. |
 | `/plot lock` | None | Locks the player into the plot so moving outside of the plot bounds does not transfer you to other plots. |
 | `/plot unlock` | None | Reverses the locking done by `/plot lock`. |
+| `/plot select` | `/p sel` | Uses WorldEdit to select the entire plot. |
 
 ### Worldedit
 MCHPRS provides its own implementation of [WorldEdit](https://github.com/EngineHub/WorldEdit). Visit their [documentation](https://worldedit.enginehub.org/en/latest/commands/) for more information.
