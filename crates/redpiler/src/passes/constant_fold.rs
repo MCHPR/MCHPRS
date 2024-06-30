@@ -1,6 +1,6 @@
 use super::Pass;
-use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
-use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
+use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};

@@ -4,11 +4,11 @@
 //! This pass is *mandatory*. Without it, there would be no links between nodes.
 
 use super::Pass;
-use crate::redpiler::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
-use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::redstone::{self, comparator, wire};
+use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
+use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_redstone::{self, comparator, wire};
 use mchprs_world::World;
 use petgraph::visit::NodeIndexable;
 use rustc_hash::FxHashMap;
@@ -250,7 +250,8 @@ impl<'a, W: World> InputSearchState<'a, W> {
     fn search_repeater_side(&mut self, id: NodeIdx, pos: BlockPos, side: BlockDirection) {
         let side_pos = pos.offset(side.block_face());
         let side_block = self.world.get_block(side_pos);
-        if redstone::is_diode(side_block) && self.provides_weak_power(side_block, side.block_face())
+        if mchprs_redstone::is_diode(side_block)
+            && self.provides_weak_power(side_block, side.block_face())
         {
             self.graph
                 .add_edge(self.pos_map[&side_pos], id, CompileLink::side(0));
@@ -260,7 +261,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
     fn search_comparator_side(&mut self, id: NodeIdx, pos: BlockPos, side: BlockDirection) {
         let side_pos = pos.offset(side.block_face());
         let side_block = self.world.get_block(side_pos);
-        if (redstone::is_diode(side_block)
+        if (mchprs_redstone::is_diode(side_block)
             && self.provides_weak_power(side_block, side.block_face()))
             || matches!(side_block, Block::RedstoneBlock { .. })
         {

@@ -2,7 +2,6 @@
 //! the accelorator created by theosib. For more information, see:
 //! https://bugs.mojang.com/browse/MC-81098.
 
-use crate::redstone;
 use mchprs_blocks::blocks::{Block, RedstoneWire};
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_world::World;
@@ -303,7 +302,7 @@ impl RedstoneWireTurbo {
                     // This only works because updating any other block than a wire will
                     // never change the state of the block. If that changes in the future,
                     // the cached state will need to be updated
-                    block => redstone::update(block, world, self.nodes[node_id.index].pos),
+                    block => crate::update(block, world, self.nodes[node_id.index].pos),
                 }
             }
 
@@ -354,7 +353,7 @@ impl RedstoneWireTurbo {
         for side in &BlockFace::values() {
             let neighbor_pos = pos.offset(*side);
             let neighbor = self.nodes[self.node_cache[&neighbor_pos].index].state;
-            wire_power = wire_power.max(redstone::get_redstone_power_no_dust(
+            wire_power = wire_power.max(crate::get_redstone_power_no_dust(
                 neighbor,
                 world,
                 neighbor_pos,

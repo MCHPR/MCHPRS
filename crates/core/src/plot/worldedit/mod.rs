@@ -5,7 +5,6 @@ mod schematic;
 
 use super::{Plot, PlotWorld};
 use crate::player::{PacketSender, Player, PlayerPos};
-use crate::redstone;
 use execute::*;
 use mchprs_blocks::block_entities::{BlockEntity, ContainerType};
 use mchprs_blocks::blocks::Block;
@@ -1145,6 +1144,6 @@ fn expand_selection(player: &mut Player, amount: BlockPos, contract: bool) {
 fn update(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
     for_each_block_mut_optimized(plot, first_pos, second_pos, |plot, pos| {
         let block = plot.get_block(pos);
-        redstone::update(block, plot, pos);
+        mchprs_redstone::update(block, plot, pos);
     });
 }

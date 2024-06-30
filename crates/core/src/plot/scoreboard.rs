@@ -1,9 +1,9 @@
 use crate::player::{PacketSender, Player};
-use crate::redpiler::CompilerOptions;
 use mchprs_network::packets::clientbound::{
     CDisplayObjective, CResetScore, CUpdateObjectives, CUpdateScore, ClientBoundPacket,
     ObjectiveNumberFormat,
 };
+use mchprs_redpiler::CompilerOptions;
 use mchprs_text::{ColorCode, TextComponentBuilder};
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]

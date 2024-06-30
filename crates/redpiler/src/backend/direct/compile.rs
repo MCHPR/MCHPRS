@@ -1,5 +1,5 @@
-use crate::redpiler::compile_graph::{CompileGraph, LinkType, NodeIdx};
-use crate::redpiler::{CompilerOptions, TaskMonitor};
+use crate::compile_graph::{CompileGraph, LinkType, NodeIdx};
+use crate::{CompilerOptions, TaskMonitor};
 use itertools::Itertools;
 use mchprs_blocks::blocks::{Block, Instrument};
 use mchprs_blocks::BlockPos;
@@ -67,7 +67,7 @@ fn compile_node(
     stats.default_link_count += default_input_count;
     stats.side_link_count += side_input_count;
 
-    use crate::redpiler::compile_graph::NodeType as CNodeType;
+    use crate::compile_graph::NodeType as CNodeType;
     let updates = if node.ty != CNodeType::Constant {
         graph
             .edges_directed(node_idx, Direction::Outgoing)

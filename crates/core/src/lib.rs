@@ -8,8 +8,6 @@ mod permissions;
 mod player;
 pub mod plot;
 mod profile;
-pub mod redpiler;
-pub mod redstone;
 pub mod server;
 
 #[macro_use]

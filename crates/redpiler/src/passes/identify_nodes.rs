@@ -8,15 +8,13 @@
 //! There are no requirements for this pass.
 
 use super::Pass;
-use crate::redpiler::compile_graph::{
-    Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType,
-};
-use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::redstone::{self, comparator, noteblock};
+use crate::compile_graph::{Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
+use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_redstone::{self, comparator, noteblock};
 use mchprs_world::{for_each_block_optimized, World};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
@@ -120,7 +118,7 @@ fn identify_block<W: World>(
         Block::RedstoneRepeater { repeater } => (
             NodeType::Repeater {
                 delay: repeater.delay,
-                facing_diode: redstone::is_diode(
+                facing_diode: mchprs_redstone::is_diode(
                     world.get_block(pos.offset(repeater.facing.opposite().block_face())),
                 ),
             },
@@ -130,7 +128,7 @@ fn identify_block<W: World>(
             NodeType::Comparator {
                 mode: comparator.mode,
                 far_input: comparator::get_far_input(world, pos, comparator.facing),
-                facing_diode: redstone::is_diode(
+                facing_diode: mchprs_redstone::is_diode(
                     world.get_block(pos.offset(comparator.facing.opposite().block_face())),
                 ),
             },

@@ -1,0 +1,19 @@
+[package]
+name = "mchprs_redpiler"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde_json = "1.0"
+tracing = "0.1"
+petgraph = "0.6"
+itertools = "0.10"
+rustc-hash = "1.1"
+smallvec = "1.9.0"
+enum_dispatch = "0.3"
+mchprs_blocks = { path = "../blocks" }
+mchprs_world = { path = "../world" }
+mchprs_redstone = { path = "../redstone" }
+redpiler_graph = { path = "../redpiler_graph" }

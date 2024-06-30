@@ -1,8 +1,8 @@
 use std::collections::hash_map::Entry;
 
 use super::Pass;
-use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
-use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::compile_graph::{CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
+use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::unionfind::UnionFind;
 use petgraph::visit::{EdgeRef, IntoEdgeReferences, NodeIndexable};

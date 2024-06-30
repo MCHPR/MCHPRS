@@ -6,8 +6,8 @@
 //! weight 15 is removed.
 
 use super::Pass;
-use crate::redpiler::compile_graph::{CompileGraph, NodeIdx};
-use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::compile_graph::{CompileGraph, NodeIdx};
+use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;

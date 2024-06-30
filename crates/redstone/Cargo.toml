@@ -1,0 +1,12 @@
+[package]
+name = "mchprs_redstone"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mchprs_blocks = { path = "../blocks" }
+mchprs_world = { path = "../world" }
+tracing = "0.1"
+rustc-hash = "1.1"
