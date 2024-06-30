@@ -2,7 +2,7 @@ FROM rust:slim
 
 RUN apt-get update \
     && apt-get install -y \
-    git pkg-config libssl-dev
+    git pkg-config libssl-dev clang
 
 RUN git clone https://github.com/MCHPR/MCHPRS.git
 WORKDIR ./MCHPRS
