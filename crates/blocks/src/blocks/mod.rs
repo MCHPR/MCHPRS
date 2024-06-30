@@ -1186,7 +1186,7 @@ blocks! {
         from_names(_name): {
             "iron_trapdoor" => {
                 facing: Default::default(),
-                half: TrapdoorHalf::Bottom,
+                half: TrapdoorHalf::Top,
                 powered: false
             }
         },
