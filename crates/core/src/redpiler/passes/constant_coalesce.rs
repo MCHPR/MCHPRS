@@ -3,7 +3,7 @@ use std::collections::hash_map::Entry;
 use super::Pass;
 use crate::redpiler::compile_graph::{CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::world::World;
+use mchprs_world::World;
 use petgraph::unionfind::UnionFind;
 use petgraph::visit::{EdgeRef, IntoEdgeReferences, NodeIndexable};
 use petgraph::Direction;

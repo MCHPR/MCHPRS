@@ -1,9 +1,9 @@
 mod turbo;
 
 use crate::interaction::ActionResult;
-use crate::world::World;
 use mchprs_blocks::blocks::{Block, RedstoneWire, RedstoneWireSide};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_world::World;
 use turbo::RedstoneWireTurbo;
 
 fn make_cross(power: u8) -> RedstoneWire {

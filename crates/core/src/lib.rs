@@ -11,7 +11,6 @@ mod profile;
 pub mod redpiler;
 pub mod redstone;
 pub mod server;
-pub mod world;
 
 #[macro_use]
 extern crate bitflags;

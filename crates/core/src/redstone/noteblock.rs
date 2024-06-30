@@ -1,7 +1,7 @@
 use mchprs_blocks::blocks::{Block, Instrument};
 use mchprs_blocks::{BlockFace, BlockPos};
 
-use crate::world::World;
+use mchprs_world::World;
 
 // LUT generated via f32::powf(2.0, (note as f32 - 12.0) / 12.0)
 // This is hardcoded because at this point floating point operations are not allowed in const contexts

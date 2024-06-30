@@ -3,9 +3,9 @@
 //! https://bugs.mojang.com/browse/MC-81098.
 
 use crate::redstone;
-use crate::world::World;
 use mchprs_blocks::blocks::{Block, RedstoneWire};
 use mchprs_blocks::{BlockFace, BlockPos};
+use mchprs_world::World;
 use rustc_hash::FxHashMap;
 
 fn unwrap_wire(block: Block) -> RedstoneWire {

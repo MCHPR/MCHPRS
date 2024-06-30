@@ -12,10 +12,8 @@ use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
 use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
-use crate::world::storage::Chunk;
-use crate::world::World;
 use crate::{interaction, redstone, utils};
-use anyhow::{Context, Error};
+use anyhow::Error;
 use bus::BusReader;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
@@ -26,6 +24,8 @@ use mchprs_network::packets::serverbound::SUseItemOn;
 use mchprs_network::PlayerPacketSender;
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use mchprs_text::TextComponent;
+use mchprs_world::storage::Chunk;
+use mchprs_world::World;
 use mchprs_world::{TickEntry, TickPriority};
 use monitor::TimingsMonitor;
 use scoreboard::RedpilerState;
@@ -461,7 +461,7 @@ impl Plot {
             if !Plot::chunk_in_plot_bounds(self.world.x, self.world.z, chunk_x, chunk_z) {
                 self.players[player_idx]
                     .client
-                    .send_packet(&Chunk::encode_empty_packet(chunk_x, chunk_z));
+                    .send_packet(&Chunk::encode_empty_packet(chunk_x, chunk_z, PLOT_SECTIONS));
             } else {
                 let chunk_data = self.world.chunks
                     [self.world.get_chunk_index_for_chunk(chunk_x, chunk_z)]
@@ -1097,7 +1097,7 @@ impl Plot {
     }
 
     fn generate_chunk(layers: i32, x: i32, z: i32) -> Chunk {
-        let mut chunk = Chunk::empty(x, z);
+        let mut chunk = Chunk::empty(x, z, PLOT_SECTIONS);
 
         for ry in 0..layers {
             for rx in 0..16 {
@@ -1122,7 +1122,7 @@ impl Plot {
     }
 
     fn from_data(
-        plot_data: PlotData<PLOT_SECTIONS>,
+        plot_data: PlotData,
         x: i32,
         z: i32,
         rx: BusReader<BroadcastMessage>,
@@ -1137,10 +1137,9 @@ impl Plot {
             .into_iter()
             .enumerate()
             .map(|(i, c)| {
-                Chunk::load(
+                c.load(
                     chunk_x_offset + i as i32 / PLOT_WIDTH,
                     chunk_z_offset + i as i32 % PLOT_WIDTH,
-                    c,
                 )
             })
             .collect();
@@ -1210,8 +1209,8 @@ impl Plot {
 
     fn save(&mut self) {
         let world = &mut self.world;
-        let chunk_data: Vec<ChunkData<PLOT_SECTIONS>> =
-            world.chunks.iter_mut().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData> =
+            world.chunks.iter_mut().map(|c| ChunkData::new(c)).collect();
         let data = PlotData {
             tps: self.tps,
             world_send_rate: self.world_send_rate,
@@ -1286,6 +1285,7 @@ impl Plot {
                             tx.send(Message::PlayerLeavePlot(player)).unwrap();
                         }
                         tx.send(Message::PlotUnload(x, z)).unwrap();
+                        panic!("{err:?}");
                     }
                 },
             )
@@ -1329,11 +1329,11 @@ impl Drop for Plot {
 
 #[test]
 fn chunk_save_and_load_test() {
-    let mut chunk = Chunk::empty(1, 1);
+    let mut chunk = Chunk::empty(1, 1, PLOT_SECTIONS);
     chunk.set_block(13, 63, 12, 332);
     chunk.set_block(13, 62, 12, 331);
-    let chunk_data = chunk.save();
-    let loaded_chunk = Chunk::load(1, 1, chunk_data);
+    let chunk_data = ChunkData::new(&mut chunk);
+    let loaded_chunk = chunk_data.load(1, 1);
     assert_eq!(loaded_chunk.get_block(13, 63, 12), 332);
     assert_eq!(loaded_chunk.get_block(13, 62, 12), 331);
     assert_eq!(loaded_chunk.get_block(13, 64, 12), 0);

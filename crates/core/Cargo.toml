@@ -12,17 +12,6 @@ repository.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dev-dependencies]
-criterion = "0.4"
-
-[[bench]]
-name = "bitbuffer"
-harness = false
-
-[[bench]]
-name = "chungus"
-harness = false
-
 [dependencies]
 mchprs_proc_macros = { path = "../proc_macros" }
 toml = "0.7"

@@ -4,10 +4,10 @@ use self::fixer::FixInfo;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
+use mchprs_world::storage::{Chunk, ChunkSection};
 use mchprs_world::TickEntry;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use serde_big_array::BigArray;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
@@ -37,7 +37,7 @@ pub enum PlotLoadError {
     #[error(transparent)]
     Io(#[from] io::Error),
 
-    #[error("plot data version {0} too new to be loaded")]
+    #[error("conversion from plot data version {0} is unavailable")]
     ConversionUnavailable(u32),
 }
 
@@ -63,18 +63,73 @@ static PLOT_MAGIC: &[u8; 8] = b"\x86MCHPRS\x00";
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub struct ChunkSectionData {
-    pub data: Vec<i64>,
-    pub palette: Vec<i32>,
-    pub bits_per_block: i8,
-    pub block_count: i32,
-    pub entries: usize,
+    pub data: Vec<u64>,
+    pub palette: Vec<u32>,
+    pub bits_per_block: u8,
+    pub block_count: u32,
+}
+
+impl ChunkSectionData {
+    fn new(section: &ChunkSection) -> Self {
+        Self {
+            data: section.data().to_vec(),
+            palette: section.palette().to_vec(),
+            bits_per_block: section.bits_per_block(),
+            block_count: section.block_count(),
+        }
+    }
+
+    fn load(self) -> ChunkSection {
+        ChunkSection::from_raw(
+            self.data,
+            self.bits_per_block,
+            self.palette,
+            self.block_count,
+        )
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ChunkData<const NUM_SECTIONS: usize> {
-    #[serde(with = "BigArray")]
-    pub sections: [Option<ChunkSectionData>; NUM_SECTIONS],
+pub struct ChunkData {
+    pub sections: Vec<Option<ChunkSectionData>>,
     pub block_entities: FxHashMap<BlockPos, BlockEntity>,
+}
+
+impl ChunkData {
+    /// Takes a mutable Chunk to flush it first
+    pub fn new(chunk: &mut Chunk) -> Self {
+        chunk.flush();
+        Self {
+            sections: chunk
+                .sections
+                .iter()
+                .map(|section| {
+                    if section.block_count() > 0 {
+                        Some(ChunkSectionData::new(section))
+                    } else {
+                        None
+                    }
+                })
+                .collect(),
+            block_entities: chunk.block_entities.clone(),
+        }
+    }
+
+    pub fn load(self, x: i32, z: i32) -> Chunk {
+        Chunk {
+            x,
+            z,
+            sections: self
+                .sections
+                .into_iter()
+                .map(|section| match section {
+                    Some(section) => section.load(),
+                    None => Default::default(),
+                })
+                .collect(),
+            block_entities: self.block_entities,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
@@ -102,17 +157,15 @@ impl fmt::Display for Tps {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct PlotData<const NUM_CHUNK_SECTIONS: usize> {
+pub struct PlotData {
     pub tps: Tps,
     pub world_send_rate: WorldSendRate,
-    pub chunk_data: Vec<ChunkData<NUM_CHUNK_SECTIONS>>,
+    pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,
 }
 
-impl<const NUM_CHUNK_SECTIONS: usize> PlotData<NUM_CHUNK_SECTIONS> {
-    pub fn load_from_file(
-        path: impl AsRef<Path>,
-    ) -> Result<PlotData<NUM_CHUNK_SECTIONS>, PlotLoadError> {
+impl PlotData {
+    pub fn load_from_file(path: impl AsRef<Path>) -> Result<PlotData, PlotLoadError> {
         let mut file = File::open(&path)?;
 
         let mut magic = [0; 8];

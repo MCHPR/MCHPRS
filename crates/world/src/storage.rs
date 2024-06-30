@@ -1,17 +1,16 @@
-use crate::plot::{PLOT_BLOCK_HEIGHT, PLOT_SECTIONS};
-use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
-use mchprs_save_data::plot_data::{ChunkData, ChunkSectionData};
-
-use mchprs_network::packets::clientbound::{
-    CChunkData, CChunkDataBlockEntity, CChunkDataSection, CUpdateSectionBlocks,
-    CUpdateSectionBlocksRecord, ClientBoundPacket,
-};
-use mchprs_network::packets::{PacketEncoder, PalettedContainer};
 use rustc_hash::FxHashMap;
-use std::convert::TryInto;
 use std::mem;
+
+#[cfg(feature = "networking")]
+use mchprs_network::packets::{
+    clientbound::{
+        CChunkData, CChunkDataBlockEntity, CChunkDataSection, CUpdateSectionBlocks,
+        CUpdateSectionBlocksRecord, ClientBoundPacket,
+    },
+    PacketEncoder, PalettedContainer,
+};
 
 #[derive(Clone)]
 pub struct BitBuffer {
@@ -248,11 +247,33 @@ pub struct ChunkSection {
 }
 
 impl ChunkSection {
+    pub fn from_raw(
+        data: Vec<u64>,
+        bits_per_block: u8,
+        palette: Vec<u32>,
+        block_count: u32,
+    ) -> ChunkSection {
+        let entries = 16 * 16 * 16;
+        let buffer = PalettedBitBuffer::load(entries, bits_per_block, data, palette, 9);
+        ChunkSection {
+            buffer,
+            block_count,
+            multi_block: CUpdateSectionBlocks {
+                chunk_x: 0,
+                chunk_y: 0,
+                chunk_z: 0,
+                records: Vec::new(),
+            },
+            changed_blocks: [-1; 16 * 16 * 16],
+            changed: false,
+        }
+    }
+
     fn get_index(x: u32, y: u32, z: u32) -> usize {
         ((y << 8) | (z << 4) | x) as usize
     }
 
-    fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
+    pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
         let idx = ChunkSection::get_index(x, y, z);
         if self.changed_blocks[idx] >= 0 {
             self.changed_blocks[idx] as u32
@@ -262,7 +283,7 @@ impl ChunkSection {
     }
 
     /// Sets a block in the chunk sections. Returns true if a block was changed.
-    fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) -> bool {
+    pub fn set_block(&mut self, x: u32, y: u32, z: u32, block: u32) -> bool {
         let old_block = self.get_block(x, y, z);
         if old_block == 0 && block != 0 {
             self.block_count += 1;
@@ -278,61 +299,20 @@ impl ChunkSection {
         changed
     }
 
-    fn load(data: Option<ChunkSectionData>) -> ChunkSection {
-        let data = match data {
-            Some(data) => data,
-            None => return Default::default(),
-        };
-
-        let loaded_longs = data.data.into_iter().map(|x| x as u64).collect();
-        let bits_per_entry = data.bits_per_block as u8;
-        let palette = data.palette.into_iter().map(|x| x as u32).collect();
-        let buffer =
-            PalettedBitBuffer::load(data.entries, bits_per_entry, loaded_longs, palette, 9);
-        ChunkSection {
-            buffer,
-            block_count: data.block_count as u32,
-            multi_block: CUpdateSectionBlocks {
-                chunk_x: 0,
-                chunk_y: 0,
-                chunk_z: 0,
-                records: Vec::new(),
-            },
-            changed_blocks: [-1; 16 * 16 * 16],
-            changed: false,
-        }
+    pub fn data(&self) -> &[u64] {
+        &self.buffer.data.longs
     }
 
-    fn save(&mut self) -> Option<ChunkSectionData> {
-        self.flush();
-        if self.buffer.use_palette && self.buffer.palette.len() == 1 && self.buffer.palette[0] == 0
-        {
-            // chunk section is completely air
-            return None;
-        }
+    pub fn palette(&self) -> &[u32] {
+        &self.buffer.palette
+    }
 
-        let longs: Vec<i64> = self
-            .buffer
-            .data
-            .longs
-            .clone()
-            .into_iter()
-            .map(|x| x as i64)
-            .collect();
-        let palette: Vec<i32> = self
-            .buffer
-            .palette
-            .clone()
-            .into_iter()
-            .map(|x| x as i32)
-            .collect();
-        Some(ChunkSectionData {
-            data: longs,
-            palette,
-            bits_per_block: self.buffer.data.bits_per_entry as i8,
-            block_count: self.block_count as i32,
-            entries: self.buffer.entries(),
-        })
+    pub fn bits_per_block(&self) -> u8 {
+        self.buffer.data.bits_per_entry as u8
+    }
+
+    pub fn block_count(&self) -> u32 {
+        self.block_count
     }
 
     fn compress(&mut self) {
@@ -386,10 +366,6 @@ impl ChunkSection {
         }
         &self.multi_block
     }
-
-    pub fn block_count(&self) -> u32 {
-        self.block_count
-    }
 }
 
 impl Default for ChunkSection {
@@ -410,7 +386,7 @@ impl Default for ChunkSection {
 }
 
 pub struct Chunk {
-    pub sections: [ChunkSection; PLOT_SECTIONS],
+    pub sections: Vec<ChunkSection>,
     pub x: i32,
     pub z: i32,
     pub block_entities: FxHashMap<BlockPos, BlockEntity>,
@@ -418,11 +394,11 @@ pub struct Chunk {
 
 impl Chunk {
     pub fn encode_packet(&self) -> PacketEncoder {
+        let block_height = self.sections.len() * 16;
         // Integer arithmetic trick: ceil(log2(x)) can be calculated with 32 - (x - 1).leading_zeros().
         // See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
-        const HEIGHTMAP_BITS: u8 =
-            (32 - ((PLOT_BLOCK_HEIGHT as u32 + 1) - 1).leading_zeros()) as u8;
-        let mut heightmap_buffer = BitBuffer::create(HEIGHTMAP_BITS, 16 * 16);
+        let heightmap_bits = (32 - ((block_height as u32 + 1) - 1).leading_zeros()) as u8;
+        let mut heightmap_buffer = BitBuffer::create(heightmap_bits, 16 * 16);
         for x in 0..16 {
             for z in 0..16 {
                 heightmap_buffer
@@ -466,9 +442,9 @@ impl Chunk {
         .encode()
     }
 
-    pub fn encode_empty_packet(x: i32, z: i32) -> PacketEncoder {
+    pub fn encode_empty_packet(x: i32, z: i32, num_sections: usize) -> PacketEncoder {
         CChunkData {
-            chunk_sections: (0..PLOT_SECTIONS)
+            chunk_sections: (0..num_sections)
                 .map(|_| CChunkDataSection {
                     block_count: 0,
                     block_states: PalettedContainer {
@@ -531,42 +507,15 @@ impl Chunk {
         self.block_entities.insert(pos, block_entity);
     }
 
-    pub fn save(&mut self) -> ChunkData<PLOT_SECTIONS> {
-        ChunkData {
-            sections: self
-                .sections
-                .iter_mut()
-                .map(|s| s.save())
-                .collect_vec()
-                .try_into()
-                .unwrap(),
-            block_entities: self.block_entities.clone(),
-        }
-    }
-
-    pub fn load(x: i32, z: i32, chunk_data: ChunkData<PLOT_SECTIONS>) -> Chunk {
-        Chunk {
-            x,
-            z,
-            sections: IntoIterator::into_iter(chunk_data.sections)
-                .map(ChunkSection::load)
-                .collect_vec()
-                .try_into()
-                .map_err(|_| ())
-                .unwrap(),
-            block_entities: chunk_data.block_entities,
-        }
-    }
-
     pub fn compress(&mut self) {
         self.sections
             .iter_mut()
             .for_each(|section| section.compress());
     }
 
-    pub fn empty(x: i32, z: i32) -> Chunk {
+    pub fn empty(x: i32, z: i32, num_sections: usize) -> Chunk {
         Chunk {
-            sections: std::array::from_fn(|_| Default::default()),
+            sections: (0..num_sections).map(|_| Default::default()).collect(),
             x,
             z,
             block_entities: FxHashMap::default(),
@@ -589,6 +538,12 @@ impl Chunk {
     pub fn reset_multi_blocks(&mut self) {
         for section in &mut self.sections {
             section.multi_block.records.clear();
+        }
+    }
+
+    pub fn flush(&mut self) {
+        for section in &mut self.sections {
+            section.flush();
         }
     }
 }
