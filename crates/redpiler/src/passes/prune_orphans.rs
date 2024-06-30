@@ -3,8 +3,8 @@
 //! This pass removes any nodes in the graph that aren't transitively connected to an output redstone component by using Depth-First-Search.
 
 use super::Pass;
-use crate::redpiler::compile_graph::CompileGraph;
-use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::compile_graph::CompileGraph;
+use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_world::World;
 use petgraph::Direction;

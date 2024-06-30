@@ -1,12 +1,11 @@
 mod turbo;
 
-use crate::interaction::ActionResult;
 use mchprs_blocks::blocks::{Block, RedstoneWire, RedstoneWireSide};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::World;
 use turbo::RedstoneWireTurbo;
 
-fn make_cross(power: u8) -> RedstoneWire {
+pub fn make_cross(power: u8) -> RedstoneWire {
     RedstoneWire {
         north: RedstoneWireSide::Side,
         south: RedstoneWireSide::Side,
@@ -83,23 +82,23 @@ pub fn on_neighbor_updated(mut wire: RedstoneWire, world: &mut impl World, pos: 
     }
 }
 
-pub fn on_use(wire: RedstoneWire, world: &mut impl World, pos: BlockPos) -> ActionResult {
-    if is_dot(wire) || is_cross(wire) {
-        let mut new_wire = if is_cross(wire) {
-            RedstoneWire::default()
-        } else {
-            make_cross(0)
-        };
-        new_wire.power = wire.power;
-        new_wire = get_regulated_sides(new_wire, world, pos);
-        if wire != new_wire {
-            world.set_block(pos, Block::RedstoneWire { wire: new_wire });
-            super::update_wire_neighbors(world, pos);
-            return ActionResult::Success;
-        }
-    }
-    ActionResult::Pass
-}
+// pub fn on_use(wire: RedstoneWire, world: &mut impl World, pos: BlockPos) -> ActionResult {
+//     if is_dot(wire) || is_cross(wire) {
+//         let mut new_wire = if is_cross(wire) {
+//             RedstoneWire::default()
+//         } else {
+//             make_cross(0)
+//         };
+//         new_wire.power = wire.power;
+//         new_wire = get_regulated_sides(new_wire, world, pos);
+//         if wire != new_wire {
+//             world.set_block(pos, Block::RedstoneWire { wire: new_wire });
+//             super::update_wire_neighbors(world, pos);
+//             return ActionResult::Success;
+//         }
+//     }
+//     ActionResult::Pass
+// }
 
 fn can_connect_to(block: Block, side: BlockDirection) -> bool {
     match block {
@@ -193,14 +192,14 @@ pub fn get_regulated_sides(wire: RedstoneWire, world: &impl World, pos: BlockPos
     state
 }
 
-pub(crate) fn is_dot(wire: RedstoneWire) -> bool {
+pub fn is_dot(wire: RedstoneWire) -> bool {
     wire.north == RedstoneWireSide::None
         && wire.south == RedstoneWireSide::None
         && wire.east == RedstoneWireSide::None
         && wire.west == RedstoneWireSide::None
 }
 
-pub(crate) fn is_cross(wire: RedstoneWire) -> bool {
+pub fn is_cross(wire: RedstoneWire) -> bool {
     wire.north == RedstoneWireSide::Side
         && wire.south == RedstoneWireSide::Side
         && wire.east == RedstoneWireSide::Side

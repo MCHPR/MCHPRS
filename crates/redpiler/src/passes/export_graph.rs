@@ -1,8 +1,6 @@
 use super::Pass;
-use crate::redpiler::compile_graph::{
-    CompileGraph, LinkType as CLinkType, NodeIdx, NodeType as CNodeType,
-};
-use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::compile_graph::{CompileGraph, LinkType as CLinkType, NodeIdx, NodeType as CNodeType};
+use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode as CComparatorMode;
 use mchprs_world::World;

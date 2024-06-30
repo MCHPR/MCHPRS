@@ -5,10 +5,10 @@
 //! and then merging into only one comparator, each with again distances 0 counting to 14.
 
 use super::Pass;
-use crate::redpiler::compile_graph::{
+use crate::compile_graph::{
     Annotations, CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeType,
 };
-use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;

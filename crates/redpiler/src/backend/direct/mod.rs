@@ -6,14 +6,13 @@ mod tick;
 mod update;
 
 use super::JITBackend;
-use crate::redpiler::compile_graph::CompileGraph;
-use crate::redpiler::task_monitor::TaskMonitor;
-use crate::redpiler::{block_powered_mut, CompilerOptions};
-use crate::redstone::bool_to_ss;
-use crate::redstone::noteblock;
+use crate::compile_graph::CompileGraph;
+use crate::task_monitor::TaskMonitor;
+use crate::{block_powered_mut, CompilerOptions};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
+use mchprs_redstone::{bool_to_ss, noteblock};
 use mchprs_world::World;
 use mchprs_world::{TickEntry, TickPriority};
 use node::{Node, NodeId, NodeType, Nodes};

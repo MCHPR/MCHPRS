@@ -1264,13 +1264,14 @@ dependencies = [
  "byteorder",
  "chrono",
  "ctrlc",
- "enum_dispatch",
  "hematite-nbt",
  "impls",
  "itertools",
  "mchprs_blocks",
  "mchprs_network",
  "mchprs_proc_macros",
+ "mchprs_redpiler",
+ "mchprs_redstone",
  "mchprs_save_data",
  "mchprs_text",
  "mchprs_utils",
@@ -1278,16 +1279,13 @@ dependencies = [
  "md5",
  "mysql",
  "once_cell",
- "petgraph",
  "rand",
- "redpiler_graph",
  "regex",
  "reqwest",
  "rusqlite",
  "rustc-hash",
  "serde",
  "serde_json",
- "smallvec",
  "tokio",
  "toml 0.7.3",
  "toml_edit",
@@ -1313,6 +1311,33 @@ version = "0.4.1"
 dependencies = [
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "mchprs_redpiler"
+version = "0.1.0"
+dependencies = [
+ "enum_dispatch",
+ "itertools",
+ "mchprs_blocks",
+ "mchprs_redstone",
+ "mchprs_world",
+ "petgraph",
+ "redpiler_graph",
+ "rustc-hash",
+ "serde_json",
+ "smallvec",
+ "tracing",
+]
+
+[[package]]
+name = "mchprs_redstone"
+version = "0.1.0"
+dependencies = [
+ "mchprs_blocks",
+ "mchprs_world",
+ "rustc-hash",
+ "tracing",
 ]
 
 [[package]]
@@ -1681,12 +1706,12 @@ checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 
 [[package]]
 name = "petgraph"
-version = "0.6.3"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dd7d28ee937e54fe3080c91faa1c3a46c06de6252988a7f4592ba2310ef22a4"
+checksum = "b4c5cc86750666a3ed20bdaf5ca2a0344f9c67674cae0515bec2da16fbaa47db"
 dependencies = [
  "fixedbitset",
- "indexmap 1.9.3",
+ "indexmap 2.1.0",
 ]
 
 [[package]]

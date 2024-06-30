@@ -9,10 +9,9 @@ pub mod worldedit;
 use crate::config::CONFIG;
 use crate::interaction::UseOnBlockContext;
 use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
-use crate::redpiler::{Compiler, CompilerOptions};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
-use crate::{interaction, redstone, utils};
+use crate::{interaction, utils};
 use anyhow::Error;
 use bus::BusReader;
 use mchprs_blocks::block_entities::BlockEntity;
@@ -22,6 +21,7 @@ use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::serverbound::SUseItemOn;
 use mchprs_network::PlayerPacketSender;
+use mchprs_redpiler::{Compiler, CompilerOptions};
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use mchprs_text::TextComponent;
 use mchprs_world::storage::Chunk;
@@ -284,7 +284,7 @@ impl Plot {
         }
         while self.world.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
             let entry = self.world.to_be_ticked.remove(0);
-            redstone::tick(self.world.get_block(entry.pos), &mut self.world, entry.pos);
+            mchprs_redstone::tick(self.world.get_block(entry.pos), &mut self.world, entry.pos);
         }
     }
 
@@ -353,8 +353,11 @@ impl Plot {
             Block::StonePressurePlate { .. } => {
                 self.world
                     .set_block(pos, Block::StonePressurePlate { powered });
-                redstone::update_surrounding_blocks(&mut self.world, pos);
-                redstone::update_surrounding_blocks(&mut self.world, pos.offset(BlockFace::Bottom));
+                mchprs_redstone::update_surrounding_blocks(&mut self.world, pos);
+                mchprs_redstone::update_surrounding_blocks(
+                    &mut self.world,
+                    pos.offset(BlockFace::Bottom),
+                );
             }
             _ => warn!("Block at {} is not a pressure plate", pos),
         }

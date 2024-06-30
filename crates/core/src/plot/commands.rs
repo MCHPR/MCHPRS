@@ -2,7 +2,6 @@ use super::{database, worldedit, Plot, PlotWorld};
 use crate::player::{Gamemode, PacketSender, PlayerPos};
 use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
-use crate::redpiler::CompilerOptions;
 use crate::server::Message;
 use bitflags::_core::i32::MAX;
 use mchprs_blocks::items::ItemStack;
@@ -11,6 +10,7 @@ use mchprs_network::packets::clientbound::{
 };
 use mchprs_network::packets::PacketEncoder;
 use mchprs_network::PlayerPacketSender;
+use mchprs_redpiler::CompilerOptions;
 use mchprs_save_data::plot_data::{Tps, WorldSendRate};
 use mchprs_text::TextComponent;
 use once_cell::sync::Lazy;
@@ -279,11 +279,12 @@ impl Plot {
                 if args.is_empty() {
                     let report = self.timings.generate_report();
                     if let Some(report) = report {
-                        self.players[player]
-                            .send_chat_message(&TextComponent::from_legacy_text(&format!(
+                        self.players[player].send_chat_message(&TextComponent::from_legacy_text(
+                            &format!(
                             "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
                             report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
-                        )));
+                        ),
+                        ));
                     } else {
                         self.players[player].send_chat_message(&TextComponent::from_legacy_text(
                             &format!("&6No timings data. &a({})", self.tps),

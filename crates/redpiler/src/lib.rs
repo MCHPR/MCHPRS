@@ -4,14 +4,12 @@ mod task_monitor;
 // mod debug_graph;
 mod passes;
 
-use crate::redpiler::passes::make_default_pass_manager;
-use crate::redstone;
-use backend::BackendDispatcher;
-use backend::JITBackend;
+use backend::{BackendDispatcher, JITBackend};
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
 use mchprs_world::{for_each_block_mut_optimized, World};
+use passes::make_default_pass_manager;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
@@ -180,7 +178,7 @@ impl Compiler {
             let (first_pos, second_pos) = bounds;
             for_each_block_mut_optimized(world, first_pos, second_pos, |world, pos| {
                 let block = world.get_block(pos);
-                redstone::update(block, world, pos);
+                mchprs_redstone::update(block, world, pos);
             });
         }
         self.options = Default::default();

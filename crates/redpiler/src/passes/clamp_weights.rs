@@ -1,6 +1,6 @@
 use super::Pass;
-use crate::redpiler::compile_graph::CompileGraph;
-use crate::redpiler::{CompilerInput, CompilerOptions};
+use crate::compile_graph::CompileGraph;
+use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 
 pub struct ClampWeights;
