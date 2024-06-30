@@ -386,7 +386,7 @@ impl Player {
 
     /// Sends the `ChatMessage` packet containing the raw text component
     /// Position 0: chat (chat box)
-    pub fn send_raw_chat(&self, sender: u128, message: TextComponent) {
+    pub fn send_raw_chat(&self, message: TextComponent) {
         let chat_message = CSystemChatMessage {
             content: message,
             overlay: false,
@@ -396,10 +396,10 @@ impl Player {
     }
 
     /// Sends a raw chat message to the player
-    pub fn send_chat_message(&self, sender: u128, message: &[TextComponent]) {
+    pub fn send_chat_message(&self, message: &[TextComponent]) {
         let mut component: TextComponent = Default::default();
         component.extra = message.to_vec();
-        self.send_raw_chat(sender, component);
+        self.send_raw_chat(component);
     }
 
     pub fn send_no_permission_message(&self) {

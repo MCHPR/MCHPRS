@@ -313,7 +313,7 @@ impl Plot {
 
     pub fn broadcast_plot_chat_message(&mut self, message: &str) {
         for player in &mut self.players {
-            player.send_chat_message(0, &TextComponent::from_legacy_text(message));
+            player.send_chat_message(&TextComponent::from_legacy_text(message));
         }
     }
 
@@ -871,9 +871,9 @@ impl Plot {
     fn handle_messages(&mut self) {
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
-                BroadcastMessage::Chat(sender, message) => {
+                BroadcastMessage::Chat(_sender, message) => {
                     for player in &mut self.players {
-                        player.send_chat_message(sender, &message);
+                        player.send_chat_message(&message);
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
