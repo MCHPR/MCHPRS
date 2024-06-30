@@ -3,9 +3,9 @@ use crate::redpiler::compile_graph::{
     CompileGraph, LinkType as CLinkType, NodeIdx, NodeType as CNodeType,
 };
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::world::World;
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode as CComparatorMode;
+use mchprs_world::World;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use redpiler_graph::{

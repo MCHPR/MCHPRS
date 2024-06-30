@@ -10,7 +10,7 @@ mod input_search;
 mod prune_orphans;
 mod unreachable_output;
 
-use crate::world::World;
+use mchprs_world::World;
 
 use super::compile_graph::CompileGraph;
 use super::task_monitor::TaskMonitor;

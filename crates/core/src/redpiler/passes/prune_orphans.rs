@@ -5,8 +5,8 @@
 use super::Pass;
 use crate::redpiler::compile_graph::CompileGraph;
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::world::World;
 use itertools::Itertools;
+use mchprs_world::World;
 use petgraph::Direction;
 use rustc_hash::FxHashSet;
 

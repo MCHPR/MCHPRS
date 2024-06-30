@@ -1,8 +1,7 @@
-use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ComparatorMode, RedstoneComparator};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
-use mchprs_world::TickPriority;
+use mchprs_world::{TickPriority, World};
 use tracing::warn;
 
 fn get_power_on_side(world: &impl World, pos: BlockPos, side: BlockDirection) -> u8 {

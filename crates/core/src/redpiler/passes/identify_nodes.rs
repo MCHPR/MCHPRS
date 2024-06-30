@@ -13,11 +13,11 @@ use crate::redpiler::compile_graph::{
 };
 use crate::redpiler::{CompilerInput, CompilerOptions};
 use crate::redstone::{self, comparator, noteblock};
-use crate::world::{for_each_block_optimized, World};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_world::{for_each_block_optimized, World};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
 use tracing::warn;

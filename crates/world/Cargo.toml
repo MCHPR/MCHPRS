@@ -8,3 +8,11 @@ edition = "2021"
 [dependencies]
 serde = "1"
 mchprs_blocks = { path = "../blocks" }
+mchprs_network = { path = "../network", optional = true }
+rustc-hash = "1.1"
+hematite-nbt = "0.5"
+itertools = "0.10"
+
+[features]
+default = ["networking"]
+networking = ["dep:mchprs_network"]

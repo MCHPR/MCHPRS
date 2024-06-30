@@ -3,12 +3,12 @@
 
 use super::WorldEditClipboard;
 use crate::server::MC_DATA_VERSION;
-use crate::world::storage::PalettedBitBuffer;
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
+use mchprs_world::storage::PalettedBitBuffer;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use rustc_hash::FxHashMap;

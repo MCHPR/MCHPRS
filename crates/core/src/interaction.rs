@@ -2,15 +2,13 @@ use crate::config::CONFIG;
 use crate::player::Player;
 use crate::plot::PlotWorld;
 use crate::plot::PLOT_BLOCK_HEIGHT;
-use crate::redstone;
-use crate::redstone::noteblock;
-use crate::world::World;
+use crate::redstone::{self, noteblock};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::*;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos, SignType};
 use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
-use mchprs_world::TickPriority;
+use mchprs_world::{TickPriority, World};
 
 pub fn on_use(
     block: Block,

@@ -7,11 +7,11 @@ pub mod noteblock;
 pub mod repeater;
 pub mod wire;
 
-use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
+use mchprs_world::World;
 
 pub fn bool_to_ss(b: bool) -> u8 {
     match b {

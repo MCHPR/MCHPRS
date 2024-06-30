@@ -1,7 +1,6 @@
-use crate::world::World;
 use mchprs_blocks::blocks::{Block, RedstoneRepeater};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
-use mchprs_world::TickPriority;
+use mchprs_world::{TickPriority, World};
 
 pub fn get_state_for_placement(
     world: &impl World,

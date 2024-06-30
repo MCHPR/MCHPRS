@@ -9,9 +9,9 @@ use crate::redpiler::compile_graph::{
     Annotations, CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeType,
 };
 use crate::redpiler::{CompilerInput, CompilerOptions};
-use crate::world::World;
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode;
+use mchprs_world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
 

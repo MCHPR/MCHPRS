@@ -5,10 +5,9 @@ use std::sync::Arc;
 use super::compile_graph::CompileGraph;
 use super::task_monitor::TaskMonitor;
 use super::CompilerOptions;
-use crate::world::World;
 use enum_dispatch::enum_dispatch;
 use mchprs_blocks::BlockPos;
-use mchprs_world::TickEntry;
+use mchprs_world::{TickEntry, World};
 
 #[enum_dispatch]
 pub trait JITBackend {

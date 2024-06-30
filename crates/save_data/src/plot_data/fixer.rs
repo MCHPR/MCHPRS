@@ -13,9 +13,6 @@ use std::fs;
 use std::path::Path;
 use tracing::debug;
 
-mod pre_header;
-mod pre_worldsendrate;
-
 #[derive(Debug)]
 pub enum FixInfo {
     InvalidHeader,
@@ -38,20 +35,12 @@ fn make_backup(path: impl AsRef<Path>) -> Result<(), PlotLoadError> {
     Ok(())
 }
 
-pub fn try_fix<const NUM_SECTIONS: usize>(
-    path: impl AsRef<Path>,
-    info: FixInfo,
-) -> Result<Option<PlotData<NUM_SECTIONS>>, PlotLoadError> {
+pub fn try_fix(path: impl AsRef<Path>, info: FixInfo) -> Result<Option<PlotData>, PlotLoadError> {
     debug!("Trying to fix plot with {:?}", info);
-    let result = match info {
-        FixInfo::InvalidHeader => {
-            let data = fs::read(&path)?;
-            pre_header::try_fix(&data)
-        }
-        FixInfo::OldVersion { version: 0 } => {
-            let data = fs::read(&path)?;
-            pre_worldsendrate::try_fix(&data)
-        }
+    let result: Option<PlotData> = match info {
+        FixInfo::OldVersion {
+            version: version @ 0..=1,
+        } => return Err(PlotLoadError::ConversionUnavailable(version)),
         _ => None,
     };
 

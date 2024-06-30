@@ -6,12 +6,12 @@ mod passes;
 
 use crate::redpiler::passes::make_default_pass_manager;
 use crate::redstone;
-use crate::world::{for_each_block_mut_optimized, World};
 use backend::BackendDispatcher;
 use backend::JITBackend;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
+use mchprs_world::{for_each_block_mut_optimized, World};
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
