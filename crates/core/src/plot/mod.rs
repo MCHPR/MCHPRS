@@ -42,7 +42,7 @@ use self::data::sleep_time_for_tps;
 use self::scoreboard::Scoreboard;
 
 /// The width of a plot (2^n)
-pub const PLOT_SCALE: u32 = 4;
+pub const PLOT_SCALE: u32 = 5;
 
 /// The width of a plot counted in chunks
 pub const PLOT_WIDTH: i32 = 2i32.pow(PLOT_SCALE);
