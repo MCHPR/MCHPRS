@@ -847,7 +847,7 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
         }
     }
 
-    player.send_chat_message(0, &message);
+    player.send_chat_message(&message);
 }
 
 pub(super) fn execute_up(ctx: CommandExecuteContext<'_>) {
