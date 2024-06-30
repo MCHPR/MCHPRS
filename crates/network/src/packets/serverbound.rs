@@ -198,9 +198,9 @@ impl ServerBoundPacket for SAcknowledgeFinishConfiguration {
 }
 
 #[derive(Debug)]
-struct SChatCommandArgumentSignature {
-    argument_name: String,
-    signature: Vec<u8>,
+pub struct SChatCommandArgumentSignature {
+    pub argument_name: String,
+    pub signature: Vec<u8>,
 }
 
 #[derive(Debug)]
