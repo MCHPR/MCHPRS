@@ -3,19 +3,19 @@ use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
-use toml_edit::{value, Document};
+use toml_edit::{value, DocumentMut};
 
 pub static CONFIG: Lazy<ServerConfig> = Lazy::new(|| ServerConfig::load("Config.toml"));
 
 trait ConfigSerializeDefault {
-    fn fix_config(self, name: &str, doc: &mut Document);
+    fn fix_config(self, name: &str, doc: &mut DocumentMut);
 }
 
 macro_rules! impl_simple_default {
     ( $( $type:ty ),* ) => {
         $(
             impl ConfigSerializeDefault for $type {
-                fn fix_config(self, name: &str, doc: &mut Document) {
+                fn fix_config(self, name: &str, doc: &mut DocumentMut) {
                     doc.entry(name).or_insert_with(|| value(self));
                 }
             }
@@ -26,7 +26,7 @@ macro_rules! impl_simple_default {
 impl_simple_default!(String, i64, bool);
 
 impl<T> ConfigSerializeDefault for Option<T> {
-    fn fix_config(self, _: &str, _: &mut Document) {
+    fn fix_config(self, _: &str, _: &mut DocumentMut) {
         assert!(matches!(self, None), "`Some` as default is unimplemented");
     }
 }
@@ -45,7 +45,7 @@ macro_rules! gen_config {
         impl ServerConfig {
             fn load(config_file: &str) -> ServerConfig {
                 let str = fs::read_to_string("Config.toml").unwrap_or_default();
-                let mut doc = str.parse::<Document>().unwrap();
+                let mut doc = str.parse::<DocumentMut>().unwrap();
 
                 $(
                     <$type as ConfigSerializeDefault>::fix_config($default, stringify!($name), &mut doc);

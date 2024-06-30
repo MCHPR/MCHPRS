@@ -3,7 +3,6 @@ use crate::player::{Gamemode, PacketSender, PlayerPos};
 use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
 use crate::server::Message;
-use bitflags::_core::i32::MAX;
 use mchprs_blocks::items::ItemStack;
 use mchprs_network::packets::clientbound::{
     CCommands, CCommandsNode as Node, CDeclareCommandsNodeParser as Parser, ClientBoundPacket,
@@ -77,7 +76,7 @@ impl Plot {
             }
             "auto" | "a" => {
                 let mut start = (0, 0);
-                for _ in 0..MAX {
+                for _ in 0..i32::MAX {
                     if database::is_claimed(start.0, start.1).unwrap() {
                         start = Plot::get_next_plot(start.0, start.1);
                     } else {
