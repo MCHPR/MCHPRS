@@ -16,9 +16,9 @@ repository.workspace = true
 serde = "1"
 mchprs_blocks = { path = "../blocks" }
 mchprs_network = { path = "../network", optional = true }
-rustc-hash = "1.1"
+rustc-hash = "2.0"
 hematite-nbt = "0.5"
-itertools = "0.10"
+itertools = "0.13"
 
 [features]
 default = ["networking"]

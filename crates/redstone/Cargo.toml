@@ -9,4 +9,4 @@ edition = "2021"
 mchprs_blocks = { path = "../blocks" }
 mchprs_world = { path = "../world" }
 tracing = "0.1"
-rustc-hash = "1.1"
+rustc-hash = "2.0"
