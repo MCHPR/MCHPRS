@@ -1254,6 +1254,8 @@ impl Plot {
                 thread::yield_now();
             }
         }
+
+        self.save();
     }
 
     /// This function is used in case of an error. It will try to send the player to spawn if this isn't already a spawn plot.
