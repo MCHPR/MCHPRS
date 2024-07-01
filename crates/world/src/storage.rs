@@ -219,6 +219,7 @@ impl PalettedBitBuffer {
         self.data.entries
     }
 
+    #[cfg(feature = "networking")]
     fn encode_packet(&self) -> PalettedContainer {
         if self.use_palette && self.palette.len() == 1 {
             PalettedContainer {
@@ -241,6 +242,7 @@ impl PalettedBitBuffer {
 pub struct ChunkSection {
     buffer: PalettedBitBuffer,
     block_count: u32,
+    #[cfg(feature = "networking")]
     multi_block: CUpdateSectionBlocks,
     changed_blocks: [i16; 16 * 16 * 16],
     changed: bool,
@@ -258,6 +260,7 @@ impl ChunkSection {
         ChunkSection {
             buffer,
             block_count,
+            #[cfg(feature = "networking")]
             multi_block: CUpdateSectionBlocks {
                 chunk_x: 0,
                 chunk_y: 0,
@@ -323,6 +326,7 @@ impl ChunkSection {
         self.buffer = new_buffer;
     }
 
+    #[cfg(feature = "networking")]
     fn encode_packet(&self) -> CChunkDataSection {
         CChunkDataSection {
             block_count: self.block_count as i16,
@@ -345,6 +349,7 @@ impl ChunkSection {
         }
     }
 
+    #[cfg(feature = "networking")]
     fn multi_block(&mut self, chunk_x: i32, chunk_y: u32, chunk_z: i32) -> &CUpdateSectionBlocks {
         self.multi_block.chunk_x = chunk_x;
         self.multi_block.chunk_y = chunk_y;
@@ -373,6 +378,7 @@ impl Default for ChunkSection {
         ChunkSection {
             buffer: PalettedBitBuffer::new(4096, 9),
             block_count: 0,
+            #[cfg(feature = "networking")]
             multi_block: CUpdateSectionBlocks {
                 chunk_x: 0,
                 chunk_y: 0,
@@ -393,6 +399,7 @@ pub struct Chunk {
 }
 
 impl Chunk {
+    #[cfg(feature = "networking")]
     pub fn encode_packet(&self) -> PacketEncoder {
         let block_height = self.sections.len() * 16;
         // Integer arithmetic trick: ceil(log2(x)) can be calculated with 32 - (x - 1).leading_zeros().
@@ -442,6 +449,7 @@ impl Chunk {
         .encode()
     }
 
+    #[cfg(feature = "networking")]
     pub fn encode_empty_packet(x: i32, z: i32, num_sections: usize) -> PacketEncoder {
         CChunkData {
             chunk_sections: (0..num_sections)
@@ -467,6 +475,7 @@ impl Chunk {
         .encode()
     }
 
+    #[cfg(feature = "networking")]
     fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
         let mut top_most = 0;
         for (section_y, section) in self.sections.iter().enumerate() {
@@ -522,6 +531,7 @@ impl Chunk {
         }
     }
 
+    #[cfg(feature = "networking")]
     pub fn multi_blocks(&mut self) -> impl Iterator<Item = &CUpdateSectionBlocks> {
         let x = self.x;
         let z = self.z;
@@ -535,6 +545,7 @@ impl Chunk {
             })
     }
 
+    #[cfg(feature = "networking")]
     pub fn reset_multi_blocks(&mut self) {
         for section in &mut self.sections {
             section.multi_block.records.clear();
