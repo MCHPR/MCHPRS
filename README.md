@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/MCHPR/MCHPRS.svg?branch=master)](https://travis-ci.org/MCHPR/MCHPRS) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Discord Banner 2](https://discordapp.com/api/guilds/724072903083163679/widget.png)](https://discord.com/invite/svK9JU7)
 
-A Minecraft 1.18.2 creative server built for redstone. Each 256x256 plot runs on a separate thread, allowing for less lag, more concurrency, and many awesome extra features!
+A Minecraft 1.20.4 creative server built for redstone. Each 256x256 plot runs on a separate thread, allowing for less lag, more concurrency, and many awesome extra features!
 
 MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
@@ -104,6 +104,7 @@ These are the commands that are currently implemented:
 | `/plot tp [x] [z]` | None | Teleports you to the plot at `[x] [y]`. Supports relative coordinates. |
 | `/plot lock` | None | Locks the player into the plot so moving outside of the plot bounds does not transfer you to other plots. |
 | `/plot unlock` | None | Reverses the locking done by `/plot lock`. |
+| `/plot select` | `/p sel` | Uses WorldEdit to select the entire plot. |
 
 ### Worldedit
 MCHPRS provides its own implementation of [WorldEdit](https://github.com/EngineHub/WorldEdit). Visit their [documentation](https://worldedit.enginehub.org/en/latest/commands/) for more information.

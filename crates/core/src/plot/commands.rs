@@ -1,19 +1,17 @@
 use super::{database, worldedit, Plot, PlotWorld};
-use crate::chat::ChatComponent;
 use crate::player::{Gamemode, PacketSender, PlayerPos};
 use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
-use crate::redpiler::CompilerOptions;
 use crate::server::Message;
-use bitflags::_core::i32::MAX;
 use mchprs_blocks::items::ItemStack;
 use mchprs_network::packets::clientbound::{
-    CDeclareCommands, CDeclareCommandsNode as Node, CDeclareCommandsNodeParser as Parser,
-    ClientBoundPacket,
+    CCommands, CCommandsNode as Node, CDeclareCommandsNodeParser as Parser, ClientBoundPacket,
 };
 use mchprs_network::packets::PacketEncoder;
 use mchprs_network::PlayerPacketSender;
+use mchprs_redpiler::CompilerOptions;
 use mchprs_save_data::plot_data::{Tps, WorldSendRate};
+use mchprs_text::TextComponent;
 use once_cell::sync::Lazy;
 use std::ops::Add;
 use std::str::FromStr;
@@ -47,6 +45,7 @@ impl Plot {
             "visit" | "v" => "plots.visit",
             "teleport" | "tp" => "plots.visit",
             "lock" | "unlock" => "plots.lock",
+            "sel" | "select" => "plots.select",
             _ => {
                 self.players[player].send_error_message("Invalid argument for /plot");
                 return;
@@ -77,7 +76,7 @@ impl Plot {
             }
             "auto" | "a" => {
                 let mut start = (0, 0);
-                for _ in 0..MAX {
+                for _ in 0..i32::MAX {
                     if database::is_claimed(start.0, start.1).unwrap() {
                         start = Plot::get_next_plot(start.0, start.1);
                     } else {
@@ -163,6 +162,11 @@ impl Plot {
                     self.players[player].send_system_message("You are not locked to this plot.");
                 }
             }
+            "select" | "sel" => {
+                let corners = self.world.get_corners();
+                self.players[player].worldedit_set_first_position(corners.0);
+                self.players[player].worldedit_set_second_position(corners.1);
+            }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
     }
@@ -223,13 +227,13 @@ impl Plot {
         );
 
         // Handle worldedit commands
-        if worldedit::execute_command(self, player, &command[1..], &mut args) {
+        if worldedit::execute_command(self, player, command, &mut args) {
             // If the command was handled, there is no need to continue;
             return false;
         }
 
         match command {
-            "/whitelist" => match args.as_slice() {
+            "whitelist" => match args.as_slice() {
                 ["add", username] => {
                     let username = username.to_string();
                     let sender = self.message_sender.clone();
@@ -270,25 +274,20 @@ impl Plot {
                     return false;
                 }
             },
-            "/rtps" => {
+            "rtps" => {
                 if args.is_empty() {
                     let report = self.timings.generate_report();
                     if let Some(report) = report {
-                        self.players[player].send_chat_message(
-                            0,
-                            &ChatComponent::from_legacy_text(&format!(
-                                "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
-                                report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
-                            )),
-                        );
+                        self.players[player].send_chat_message(&TextComponent::from_legacy_text(
+                            &format!(
+                            "&6RTPS from last 10s, 1m, 5m, 15m: &a{:.1}, {:.1}, {:.1}, {:.1} ({})",
+                            report.ten_s, report.one_m, report.five_m, report.fifteen_m, self.tps
+                        ),
+                        ));
                     } else {
-                        self.players[player].send_chat_message(
-                            0,
-                            &ChatComponent::from_legacy_text(&format!(
-                                "&6No timings data. &a({})",
-                                self.tps
-                            )),
-                        );
+                        self.players[player].send_chat_message(&TextComponent::from_legacy_text(
+                            &format!("&6No timings data. &a({})", self.tps),
+                        ));
                     }
 
                     return false;
@@ -314,7 +313,7 @@ impl Plot {
                 self.reset_timings();
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
-            "/radv" | "/radvance" => {
+            "radv" | "radvance" => {
                 if args.is_empty() {
                     self.players[player]
                         .send_error_message("Please specify a number of ticks to advance.");
@@ -330,13 +329,16 @@ impl Plot {
                 for _ in 0..ticks {
                     self.tick();
                 }
+                if self.redpiler.is_active() {
+                    self.redpiler.flush(&mut self.world);
+                }
                 self.players[player].send_system_message(&format!(
                     "Plot has been advanced by {} ticks ({:?})",
                     ticks,
                     start_time.elapsed()
                 ));
             }
-            "/toggleautorp" => {
+            "toggleautorp" => {
                 self.auto_redpiler = !self.auto_redpiler;
                 if self.auto_redpiler {
                     self.players[player]
@@ -346,7 +348,7 @@ impl Plot {
                         .send_system_message("Automatic redpiler compilation has been disabled.");
                 }
             }
-            "/teleport" | "/tp" => {
+            "teleport" | "tp" => {
                 if args.len() == 3 {
                     let player_pos = self.players[player].pos;
                     let x;
@@ -387,10 +389,10 @@ impl Plot {
                         .send_error_message("Invalid number of arguments for teleport command!");
                 }
             }
-            "/stop" => {
+            "stop" => {
                 let _ = self.message_sender.send(Message::Shutdown);
             }
-            "/plot" | "/p" => {
+            "plot" | "p" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Invalid number of arguments!");
                     return false;
@@ -398,7 +400,7 @@ impl Plot {
                 let command = args.remove(0);
                 self.handle_plot_command(player, command, &args);
             }
-            "/redpiler" | "/rp" => {
+            "redpiler" | "rp" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Invalid number of arguments!");
                     return false;
@@ -406,7 +408,7 @@ impl Plot {
                 let command = args.remove(0);
                 self.handle_redpiler_command(player, command, &args);
             }
-            "/speed" => {
+            "speed" => {
                 if args.len() != 1 {
                     self.players[player].send_error_message("/speed <0-10>");
                     return false;
@@ -439,9 +441,9 @@ impl Plot {
                     self.players[player].send_error_message("Unable to parse speed value");
                 }
             }
-            "/gmsp" => self.change_player_gamemode(player, Gamemode::Spectator),
-            "/gmc" => self.change_player_gamemode(player, Gamemode::Creative),
-            "/gamemode" => {
+            "gmsp" => self.change_player_gamemode(player, Gamemode::Spectator),
+            "gmc" => self.change_player_gamemode(player, Gamemode::Creative),
+            "gamemode" => {
                 if args.is_empty() {
                     self.players[player].send_error_message("Invalid number of arguments!");
                     return false;
@@ -457,7 +459,7 @@ impl Plot {
                 };
                 self.change_player_gamemode(player, gamemode);
             }
-            "/container" => {
+            "container" => {
                 if args.len() != 2 {
                     self.players[player].send_error_message("Usage: /container [type] [power]");
                     return false;
@@ -491,7 +493,7 @@ impl Plot {
                 let slot = 36 + self.players[player].selected_slot;
                 self.players[player].set_inventory_slot(slot, Some(item));
             }
-            "/worldsendrate" | "/wsr" => {
+            "worldsendrate" | "wsr" => {
                 if args.len() != 1 {
                     self.players[player].send_error_message("Usage: /worldsendrate <hertz>");
                     return false;
@@ -538,7 +540,7 @@ bitflags! {
 /// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
 pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
-    CDeclareCommands {
+    CCommands {
         nodes: &[
             // 0: Root Node
             Node {
@@ -600,7 +602,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             // 6: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46, 58, 59],
+                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46, 58, 59, 74, 75],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -1209,6 +1211,24 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 children: &[],
                 redirect_node: Some(71),
                 name: Some("wsr"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 74: /p select
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: &[],
+                redirect_node: None,
+                name: Some("select"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 75: /p sel
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: &[],
+                redirect_node: Some(74),
+                name: Some("sel"),
                 parser: None,
                 suggestions_type: None,
             },

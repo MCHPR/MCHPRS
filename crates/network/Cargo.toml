@@ -12,3 +12,4 @@ serde = "1"
 byteorder = "1.4"
 tracing = "0.1"
 bitvec = "1"
+mchprs_text = { path = "../text" }

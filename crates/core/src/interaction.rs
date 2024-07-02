@@ -2,15 +2,13 @@ use crate::config::CONFIG;
 use crate::player::Player;
 use crate::plot::PlotWorld;
 use crate::plot::PLOT_BLOCK_HEIGHT;
-use crate::redstone;
-use crate::redstone::noteblock;
-use crate::world::World;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::*;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos, SignType};
 use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
-use mchprs_world::TickPriority;
+use mchprs_redstone::{self as redstone, noteblock};
+use mchprs_world::{TickPriority, World};
 
 pub fn on_use(
     block: Block,
@@ -75,7 +73,24 @@ pub fn on_use(
             }
             ActionResult::Success
         }
-        Block::RedstoneWire { wire } => redstone::wire::on_use(wire, world, pos),
+        Block::RedstoneWire { wire } => {
+            use redstone::wire;
+            if wire::is_dot(wire) || wire::is_cross(wire) {
+                let mut new_wire = if wire::is_cross(wire) {
+                    RedstoneWire::default()
+                } else {
+                    wire::make_cross(0)
+                };
+                new_wire.power = wire.power;
+                new_wire = wire::get_regulated_sides(new_wire, world, pos);
+                if wire != new_wire {
+                    world.set_block(pos, Block::RedstoneWire { wire: new_wire });
+                    redstone::update_wire_neighbors(world, pos);
+                    return ActionResult::Success;
+                }
+            }
+            ActionResult::Pass
+        }
         Block::SeaPickle { pickles } => {
             if let Some(Item::SeaPickle {}) = item_in_hand {
                 if pickles < 4 {
@@ -254,6 +269,7 @@ pub fn get_state_for_placement(
         Item::EmeraldBlock {} => Block::EmeraldBlock {},
         Item::HayBlock {} => Block::HayBlock {},
         Item::Sand {} => Block::Sand {},
+        Item::StoneBricks {} => Block::StoneBricks {},
         _ => Block::Air {},
     };
     if is_valid_position(block, world, pos) {
@@ -481,6 +497,8 @@ pub fn use_item_on_block(
                         pos_x: block_pos.x,
                         pos_y: block_pos.y,
                         pos_z: block_pos.z,
+                        // TODO: editing back text
+                        is_front_text: true,
                     }
                     .encode();
                     ctx.player.client.send_packet(&open_sign_editor);

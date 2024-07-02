@@ -6,28 +6,29 @@ mod packet_handlers;
 mod scoreboard;
 pub mod worldedit;
 
-use crate::chat::ChatComponent;
 use crate::config::CONFIG;
+use crate::interaction::UseOnBlockContext;
 use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
-use crate::redpiler::{Compiler, CompilerOptions};
-use crate::redstone;
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
-use crate::world::storage::Chunk;
-use crate::world::World;
-use anyhow::Context;
+use crate::{interaction, utils};
+use anyhow::Error;
 use bus::BusReader;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
+use mchprs_blocks::items::Item;
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::*;
-use mchprs_network::packets::SlotData;
+use mchprs_network::packets::serverbound::SUseItemOn;
 use mchprs_network::PlayerPacketSender;
+use mchprs_redpiler::{Compiler, CompilerOptions};
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
+use mchprs_text::TextComponent;
+use mchprs_world::storage::Chunk;
+use mchprs_world::World;
 use mchprs_world::{TickEntry, TickPriority};
 use monitor::TimingsMonitor;
 use scoreboard::RedpilerState;
-use serde_json::json;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::path::Path;
@@ -41,7 +42,7 @@ use self::data::sleep_time_for_tps;
 use self::scoreboard::Scoreboard;
 
 /// The width of a plot (2^n)
-pub const PLOT_SCALE: u32 = 4;
+pub const PLOT_SCALE: u32 = 5;
 
 /// The width of a plot counted in chunks
 pub const PLOT_WIDTH: i32 = 2i32.pow(PLOT_SCALE);
@@ -49,10 +50,12 @@ pub const PLOT_WIDTH: i32 = 2i32.pow(PLOT_SCALE);
 pub const PLOT_BLOCK_WIDTH: i32 = PLOT_WIDTH * 16;
 pub const NUM_CHUNKS: usize = PLOT_WIDTH.pow(2) as usize;
 
-/// The height of the world in sections (Default: 16, Max: 127)
-pub const PLOT_SECTIONS: usize = 16;
+/// The height of the world in sections (Default: 24, Max: 127)
+pub const PLOT_SECTIONS: usize = 24;
 /// The plot height in blocks
 pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
+
+const ERROR_IO_ONLY: &str = "This plot cannot be interacted with while redpiler is active with `--io-only`. To stop redpiler, run `/redpiler reset`.";
 
 pub struct Plot {
     pub world: PlotWorld,
@@ -201,7 +204,7 @@ impl World for PlotWorld {
                 z: pos.z,
                 // For now the only nbt we send to the client is sign data
                 ty: block_entity.ty(),
-                nbt,
+                nbt: nbt.content,
             }
             .encode();
             for player in &self.packet_senders {
@@ -245,12 +248,17 @@ impl World for PlotWorld {
         // A notchian server would only send to players in hearing distance (volume.clamp(0.0, 1.0) * 16.0)
         let sound_effect_data = CSoundEffect {
             sound_id,
+            sound_name: None,
+            has_fixed_range: None,
+            range: None,
             sound_category,
             x: pos.x * 8 + 4,
             y: pos.y * 8 + 4,
             z: pos.z * 8 + 4,
             volume,
             pitch,
+            // FIXME: How do we decide this?
+            seed: 0,
         }
         .encode();
 
@@ -276,13 +284,13 @@ impl Plot {
         }
         while self.world.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
             let entry = self.world.to_be_ticked.remove(0);
-            redstone::tick(self.world.get_block(entry.pos), &mut self.world, entry.pos);
+            mchprs_redstone::tick(self.world.get_block(entry.pos), &mut self.world, entry.pos);
         }
     }
 
     /// Send a block change to all connected players
     pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
-        let block_change = CBlockChange {
+        let block_change = CBlockUpdate {
             block_id: id as i32,
             x: pos.x,
             y: pos.y,
@@ -305,7 +313,7 @@ impl Plot {
 
     pub fn broadcast_plot_chat_message(&mut self, message: &str) {
         for player in &mut self.players {
-            player.send_chat_message(0, &ChatComponent::from_legacy_text(message));
+            player.send_chat_message(&TextComponent::from_legacy_text(message));
         }
     }
 
@@ -345,8 +353,11 @@ impl Plot {
             Block::StonePressurePlate { .. } => {
                 self.world
                     .set_block(pos, Block::StonePressurePlate { powered });
-                redstone::update_surrounding_blocks(&mut self.world, pos);
-                redstone::update_surrounding_blocks(&mut self.world, pos.offset(BlockFace::Bottom));
+                mchprs_redstone::update_surrounding_blocks(&mut self.world, pos);
+                mchprs_redstone::update_surrounding_blocks(
+                    &mut self.world,
+                    pos.offset(BlockFace::Bottom),
+                );
             }
             _ => warn!("Block at {} is not a pressure plate", pos),
         }
@@ -363,22 +374,13 @@ impl Plot {
 
     fn enter_plot(&mut self, player: Player) {
         self.save();
-        let spawn_player = CSpawnPlayer {
-            entity_id: player.entity_id as i32,
-            uuid: player.uuid,
-            pitch: player.pitch,
-            yaw: player.yaw,
-            x: player.pos.x,
-            y: player.pos.y,
-            z: player.pos.z,
-        }
-        .encode();
-        let metadata_entries = vec![CEntityMetadataEntry {
+        let spawn_player = player.spawn_packet().encode();
+        let metadata_entries = vec![CSetEntityMetadataEntry {
             index: 17,
             metadata_type: 0,
             value: vec![player.skin_parts.bits() as u8],
         }];
-        let metadata = CEntityMetadata {
+        let metadata = CSetEntityMetadata {
             entity_id: player.entity_id as i32,
             metadata: metadata_entries,
         }
@@ -387,40 +389,27 @@ impl Plot {
             other_player.client.send_packet(&spawn_player);
             other_player.client.send_packet(&metadata);
 
-            let spawn_other_player = CSpawnPlayer {
-                entity_id: other_player.entity_id as i32,
-                uuid: other_player.uuid,
-                pitch: other_player.pitch,
-                yaw: other_player.yaw,
-                x: other_player.pos.x,
-                y: other_player.pos.y,
-                z: other_player.pos.z,
-            }
-            .encode();
+            let spawn_other_player = other_player.spawn_packet().encode();
             player.client.send_packet(&spawn_other_player);
 
             if let Some(item) = &other_player.inventory[other_player.selected_slot as usize + 36] {
-                let other_entity_equipment = CEntityEquipment {
+                let other_entity_equipment = CSetEquipment {
                     entity_id: other_player.entity_id as i32,
-                    equipment: vec![CEntityEquipmentEquipment {
+                    equipment: vec![CSetEquipmentEquipment {
                         slot: 0, // Main hand
-                        item: Some(SlotData {
-                            item_count: item.count as i8,
-                            item_id: item.item_type.get_id() as i32,
-                            nbt: item.nbt.clone(),
-                        }),
+                        item: Some(utils::encode_slot_data(item)),
                     }],
                 }
                 .encode();
                 player.client.send_packet(&other_entity_equipment);
             }
 
-            let other_metadata_entries = vec![CEntityMetadataEntry {
+            let other_metadata_entries = vec![CSetEntityMetadataEntry {
                 index: 17,
                 metadata_type: 0,
                 value: vec![other_player.skin_parts.bits() as u8],
             }];
-            let other_metadata = CEntityMetadata {
+            let other_metadata = CSetEntityMetadata {
                 entity_id: other_player.entity_id as i32,
                 metadata: other_metadata_entries,
             }
@@ -429,15 +418,11 @@ impl Plot {
         }
 
         if let Some(item) = &player.inventory[player.selected_slot as usize + 36] {
-            let entity_equipment = CEntityEquipment {
+            let entity_equipment = CSetEquipment {
                 entity_id: player.entity_id as i32,
-                equipment: vec![CEntityEquipmentEquipment {
+                equipment: vec![CSetEquipmentEquipment {
                     slot: 0, // Main hand
-                    item: Some(SlotData {
-                        item_count: item.count as i8,
-                        item_id: item.item_type.get_id() as i32,
-                        nbt: item.nbt.clone(),
-                    }),
+                    item: Some(utils::encode_slot_data(item)),
                 }],
             }
             .encode();
@@ -473,13 +458,13 @@ impl Plot {
         should_be_loaded: bool,
     ) {
         if was_loaded && !should_be_loaded {
-            let unload_chunk = CUnloadChunk { chunk_x, chunk_z }.encode();
-            self.players[player_idx].client.send_packet(&unload_chunk);
+            // let unload_chunk = CUnloadChunk { chunk_x, chunk_z }.encode();
+            // self.players[player_idx].client.send_packet(&unload_chunk);
         } else if !was_loaded && should_be_loaded {
             if !Plot::chunk_in_plot_bounds(self.world.x, self.world.z, chunk_x, chunk_z) {
                 self.players[player_idx]
                     .client
-                    .send_packet(&Chunk::encode_empty_packet(chunk_x, chunk_z));
+                    .send_packet(&Chunk::encode_empty_packet(chunk_x, chunk_z, PLOT_SECTIONS));
             } else {
                 let chunk_data = self.world.chunks
                     [self.world.get_chunk_index_for_chunk(chunk_x, chunk_z)]
@@ -495,7 +480,7 @@ impl Plot {
         let last_chunk_x = self.players[player_idx].last_chunk_x;
         let last_chunk_z = self.players[player_idx].last_chunk_z;
 
-        let update_view = CUpdateViewPosition { chunk_x, chunk_z }.encode();
+        let update_view = CSetCenterChunk { chunk_x, chunk_z }.encode();
         self.players[player_idx].client.send_packet(&update_view);
 
         if ((last_chunk_x - chunk_x).abs() <= view_distance * 2
@@ -529,6 +514,183 @@ impl Plot {
         }
         self.players[player_idx].last_chunk_x = chunk_x;
         self.players[player_idx].last_chunk_z = chunk_z;
+    }
+
+    fn handle_use_item_impl(&mut self, use_item_on: &SUseItemOn, player: usize) {
+        let block_pos = BlockPos::new(use_item_on.x, use_item_on.y, use_item_on.z);
+        let block_face = BlockFace::from_id(use_item_on.face as u32);
+
+        let cancel = |plot: &mut Plot| {
+            plot.send_block_change(block_pos, plot.world.get_block_raw(block_pos));
+
+            let offset_pos = block_pos.offset(block_face);
+            plot.send_block_change(offset_pos, plot.world.get_block_raw(offset_pos));
+        };
+
+        let selected_slot = self.players[player].selected_slot as usize;
+        let item_in_hand = if use_item_on.hand == 0 {
+            // Slot in hotbar
+            self.players[player].inventory[selected_slot + 36].clone()
+        } else {
+            // Slot for left hand
+            self.players[player].inventory[45].clone()
+        };
+
+        if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
+            self.players[player].send_system_message("Can't interact with blocks outside of plot");
+            cancel(self);
+            return;
+        }
+
+        if let Some(item) = &item_in_hand {
+            let has_permission = self.players[player].has_permission("worldedit.selection.pos");
+            if item.item_type == (Item::WEWand {}) && has_permission {
+                let same = self.players[player]
+                    .second_position
+                    .map_or(false, |p| p == block_pos);
+                if !same {
+                    self.players[player].worldedit_set_second_position(block_pos);
+                }
+                cancel(self);
+                // FIXME: Because the client sends another packet after this for the left hand for most blocks,
+                // redpiler will get reset anyways.
+                return;
+            }
+        }
+
+        if let Some(owner) = self.owner {
+            let player = &mut self.players[player];
+            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
+                player.send_no_permission_message();
+                cancel(self);
+                return;
+            }
+        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
+            self.players[player].send_no_permission_message();
+            cancel(self);
+            return;
+        }
+
+        if self.redpiler.is_active() {
+            let block = self.world.get_block(block_pos);
+            let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
+            if lever_or_button && !self.players[player].crouching {
+                self.redpiler.on_use_block(block_pos);
+                self.redpiler.flush(&mut self.world);
+                self.world.flush_block_changes();
+                return;
+            } else {
+                match self.redpiler.current_flags() {
+                    Some(flags) if flags.io_only => {
+                        self.players[player].send_error_message(ERROR_IO_ONLY);
+                        cancel(self);
+                        return;
+                    }
+                    _ => {}
+                }
+                self.reset_redpiler();
+            }
+        }
+
+        if let Some(item) = item_in_hand {
+            let cancelled = interaction::use_item_on_block(
+                &item,
+                &mut self.world,
+                UseOnBlockContext {
+                    block_face,
+                    block_pos,
+                    player: &mut self.players[player],
+                    cursor_y: use_item_on.cursor_y,
+                },
+            );
+            if cancelled {
+                cancel(self);
+            }
+            self.world.flush_block_changes();
+            return;
+        }
+
+        let block = self.world.get_block(block_pos);
+        if !self.players[player].crouching {
+            interaction::on_use(
+                block,
+                &mut self.world,
+                &mut self.players[player],
+                block_pos,
+                None,
+            );
+            self.world.flush_block_changes();
+        }
+    }
+
+    fn handle_player_digging(&mut self, block_pos: BlockPos, player: usize) {
+        let block = self.world.get_block(block_pos);
+
+        if !Plot::in_plot_bounds(self.world.x, self.world.z, block_pos.x, block_pos.z) {
+            self.players[player].send_system_message("Can't break blocks outside of plot");
+            return;
+        }
+
+        // This worldedit wand stuff should probably be done in another file. It's good enough for now.
+        let item_in_hand = self.players[player].inventory
+            [self.players[player].selected_slot as usize + 36]
+            .clone();
+        if let Some(item) = item_in_hand {
+            let has_permission = self.players[player].has_permission("worldedit.selection.pos");
+            if item.item_type == (Item::WEWand {}) && has_permission {
+                self.send_block_change(block_pos, block.get_id());
+                if let Some(pos) = self.players[player].first_position {
+                    if pos == block_pos {
+                        return;
+                    }
+                }
+                self.players[player].worldedit_set_first_position(block_pos);
+                return;
+            }
+        }
+
+        if let Some(owner) = self.owner {
+            let player = &mut self.players[player];
+            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
+                player.send_no_permission_message();
+                self.send_block_change(block_pos, block.get_id());
+                return;
+            }
+        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
+            self.players[player].send_no_permission_message();
+            self.send_block_change(block_pos, block.get_id());
+            return;
+        }
+
+        match self.redpiler.current_flags() {
+            Some(flags) if flags.io_only => {
+                self.players[player].send_error_message(ERROR_IO_ONLY);
+                self.send_block_change(block_pos, block.get_id());
+                return;
+            }
+            _ => {}
+        }
+
+        self.reset_redpiler();
+
+        interaction::destroy(block, &mut self.world, block_pos);
+        self.world.flush_block_changes();
+
+        let effect = CWorldEvent {
+            event: 2001,
+            x: block_pos.x,
+            y: block_pos.y,
+            z: block_pos.z,
+            data: block.get_id() as i32,
+            disable_relative_volume: false,
+        }
+        .encode();
+        for other_player in 0..self.players.len() {
+            if player == other_player {
+                continue;
+            };
+            self.players[other_player].client.send_packet(&effect);
+        }
     }
 
     /// After an expensive operation or change in timings, it's important to
@@ -601,7 +763,7 @@ impl Plot {
     }
 
     fn destroy_entity(&mut self, entity_id: u32) {
-        let destroy_entity = CDestroyEntities {
+        let destroy_entity = CRemoveEntities {
             entity_ids: vec![entity_id as i32],
         }
         .encode();
@@ -615,7 +777,7 @@ impl Plot {
         self.world.packet_senders.remove(player_idx);
         let player = self.players.remove(player_idx);
 
-        let destroy_other_entities = CDestroyEntities {
+        let destroy_other_entities = CRemoveEntities {
             entity_ids: self.players.iter().map(|p| p.entity_id as i32).collect(),
         }
         .encode();
@@ -712,27 +874,36 @@ impl Plot {
     fn handle_messages(&mut self) {
         while let Ok(message) = self.message_receiver.try_recv() {
             match message {
-                BroadcastMessage::Chat(sender, message) => {
+                BroadcastMessage::Chat(_sender, message) => {
                     for player in &mut self.players {
-                        player.send_chat_message(sender, &message);
+                        player.send_chat_message(&message);
                     }
                 }
                 BroadcastMessage::PlayerJoinedInfo(player_join_info) => {
-                    let player_info = CPlayerInfo::AddPlayer(vec![CPlayerInfoAddPlayer {
-                        name: player_join_info.username,
-                        properties: Vec::new(),
-                        gamemode: 1,
-                        ping: 0,
-                        uuid: player_join_info.uuid,
-                        display_name: None,
-                    }])
+                    let player_info = CPlayerInfoUpdate {
+                        players: vec![CPlayerInfoUpdatePlayer {
+                            uuid: player_join_info.uuid,
+                            actions: {
+                                let mut actions: CPlayerInfoActions = Default::default();
+                                actions.add_player = Some(CPlayerInfoAddPlayer {
+                                    name: player_join_info.username,
+                                    properties: Vec::new(),
+                                });
+                                actions.update_gamemode = Some(player_join_info.gamemode.get_id());
+                                actions
+                            },
+                        }],
+                    }
                     .encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
                 }
                 BroadcastMessage::PlayerLeft(uuid) => {
-                    let player_info = CPlayerInfo::RemovePlayer(vec![uuid]).encode();
+                    let player_info = CPlayerInfoRemove {
+                        players: vec![uuid],
+                    }
+                    .encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
@@ -741,19 +912,24 @@ impl Plot {
                     let mut players: Vec<Player> = self.players.drain(..).collect();
                     for player in players.iter_mut() {
                         player.save();
-                        player.kick(
-                            json!({
-                                "text": "Server closed"
-                            })
-                            .to_string(),
-                        );
+                        player.kick("Server closed".into());
                     }
                     self.always_running = false;
                     self.running = false;
                     return;
                 }
                 BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode) => {
-                    let player_info = CPlayerInfo::UpdateGamemode(uuid, gamemode.get_id()).encode();
+                    let player_info = CPlayerInfoUpdate {
+                        players: vec![CPlayerInfoUpdatePlayer {
+                            uuid,
+                            actions: {
+                                let mut actions: CPlayerInfoActions = Default::default();
+                                actions.update_gamemode = Some(gamemode.get_id());
+                                actions
+                            },
+                        }],
+                    }
+                    .encode();
                     for player in &mut self.players {
                         player.client.send_packet(&player_info);
                     }
@@ -924,7 +1100,7 @@ impl Plot {
     }
 
     fn generate_chunk(layers: i32, x: i32, z: i32) -> Chunk {
-        let mut chunk = Chunk::empty(x, z);
+        let mut chunk = Chunk::empty(x, z, PLOT_SECTIONS);
 
         for ry in 0..layers {
             for rx in 0..16 {
@@ -932,15 +1108,16 @@ impl Plot {
                     let block_x = (x << 4) | rx;
                     let block_z = (z << 4) | rz;
 
-                    if block_x % PLOT_BLOCK_WIDTH == 0
+                    let block = if block_x % PLOT_BLOCK_WIDTH == 0
                         || block_z % PLOT_BLOCK_WIDTH == 0
                         || (block_x + 1) % PLOT_BLOCK_WIDTH == 0
                         || (block_z + 1) % PLOT_BLOCK_WIDTH == 0
                     {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 4564); // Stone Bricks
+                        Block::StoneBricks {}
                     } else {
-                        chunk.set_block(rx as u32, ry as u32, rz as u32, 278); // Sandstone
-                    }
+                        Block::Sandstone {}
+                    };
+                    chunk.set_block(rx as u32, ry as u32, rz as u32, block.get_id());
                 }
             }
         }
@@ -948,7 +1125,7 @@ impl Plot {
     }
 
     fn from_data(
-        plot_data: PlotData<PLOT_SECTIONS>,
+        plot_data: PlotData,
         x: i32,
         z: i32,
         rx: BusReader<BroadcastMessage>,
@@ -963,10 +1140,9 @@ impl Plot {
             .into_iter()
             .enumerate()
             .map(|(i, c)| {
-                Chunk::load(
+                c.load(
                     chunk_x_offset + i as i32 / PLOT_WIDTH,
                     chunk_z_offset + i as i32 % PLOT_WIDTH,
-                    c,
                 )
             })
             .collect();
@@ -1017,22 +1193,27 @@ impl Plot {
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
-    ) -> Plot {
+    ) -> Result<Plot, (Error, Sender<Message>)> {
         let plot_path = format!("./world/plots/p{},{}", x, z);
-        if Path::new(&plot_path).exists() {
-            let data = data::load_plot(plot_path)
-                .with_context(|| format!("error loading plot {},{}", x, z))
-                .unwrap();
-            Plot::from_data(data, x, z, rx, tx, priv_rx, always_running)
+        Ok(if Path::new(&plot_path).exists() {
+            match data::load_plot(plot_path) {
+                Ok(data) => Plot::from_data(data, x, z, rx, tx, priv_rx, always_running),
+                Err(err) => {
+                    return Result::Err((
+                        err.context(format!("error loading plot {},{}", x, z)),
+                        tx,
+                    ))
+                }
+            }
         } else {
             Plot::from_data(data::empty_plot(), x, z, rx, tx, priv_rx, always_running)
-        }
+        })
     }
 
     fn save(&mut self) {
         let world = &mut self.world;
-        let chunk_data: Vec<ChunkData<PLOT_SECTIONS>> =
-            world.chunks.iter_mut().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData> =
+            world.chunks.iter_mut().map(|c| ChunkData::new(c)).collect();
         let data = PlotData {
             tps: self.tps,
             world_send_rate: self.world_send_rate,
@@ -1073,6 +1254,19 @@ impl Plot {
                 thread::yield_now();
             }
         }
+
+        self.save();
+    }
+
+    /// This function is used in case of an error. It will try to send the player to spawn if this isn't already a spawn plot.
+    fn send_player_away(plot_x: i32, plot_z: i32, player: &mut Player) {
+        let (px, pz) = if plot_x == 0 && plot_z == 0 {
+            // Can't send players to spawn if spawn crashed!
+            Plot::get_center(1, 0)
+        } else {
+            Plot::get_center(0, 0)
+        };
+        player.teleport(PlayerPos::new(px, 64.0, pz));
     }
 
     pub fn load_and_run(
@@ -1086,10 +1280,20 @@ impl Plot {
     ) {
         thread::Builder::new()
             .name(format!("p{},{}", x, z))
-            .spawn(move || {
-                let mut plot = Plot::load(x, z, rx, tx, priv_rx, always_running);
-                plot.run(initial_player);
-            })
+            .spawn(
+                move || match Plot::load(x, z, rx, tx, priv_rx, always_running) {
+                    Ok(mut plot) => plot.run(initial_player),
+                    Err((err, tx)) => {
+                        if let Some(mut player) = initial_player {
+                            player.send_error_message("There was an error loading that plot.");
+                            Plot::send_player_away(x, z, &mut player);
+                            tx.send(Message::PlayerLeavePlot(player)).unwrap();
+                        }
+                        tx.send(Message::PlotUnload(x, z)).unwrap();
+                        panic!("{err:?}");
+                    }
+                },
+            )
             .unwrap();
     }
 }
@@ -1101,21 +1305,9 @@ impl Drop for Plot {
                 player.save(); // just in case
 
                 let world = &self.world;
-                let (px, pz) = if world.x == 0 && world.z == 0 {
-                    // Can't send players to spawn if spawn crashed!
-                    Plot::get_center(1, 0)
-                } else {
-                    Plot::get_center(0, 0)
-                };
-                player.teleport(PlayerPos::new(px, 64.0, pz));
+                Plot::send_player_away(world.x, world.z, player);
 
-                player.send_raw_system_message(
-                    json!({
-                        "text": "The plot you were previously in has crashed!",
-                        "color": "red"
-                    })
-                    .to_string(),
-                );
+                player.send_error_message("The plot you were previously in has crashed!");
             }
 
             while !self.players.is_empty() {
@@ -1126,6 +1318,10 @@ impl Drop for Plot {
                     .unwrap();
             }
         }
+        let world = &self.world;
+        self.message_sender
+            .send(Message::PlotUnload(world.x, world.z))
+            .unwrap();
 
         self.reset_redpiler();
         self.world
@@ -1133,20 +1329,16 @@ impl Drop for Plot {
             .iter_mut()
             .for_each(|chunk| chunk.compress());
         self.save();
-        let world = &self.world;
-        self.message_sender
-            .send(Message::PlotUnload(world.x, world.z))
-            .unwrap();
     }
 }
 
 #[test]
 fn chunk_save_and_load_test() {
-    let mut chunk = Chunk::empty(1, 1);
+    let mut chunk = Chunk::empty(1, 1, PLOT_SECTIONS);
     chunk.set_block(13, 63, 12, 332);
     chunk.set_block(13, 62, 12, 331);
-    let chunk_data = chunk.save();
-    let loaded_chunk = Chunk::load(1, 1, chunk_data);
+    let chunk_data = ChunkData::new(&mut chunk);
+    let loaded_chunk = chunk_data.load(1, 1);
     assert_eq!(loaded_chunk.get_block(13, 63, 12), 332);
     assert_eq!(loaded_chunk.get_block(13, 62, 12), 331);
     assert_eq!(loaded_chunk.get_block(13, 64, 12), 0);

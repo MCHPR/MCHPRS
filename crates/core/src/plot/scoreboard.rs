@@ -1,9 +1,10 @@
-use crate::chat::{ChatComponentBuilder, ColorCode};
 use crate::player::{PacketSender, Player};
-use crate::redpiler::CompilerOptions;
 use mchprs_network::packets::clientbound::{
-    CDisplayScoreboard, CScoreboardObjective, CUpdateScore, ClientBoundPacket,
+    CDisplayObjective, CResetScore, CUpdateObjectives, CUpdateScore, ClientBoundPacket,
+    ObjectiveNumberFormat,
 };
+use mchprs_redpiler::CompilerOptions;
+use mchprs_text::{ColorCode, TextComponentBuilder};
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
 pub enum RedpilerState {
@@ -23,27 +24,35 @@ impl RedpilerState {
     }
 }
 
-#[derive(Default)]
 pub struct Scoreboard {
     current_state: Vec<String>,
+}
+
+impl Default for Scoreboard {
+    fn default() -> Scoreboard {
+        let mut sb = Scoreboard {
+            current_state: vec![],
+        };
+        sb.set_redpiler_state(&[], RedpilerState::Stopped);
+        sb
+    }
 }
 
 impl Scoreboard {
     fn make_update_packet(&self, line: usize) -> CUpdateScore {
         CUpdateScore {
             entity_name: self.current_state[line].clone(),
-            action: 0,
             objective_name: "redpiler_status".to_string(),
-            value: (self.current_state.len() - line) as u32,
+            value: (self.current_state.len() - line) as i32,
+            display_name: None,
+            number_format: None,
         }
     }
 
-    fn make_removal_packet(&self, line: usize) -> CUpdateScore {
-        CUpdateScore {
+    fn make_removal_packet(&self, line: usize) -> CResetScore {
+        CResetScore {
             entity_name: self.current_state[line].clone(),
-            action: 1,
-            objective_name: "redpiler_status".to_string(),
-            value: 0,
+            objective_name: Some("redpiler_status".to_string()),
         }
     }
 
@@ -77,19 +86,19 @@ impl Scoreboard {
 
     pub fn add_player(&self, player: &Player) {
         player.send_packet(
-            &CScoreboardObjective {
+            &CUpdateObjectives {
                 objective_name: "redpiler_status".into(),
                 mode: 0,
-                objective_value: ChatComponentBuilder::new("Redpiler Status".into())
+                objective_value: TextComponentBuilder::new("Redpiler Status".into())
                     .color_code(ColorCode::Red)
-                    .finish()
-                    .encode_json(),
+                    .finish(),
                 ty: 0,
+                number_format: Some(ObjectiveNumberFormat::Blank),
             }
             .encode(),
         );
         player.send_packet(
-            &CDisplayScoreboard {
+            &CDisplayObjective {
                 position: 1,
                 score_name: "redpiler_status".into(),
             }
@@ -123,8 +132,11 @@ impl Scoreboard {
         if options.io_only {
             flags.push("§b- io only");
         }
-        if options.io_only {
+        if options.update {
             flags.push("§b- update");
+        }
+        if options.wire_dot_out {
+            flags.push("§b- wire dot out");
         }
 
         if !flags.is_empty() {

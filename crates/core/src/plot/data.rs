@@ -1,4 +1,4 @@
-use super::{Plot, PlotWorld, PLOT_SECTIONS, PLOT_WIDTH};
+use super::{Plot, PlotWorld, PLOT_WIDTH};
 use anyhow::{Context, Result};
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use once_cell::sync::Lazy;
@@ -19,7 +19,7 @@ pub fn sleep_time_for_tps(tps: Tps) -> Duration {
     }
 }
 
-pub fn load_plot(path: impl AsRef<Path>) -> Result<PlotData<PLOT_SECTIONS>> {
+pub fn load_plot(path: impl AsRef<Path>) -> Result<PlotData> {
     let path = path.as_ref();
     if path.exists() {
         Ok(PlotData::load_from_file(path)
@@ -29,11 +29,11 @@ pub fn load_plot(path: impl AsRef<Path>) -> Result<PlotData<PLOT_SECTIONS>> {
     }
 }
 
-pub fn empty_plot() -> PlotData<PLOT_SECTIONS> {
+pub fn empty_plot() -> PlotData {
     EMPTY_PLOT.clone()
 }
 
-static EMPTY_PLOT: Lazy<PlotData<PLOT_SECTIONS>> = Lazy::new(|| {
+static EMPTY_PLOT: Lazy<PlotData> = Lazy::new(|| {
     let template_path = Path::new("./world/plots/pTEMPLATE");
     if template_path.exists() {
         PlotData::load_from_file(template_path).expect("failed to read template plot")
@@ -51,8 +51,8 @@ static EMPTY_PLOT: Lazy<PlotData<PLOT_SECTIONS>> = Lazy::new(|| {
             to_be_ticked: Vec::new(),
             packet_senders: Vec::new(),
         };
-        let chunk_data: Vec<ChunkData<PLOT_SECTIONS>> =
-            world.chunks.iter_mut().map(|c| c.save()).collect();
+        let chunk_data: Vec<ChunkData> =
+            world.chunks.iter_mut().map(|c| ChunkData::new(c)).collect();
         PlotData {
             tps: Tps::Limited(10),
             world_send_rate: WorldSendRate::default(),

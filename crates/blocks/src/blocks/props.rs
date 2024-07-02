@@ -409,6 +409,12 @@ pub enum Instrument {
     Bit,
     Banjo,
     Pling,
+    Zombie,
+    Skeleton,
+    Creeper,
+    Dragon,
+    WitherSkeleton,
+    Piglin,
 }
 
 impl Instrument {
@@ -434,6 +440,12 @@ impl Instrument {
             13 => Instrument::Bit,
             14 => Instrument::Banjo,
             15 => Instrument::Pling,
+            16 => Instrument::Zombie,
+            17 => Instrument::Skeleton,
+            18 => Instrument::Creeper,
+            19 => Instrument::Dragon,
+            20 => Instrument::WitherSkeleton,
+            21 => Instrument::Piglin,
             _ => unreachable!(),
         }
     }
@@ -474,22 +486,28 @@ impl Instrument {
 
     pub fn to_sound_id(&self) -> i32 {
         match self {
-            Instrument::Harp => 705,
-            Instrument::Basedrum => 699,
-            Instrument::Snare => 708,
-            Instrument::Hat => 706,
-            Instrument::Bass => 700,
-            Instrument::Flute => 703,
-            Instrument::Bell => 701,
-            Instrument::Guitar => 704,
-            Instrument::Chime => 702,
-            Instrument::Xylophone => 709,
-            Instrument::IronXylophone => 710,
-            Instrument::CowBell => 711,
-            Instrument::Didgeridoo => 712,
-            Instrument::Bit => 713,
-            Instrument::Banjo => 714,
-            Instrument::Pling => 707,
+            Instrument::Harp => 945,
+            Instrument::Basedrum => 939,
+            Instrument::Snare => 948,
+            Instrument::Hat => 946,
+            Instrument::Bass => 940,
+            Instrument::Flute => 943,
+            Instrument::Bell => 941,
+            Instrument::Guitar => 944,
+            Instrument::Chime => 942,
+            Instrument::Xylophone => 949,
+            Instrument::IronXylophone => 950,
+            Instrument::CowBell => 951,
+            Instrument::Didgeridoo => 952,
+            Instrument::Bit => 953,
+            Instrument::Banjo => 954,
+            Instrument::Pling => 947,
+            Instrument::Zombie => 955,
+            Instrument::Skeleton => 956,
+            Instrument::Creeper => 957,
+            Instrument::Dragon => 958,
+            Instrument::WitherSkeleton => 959,
+            Instrument::Piglin => 960,
         }
     }
 }
@@ -513,6 +531,12 @@ impl ToString for Instrument {
             Instrument::Bit => "bit",
             Instrument::Banjo => "banjo",
             Instrument::Pling => "pling",
+            Instrument::Zombie => "zombie",
+            Instrument::Skeleton => "skeleton",
+            Instrument::Creeper => "creeper",
+            Instrument::Dragon => "dragon",
+            Instrument::WitherSkeleton => "wither_skeleton",
+            Instrument::Piglin => "piglin",
         }
         .to_owned()
     }
