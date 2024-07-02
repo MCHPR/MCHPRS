@@ -135,6 +135,9 @@ impl Scoreboard {
         if options.update {
             flags.push("§b- update");
         }
+        if options.wire_dot_out {
+            flags.push("§b- wire dot out");
+        }
 
         if !flags.is_empty() {
             new_lines.push("§7Flags:".to_string());

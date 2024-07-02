@@ -14,7 +14,7 @@ use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
-use mchprs_redstone::{self, comparator, noteblock};
+use mchprs_redstone::{self, comparator, noteblock, wire};
 use mchprs_world::{for_each_block_optimized, World};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
@@ -43,6 +43,7 @@ impl<W: World> Pass<W> for IdentifyNodes {
                 &mut first_pass,
                 &mut second_pass,
                 ignore_wires,
+                options.wire_dot_out,
                 plot,
                 pos,
             );
@@ -68,6 +69,7 @@ fn for_pos<W: World>(
     first_pass: &mut FxHashMap<BlockPos, NodeIdx>,
     second_pass: &mut FxHashSet<BlockPos>,
     ignore_wires: bool,
+    wire_dot_out: bool,
     world: &W,
     pos: BlockPos,
 ) {
@@ -90,8 +92,7 @@ fn for_pos<W: World>(
     let is_output = matches!(
         ty,
         NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. }
-    );
-    // || matches!(block, Block::RedstoneWire { wire } if wire::is_dot(wire));
+    ) || matches!(block, Block::RedstoneWire { wire } if wire_dot_out && wire::is_dot(wire));
 
     if ignore_wires && ty == NodeType::Wire && !(is_input | is_output) {
         return;

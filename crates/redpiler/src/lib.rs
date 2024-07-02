@@ -44,6 +44,8 @@ pub struct CompilerOptions {
     pub update: bool,
     /// Export a dot file of the graph after backend compile (backend dependent)
     pub export_dot_graph: bool,
+    /// Consider a redstone dot to be an output block (for color screens)
+    pub wire_dot_out: bool,
     /// The backend variant to be used after compilation
     pub backend_variant: BackendVariant,
 }
@@ -66,6 +68,7 @@ impl CompilerOptions {
                     "--io-only" => co.io_only = true,
                     "--update" => co.update = true,
                     "--export-dot" => co.export_dot_graph = true,
+                    "--wire-dot-out" => co.wire_dot_out = true,
                     // FIXME: use actual error handling
                     _ => warn!("Unrecognized option: {}", option),
                 }
@@ -77,6 +80,7 @@ impl CompilerOptions {
                         "e" => co.export = true,
                         "i" => co.io_only = true,
                         "u" => co.update = true,
+                        "d" => co.wire_dot_out = true,
                         // FIXME: use actual error handling
                         _ => warn!("Unrecognized option: -{}", c),
                     }
@@ -240,6 +244,7 @@ mod tests {
             export: true,
             update: true,
             export_dot_graph: false,
+            wire_dot_out: false,
             backend_variant: BackendVariant::default(),
         };
         let options = CompilerOptions::parse(input);
