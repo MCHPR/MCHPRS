@@ -90,6 +90,17 @@ impl TickScheduler {
             TickPriority::Normal,
         ]
     }
+
+    fn has_pending_ticks(&self) -> bool {
+        for queues in &self.queues_deque {
+            for queue in &queues.0 {
+                if !queue.is_empty() {
+                    return true;
+                }
+            }
+        }
+        false
+    }
 }
 
 enum Event {
@@ -267,6 +278,10 @@ impl JITBackend for DirectBackend {
         monitor: Arc<TaskMonitor>,
     ) {
         compile::compile(self, graph, ticks, options, monitor);
+    }
+
+    fn has_pending_ticks(&self) -> bool {
+        self.scheduler.has_pending_ticks()
     }
 }
 

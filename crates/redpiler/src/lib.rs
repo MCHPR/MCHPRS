@@ -224,6 +224,10 @@ impl Compiler {
             debug!("cannot inspect when backend is not running");
         }
     }
+
+    pub fn has_pending_ticks(&mut self) -> bool{
+        self.backend().has_pending_ticks()
+    }
 }
 
 pub struct CompilerInput<'w, W: World> {
