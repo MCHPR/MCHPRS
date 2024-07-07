@@ -637,21 +637,6 @@ impl ServerBoundPacketHandler for MinecraftServer {
             .encode();
             client.send_packet(&disconnect);
             client.close_connection();
-        } else if next_state == NetworkState::Login && CONFIG.bungeecord {
-            let split: Vec<&str> = handshake.server_address.split('\u{0}').collect();
-            if split.len() == 3 || split.len() == 4 {
-                client.uuid = u128::from_str_radix(split[2], 16).ok();
-            } else {
-                let disconnect = CDisconnectLogin {
-                    reason: json!({
-                        "text": "If you wish to use IP forwarding, please enable it in your BungeeCord config as well!"
-                    })
-                    .to_string(),
-                }
-                .encode();
-                client.send_packet(&disconnect);
-                client.close_connection();
-            }
         }
     }
 
