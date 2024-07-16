@@ -129,6 +129,7 @@ pub fn get_state_for_placement(
     let block = match item {
         Item::Stone {} => Block::Stone {},
         Item::Glass {} => Block::Glass {},
+        Item::Glowstone {} => Block::Glowstone {},
         Item::Sandstone {} => Block::Sandstone {},
         Item::SeaPickle {} => Block::SeaPickle { pickles: 1 },
         Item::Wool { color } => Block::Wool { color },
