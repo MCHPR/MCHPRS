@@ -88,6 +88,22 @@ impl ClientBoundPacket for CSetCompression {
     }
 }
 
+pub struct CLoginPluginRequest {
+    pub message_id: i32,
+    pub channel: String,
+    pub data: Vec<u8>,
+}
+
+impl ClientBoundPacket for CLoginPluginRequest {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.message_id);
+        buf.write_identifier(&self.channel);
+        buf.write_bytes(&self.data);
+        PacketEncoder::new(buf, 0x04)
+    }
+}
+
 // Configuration Packets
 
 pub struct CConfigurationPluginMessage {

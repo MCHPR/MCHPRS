@@ -8,6 +8,7 @@ pub trait ServerBoundPacketHandler {
     fn handle_ping(&mut self, _packet: SPing, _player_idx: usize) {}
     // Login
     fn handle_login_start(&mut self, _packet: SLoginStart, _player_idx: usize) {}
+    fn handle_login_plugin_response(&mut self, _packet: SLoginPluginResponse, _player_idx: usize) {}
     fn handle_login_acknowledged(&mut self, _packet: SLoginAcknowledged, _player_idx: usize) {}
     // Configuration
     fn handle_client_information(&mut self, _packet: SClientInformation, _player_idx: usize) {}
@@ -137,6 +138,27 @@ impl ServerBoundPacket for SLoginStart {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_login_start(*self, player_idx);
+    }
+}
+
+#[derive(Debug)]
+pub struct SLoginPluginResponse {
+    pub message_id: i32,
+    pub successful: bool,
+    pub data: Vec<u8>,
+}
+
+impl ServerBoundPacket for SLoginPluginResponse {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        Ok(SLoginPluginResponse {
+            message_id: decoder.read_varint()?,
+            successful: decoder.read_bool()?,
+            data: PacketDecoderExt::read_to_end(decoder)?,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_login_plugin_response(*self, player_idx);
     }
 }
 

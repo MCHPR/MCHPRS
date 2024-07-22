@@ -244,7 +244,7 @@ pub trait PacketDecoderExt: Read + Sized {
 
     fn read_to_end(&mut self) -> DecodeResult<Vec<u8>> {
         let mut data = Vec::new();
-        let _ = Read::read_to_end(self, &mut data);
+        Read::read_to_end(self, &mut data)?;
         Ok(data)
     }
 
