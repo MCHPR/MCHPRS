@@ -225,7 +225,7 @@ impl Compiler {
         }
     }
 
-    pub fn has_pending_ticks(&mut self) -> bool{
+    pub fn has_pending_ticks(&mut self) -> bool {
         self.backend().has_pending_ticks()
     }
 }
