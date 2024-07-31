@@ -3,15 +3,26 @@ members = ["crates/proc_macros", "crates/redpiler_graph"]
 
 [package]
 name = "mchprs"
-version = "0.4.1"
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[workspace.package]
 authors = ["StackDoubleFlow <ojaslandge@gmail.com>"]
-edition = "2018"
 description = "A multithreaded minecraft server built for redstone."
-readme = "README.md"
-license = "MIT"
-keywords = ["minecraft", "server", "redstone"]
-repository = "https://github.com/MCHPR/MCHPRS"
+edition = "2021"
 homepage = "https://github.com/MCHPR/MCHPRS"
+keywords = ["minecraft", "server", "redstone"]
+readme = "README.md"
+version = "0.4.1"
+license = "MIT"
+repository = "https://github.com/MCHPR/MCHPRS"
 
 include = [
     "**/*.rs",

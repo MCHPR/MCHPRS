@@ -1366,7 +1366,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_blocks"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "hematite-nbt",
  "mchprs_proc_macros",
@@ -1376,7 +1376,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_core"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -1418,7 +1418,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_network"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "bitvec",
  "byteorder",
@@ -1430,7 +1430,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_proc_macros"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "quote",
  "syn 1.0.109",
@@ -1438,7 +1438,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_save_data"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -1453,11 +1453,11 @@ dependencies = [
 
 [[package]]
 name = "mchprs_utils"
-version = "0.1.0"
+version = "0.4.1"
 
 [[package]]
 name = "mchprs_world"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "mchprs_blocks",
  "serde",
@@ -1992,7 +1992,7 @@ dependencies = [
 
 [[package]]
 name = "redpiler_graph"
-version = "0.1.0"
+version = "0.4.1"
 dependencies = [
  "bincode",
  "serde",
