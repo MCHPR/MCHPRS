@@ -130,20 +130,6 @@ pub enum NodeType {
     },
 }
 
-impl NodeType {
-    pub fn is_io_block(self) -> bool {
-        matches!(
-            self,
-            NodeType::Lamp
-                | NodeType::Button
-                | NodeType::Lever
-                | NodeType::Trapdoor
-                | NodeType::PressurePlate
-                | NodeType::NoteBlock { .. }
-        )
-    }
-}
-
 #[repr(align(16))]
 #[derive(Debug, Clone, Default)]
 pub struct NodeInput {
