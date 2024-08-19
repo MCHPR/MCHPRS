@@ -44,28 +44,49 @@ fn parse_block(str: &str) -> Option<Block> {
 }
 
 pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
-    use nbt::Value;
-
     let mut file = File::open("./schems/".to_owned() + file_name)?;
     let nbt = nbt::Blob::from_gzip_reader(&mut file)?;
-    let size_x = nbt_as!(nbt["Width"], Value::Short) as u32;
-    let size_z = nbt_as!(nbt["Length"], Value::Short) as u32;
-    let size_y = nbt_as!(nbt["Height"], Value::Short) as u32;
+
+    let root = if nbt.content.contains_key("Schematic") {
+        nbt_as!(&nbt["Schematic"], nbt::Value::Compound)
+    } else {
+        &nbt.content
+    };
+
+    let version = nbt_as!(root["Version"], nbt::Value::Int);
+    match version {
+        2 | 3 => load_schematic_sponge(root, version),
+        _ => bail!("unknown schematic version: {}", version),
+    }
+}
+
+fn read_block_container(
+    nbt: &nbt::Map<String, nbt::Value>,
+    version: i32,
+    size_x: u32,
+    size_y: u32,
+    size_z: u32,
+) -> Result<(PalettedBitBuffer, FxHashMap<BlockPos, BlockEntity>)> {
+    use nbt::Value;
+
     let nbt_palette = nbt_as!(&nbt["Palette"], Value::Compound);
-    let metadata = nbt_as!(&nbt["Metadata"], Value::Compound);
-    let offset_x = -nbt_as!(metadata["WEOffsetX"], Value::Int);
-    let offset_y = -nbt_as!(metadata["WEOffsetY"], Value::Int);
-    let offset_z = -nbt_as!(metadata["WEOffsetZ"], Value::Int);
     let mut palette: FxHashMap<u32, u32> = FxHashMap::default();
     for (k, v) in nbt_palette {
         let id = *nbt_as!(v, Value::Int) as u32;
         let block = parse_block(k).with_context(|| format!("error parsing block: {}", k))?;
         palette.insert(id, block.get_id());
     }
-    let blocks: Vec<u8> = nbt_as!(&nbt["BlockData"], Value::ByteArray)
+
+    let data_name = match version {
+        2 => "BlockData",
+        3 => "Data",
+        _ => unreachable!(),
+    };
+    let blocks: Vec<u8> = nbt_as!(&nbt[data_name], Value::ByteArray)
         .iter()
         .map(|b| *b as u8)
         .collect();
+
     let mut data = PalettedBitBuffer::new((size_x * size_y * size_z) as usize, 9);
     let mut i = 0;
     for y_offset in (0..size_y).map(|y| y * size_z * size_x) {
@@ -96,10 +117,57 @@ pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
             y: pos_array[1],
             z: pos_array[2],
         };
-        if let Some(parsed) = BlockEntity::from_nbt(val) {
+        let id = nbt_as!(&val.get("Id").unwrap_or_else(|| &nbt["id"]), Value::String);
+        let data = match version {
+            2 => val,
+            3 => nbt_as!(&val["Data"], Value::Compound),
+            _ => unreachable!(),
+        };
+        if let Some(parsed) = BlockEntity::from_nbt(id, data) {
             parsed_block_entities.insert(pos, parsed);
         }
     }
+
+    Ok((data, parsed_block_entities))
+}
+
+fn load_schematic_sponge(
+    nbt: &nbt::Map<String, nbt::Value>,
+    version: i32,
+) -> Result<WorldEditClipboard> {
+    use nbt::Value;
+
+    let size_x = nbt_as!(nbt["Width"], Value::Short) as u32;
+    let size_z = nbt_as!(nbt["Length"], Value::Short) as u32;
+    let size_y = nbt_as!(nbt["Height"], Value::Short) as u32;
+
+    let (offset_x, offset_y, offset_z) = match version {
+        2 => {
+            let metadata = nbt_as!(&nbt["Metadata"], Value::Compound);
+            (
+                -nbt_as!(metadata["WEOffsetX"], Value::Int),
+                -nbt_as!(metadata["WEOffsetY"], Value::Int),
+                -nbt_as!(metadata["WEOffsetZ"], Value::Int),
+            )
+        }
+        3 => {
+            let offset_array = nbt_as!(&nbt["Offset"], Value::IntArray);
+            (-offset_array[0], -offset_array[1], -offset_array[2])
+        }
+        _ => unreachable!(),
+    };
+
+    let (data, block_entities) = read_block_container(
+        match version {
+            2 => nbt,
+            3 => nbt_as!(&nbt["Blocks"], Value::Compound),
+            _ => unreachable!(),
+        },
+        version,
+        size_x,
+        size_y,
+        size_z,
+    )?;
     Ok(WorldEditClipboard {
         size_x,
         size_y,
@@ -108,7 +176,7 @@ pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
         offset_y,
         offset_z,
         data,
-        block_entities: parsed_block_entities,
+        block_entities,
     })
 }
 

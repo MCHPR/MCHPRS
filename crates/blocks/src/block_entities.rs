@@ -151,26 +151,25 @@ impl BlockEntity {
         })
     }
 
-    pub fn from_nbt(nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
+    pub fn from_nbt(id: &str, nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
         use nbt::Value;
-        let id = nbt_unwrap_val!(&nbt.get("Id").or_else(|| nbt.get("id"))?, Value::String);
-        match id.as_ref() {
-            "minecraft:comparator" => Some(BlockEntity::Comparator {
+        match id.trim_start_matches("minecraft:") {
+            "comparator" => Some(BlockEntity::Comparator {
                 output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8,
             }),
-            "minecraft:furnace" => BlockEntity::load_container(
+            "furnace" => BlockEntity::load_container(
                 nbt_unwrap_val!(&nbt["Items"], Value::List),
                 ContainerType::Furnace,
             ),
-            "minecraft:barrel" => BlockEntity::load_container(
+            "barrel" => BlockEntity::load_container(
                 nbt_unwrap_val!(&nbt["Items"], Value::List),
                 ContainerType::Barrel,
             ),
-            "minecraft:hopper" => BlockEntity::load_container(
+            "hopper" => BlockEntity::load_container(
                 nbt_unwrap_val!(&nbt["Items"], Value::List),
                 ContainerType::Hopper,
             ),
-            "minecraft:sign" => {
+            "sign" => {
                 let sign = if nbt.contains_key("Text1") {
                     // This is the pre-1.20 encoding
                     SignBlockEntity {

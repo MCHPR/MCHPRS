@@ -8,6 +8,7 @@ use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos, SignType};
 use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use mchprs_redstone::{self as redstone, noteblock};
+use mchprs_utils::nbt_unwrap_val;
 use mchprs_world::{TickPriority, World};
 
 pub fn on_use(
@@ -279,6 +280,18 @@ pub fn get_state_for_placement(
     }
 }
 
+fn read_block_entity_tag(nbt: &nbt::Blob, block_id: &str) -> Option<BlockEntity> {
+    if let nbt::Value::Compound(compound) = &nbt["BlockEntityTag"] {
+        let id = match nbt.get("Id").or_else(|| nbt.get("id")) {
+            Some(id) => nbt_unwrap_val!(id, nbt::Value::String),
+            None => block_id,
+        };
+        return BlockEntity::from_nbt(id, compound);
+    }
+
+    None
+}
+
 pub fn place_in_world(
     block: Block,
     world: &mut impl World,
@@ -287,10 +300,8 @@ pub fn place_in_world(
 ) {
     if block.has_block_entity() {
         if let Some(nbt) = nbt {
-            if let nbt::Value::Compound(compound) = &nbt["BlockEntityTag"] {
-                if let Some(block_entity) = BlockEntity::from_nbt(compound) {
-                    world.set_block_entity(pos, block_entity);
-                }
+            if let Some(block_entity) = read_block_entity_tag(nbt, block.get_name()) {
+                world.set_block_entity(pos, block_entity);
             }
         };
     }
