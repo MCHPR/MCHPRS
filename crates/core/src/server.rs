@@ -335,6 +335,9 @@ impl MinecraftServer {
         .encode();
         player.client.send_packet(&join_game);
 
+        let entity_metadata = player.metadata_packet().encode();
+        player.client.send_packet(&entity_metadata);
+
         // Send the player's position and rotation.
         let player_pos_and_look = CSynchronizePlayerPosition {
             x: player.pos.x,

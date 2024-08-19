@@ -387,7 +387,7 @@ impl ServerBoundPacketHandler for Plot {
             },
             CSetEntityMetadataEntry {
                 index: 6,
-                metadata_type: 18,
+                metadata_type: 20,
                 value: vec![if self.players[player].crouching { 5 } else { 0 }],
             },
         ];

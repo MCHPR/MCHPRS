@@ -375,60 +375,24 @@ impl Plot {
     fn enter_plot(&mut self, player: Player) {
         self.save();
         let spawn_player = player.spawn_packet().encode();
-        let metadata_entries = vec![CSetEntityMetadataEntry {
-            index: 17,
-            metadata_type: 0,
-            value: vec![player.skin_parts.bits() as u8],
-        }];
-        let metadata = CSetEntityMetadata {
-            entity_id: player.entity_id as i32,
-            metadata: metadata_entries,
-        }
-        .encode();
+        let metadata = player.metadata_packet().encode();
+        let entity_equipment = player.equippment_packet();
         for other_player in &mut self.players {
             other_player.client.send_packet(&spawn_player);
             other_player.client.send_packet(&metadata);
+            if let Some(entity_equipment) = &entity_equipment {
+                other_player.client.send_packet(&entity_equipment.encode());
+            }
 
             let spawn_other_player = other_player.spawn_packet().encode();
             player.client.send_packet(&spawn_other_player);
 
-            if let Some(item) = &other_player.inventory[other_player.selected_slot as usize + 36] {
-                let other_entity_equipment = CSetEquipment {
-                    entity_id: other_player.entity_id as i32,
-                    equipment: vec![CSetEquipmentEquipment {
-                        slot: 0, // Main hand
-                        item: Some(utils::encode_slot_data(item)),
-                    }],
-                }
-                .encode();
-                player.client.send_packet(&other_entity_equipment);
+            if let Some(other_entity_equipment) = other_player.equippment_packet() {
+                player.client.send_packet(&other_entity_equipment.encode());
             }
 
-            let other_metadata_entries = vec![CSetEntityMetadataEntry {
-                index: 17,
-                metadata_type: 0,
-                value: vec![other_player.skin_parts.bits() as u8],
-            }];
-            let other_metadata = CSetEntityMetadata {
-                entity_id: other_player.entity_id as i32,
-                metadata: other_metadata_entries,
-            }
-            .encode();
+            let other_metadata = other_player.metadata_packet().encode();
             player.client.send_packet(&other_metadata);
-        }
-
-        if let Some(item) = &player.inventory[player.selected_slot as usize + 36] {
-            let entity_equipment = CSetEquipment {
-                entity_id: player.entity_id as i32,
-                equipment: vec![CSetEquipmentEquipment {
-                    slot: 0, // Main hand
-                    item: Some(utils::encode_slot_data(item)),
-                }],
-            }
-            .encode();
-            for other_player in &mut self.players {
-                other_player.client.send_packet(&entity_equipment);
-            }
         }
 
         player.send_system_message(&format!(
