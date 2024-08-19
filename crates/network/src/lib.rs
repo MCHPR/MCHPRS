@@ -2,7 +2,7 @@ mod nbt_util;
 pub mod packets;
 
 use packets::serverbound::ServerBoundPacket;
-use packets::{read_packet, PacketEncoder};
+use packets::{read_packet, PacketEncoder, PlayerProperty};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc};
@@ -48,6 +48,7 @@ pub struct HandshakingConn {
     pub username: Option<String>,
     pub uuid: Option<u128>,
     pub forwarding_message_id: Option<i32>,
+    pub properties: Vec<PlayerProperty>,
 }
 
 impl HandshakingConn {
@@ -211,6 +212,7 @@ impl NetworkServer {
                     username: None,
                     uuid: None,
                     forwarding_message_id: None,
+                    properties: vec![],
                 }),
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {

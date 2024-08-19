@@ -19,7 +19,7 @@ use mchprs_network::packets::serverbound::{
     SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginPluginResponse,
     SLoginStart, SPing, SRequest, ServerBoundPacketHandler, VelocityResponseData,
 };
-use mchprs_network::packets::{PacketEncoderExt, SlotData, COMPRESSION_THRESHOLD};
+use mchprs_network::packets::{PacketEncoderExt, PlayerProperty, SlotData, COMPRESSION_THRESHOLD};
 use mchprs_network::{NetworkServer, NetworkState, PlayerPacketSender};
 use mchprs_text::TextComponent;
 use mchprs_utils::map;
@@ -100,6 +100,7 @@ pub struct PlayerJoinInfo {
     pub username: String,
     pub uuid: u128,
     pub gamemode: Gamemode,
+    pub properties: Vec<PlayerProperty>,
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +108,7 @@ struct PlayerListEntry {
     plot_x: i32,
     plot_z: i32,
     username: String,
+    properties: Vec<PlayerProperty>,
     gamemode: Gamemode,
 }
 
@@ -262,6 +264,7 @@ impl MinecraftServer {
                 plot_x,
                 plot_z,
                 username: player.username.clone(),
+                properties: player.properties.clone(),
                 gamemode: player.gamemode,
             };
             self.online_players.insert(player.uuid, player_list_entry);
@@ -306,7 +309,8 @@ impl MinecraftServer {
 
         let uuid = client.uuid.clone().unwrap();
         let username = client.username.clone().unwrap();
-        let player = Player::load_player(uuid, username, client.into());
+        let properties = client.properties.clone();
+        let player = Player::load_player(uuid, username, properties, client.into());
 
         let join_game = CLogin {
             entity_id: player.entity_id as i32,
@@ -351,7 +355,7 @@ impl MinecraftServer {
             let mut actions: CPlayerInfoActions = Default::default();
             actions.add_player = Some(CPlayerInfoAddPlayer {
                 name: player.username.clone(),
-                properties: Vec::new(),
+                properties: player.properties.clone(),
             });
             actions.update_gamemode = Some(player.gamemode.get_id());
             actions.update_listed = Some(true);
@@ -361,7 +365,7 @@ impl MinecraftServer {
             let mut actions: CPlayerInfoActions = Default::default();
             actions.add_player = Some(CPlayerInfoAddPlayer {
                 name: player.username.clone(),
-                properties: Vec::new(),
+                properties: player.properties.clone(),
             });
             actions.update_gamemode = Some(player.gamemode.get_id());
             actions.update_listed = Some(true);
@@ -489,8 +493,7 @@ impl MinecraftServer {
         let login_success = CLoginSuccess {
             uuid,
             username,
-            // TODO: send player properties
-            properties: Vec::new(),
+            properties: clients[client_idx].properties.clone(),
         }
         .encode();
         clients[client_idx].send_packet(&login_success);
@@ -505,6 +508,7 @@ impl MinecraftServer {
                     username: player.username.clone(),
                     uuid: player.uuid,
                     gamemode: player.gamemode,
+                    properties: player.properties.clone(),
                 };
                 database::ensure_user(&format!("{:032x}", player.uuid), &player.username);
                 self.broadcaster
@@ -831,6 +835,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
         };
 
         clients[client_idx].uuid = Some(velocity_response.uuid);
+        clients[client_idx].properties = velocity_response.properties;
         self.complete_player_login(client_idx);
     }
 }

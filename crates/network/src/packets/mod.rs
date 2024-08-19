@@ -26,6 +26,13 @@ pub struct SlotData {
     pub nbt: Option<NBTCompound>,
 }
 
+#[derive(Debug, Clone)]
+pub struct PlayerProperty {
+    pub name: String,
+    pub value: String,
+    pub signature: Option<String>,
+}
+
 #[derive(Debug)]
 pub struct PalettedContainer {
     pub bits_per_entry: u8,
@@ -277,6 +284,21 @@ pub trait PacketDecoderExt: Read + Sized {
 
         Ok(compound)
     }
+
+    fn read_player_property(&mut self) -> DecodeResult<PlayerProperty> {
+        Ok(PlayerProperty {
+            name: self.read_string()?,
+            value: self.read_string()?,
+            signature: {
+                let has_signature = self.read_bool()?;
+                if has_signature {
+                    Some(self.read_string()?)
+                } else {
+                    None
+                }
+            },
+        })
+    }
 }
 
 pub trait PacketEncoderExt: Write {
@@ -395,6 +417,18 @@ pub trait PacketEncoderExt: Write {
             }
         } else {
             self.write_bool(false);
+        }
+    }
+
+    fn write_player_property(&mut self, player_property: &PlayerProperty)
+    where
+        Self: Sized,
+    {
+        self.write_string(32767, &player_property.name);
+        self.write_string(32767, &player_property.value);
+        self.write_bool(player_property.signature.is_some());
+        if let Some(signature) = &player_property.signature {
+            self.write_string(32767, signature);
         }
     }
 }

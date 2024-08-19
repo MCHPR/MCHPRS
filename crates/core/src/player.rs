@@ -7,7 +7,7 @@ use byteorder::{BigEndian, ReadBytesExt};
 use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
-use mchprs_network::packets::clientbound::*;
+use mchprs_network::packets::{clientbound::*, PlayerProperty};
 use mchprs_network::packets::{PacketEncoder, SlotData};
 use mchprs_network::{PlayerConn, PlayerPacketSender};
 use mchprs_text::{ColorCode, TextComponent, TextComponentBuilder};
@@ -122,6 +122,7 @@ impl std::fmt::Display for PlayerPos {
 pub struct Player {
     pub uuid: u128,
     pub username: String,
+    pub properties: Vec<PlayerProperty>,
     pub skin_parts: SkinParts,
     pub inventory: Vec<Option<ItemStack>>,
     /// The selected slot of the player's hotbar (1-9)
@@ -186,6 +187,7 @@ impl Player {
         player_data: PlayerData,
         uuid: u128,
         username: String,
+        properties: Vec<PlayerProperty>,
         client: PlayerConn,
     ) -> Player {
         // Load inventory
@@ -207,6 +209,7 @@ impl Player {
         Player {
             uuid,
             username,
+            properties,
             skin_parts: Default::default(),
             inventory,
             selected_slot: player_data.selected_item_slot as u32,
@@ -242,7 +245,12 @@ impl Player {
 
     /// This will load the player from the file. If the file does not exist,
     /// It will be created.
-    pub fn load_player(uuid: u128, username: String, client: PlayerConn) -> Player {
+    pub fn load_player(
+        uuid: u128,
+        username: String,
+        properties: Vec<PlayerProperty>,
+        client: PlayerConn,
+    ) -> Player {
         let filename = format!("./world/players/{:032x}", uuid);
         if let Ok(data) = fs::read(&filename) {
             let player_data: PlayerData = match bincode::deserialize(&data) {
@@ -252,13 +260,19 @@ impl Player {
                     if let Err(err) = fs::rename(&filename, filename.clone() + ".bak") {
                         error!("Failed to back up player data: {}", err);
                     }
-                    return Player::from_data(Default::default(), uuid, username, client);
+                    return Player::from_data(
+                        Default::default(),
+                        uuid,
+                        username,
+                        properties,
+                        client,
+                    );
                 }
             };
 
-            Player::from_data(player_data, uuid, username, client)
+            Player::from_data(player_data, uuid, username, properties, client)
         } else {
-            Player::from_data(Default::default(), uuid, username, client)
+            Player::from_data(Default::default(), uuid, username, properties, client)
         }
     }
 

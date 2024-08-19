@@ -887,7 +887,7 @@ impl Plot {
                                 let mut actions: CPlayerInfoActions = Default::default();
                                 actions.add_player = Some(CPlayerInfoAddPlayer {
                                     name: player_join_info.username,
-                                    properties: Vec::new(),
+                                    properties: player_join_info.properties,
                                 });
                                 actions.update_gamemode = Some(player_join_info.gamemode.get_id());
                                 actions

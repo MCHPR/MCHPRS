@@ -1,4 +1,4 @@
-use super::{PacketEncoder, PacketEncoderExt, PalettedContainer, SlotData};
+use super::{PacketEncoder, PacketEncoderExt, PalettedContainer, PlayerProperty, SlotData};
 use crate::nbt_util::{NBTCompound, NBTMap};
 use bitvec::bits;
 use bitvec::prelude::Lsb0;
@@ -60,7 +60,7 @@ impl ClientBoundPacket for CPong {
 pub struct CLoginSuccess {
     pub uuid: u128,
     pub username: String,
-    pub properties: Vec<CPlayerInfoAddPlayerProperty>,
+    pub properties: Vec<PlayerProperty>,
 }
 
 impl ClientBoundPacket for CLoginSuccess {
@@ -70,7 +70,7 @@ impl ClientBoundPacket for CLoginSuccess {
         buf.write_string(16, &self.username);
         buf.write_varint(self.properties.len() as i32);
         for prop in &self.properties {
-            prop.encode(&mut buf);
+            buf.write_player_property(prop);
         }
         PacketEncoder::new(buf, 0x02)
     }
@@ -890,26 +890,9 @@ impl ClientBoundPacket for CPlayerInfoRemove {
     }
 }
 
-pub struct CPlayerInfoAddPlayerProperty {
-    name: String,
-    value: String,
-    signature: Option<String>,
-}
-
-impl CPlayerInfoAddPlayerProperty {
-    fn encode(&self, buf: &mut Vec<u8>) {
-        buf.write_string(32767, &self.name);
-        buf.write_string(32767, &self.value);
-        buf.write_bool(self.signature.is_some());
-        if let Some(signature) = &self.signature {
-            buf.write_string(32767, signature);
-        }
-    }
-}
-
 pub struct CPlayerInfoAddPlayer {
     pub name: String,
-    pub properties: Vec<CPlayerInfoAddPlayerProperty>,
+    pub properties: Vec<PlayerProperty>,
 }
 
 #[derive(Default)]
@@ -949,7 +932,7 @@ impl CPlayerInfoActions {
             buf.write_string(16, &add_player.name);
             buf.write_varint(add_player.properties.len() as i32);
             for prop in &add_player.properties {
-                prop.encode(buf);
+                buf.write_player_property(prop);
             }
         }
         if let Some(gamemode) = self.update_gamemode {
