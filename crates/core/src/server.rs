@@ -6,16 +6,18 @@ use crate::utils::HyphenatedUUID;
 use crate::{permissions, utils};
 use backtrace::Backtrace;
 use bus::Bus;
+use hmac::{Hmac, Mac};
 use mchprs_network::packets::clientbound::{
     CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent,
-    CGameEventType, CLogin, CLoginSuccess, CPlayerInfoActions, CPlayerInfoAddPlayer,
-    CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome, CRegistryBiomeEffects,
-    CRegistryData, CRegistryDataCodec, CRegistryDimensionType, CResponse, CSetCompression,
-    CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime,
+    CGameEventType, CLogin, CLoginPluginRequest, CLoginSuccess, CPlayerInfoActions,
+    CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome,
+    CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec, CRegistryDimensionType, CResponse,
+    CSetCompression, CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition,
+    ClientBoundPacket, UpdateTime,
 };
 use mchprs_network::packets::serverbound::{
-    SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginStart, SPing, SRequest,
-    ServerBoundPacketHandler,
+    SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginPluginResponse,
+    SLoginStart, SPing, SRequest, ServerBoundPacketHandler, VelocityResponseData,
 };
 use mchprs_network::packets::{PacketEncoderExt, SlotData, COMPRESSION_THRESHOLD};
 use mchprs_network::{NetworkServer, NetworkState, PlayerPacketSender};
@@ -24,7 +26,9 @@ use mchprs_utils::map;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sha2::Sha256;
 use std::fs::{self, File};
+use std::io::Cursor;
 use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
@@ -419,10 +423,33 @@ impl MinecraftServer {
             .unwrap();
     }
 
-    fn handle_player_login(&mut self, client_idx: usize, login_start: SLoginStart) {
+    fn handle_player_login_start(&mut self, client_idx: usize, login_start: SLoginStart) {
         let clients = &mut self.network.handshaking_clients;
         let username = login_start.name;
         clients[client_idx].username = Some(username.clone());
+
+        if let Some(velocity_config) = &CONFIG.velocity {
+            if velocity_config.enabled {
+                let message_id = rand::random();
+                clients[client_idx].forwarding_message_id = Some(message_id);
+                let plugin_message = CLoginPluginRequest {
+                    channel: "velocity:player_info".to_string(),
+                    message_id,
+                    data: vec![1], // MODERN_DEFAULT
+                }
+                .encode();
+                clients[client_idx].send_packet(&plugin_message);
+                return;
+            }
+        }
+
+        self.complete_player_login(client_idx);
+    }
+
+    fn complete_player_login(&mut self, client_idx: usize) {
+        let clients = &mut self.network.handshaking_clients;
+        let username = clients[client_idx].username.clone().unwrap();
+
         let set_compression = CSetCompression {
             threshold: COMPRESSION_THRESHOLD as i32,
         }
@@ -431,11 +458,11 @@ impl MinecraftServer {
         clients[client_idx].set_compressed(true);
 
         if let Some(whitelist) = &self.whitelist {
-            // uuid will only be present if bungeecord is enabled in config
+            // uuid will only be present if velocity is enabled in config
             let whitelisted = if let Some(uuid) = clients[client_idx].uuid {
                 whitelist.iter().any(|entry| entry.uuid.0 == uuid)
             } else {
-                whitelist.iter().any(|entry| entry.name == username)
+                whitelist.iter().any(|entry| entry.name == *username)
             };
             if !whitelisted {
                 let disconnect = CDisconnectLogin {
@@ -449,14 +476,19 @@ impl MinecraftServer {
             }
         }
 
-        let uuid = clients[client_idx]
-            .uuid
-            .unwrap_or_else(|| Player::generate_offline_uuid(&username));
-        clients[client_idx].uuid = Some(uuid);
+        // Set generate uuid if it doesn't exist yet
+        let uuid = match clients[client_idx].uuid {
+            Some(uuid) => uuid,
+            None => {
+                let uuid = Player::generate_offline_uuid(&username);
+                clients[client_idx].uuid = Some(uuid);
+                uuid
+            }
+        };
 
         let login_success = CLoginSuccess {
             uuid,
-            username: username.clone(),
+            username,
             // TODO: send player properties
             properties: Vec::new(),
         }
@@ -673,7 +705,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
     }
 
     fn handle_login_start(&mut self, login_start: SLoginStart, client_idx: usize) {
-        self.handle_player_login(client_idx, login_start);
+        self.handle_player_login_start(client_idx, login_start);
     }
 
     fn handle_login_acknowledged(
@@ -762,5 +794,43 @@ impl ServerBoundPacketHandler for MinecraftServer {
         client_idx: usize,
     ) {
         self.handle_player_enter_play(client_idx);
+    }
+
+    fn handle_login_plugin_response(&mut self, packet: SLoginPluginResponse, client_idx: usize) {
+        let clients = &mut self.network.handshaking_clients;
+
+        if Some(packet.message_id) != clients[client_idx].forwarding_message_id {
+            error!(
+                "Unknown login plugin response with message id: {}",
+                packet.message_id
+            );
+            return;
+        }
+
+        if !packet.successful {
+            error!("Velocity forwarding channel not understood by client");
+            return;
+        }
+
+        let velocity_response = VelocityResponseData::decode(&mut Cursor::new(&packet.data));
+
+        let velocity_response = match velocity_response {
+            Ok(velocity_response) => velocity_response,
+            Err(err) => {
+                error!("Could not decode velocity reponse data: {:?}", err);
+                return;
+            }
+        };
+
+        let secret = CONFIG.velocity.as_ref().unwrap().secret.as_bytes();
+        let mut mac = <Hmac<Sha256>>::new_from_slice(secret).unwrap();
+        mac.update(&packet.data[32..]);
+        if mac.verify_slice(&packet.data[..32]).is_err() {
+            error!("Failed to verify velocity secret!");
+            return;
+        };
+
+        clients[client_idx].uuid = Some(velocity_response.uuid);
+        self.complete_player_login(client_idx);
     }
 }

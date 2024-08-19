@@ -47,6 +47,7 @@ pub struct HandshakingConn {
     client: NetworkClient,
     pub username: Option<String>,
     pub uuid: Option<u128>,
+    pub forwarding_message_id: Option<i32>,
 }
 
 impl HandshakingConn {
@@ -209,6 +210,7 @@ impl NetworkServer {
                     client,
                     username: None,
                     uuid: None,
+                    forwarding_message_id: None,
                 }),
                 Err(mpsc::TryRecvError::Empty) => break,
                 Err(mpsc::TryRecvError::Disconnected) => {

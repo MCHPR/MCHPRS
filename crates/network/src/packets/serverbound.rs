@@ -163,6 +163,61 @@ impl ServerBoundPacket for SLoginPluginResponse {
 }
 
 #[derive(Debug)]
+pub struct VelocityGameProfileProperty {
+    pub name: String,
+    pub value: String,
+    pub signature: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct VelocityResponseData {
+    pub signature: Vec<u8>,
+    pub version: i32,
+    pub address: String,
+    pub uuid: u128,
+    pub username: String,
+    pub properties: Vec<VelocityGameProfileProperty>,
+}
+
+impl VelocityResponseData {
+    pub fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let signature = decoder.read_bytes(32)?;
+        let version = decoder.read_varint()?;
+        let address = decoder.read_string()?;
+        let uuid = decoder.read_uuid()?;
+        let username = decoder.read_string()?;
+
+        Ok(VelocityResponseData {
+            signature,
+            version,
+            address,
+            uuid,
+            username,
+            properties: {
+                let mut properties = Vec::new();
+                let len = decoder.read_varint()?;
+                for _ in 0..len {
+                    let name = decoder.read_string()?;
+                    let value = decoder.read_string()?;
+                    let has_signature = decoder.read_bool()?;
+                    let signature = if has_signature {
+                        Some(decoder.read_string()?)
+                    } else {
+                        None
+                    };
+                    properties.push(VelocityGameProfileProperty {
+                        name,
+                        value,
+                        signature,
+                    });
+                }
+                properties
+            },
+        })
+    }
+}
+
+#[derive(Debug)]
 pub struct SLoginAcknowledged;
 
 impl ServerBoundPacket for SLoginAcknowledged {

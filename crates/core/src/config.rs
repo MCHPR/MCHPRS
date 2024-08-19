@@ -73,5 +73,12 @@ gen_config! {
     schemati: bool = false,
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true,
-    auto_redpiler: bool = true
+    auto_redpiler: bool = true,
+    velocity: Option<VelocityConfig> = None
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct VelocityConfig {
+    pub enabled: bool,
+    pub secret: String,
 }

@@ -98,6 +98,7 @@ fn read_decompressed<T: PacketDecoderExt>(
         NetworkState::Status if packet_id == 0x00 => Box::new(SRequest::decode(reader)?),
         NetworkState::Status if packet_id == 0x01 => Box::new(SPing::decode(reader)?),
         NetworkState::Login if packet_id == 0x00 => Box::new(SLoginStart::decode(reader)?),
+        NetworkState::Login if packet_id == 0x02 => Box::new(SLoginPluginResponse::decode(reader)?),
         NetworkState::Login if packet_id == 0x03 => {
             *state = NetworkState::Configuration;
             Box::new(SLoginAcknowledged::decode(reader)?)
@@ -257,6 +258,10 @@ pub trait PacketDecoderExt: Read + Sized {
         }
         let z = val << 26 >> 38;
         Ok((x as i32, y as i32, z as i32))
+    }
+
+    fn read_uuid(&mut self) -> DecodeResult<u128> {
+        Ok(self.read_u128::<BigEndian>()?)
     }
 
     fn read_nbt_compound(&mut self) -> DecodeResult<Option<NBTCompound>> {
