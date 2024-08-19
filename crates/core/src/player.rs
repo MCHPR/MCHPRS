@@ -71,7 +71,6 @@ impl Default for PlayerData {
 }
 
 bitflags! {
-    #[derive(Default)]
     pub struct SkinParts: u32 {
         const CAPE = 0x01;
         const JACKET = 0x02;
@@ -80,6 +79,12 @@ bitflags! {
         const LEFT_PANTS_LEG = 0x10;
         const RIGHT_PANTS_LEG = 0x20;
         const HAT = 0x40;
+    }
+}
+
+impl Default for SkinParts {
+    fn default() -> Self {
+        Self::from_bits(0b1111111).unwrap()
     }
 }
 
