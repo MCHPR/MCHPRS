@@ -117,7 +117,7 @@ fn read_block_container(
             y: pos_array[1],
             z: pos_array[2],
         };
-        let id = nbt_as!(&val.get("Id").unwrap_or_else(|| &nbt["id"]), Value::String);
+        let id = nbt_as!(&val.get("Id").unwrap_or_else(|| &val["id"]), Value::String);
         let data = match version {
             2 => val,
             3 => nbt_as!(&val["Data"], Value::Compound),
