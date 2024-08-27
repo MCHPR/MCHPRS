@@ -90,8 +90,12 @@ pub fn execute_command(
     let flag_descs = command.flags;
 
     let mut ctx_flags = Vec::new();
-    let mut arg_removal_idxs = Vec::new();
-    for (i, arg) in args.iter().enumerate() {
+
+    let total_arg_count = args.len();
+    let mut arg_iter = args.iter().copied().enumerate();
+    let mut args = Vec::new();
+
+    while let Some((i, arg)) = arg_iter.next() {
         if arg.starts_with('-') {
             let mut with_argument = false;
             let flags = arg.chars();
@@ -106,18 +110,22 @@ pub fn execute_command(
                     player.send_error_message(&format!("Unknown flag: {}", flag));
                     return true;
                 };
-                arg_removal_idxs.push(i);
-                if flag_desc.argument_type.is_some() {
-                    arg_removal_idxs.push(i + 1);
+                if let Some(argument_type) = flag_desc.argument_type {
+                    if (i + 1) >= total_arg_count {
+                        player.send_error_message(&format!(
+                            "Missing {:?} argument for {} flag",
+                            argument_type, flag
+                        ));
+                        return true;
+                    }
+                    arg_iter.next();
                     with_argument = true;
                 }
                 ctx_flags.push(flag);
             }
+        } else {
+            args.push(arg);
         }
-    }
-
-    for idx in arg_removal_idxs.iter().rev() {
-        args.remove(*idx);
     }
 
     let arg_descs = command.arguments;
