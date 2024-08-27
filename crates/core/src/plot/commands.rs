@@ -294,11 +294,6 @@ impl Plot {
                 }
 
                 let tps = if let Ok(tps) = args[0].parse::<u32>() {
-                    if tps > 100000 {
-                        self.players[player]
-                            .send_error_message("The rtps cannot go higher than 100000!");
-                        return false;
-                    }
                     Tps::Limited(tps)
                 } else if !args[0].is_empty() && "unlimited".starts_with(args[0]) {
                     Tps::Unlimited
@@ -668,7 +663,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 children: &[],
                 redirect_node: None,
                 name: Some("rtps"),
-                parser: Some(Parser::Integer(0, 100000)),
+                parser: Some(Parser::Integer(0, i32::MAX)),
                 suggestions_type: None,
             },
             // 14: //pos1
