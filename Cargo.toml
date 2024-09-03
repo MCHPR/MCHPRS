@@ -20,7 +20,7 @@ edition = "2021"
 homepage = "https://github.com/MCHPR/MCHPRS"
 keywords = ["minecraft", "server", "redstone"]
 readme = "README.md"
-version = "0.4.1"
+version = "0.5.1"
 license = "MIT"
 repository = "https://github.com/MCHPR/MCHPRS"
 
