@@ -33,7 +33,7 @@ jobs:
         toolchain: stable
         target: ${{ matrix.target }}
         profile: minimal
-    - uses: Swatinem/rust-cache@v1
+    - uses: Swatinem/rust-cache@v2
       with:
         key: ${{ matrix.target }}
 
