@@ -66,7 +66,7 @@ jobs:
         run: lipo -create -output mchprs x86_64/mchprs aarch64/mchprs
 
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: mchprs-universal-apple-darwin
           path: mchprs
