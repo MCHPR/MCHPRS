@@ -117,8 +117,8 @@ impl World for TestWorld {
         });
     }
 
-    fn pending_tick_at(&mut self, _pos: BlockPos) -> bool {
-        false
+    fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
+        self.to_be_ticked.iter().any(|e| e.pos == pos)
     }
 }
 
