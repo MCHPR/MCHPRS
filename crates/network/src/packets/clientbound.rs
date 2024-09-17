@@ -1051,7 +1051,7 @@ impl ClientBoundPacket for CSetHeadRotation {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CUpdateSectionBlocksRecord {
     pub x: u8,
     pub y: u8,
@@ -1059,7 +1059,7 @@ pub struct CUpdateSectionBlocksRecord {
     pub block_id: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CUpdateSectionBlocks {
     pub chunk_x: i32,
     pub chunk_z: i32,

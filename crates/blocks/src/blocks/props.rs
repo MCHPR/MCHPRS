@@ -349,8 +349,9 @@ impl BlockTransform for RedstoneWire {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum TrapdoorHalf {
+    #[default]
     Top,
     Bottom,
 }

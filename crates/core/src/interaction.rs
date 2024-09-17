@@ -7,9 +7,9 @@ use mchprs_blocks::blocks::*;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos, SignType};
 use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
-use mchprs_redstone::{self as redstone, noteblock};
+use mchprs_redstone as redstone;
 use mchprs_utils::nbt_unwrap_val;
-use mchprs_world::{TickPriority, World};
+use mchprs_world::World;
 
 pub fn on_use(
     block: Block,
@@ -18,80 +18,11 @@ pub fn on_use(
     pos: BlockPos,
     item_in_hand: Option<Item>,
 ) -> ActionResult {
+    if redstone::on_use(block, world, pos) {
+        return ActionResult::Success;
+    }
+
     match block {
-        Block::RedstoneRepeater { repeater } => {
-            let mut repeater = repeater;
-            repeater.delay += 1;
-            if repeater.delay > 4 {
-                repeater.delay -= 4;
-            }
-            world.set_block(pos, Block::RedstoneRepeater { repeater });
-            ActionResult::Success
-        }
-        Block::RedstoneComparator { comparator } => {
-            let mut comparator = comparator;
-            comparator.mode = comparator.mode.toggle();
-            redstone::comparator::tick(comparator, world, pos);
-            world.set_block(pos, Block::RedstoneComparator { comparator });
-            ActionResult::Success
-        }
-        Block::Lever { mut lever } => {
-            lever.powered = !lever.powered;
-            world.set_block(pos, Block::Lever { lever });
-            redstone::update_surrounding_blocks(world, pos);
-            match lever.face {
-                LeverFace::Ceiling => {
-                    redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
-                }
-                LeverFace::Floor => {
-                    redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
-                }
-                LeverFace::Wall => redstone::update_surrounding_blocks(
-                    world,
-                    pos.offset(lever.facing.opposite().block_face()),
-                ),
-            }
-            ActionResult::Success
-        }
-        Block::StoneButton { mut button } => {
-            if !button.powered {
-                button.powered = true;
-                world.set_block(pos, Block::StoneButton { button });
-                world.schedule_tick(pos, 10, TickPriority::Normal);
-                redstone::update_surrounding_blocks(world, pos);
-                match button.face {
-                    ButtonFace::Ceiling => {
-                        redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
-                    }
-                    ButtonFace::Floor => {
-                        redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
-                    }
-                    ButtonFace::Wall => redstone::update_surrounding_blocks(
-                        world,
-                        pos.offset(button.facing.opposite().block_face()),
-                    ),
-                }
-            }
-            ActionResult::Success
-        }
-        Block::RedstoneWire { wire } => {
-            use redstone::wire;
-            if wire::is_dot(wire) || wire::is_cross(wire) {
-                let mut new_wire = if wire::is_cross(wire) {
-                    RedstoneWire::default()
-                } else {
-                    wire::make_cross(0)
-                };
-                new_wire.power = wire.power;
-                new_wire = wire::get_regulated_sides(new_wire, world, pos);
-                if wire != new_wire {
-                    world.set_block(pos, Block::RedstoneWire { wire: new_wire });
-                    redstone::update_wire_neighbors(world, pos);
-                    return ActionResult::Success;
-                }
-            }
-            ActionResult::Pass
-        }
         Block::SeaPickle { pickles } => {
             if let Some(Item::SeaPickle {}) = item_in_hand {
                 if pickles < 4 {
@@ -103,25 +34,6 @@ pub fn on_use(
                     );
                 }
             }
-            ActionResult::Success
-        }
-        Block::NoteBlock { note, powered, .. } => {
-            let note = (note + 1) % 25;
-            let instrument = noteblock::get_noteblock_instrument(world, pos);
-
-            world.set_block(
-                pos,
-                Block::NoteBlock {
-                    instrument,
-                    note,
-                    powered,
-                },
-            );
-
-            if noteblock::is_noteblock_unblocked(world, pos) {
-                noteblock::play_note(world, pos, instrument, note);
-            }
-
             ActionResult::Success
         }
         b if b.has_block_entity() => {

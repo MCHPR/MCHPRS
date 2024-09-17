@@ -1172,7 +1172,11 @@ dependencies = [
 name = "mchprs"
 version = "0.4.1"
 dependencies = [
+ "mchprs_blocks",
  "mchprs_core",
+ "mchprs_redpiler",
+ "mchprs_redstone",
+ "mchprs_world",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",

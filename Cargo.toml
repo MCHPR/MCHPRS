@@ -43,5 +43,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 tracing = "0.1"
 
+[dev-dependencies]
+mchprs_world ={ path = "./crates/world" }
+mchprs_blocks ={ path = "./crates/blocks" }
+mchprs_redpiler ={ path = "./crates/redpiler" }
+mchprs_redstone = { path = "./crates/redstone" }
+
 [patch.crates-io]
 hematite-nbt = { git = "https://github.com/StackDoubleFlow/hematite_nbt" }

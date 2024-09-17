@@ -8,7 +8,7 @@ pub mod repeater;
 pub mod wire;
 
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
+use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace, RedstoneWire};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::TickPriority;
 use mchprs_world::World;
@@ -350,4 +350,102 @@ pub fn is_diode(block: Block) -> bool {
         block,
         Block::RedstoneRepeater { .. } | Block::RedstoneComparator { .. }
     )
+}
+
+/// Returns true if the action was handled
+pub fn on_use(block: Block, world: &mut impl World, pos: BlockPos) -> bool {
+    match block {
+        Block::RedstoneRepeater { repeater } => {
+            let mut repeater = repeater;
+            repeater.delay += 1;
+            if repeater.delay > 4 {
+                repeater.delay -= 4;
+            }
+            world.set_block(pos, Block::RedstoneRepeater { repeater });
+            true
+        }
+        Block::RedstoneComparator { comparator } => {
+            let mut comparator = comparator;
+            comparator.mode = comparator.mode.toggle();
+            comparator::tick(comparator, world, pos);
+            world.set_block(pos, Block::RedstoneComparator { comparator });
+            true
+        }
+        Block::Lever { mut lever } => {
+            lever.powered = !lever.powered;
+            world.set_block(pos, Block::Lever { lever });
+            update_surrounding_blocks(world, pos);
+            match lever.face {
+                LeverFace::Ceiling => {
+                    update_surrounding_blocks(world, pos.offset(BlockFace::Top));
+                }
+                LeverFace::Floor => {
+                    update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
+                }
+                LeverFace::Wall => update_surrounding_blocks(
+                    world,
+                    pos.offset(lever.facing.opposite().block_face()),
+                ),
+            }
+            true
+        }
+        Block::StoneButton { mut button } => {
+            if !button.powered {
+                button.powered = true;
+                world.set_block(pos, Block::StoneButton { button });
+                world.schedule_tick(pos, 10, TickPriority::Normal);
+                update_surrounding_blocks(world, pos);
+                match button.face {
+                    ButtonFace::Ceiling => {
+                        update_surrounding_blocks(world, pos.offset(BlockFace::Top));
+                    }
+                    ButtonFace::Floor => {
+                        update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
+                    }
+                    ButtonFace::Wall => update_surrounding_blocks(
+                        world,
+                        pos.offset(button.facing.opposite().block_face()),
+                    ),
+                }
+            }
+            true
+        }
+        Block::RedstoneWire { wire } => {
+            if wire::is_dot(wire) || wire::is_cross(wire) {
+                let mut new_wire = if wire::is_cross(wire) {
+                    RedstoneWire::default()
+                } else {
+                    wire::make_cross(0)
+                };
+                new_wire.power = wire.power;
+                new_wire = wire::get_regulated_sides(new_wire, world, pos);
+                if wire != new_wire {
+                    world.set_block(pos, Block::RedstoneWire { wire: new_wire });
+                    update_wire_neighbors(world, pos);
+                    return true;
+                }
+            }
+            false
+        }
+        Block::NoteBlock { note, powered, .. } => {
+            let note = (note + 1) % 25;
+            let instrument = noteblock::get_noteblock_instrument(world, pos);
+
+            world.set_block(
+                pos,
+                Block::NoteBlock {
+                    instrument,
+                    note,
+                    powered,
+                },
+            );
+
+            if noteblock::is_noteblock_unblocked(world, pos) {
+                noteblock::play_note(world, pos, instrument, note);
+            }
+
+            true
+        }
+        _ => false,
+    }
 }

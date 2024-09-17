@@ -32,7 +32,7 @@ fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     })
 }
 
-#[derive(Default, PartialEq, Eq, Debug)]
+#[derive(Default, PartialEq, Eq, Debug, Clone)]
 pub struct CompilerOptions {
     /// Enable optimization passes which may significantly increase compile times.
     pub optimize: bool,
@@ -50,7 +50,7 @@ pub struct CompilerOptions {
     pub backend_variant: BackendVariant,
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub enum BackendVariant {
     #[default]
     Direct,
@@ -121,7 +121,7 @@ impl Compiler {
 
     pub fn compile<W: World>(
         &mut self,
-        world: &mut W,
+        world: &W,
         bounds: (BlockPos, BlockPos),
         options: CompilerOptions,
         ticks: Vec<TickEntry>,
