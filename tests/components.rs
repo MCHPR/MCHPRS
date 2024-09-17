@@ -61,10 +61,7 @@ fn trapdoor_on_off() {
 
     let mut world = TestWorld::new(1);
     make_lever(&mut world, lever_pos);
-    world.set_block(
-        trapdoor_pos,
-        trapdoor(),
-    );
+    world.set_block(trapdoor_pos, trapdoor());
 
     let mut runner = AllBackendRunner::new(world);
     runner.check_block_powered(trapdoor_pos, false);
