@@ -123,17 +123,9 @@ impl World for TestWorld {
 }
 
 struct RedpilerInstance {
-    variant: BackendVariant,
     options: CompilerOptions,
     world: TestWorld,
     compiler: Compiler,
-}
-
-impl RedpilerInstance {
-    fn tick(&mut self) {
-        self.compiler.tick();
-        self.compiler.flush(&mut self.world);
-    }
 }
 
 pub struct AllBackendRunner {
@@ -158,7 +150,6 @@ impl AllBackendRunner {
                 let ticks = world.to_be_ticked.clone();
                 compiler.compile(&world, bounds, options.clone(), ticks, monitor);
                 RedpilerInstance {
-                    variant,
                     options,
                     world: world.clone(),
                     compiler,
@@ -214,12 +205,15 @@ impl AllBackendRunner {
     pub fn check_block_powered(&self, pos: BlockPos, powered: bool) {
         assert_eq!(
             is_block_powered(self.redstone_world.get_block(pos)),
-            Some(powered)
+            Some(powered),
+            "when testing with the base redstone implementation"
         );
         for redpiler in &self.redpilers {
             assert_eq!(
                 is_block_powered(redpiler.world.get_block(pos)),
-                Some(powered)
+                Some(powered),
+                "when testing on redpiler options: {:#?}",
+                redpiler.options
             );
         }
     }
