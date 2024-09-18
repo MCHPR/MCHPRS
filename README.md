@@ -46,13 +46,26 @@ The folowing options are available at the toplevel (under no header):
 | `chat_format` | How to format chat message interpolating `username` and `message` with curly braces | `<{username}> {message}` |
 | `max_players` | Maximum number of simultaneous players | `99999` |
 | `view_distance` | Maximal distance (in chunks) between players and loaded chunks | `8` |
-| `bungeecord` | Enable compatibility with [BungeeCord](https://github.com/SpigotMC/BungeeCord) | `false` |
 | `whitelist` | Whether or not the whitelist (in `whitelist.json`) shoud be enabled | `false` |
 | `schemati` | Mimic the verification and directory layout used by the Open Redstone Engineers [Schemati plugin](https://github.com/OpenRedstoneEngineers/Schemati) | `false` |
 | `block_in_hitbox` | Allow placing blocks inside of players (hitbox logic is simplified) | true |
 | `auto_redpiler` | Use redpiler automatically | true |
 
 To change the plot size edit the constants defined in [plot/mod.rs](./crates/core/src/plot/mod.rs).
+
+### Velocity
+
+MCHPRS has no support for player authentication on its own, but supports Velocity modern ip-forwarding.
+
+To use [Velocity](https://papermc.io/software/velocity) ip-forwarding, you must have a Velocity proxy set up and configured. Make sure `player-info-forwarding-mode` is set to `modern` in your Velocity config. Then, append this to your `Config.toml`:
+
+```toml
+[velocity]
+enabled = true
+# This is the secret contained within `forwarding-secret-file` from your velocity config,
+# NOT the path to the file.
+secret = "<secret>"
+```
 
 ### LuckPerms
 
