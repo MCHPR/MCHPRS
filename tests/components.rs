@@ -1,8 +1,9 @@
 mod common;
 
-use common::{AllBackendRunner, TestWorld};
+use common::{test_all_backends, BackendRunner, TestBackend, TestWorld};
 use mchprs_blocks::blocks::{Block, Lever, LeverFace, RedstoneRepeater};
 use mchprs_blocks::{BlockDirection, BlockPos};
+use mchprs_redpiler::BackendVariant;
 use mchprs_redstone::wire::make_cross;
 use mchprs_world::World;
 
@@ -37,14 +38,14 @@ fn make_lever(world: &mut TestWorld, lever_pos: BlockPos) {
     );
 }
 
-#[test]
-fn lever_on_off() {
+test_all_backends!(lever_on_off);
+fn lever_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
 
     let mut world = TestWorld::new(1);
     make_lever(&mut world, lever_pos);
 
-    let mut runner = AllBackendRunner::new(world);
+    let mut runner = BackendRunner::new(world, backend);
     runner.check_block_powered(lever_pos, false);
 
     runner.use_block(lever_pos);
@@ -54,8 +55,8 @@ fn lever_on_off() {
     runner.check_block_powered(lever_pos, false);
 }
 
-#[test]
-fn trapdoor_on_off() {
+test_all_backends!(trapdoor_on_off);
+fn trapdoor_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let trapdoor_pos = pos(1, 0, 0);
 
@@ -63,7 +64,7 @@ fn trapdoor_on_off() {
     make_lever(&mut world, lever_pos);
     world.set_block(trapdoor_pos, trapdoor());
 
-    let mut runner = AllBackendRunner::new(world);
+    let mut runner = BackendRunner::new(world, backend);
     runner.check_block_powered(trapdoor_pos, false);
 
     runner.use_block(lever_pos);
@@ -73,8 +74,8 @@ fn trapdoor_on_off() {
     runner.check_block_powered(trapdoor_pos, false);
 }
 
-#[test]
-fn lamp_on_off() {
+test_all_backends!(lamp_on_off);
+fn lamp_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let lamp_pos = pos(1, 0, 0);
 
@@ -82,7 +83,7 @@ fn lamp_on_off() {
     make_lever(&mut world, lever_pos);
     world.set_block(lamp_pos, Block::RedstoneLamp { lit: false });
 
-    let mut runner = AllBackendRunner::new(world);
+    let mut runner = BackendRunner::new(world, backend);
     runner.check_block_powered(lamp_pos, false);
 
     runner.use_block(lever_pos);
@@ -93,8 +94,8 @@ fn lamp_on_off() {
     runner.check_block_powered(lamp_pos, false);
 }
 
-#[test]
-fn wall_torch_on_off() {
+test_all_backends!(wall_torch_on_off);
+fn wall_torch_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let torch_pos = pos(1, 0, 0);
 
@@ -108,7 +109,7 @@ fn wall_torch_on_off() {
         },
     );
 
-    let mut runner = AllBackendRunner::new(world);
+    let mut runner = BackendRunner::new(world, backend);
     runner.check_block_powered(torch_pos, true);
 
     runner.use_block(lever_pos);
@@ -120,8 +121,8 @@ fn wall_torch_on_off() {
     runner.check_block_powered(torch_pos, true);
 }
 
-#[test]
-fn torch_on_off() {
+test_all_backends!(torch_on_off);
+fn torch_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 2, 0);
     let torch_pos = pos(2, 2, 0);
 
@@ -136,7 +137,7 @@ fn torch_on_off() {
     );
     place_on_block(&mut world, torch_pos, Block::RedstoneTorch { lit: true });
 
-    let mut runner = AllBackendRunner::new(world);
+    let mut runner = BackendRunner::new(world, backend);
     runner.check_block_powered(torch_pos, true);
 
     runner.use_block(lever_pos);
@@ -148,8 +149,8 @@ fn torch_on_off() {
     runner.check_block_powered(torch_pos, true);
 }
 
-#[test]
-fn repeater_on_off() {
+test_all_backends!(repeater_on_off);
+fn repeater_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 2, 0);
     let trapdoor_pos = pos(2, 1, 0);
 
@@ -169,7 +170,7 @@ fn repeater_on_off() {
         );
         world.set_block(trapdoor_pos, trapdoor());
 
-        let mut runner = AllBackendRunner::new(world);
+        let mut runner = BackendRunner::new(world, backend);
         runner.check_block_powered(trapdoor_pos, false);
 
         // Check with a 1 tick pulse

@@ -48,6 +48,7 @@ mchprs_world ={ path = "./crates/world" }
 mchprs_blocks ={ path = "./crates/blocks" }
 mchprs_redpiler ={ path = "./crates/redpiler" }
 mchprs_redstone = { path = "./crates/redstone" }
+paste = "1.0"
 
 [patch.crates-io]
 hematite-nbt = { git = "https://github.com/StackDoubleFlow/hematite_nbt" }

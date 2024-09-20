@@ -124,98 +124,93 @@ impl World for TestWorld {
 
 struct RedpilerInstance {
     options: CompilerOptions,
-    world: TestWorld,
     compiler: Compiler,
 }
 
-pub struct AllBackendRunner {
-    redstone_world: TestWorld,
-    redpilers: Vec<RedpilerInstance>,
+impl RedpilerInstance {
+    fn new(world: &TestWorld, variant: BackendVariant) -> RedpilerInstance {
+        let options = CompilerOptions {
+            backend_variant: variant,
+            ..Default::default()
+        };
+        let mut compiler = Compiler::default();
+        let max = world.size * 16 - 1;
+        let bounds = (BlockPos::new(0, 0, 0), BlockPos::new(max, max, max));
+        let monitor = Default::default();
+        let ticks = world.to_be_ticked.clone();
+        compiler.compile(world, bounds, options.clone(), ticks, monitor);
+        RedpilerInstance { options, compiler }
+    }
 }
 
-impl AllBackendRunner {
-    pub fn new(world: TestWorld) -> AllBackendRunner {
-        let variants = [BackendVariant::Direct];
-        let redpilers = variants
-            .iter()
-            .map(|&variant| {
-                let options = CompilerOptions {
-                    backend_variant: variant,
-                    ..Default::default()
-                };
-                let mut compiler = Compiler::default();
-                let max = world.size * 16 - 1;
-                let bounds = (BlockPos::new(0, 0, 0), BlockPos::new(max, max, max));
-                let monitor = Default::default();
-                let ticks = world.to_be_ticked.clone();
-                compiler.compile(&world, bounds, options.clone(), ticks, monitor);
-                RedpilerInstance {
-                    options,
-                    world: world.clone(),
-                    compiler,
-                }
-            })
-            .collect();
-        AllBackendRunner {
-            redstone_world: world,
-            redpilers,
+#[derive(Copy, Clone)]
+pub enum TestBackend {
+    Redstone,
+    Redpiler(BackendVariant),
+}
+
+pub struct BackendRunner {
+    world: TestWorld,
+    redpiler: Option<RedpilerInstance>,
+}
+
+impl BackendRunner {
+    pub fn new(world: TestWorld, backend: TestBackend) -> BackendRunner {
+        match backend {
+            TestBackend::Redstone => BackendRunner {
+                world,
+                redpiler: None,
+            },
+            TestBackend::Redpiler(variant) => BackendRunner {
+                redpiler: Some(RedpilerInstance::new(&world, variant)),
+                world,
+            },
         }
     }
 
     pub fn tick(&mut self) {
-        self.redstone_world
-            .to_be_ticked
-            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
-        for pending in &mut self.redstone_world.to_be_ticked {
-            pending.ticks_left = pending.ticks_left.saturating_sub(1);
-        }
-        while self
-            .redstone_world
-            .to_be_ticked
-            .first()
-            .map_or(1, |e| e.ticks_left)
-            == 0
-        {
-            let entry = self.redstone_world.to_be_ticked.remove(0);
-            mchprs_redstone::tick(
-                self.redstone_world.get_block(entry.pos),
-                &mut self.redstone_world,
-                entry.pos,
-            );
+        if let Some(redpiler) = &mut self.redpiler {
+            redpiler.compiler.tick();
+            redpiler.compiler.flush(&mut self.world);
+            return;
         }
 
-        for redpiler in &mut self.redpilers {
-            redpiler.compiler.tick();
-            redpiler.compiler.flush(&mut redpiler.world);
+        self.world
+            .to_be_ticked
+            .sort_by_key(|e| (e.ticks_left, e.tick_priority));
+        for pending in &mut self.world.to_be_ticked {
+            pending.ticks_left = pending.ticks_left.saturating_sub(1);
+        }
+        while self.world.to_be_ticked.first().map_or(1, |e| e.ticks_left) == 0 {
+            let entry = self.world.to_be_ticked.remove(0);
+            mchprs_redstone::tick(self.world.get_block(entry.pos), &mut self.world, entry.pos);
         }
     }
 
     pub fn use_block(&mut self, pos: BlockPos) {
-        mchprs_redstone::on_use(
-            self.redstone_world.get_block(pos),
-            &mut self.redstone_world,
-            pos,
-        );
-        for redpiler in &mut self.redpilers {
+        if let Some(redpiler) = &mut self.redpiler {
             redpiler.compiler.on_use_block(pos);
-            redpiler.compiler.flush(&mut redpiler.world);
+            redpiler.compiler.flush(&mut self.world);
+            return;
         }
+        mchprs_redstone::on_use(self.world.get_block(pos), &mut self.world, pos);
     }
 
     pub fn check_block_powered(&self, pos: BlockPos, powered: bool) {
-        assert_eq!(
-            is_block_powered(self.redstone_world.get_block(pos)),
-            Some(powered),
-            "when testing with the base redstone implementation"
-        );
-        for redpiler in &self.redpilers {
+        if let Some(redpiler) = &self.redpiler {
             assert_eq!(
-                is_block_powered(redpiler.world.get_block(pos)),
+                is_block_powered(self.world.get_block(pos)),
                 Some(powered),
                 "when testing on redpiler options: {:#?}",
                 redpiler.options
             );
+            return;
         }
+        assert_eq!(
+            is_block_powered(self.world.get_block(pos)),
+            Some(powered),
+            "when testing with the base redstone implementation"
+        );
     }
 
     pub fn check_powered_for(&mut self, pos: BlockPos, powered: bool, ticks: usize) {
@@ -241,3 +236,15 @@ fn is_block_powered(block: Block) -> Option<bool> {
         _ => return None,
     })
 }
+
+macro_rules! test_all_backends {
+    ($name:ident) => {
+        paste::paste! {
+            #[test]
+            fn [< $name _redstone >]() { $name(TestBackend::Redstone) }
+            #[test]
+            fn [< $name _rp_direct >]() { $name(TestBackend::Redpiler(BackendVariant::Direct)) }
+        }
+    };
+}
+pub(crate) use test_all_backends;
