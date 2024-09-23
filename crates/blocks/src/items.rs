@@ -2,7 +2,7 @@ use crate::block_entities::ContainerType;
 use crate::BlockColorVariant;
 use mchprs_utils::map;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ItemStack {
     pub item_type: Item,
     pub count: u8,
@@ -182,6 +182,12 @@ items! {
         props: {},
         get_id: 187,
         from_id(_id): 187 => {},
+        block: true,
+    },
+    Glowstone {
+        props: {},
+        get_id: 275,
+        from_id(_id): 275 => {},
         block: true,
     },
     Sandstone {
