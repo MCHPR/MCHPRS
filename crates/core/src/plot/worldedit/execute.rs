@@ -738,8 +738,13 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
 
     let maybe_command = COMMANDS
         .get(command_name.as_str())
-        .or_else(|| COMMANDS.get(slash_command_name.as_str()));
-    let command = match maybe_command {
+        .map(|c| (command_name.as_str(), c))
+        .or_else(|| {
+            COMMANDS
+                .get(slash_command_name.as_str())
+                .map(|c| (slash_command_name.as_str(), c))
+        });
+    let (command_name, command) = match maybe_command {
         Some(command) => command,
         None => {
             player.send_error_message(&format!("Unknown command: {}", command_name));
@@ -782,11 +787,13 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
         ]);
     }
 
-    message.push(
-        TextComponentBuilder::new("\nArguments:".to_owned())
-            .color_code(ColorCode::Gray)
-            .finish(),
-    );
+    if !command.arguments.is_empty() {
+        message.push(
+            TextComponentBuilder::new("\nArguments:".to_owned())
+                .color_code(ColorCode::Gray)
+                .finish(),
+        );
+    }
 
     for arg in command.arguments {
         message.append(&mut vec![
@@ -834,17 +841,17 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
                 .color_code(ColorCode::Gray)
                 .finish(),
         );
+    }
 
-        for flag in command.flags {
-            message.append(&mut vec![
-                TextComponentBuilder::new(format!("\n  -{}", flag.letter))
-                    .color_code(ColorCode::Gold)
-                    .finish(),
-                TextComponentBuilder::new(format!(": {}", flag.description))
-                    .color_code(ColorCode::Gray)
-                    .finish(),
-            ]);
-        }
+    for flag in command.flags {
+        message.append(&mut vec![
+            TextComponentBuilder::new(format!("\n  -{}", flag.letter))
+                .color_code(ColorCode::Gold)
+                .finish(),
+            TextComponentBuilder::new(format!(": {}", flag.description))
+                .color_code(ColorCode::Gray)
+                .finish(),
+        ]);
     }
 
     player.send_chat_message(&message);
