@@ -1187,4 +1187,27 @@ pub fn add_command_completions(nodes: &mut Vec<CCommandsNode>) {
             });
         }
     }
+
+    // Add completions for command aliases
+    for (name, target) in ALIASES.iter() {
+        let target = target.split_whitespace().next().unwrap();
+        let target_idx = nodes
+            .iter()
+            .position(|node| {
+                node.name == Some(target)
+                    && !CommandFlags::from_bits_truncate(node.flags as u32)
+                        .contains(CommandFlags::ARGUMENT)
+            })
+            .unwrap();
+        let alias_idx = nodes.len();
+        nodes[0].children.push(alias_idx as i32);
+        nodes.push(CCommandsNode {
+            name: Some(name),
+            flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+            children: Vec::new(),
+            redirect_node: Some(target_idx as i32),
+            parser: None,
+            suggestions_type: None,
+        });
+    }
 }
