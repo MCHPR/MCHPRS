@@ -389,6 +389,7 @@ impl ClientBoundPacket for CCommandSuggestionsResponse {
     }
 }
 
+#[derive(Debug)]
 pub enum CDeclareCommandsNodeParser {
     Entity(i8),
     Vec2,
@@ -432,28 +433,29 @@ impl CDeclareCommandsNodeParser {
     }
 }
 
-pub struct CCommandsNode<'a> {
+#[derive(Debug)]
+pub struct CCommandsNode {
     pub flags: i8,
-    pub children: &'a [i32],
+    pub children: Vec<i32>,
     pub redirect_node: Option<i32>,
     pub name: Option<&'static str>,
     pub parser: Option<CDeclareCommandsNodeParser>,
     pub suggestions_type: Option<&'static str>,
 }
 
-pub struct CCommands<'a> {
-    pub nodes: &'a [CCommandsNode<'a>],
+pub struct CCommands {
+    pub nodes: Vec<CCommandsNode>,
     pub root_index: i32,
 }
 
-impl<'a> ClientBoundPacket for CCommands<'a> {
+impl ClientBoundPacket for CCommands {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.nodes.len() as i32);
-        for node in self.nodes {
+        for node in &self.nodes {
             buf.write_byte(node.flags);
             buf.write_varint(node.children.len() as i32);
-            for child in node.children {
+            for child in &node.children {
                 buf.write_varint(*child);
             }
             if let Some(redirect_node) = node.redirect_node {

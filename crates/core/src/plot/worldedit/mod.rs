@@ -3,12 +3,14 @@
 mod execute;
 mod schematic;
 
+use super::commands::CommandFlags;
 use super::{Plot, PlotWorld};
 use crate::player::{PacketSender, Player, PlayerPos};
 use execute::*;
 use mchprs_blocks::block_entities::{BlockEntity, ContainerType};
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockFacing, BlockPos};
+use mchprs_network::packets::clientbound::{CCommandsNode, CDeclareCommandsNodeParser};
 use mchprs_utils::map;
 use mchprs_world::storage::PalettedBitBuffer;
 use mchprs_world::{for_each_block_mut_optimized, World};
@@ -17,9 +19,9 @@ use rand::Rng;
 use regex::Regex;
 use rustc_hash::FxHashMap;
 use std::collections::HashMap;
-use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
+use std::{fmt, i32};
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
 // The command is not handled if it is not found in the worldedit commands and alias lists.
@@ -417,6 +419,7 @@ struct WorldeditCommand {
     description: &'static str,
     permission_node: &'static str,
     mutates_world: bool,
+    normal_completions: bool,
 }
 
 impl Default for WorldeditCommand {
@@ -430,6 +433,7 @@ impl Default for WorldeditCommand {
             requires_positions: false,
             permission_node: "",
             mutates_world: true,
+            normal_completions: true,
         }
     }
 }
@@ -606,6 +610,7 @@ static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
             description: "Loads a schematic file into the clipboard",
             permission_node: "worldedit.clipboard.load",
             mutates_world: false,
+            normal_completions: false,
             ..Default::default()
         },
         "/save" => WorldeditCommand {
@@ -1146,4 +1151,40 @@ fn update(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
         let block = plot.get_block(pos);
         mchprs_redstone::update(block, plot, pos);
     });
+}
+
+pub fn add_command_completions(nodes: &mut Vec<CCommandsNode>) {
+    type Parser = CDeclareCommandsNodeParser;
+    for (name, command) in &*COMMANDS {
+        if !command.normal_completions {
+            // These commands have completions manually defined in plot::commands
+            continue;
+        }
+        let command_idx = nodes.len() as i32;
+        nodes[0].children.push(command_idx);
+        nodes.push(CCommandsNode {
+            flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+            children: Vec::new(),
+            redirect_node: None,
+            name: Some(name),
+            parser: None,
+            suggestions_type: None,
+        });
+        for arg in command.arguments {
+            let parent_idx = nodes.len() - 1;
+            let arg_idx = nodes.len() as i32;
+            nodes[parent_idx].children.push(arg_idx);
+            nodes.push(CCommandsNode {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: Vec::new(),
+                redirect_node: None,
+                name: Some(arg.name),
+                parser: Some(match arg.argument_type {
+                    ArgumentType::UnsignedInteger => Parser::Integer(0, i32::MAX),
+                    _ => Parser::String(0),
+                }),
+                suggestions_type: None,
+            });
+        }
+    }
 }

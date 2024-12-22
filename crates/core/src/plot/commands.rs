@@ -520,7 +520,7 @@ impl Plot {
 }
 
 bitflags! {
-    struct CommandFlags: u32 {
+    pub struct CommandFlags: u32 {
         const ROOT = 0x0;
         const LITERAL = 0x1;
         const ARGUMENT = 0x2;
@@ -535,14 +535,13 @@ bitflags! {
 /// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
 pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
-    CCommands {
-        nodes: &[
+    let mut packet = CCommands {
+        nodes: vec![
             // 0: Root Node
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
-                children: &[
-                    1, 4, 5, 6, 11, 12, 14, 16, 18, 19, 20, 21, 22, 23, 24, 26, 29, 31, 32, 34, 36,
-                    47, 49, 53, 60, 61, 63, 65, 66, 67, 71, 73,
+                children: vec![
+                    1, 4, 5, 6, 8, 10, 11, 13, 18, 30, 34, 41, 43, 44, 45, 49, 51,
                 ],
                 redirect_node: None,
                 name: None,
@@ -552,7 +551,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             // 1: /teleport
             Node {
                 flags: CommandFlags::LITERAL.bits() as i8,
-                children: &[2, 3],
+                children: vec![2, 3],
                 redirect_node: None,
                 name: Some("teleport"),
                 parser: None,
@@ -561,7 +560,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             // 2: /teleport [x, y, z]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("x, y, z"),
                 parser: Some(Parser::Vec3),
@@ -570,7 +569,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             // 3: /teleport [player]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("player"),
                 parser: Some(Parser::Entity(3)), // Only allow one player
@@ -579,7 +578,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             // 4: /tp
             Node {
                 flags: (CommandFlags::REDIRECT | CommandFlags::LITERAL).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: Some(1),
                 name: Some("tp"),
                 parser: None,
@@ -588,647 +587,432 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             // 5: /stop
             Node {
                 flags: (CommandFlags::EXECUTABLE | CommandFlags::LITERAL).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("stop"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 6: /plot
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[7, 8, 9, 10, 38, 39, 40, 41, 43, 44, 46, 58, 59, 74, 75],
-                redirect_node: None,
-                name: Some("plot"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 7: /plot info
+            // 6: /rtps
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("info"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 8: /plot i
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(7),
-                name: Some("i"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 9: /plot claim
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("claim"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 10: /plot c
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(9),
-                name: Some("c"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 11: /p
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(6),
-                name: Some("p"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 12: /rtps
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[13],
+                children: vec![7],
                 redirect_node: None,
                 name: Some("rtps"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 13: /rtps [rtps]
+            // 7: /rtps [rtps]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("rtps"),
                 parser: Some(Parser::Integer(0, i32::MAX)),
                 suggestions_type: None,
             },
-            // 14: //pos1
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[15],
-                redirect_node: None,
-                name: Some("/pos1"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 15: //pos1 [pos]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("pos"),
-                parser: Some(Parser::BlockPos),
-                suggestions_type: None,
-            },
-            // 16: //pos2
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[17],
-                redirect_node: None,
-                name: Some("/pos2"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 17: //pos2 [pos]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("pos"),
-                parser: Some(Parser::BlockPos),
-                suggestions_type: None,
-            },
-            // 18: /1
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(14),
-                name: Some("/1"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 19: /2
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(16),
-                name: Some("/2"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 20: //copy
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("/copy"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 21: //c
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(20),
-                name: Some("/c"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 22: //paste
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("/paste"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 23: //p
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(22),
-                name: Some("/p"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 24: //set
+            // 8: /radvance
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[25],
-                redirect_node: None,
-                name: Some("/set"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 25: //set [block]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("block"),
-                parser: Some(Parser::BlockState),
-                suggestions_type: None,
-            },
-            // 26: //replace
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[27],
-                redirect_node: None,
-                name: Some("/replace"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 27: //replace [oldblock]
-            Node {
-                flags: (CommandFlags::ARGUMENT).bits() as i8,
-                children: &[28],
-                redirect_node: None,
-                name: Some("oldblock"),
-                parser: Some(Parser::BlockState),
-                suggestions_type: None,
-            },
-            // 28: //replace [oldblock] [newblock]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("newblock"),
-                parser: Some(Parser::BlockState),
-                suggestions_type: None,
-            },
-            // 29: /radvance
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[30],
+                children: vec![9],
                 redirect_node: None,
                 name: Some("radvance"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 30: /radvance [rticks]
+            // 9: /radvance [rticks]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("rticks"),
-                parser: Some(Parser::Integer(0, 100000)),
+                parser: Some(Parser::Integer(0, i32::MAX)),
                 suggestions_type: None,
             },
-            // 31: /radv
+            // 10: /radv
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(29),
+                children: vec![],
+                redirect_node: Some(9),
                 name: Some("radv"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 32: /speed
+            // 11: /speed
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[33],
+                children: vec![12],
                 redirect_node: None,
                 name: Some("speed"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 33: /speed [speed]
+            // 12: /speed [speed]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("speed"),
                 parser: Some(Parser::Float(0.0, 10.0)),
                 suggestions_type: None,
             },
-            // 34: //stack
+            // 13: /plot
             Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[35],
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![14, 15, 16, 17, 19, 20, 21, 22, 24, 25, 27, 28, 29],
                 redirect_node: None,
-                name: Some("/stack"),
+                name: Some("plot"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 35: //stack [amount]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("amount"),
-                parser: Some(Parser::Integer(0, 256)),
-                suggestions_type: None,
-            },
-            // 36: //undo
+            // 14: /plot info
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
-                name: Some("/undo"),
+                name: Some("info"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 37: //sel
+            // 15: /plot i
             Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("/sel"),
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(14),
+                name: Some("i"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 38: /p auto
+            // 16: /plot claim
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
+                redirect_node: None,
+                name: Some("claim"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 17: /plot c
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(9),
+                name: Some("c"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 18: /p
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(13),
+                name: Some("p"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 19: /p auto
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
                 redirect_node: None,
                 name: Some("auto"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 39: /p a
+            // 20: /p a
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(9),
+                children: vec![],
+                redirect_node: Some(19),
                 name: Some("a"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 40: /p middle
+            // 21: /p middle
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("middle"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 41: /p visit
+            // 22: /p visit
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[42],
+                children: vec![23],
                 redirect_node: None,
                 name: Some("visit"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 42: /p visit [player]
+            // 23: /p visit [player]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("player"),
                 parser: Some(Parser::Entity(3)),
                 suggestions_type: None,
             },
-            // 43: /p v
+            // 24: /p v
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(41),
+                children: vec![],
+                redirect_node: Some(22),
                 name: Some("v"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 44: /p teleport
+            // 25: /p teleport
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[45],
+                children: vec![26],
                 redirect_node: None,
                 name: Some("teleport"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 45: /p teleport [x, z]
+            // 26: /p teleport [x, z]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("x, z"),
                 parser: Some(Parser::Vec2),
                 suggestions_type: None,
             },
-            // 46: /p tp
+            // 27: /p tp
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(44),
+                children: vec![],
+                redirect_node: Some(25),
                 name: Some("tp"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 47: //shift
+            // 28: /p select
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[35],
-                redirect_node: None,
-                name: Some("/shift"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 48: //shift [amount]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("amount"),
-                parser: Some(Parser::Integer(0, 256)),
-                suggestions_type: None,
-            },
-            // 49: /whitelist
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[50, 51],
-                redirect_node: None,
-                name: Some("whitelist"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 50: /whitelist add
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[52],
-                redirect_node: None,
-                name: Some("add"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 51: /whitelist remove
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[52],
-                redirect_node: None,
-                name: Some("remove"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 52: /whitelist add|remove [username]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("username"),
-                parser: Some(Parser::Entity(3)),
-                suggestions_type: None,
-            },
-            // 53: /container
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[54, 55, 56],
-                redirect_node: None,
-                name: Some("container"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 54: /container barrel
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[57],
-                redirect_node: None,
-                name: Some("barrel"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 55: /container hopper
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[57],
-                redirect_node: None,
-                name: Some("hopper"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 56: /container furnace
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[57],
-                redirect_node: None,
-                name: Some("furnace"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 57: /container [type] [power]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("power"),
-                parser: Some(Parser::Integer(0, 15)),
-                suggestions_type: None,
-            },
-            // 58: /plot lock
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("lock"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 59: /plot unlock
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("unlock"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 60: //wand
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("/wand"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 61: //save
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[62],
-                redirect_node: None,
-                name: Some("/save"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 62: //save [filename]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("filename"),
-                parser: Some(Parser::String(0)),
-                suggestions_type: None,
-            },
-            // 63: //load
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[64],
-                redirect_node: None,
-                name: Some("/load"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 64: //load [filename]
-            Node {
-                flags: (CommandFlags::ARGUMENT
-                    | CommandFlags::EXECUTABLE
-                    | CommandFlags::HAS_SUGGESTIONS_TYPE)
-                    .bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("filename"),
-                parser: Some(Parser::String(0)),
-                suggestions_type: Some("minecraft:ask_server"),
-            },
-            // 65: /toggleautorp
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("toggleautorp"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 66: /redpiler
-            Node {
-                flags: CommandFlags::LITERAL.bits() as i8,
-                children: &[68, 69, 70], // Children are compile, inspect, reset
-                redirect_node: None,
-                name: Some("redpiler"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 67: /rp
-            Node {
-                flags: (CommandFlags::REDIRECT | CommandFlags::LITERAL).bits() as i8,
-                children: &[],
-                redirect_node: Some(66), // Redirect to /redpiler
-                name: Some("rp"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 68: /redpiler compile
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("compile"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 69: /redpiler inspect
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("inspect"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 70: /redpiler reset
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("reset"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 71: /worldsendrate
-            Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
-                children: &[72],
-                redirect_node: None,
-                name: Some("worldsendrate"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 72: /worldsendrate [rticks]
-            Node {
-                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
-                redirect_node: None,
-                name: Some("hertz"),
-                parser: Some(Parser::Integer(0, 1000)),
-                suggestions_type: None,
-            },
-            // 73: /wsr
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(71),
-                name: Some("wsr"),
-                parser: None,
-                suggestions_type: None,
-            },
-            // 74: /p select
-            Node {
-                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
-                children: &[],
+                children: vec![],
                 redirect_node: None,
                 name: Some("select"),
                 parser: None,
                 suggestions_type: None,
             },
-            // 75: /p sel
+            // 29: /p sel
             Node {
                 flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
-                children: &[],
-                redirect_node: Some(74),
+                children: vec![],
+                redirect_node: Some(28),
                 name: Some("sel"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 30: /whitelist
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![31, 32],
+                redirect_node: None,
+                name: Some("whitelist"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 31: /whitelist add
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![33],
+                redirect_node: None,
+                name: Some("add"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 32: /whitelist remove
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![33],
+                redirect_node: None,
+                name: Some("remove"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 33: /whitelist add|remove [username]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("username"),
+                parser: Some(Parser::Entity(3)),
+                suggestions_type: None,
+            },
+            // 34: /container
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![35, 36, 37],
+                redirect_node: None,
+                name: Some("container"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 35: /container barrel
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![38],
+                redirect_node: None,
+                name: Some("barrel"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 36: /container hopper
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![38],
+                redirect_node: None,
+                name: Some("hopper"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 37: /container furnace
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![38],
+                redirect_node: None,
+                name: Some("furnace"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 38: /container [type] [power]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("power"),
+                parser: Some(Parser::Integer(0, 15)),
+                suggestions_type: None,
+            },
+            // 39: /plot lock
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("lock"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 40: /plot unlock
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("unlock"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 41: //load
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![42],
+                redirect_node: None,
+                name: Some("/load"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 42: //load [filename]
+            Node {
+                flags: (CommandFlags::ARGUMENT
+                    | CommandFlags::EXECUTABLE
+                    | CommandFlags::HAS_SUGGESTIONS_TYPE)
+                    .bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("filename"),
+                parser: Some(Parser::String(0)),
+                suggestions_type: Some("minecraft:ask_server"),
+            },
+            // 43: /toggleautorp
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("toggleautorp"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 44: /redpiler
+            Node {
+                flags: CommandFlags::LITERAL.bits() as i8,
+                children: vec![46, 47, 48], // Children are compile, inspect, reset
+                redirect_node: None,
+                name: Some("redpiler"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 45: /rp
+            Node {
+                flags: (CommandFlags::REDIRECT | CommandFlags::LITERAL).bits() as i8,
+                children: vec![],
+                redirect_node: Some(44), // Redirect to /redpiler
+                name: Some("rp"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 46: /redpiler compile
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("compile"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 47: /redpiler inspect
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("inspect"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 48: /redpiler reset
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("reset"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 49: /worldsendrate
+            Node {
+                flags: (CommandFlags::LITERAL).bits() as i8,
+                children: vec![50],
+                redirect_node: None,
+                name: Some("worldsendrate"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 50: /worldsendrate [rticks]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("hertz"),
+                parser: Some(Parser::Integer(0, 1000)),
+                suggestions_type: None,
+            },
+            // 51: /wsr
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::REDIRECT).bits() as i8,
+                children: vec![],
+                redirect_node: Some(49),
+                name: Some("wsr"),
                 parser: None,
                 suggestions_type: None,
             },
         ],
         root_index: 0,
-    }
-    .encode()
+    };
+    super::worldedit::add_command_completions(&mut packet.nodes);
+    packet.encode()
 });
