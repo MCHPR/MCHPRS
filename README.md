@@ -1,12 +1,14 @@
 # Minecraft High-Performance Redstone Server
 
-[![Build Status](https://travis-ci.org/MCHPR/MCHPRS.svg?branch=master)](https://travis-ci.org/MCHPR/MCHPRS) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Discord Banner 2](https://discordapp.com/api/guilds/724072903083163679/widget.png)](https://discord.com/invite/svK9JU7)
+[![Build Status](https://github.com/MCHPR/MCHPRS/actions/workflows/build.yml/badge.svg)](https://github.com/MCHPR/MCHPRS/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Discord Banner 2](https://discordapp.com/api/guilds/724072903083163679/widget.png)](https://discord.com/invite/svK9JU7)
 
-A Minecraft 1.20.4 creative server built for redstone. Each 256x256 plot runs on a separate thread, allowing for less lag, more concurrency, and many awesome extra features!
+A Minecraft 1.20.4 creative server built for redstone. Each 512x512 plot runs on a separate thread, allowing for less lag, more concurrency, and many awesome extra features!
 
 MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
-MCHPRS has made it possible to run programs such as [Graph Rendering, Conway's Game of Life, and Mandelbrot Rendering](https://www.youtube.com/watch?v=FDiapbD0Xfg) on CPUs in Minecraft. To accomplish these speeds, we created [Redpiler](docs/Redpiler.md), the "Redstone Compiler".
+MCHPRS has made it possible to run programs such as [a limited form of Minecraft](https://www.youtube.com/watch?v=-BP7DhHTU-I) on CPUs in Minecraft. To accomplish these speeds, we created [Redpiler](docs/Redpiler.md), the "Redstone Compiler".
 
 ## Table of Contents
 
@@ -18,6 +20,7 @@ MCHPRS has made it possible to run programs such as [Graph Rendering, Conway's G
     - [General Commands](#general-commands)
     - [Plot Ownership](#plot-ownership)
     - [Worldedit](#worldedit)
+    - [Redpiler](#redpiler)
 - [Acknowledgments](#acknowledgments)
 - [Contributing](#contributing)
 - [License](#license)
@@ -48,8 +51,8 @@ The folowing options are available at the toplevel (under no header):
 | `view_distance` | Maximal distance (in chunks) between players and loaded chunks | `8` |
 | `whitelist` | Whether or not the whitelist (in `whitelist.json`) shoud be enabled | `false` |
 | `schemati` | Mimic the verification and directory layout used by the Open Redstone Engineers [Schemati plugin](https://github.com/OpenRedstoneEngineers/Schemati) | `false` |
-| `block_in_hitbox` | Allow placing blocks inside of players (hitbox logic is simplified) | true |
-| `auto_redpiler` | Use redpiler automatically | true |
+| `block_in_hitbox` | Allow placing blocks inside of players (hitbox logic is simplified) | `true` |
+| `auto_redpiler` | Use redpiler automatically | `false` |
 
 To change the plot size edit the constants defined in [plot/mod.rs](./crates/core/src/plot/mod.rs).
 
@@ -99,8 +102,6 @@ server_context = "global"
 | `/speed [speed]` | None | Sets your flyspeed. |
 | `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
 | `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
-| `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. Available flags: --io-only --optimize --export --update (or in short: -ioeu) |
-| `/redpiler reset` | `/rp r` | Stops redpiler. |
 | `/toggleautorp` | None | Toggles automatic redpiler compilation. |
 | `/stop` | None | Stops the server. |
 
@@ -123,7 +124,7 @@ These are the commands that are currently implemented:
 MCHPRS provides its own implementation of [WorldEdit](https://github.com/EngineHub/WorldEdit). Visit their [documentation](https://worldedit.enginehub.org/en/latest/commands/) for more information.
 These are the commands that are currently implemented:
 | Command | Alias | Description |
-| --- | --- |--- |
+| --- | --- | --- |
 | `/up` | `/u` | Go upwards some distance |
 | `/ascend` | `/asc` | Go up a floor |
 | `/descend` | `/desc` | Go down a floor |
@@ -152,6 +153,26 @@ These are the commands that are currently implemented:
 | `//rotate` | `//r` | Rotate the contents of the clipboard |
 | `//update` | None | Updates all blocks in the selection (`-p` to update the entire plot) |
 | `//help` | None | Displays help for WorldEdit commands |
+
+### Redpiler
+
+MCHPRS provides Redpiler, the redstone compiler. This allows redstone simulation much faster than otherwise possible.
+While redpiler is running, all redstone connections are pre-computed, thus interaction with the world is limited in this state.
+Placing or breaking blocks while redpiler is running will cause a reset and disable redpiler.
+
+| Command | Alias | Description |
+| --- | --- | --- |
+| `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. There are several flags available, described below. |
+| `/redpiler reset` | `/rp r` | Stops redpiler. |
+
+| Flag | Short | Description |
+| --- | --- | --- |
+| `--optimize` | `-o` | Enable redpiler optimizations. WARNING: This can, and will, break the state of your build. Use backups when using this flag. |
+| `--io-only` | `-i` | Only send blocks updates of relavent input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
+| `--wire-dot-out` | `-d` | Consider wires in the dot shape as an output block for `-i`. Useful for e.g. color displays. |
+| `--update` | `-u` | Update all blocks after redpiler resets. |
+| `--export` | `-e` | Export the compile graph using a binary format. This can be useful for developing out-of-tree uses of redpiler graphs. |
+| `--export-dot` | None | Create a graphvis dot file of backend graph. Used for debugging/development. |
 
 ## Acknowledgments
 - [@AL1L](https://github.com/AL1L) for his contributions to worldedit and other various features.
