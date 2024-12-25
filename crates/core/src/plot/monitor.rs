@@ -129,7 +129,7 @@ impl TimingsMonitor {
     pub fn tick(&self) {
         self.data.ticks_passed.fetch_add(1, Ordering::Relaxed);
     }
-    
+
     pub fn tickn(&self, ticks: u64) {
         self.data.ticks_passed.fetch_add(ticks, Ordering::Relaxed);
     }
