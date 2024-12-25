@@ -269,6 +269,18 @@ impl World for PlotWorld {
 }
 
 impl Plot {
+    fn tickn(&mut self, ticks: u64) {
+        if self.redpiler.is_active() {
+            self.timings.tickn(ticks);
+            self.redpiler.tickn(ticks);
+            return;
+        }
+
+        for _ in 0..ticks {
+            self.tick();
+        }
+    }
+
     fn tick(&mut self) {
         self.timings.tick();
         if self.redpiler.is_active() {
@@ -1012,9 +1024,7 @@ impl Plot {
                 let batch_size = batch_size.min(50_000) as u32;
                 let mut ticks_completed = batch_size;
                 if self.redpiler.is_active() {
-                    for _ in 0..batch_size {
-                        self.tick();
-                    }
+                    self.tickn(batch_size as u64);
                     self.redpiler.flush(&mut self.world);
                 } else {
                     for i in 0..batch_size {
