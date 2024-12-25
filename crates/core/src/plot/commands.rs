@@ -321,9 +321,8 @@ impl Plot {
                     return false;
                 };
                 let start_time = Instant::now();
-                for _ in 0..ticks {
-                    self.tick();
-                }
+                self.tickn(ticks as u64);
+
                 if self.redpiler.is_active() {
                     self.redpiler.flush(&mut self.world);
                 }
