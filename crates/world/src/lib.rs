@@ -163,40 +163,19 @@ pub fn for_each_block_optimized<F, W: World>(
 ) where
     F: FnMut(BlockPos),
 {
-    let start_x = i32::min(first_pos.x, second_pos.x);
-    let end_x = i32::max(first_pos.x, second_pos.x);
-
-    let start_y = i32::min(first_pos.y, second_pos.y);
-    let end_y = i32::max(first_pos.y, second_pos.y);
-
-    let start_z = i32::min(first_pos.z, second_pos.z);
-    let end_z = i32::max(first_pos.z, second_pos.z);
-
     // Iterate over chunks
-    for chunk_start_x in (start_x..=end_x).step_by(16) {
-        for chunk_start_z in (start_z..=end_z).step_by(16) {
-            let chunk = world
-                .get_chunk(chunk_start_x.div_euclid(16), chunk_start_z.div_euclid(16))
-                .unwrap();
-            for chunk_start_y in (start_y..=end_y).step_by(16) {
-                // Check if the chunk even has non air blocks
-                if chunk.sections[chunk_start_y as usize / 16].block_count() > 0 {
-                    // Calculate the end position of the current chunk
-                    let chunk_end_x = i32::min(chunk_start_x + 16 - 1, end_x);
-                    let chunk_end_y = i32::min(chunk_start_y + 16 - 1, end_y);
-                    let chunk_end_z = i32::min(chunk_start_z + 16 - 1, end_z);
-
-                    // Iterate over each position within the current chunk
-                    for y in chunk_start_y..=chunk_end_y {
-                        for z in chunk_start_z..=chunk_end_z {
-                            for x in chunk_start_x..=chunk_end_x {
-                                let pos = BlockPos::new(x, y, z);
-                                f(pos);
-                            }
-                        }
-                    }
-                }
-            }
+    for chunk_section_idx in chunk_section_idxs_between(first_pos, second_pos) {
+        let chunk = world
+            .get_chunk(chunk_section_idx.x, chunk_section_idx.z)
+            .unwrap();
+        if chunk.sections[chunk_section_idx.y as usize].block_count() == 0 {
+            // only air, skip section
+            continue;
+        }
+        for block_pos in
+            block_pos_in_chunk_section_between(first_pos, second_pos, chunk_section_idx)
+        {
+            f(block_pos);
         }
     }
 }
@@ -210,43 +189,19 @@ pub fn for_each_block_mut_optimized<F, W: World>(
 ) where
     F: FnMut(&mut W, BlockPos),
 {
-    let start_x = i32::min(first_pos.x, second_pos.x);
-    let end_x = i32::max(first_pos.x, second_pos.x);
-
-    let start_y = i32::min(first_pos.y, second_pos.y);
-    let end_y = i32::max(first_pos.y, second_pos.y);
-
-    let start_z = i32::min(first_pos.z, second_pos.z);
-    let end_z = i32::max(first_pos.z, second_pos.z);
-
     // Iterate over chunks
-    for chunk_start_x in (start_x..=end_x).step_by(16) {
-        for chunk_start_z in (start_z..=end_z).step_by(16) {
-            for chunk_start_y in (start_y..=end_y).step_by(16) {
-                // Check if the chunk even has non air blocks
-                if world
-                    .get_chunk(chunk_start_x.div_euclid(16), chunk_start_z.div_euclid(16))
-                    .unwrap()
-                    .sections[chunk_start_y as usize / 16]
-                    .block_count()
-                    > 0
-                {
-                    // Calculate the end position of the current chunk
-                    let chunk_end_x = i32::min(chunk_start_x + 16 - 1, end_x);
-                    let chunk_end_y = i32::min(chunk_start_y + 16 - 1, end_y);
-                    let chunk_end_z = i32::min(chunk_start_z + 16 - 1, end_z);
-
-                    // Iterate over each position within the current chunk
-                    for y in chunk_start_y..=chunk_end_y {
-                        for z in chunk_start_z..=chunk_end_z {
-                            for x in chunk_start_x..=chunk_end_x {
-                                let pos = BlockPos::new(x, y, z);
-                                f(world, pos);
-                            }
-                        }
-                    }
-                }
-            }
+    for chunk_section_idx in chunk_section_idxs_between(first_pos, second_pos) {
+        let chunk = world
+            .get_chunk(chunk_section_idx.x, chunk_section_idx.z)
+            .unwrap();
+        if chunk.sections[chunk_section_idx.y as usize].block_count() == 0 {
+            // only air, skip section
+            continue;
+        }
+        for block_pos in
+            block_pos_in_chunk_section_between(first_pos, second_pos, chunk_section_idx)
+        {
+            f(world, block_pos);
         }
     }
 }
