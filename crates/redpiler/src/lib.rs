@@ -203,7 +203,7 @@ impl Compiler {
     pub fn tick(&mut self) {
         self.backend().tick();
     }
-    
+
     pub fn tickn(&mut self, ticks: u64) {
         self.backend().tickn(ticks);
     }
