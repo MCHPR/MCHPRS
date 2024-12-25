@@ -81,7 +81,78 @@ pub trait World {
     }
 }
 
-// TODO: I have no idea how to deduplicate this in a sane way
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct ChunkSectionIdx {
+    x: i32,
+    y: i32,
+    z: i32,
+}
+
+impl ChunkSectionIdx {
+    fn new(x: i32, y: i32, z: i32) -> Self {
+        Self { x, y, z }
+    }
+}
+
+/// Returns an iterator over the chunk section indexes between two block positions,
+/// ie, over x,y,z triples (where x,z are chunk indexes and y are section indexes)
+/// such that the bounding box defined by the two block positions intersect
+/// section y of the x,z chunk.
+/// The iterator yields the chunks in x,z order, and the sections in y order,
+/// i.e., if visiting sections 1,2 of chunks 0,0 and 0,1, the iterator will yield
+/// - section 1 of chunk 0,0 (0,1,0)
+/// - section 2 of chunk 0,0 (0,1,1)
+/// - section 1 of chunk 0,1 (0,2,0)
+/// - section 2 of chunk 0,1 (0,2,1)
+/// The iterator will not yield any chunks or sections
+/// that are entirely outside the bounding box.
+fn chunk_section_idxs_between(
+    fst: BlockPos,
+    snd: BlockPos,
+) -> impl Iterator<Item = ChunkSectionIdx> {
+    // for each coordinate, we find the start and end value based on the relative
+    // position of the two blocks, and then divide by 16 to get the chunk/section index
+    let start_x = i32::min(fst.x, snd.x).div_euclid(16);
+    let end_x = i32::max(fst.x, snd.x).div_euclid(16);
+
+    let start_y = i32::min(fst.y, snd.y).div_euclid(16);
+    let end_y = i32::max(fst.y, snd.y).div_euclid(16);
+
+    let start_z = i32::min(fst.z, snd.z).div_euclid(16);
+    let end_z = i32::max(fst.z, snd.z).div_euclid(16);
+
+    // it's possible that putting y in the final flat_map would let the compiler optimise the
+    // iterations better (after inlining the iterator loop) if we then do operations
+    // on the chunk that don't depend on the sections... should be tested
+    (start_x..=end_x)
+        .flat_map(move |x| (start_z..=end_z).map(move |z| (x, z)))
+        .flat_map(move |(x, z)| (start_y..=end_y).map(move |y| ChunkSectionIdx::new(x, y, z)))
+}
+
+/// Returns an iterator over the block positions contained in the given chunk section
+/// and within the bounding box defined by the two block positions.
+fn block_pos_in_chunk_section_between(
+    fst: BlockPos,
+    snd: BlockPos,
+    chunk_section_idx: ChunkSectionIdx,
+) -> impl Iterator<Item = BlockPos> {
+    // for each coordinate, we start at either the lowest coordinate of the bounding
+    // blocks or at the chunk boundary if the chunk is contained in the bounding box
+    // and correspondingly end at the highest coordinate of the bounding blocks or at the
+    // chunk boundary if the chunk is contained in the bounding box
+    let start_x = i32::min(fst.x, snd.x).max(chunk_section_idx.x * 16);
+    let end_x = i32::max(fst.x, snd.x).min(chunk_section_idx.x * 16 + 15);
+
+    let start_y = i32::min(fst.y, snd.y).max(chunk_section_idx.y * 16);
+    let end_y = i32::max(fst.y, snd.y).min(chunk_section_idx.y * 16 + 15);
+
+    let start_z = i32::min(fst.z, snd.z).max(chunk_section_idx.z * 16);
+    let end_z = i32::max(fst.z, snd.z).min(chunk_section_idx.z * 16 + 15);
+
+    (start_x..=end_x)
+        .flat_map(move |x| (start_y..=end_y).map(move |y| (x, y)))
+        .flat_map(move |(x, y)| (start_z..=end_z).map(move |z| BlockPos::new(x, y, z)))
+}
 
 /// Executes the given function for each block excluding most air blocks
 pub fn for_each_block_optimized<F, W: World>(
