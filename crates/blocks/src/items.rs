@@ -186,8 +186,8 @@ items! {
     },
     Glowstone {
         props: {},
-        get_id: 275,
-        from_id(_id): 275 => {},
+        get_id: 331,
+        from_id(_id): 331 => {},
         block: true,
     },
     Sandstone {
