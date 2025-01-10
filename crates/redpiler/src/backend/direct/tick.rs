@@ -17,8 +17,8 @@ impl DirectBackend {
                     self.set_node(node_id, false, 0);
                 } else if !node.powered {
                     self.set_node(node_id, true, 15);
-                    if !should_be_powered {
-                        let node = &mut self.nodes[node_id];
+                    let node = &mut self.nodes[node_id];
+                    if !should_be_powered & !node.pending_tick {
                         schedule_tick(
                             &mut self.scheduler,
                             node_id,
