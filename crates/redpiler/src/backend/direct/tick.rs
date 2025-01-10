@@ -16,7 +16,9 @@ impl DirectBackend {
                 if node.powered && !should_be_powered {
                     self.set_node(node_id, false, 0);
                 } else if !node.powered {
+                    self.set_node(node_id, true, 15);
                     if !should_be_powered {
+                        let node = &mut self.nodes[node_id];
                         schedule_tick(
                             &mut self.scheduler,
                             node_id,
@@ -25,7 +27,6 @@ impl DirectBackend {
                             TickPriority::Higher,
                         );
                     }
-                    self.set_node(node_id, true, 15);
                 }
             }
             NodeType::Torch => {
