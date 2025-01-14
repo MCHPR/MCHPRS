@@ -2,7 +2,10 @@ name: Build
 
 on:
   push:
-    branches: [master]
+    branches: [ "master" ]
+    tags: [ "v*" ]
+  pull_request:
+    branches: [ "master" ]
 
 jobs:
   build:
@@ -27,27 +30,26 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        target: ${{ matrix.target }}
-        profile: minimal
-    - uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ matrix.target }}
+      - uses: actions/checkout@v4
 
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release --target ${{ matrix.target }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-    - name: Upload
-      uses: actions/upload-artifact@v4
-      with:
-        name: mchprs-${{ matrix.target }}
-        path: target/${{ matrix.target }}/release/mchprs${{ matrix.ext }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER: rust-lld.exe
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mchprs-${{ matrix.target }}
+          path: target/${{ matrix.target }}/release/mchprs${{ matrix.ext }}
 
   build-macos-universal:
     needs: build
@@ -62,11 +64,49 @@ jobs:
           name: mchprs-aarch64-apple-darwin
           path: aarch64
 
-      - name: Build
+      - name: Create universal binary
         run: lipo -create -output mchprs x86_64/mchprs aarch64/mchprs
 
-      - name: Upload
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mchprs-universal-apple-darwin
           path: mchprs
+
+  publish:
+    needs: [build, build-macos-universal]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Reorganize artifacts
+        run: |
+          mkdir -p dist/
+          find artifacts/ -type f -exec bash -c 'base=$(basename $1); mv $1 dist/$(basename $(dirname $1))${base#${base%.*}}' _ {} \;
+
+      - name: Create preview release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete preview --yes || true
+          gh release create preview \
+            --prerelease \
+            --title "${GITHUB_REPOSITORY} Preview Build" \
+            --notes "🚧 **This is a preview build of the latest commit.**" \
+            dist/*
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          tag: ${{ github.ref_name }}
+        run: |
+          gh release create "$tag" \
+            --title "${GITHUB_REPOSITORY} ${tag#v}" \
+            --generate-notes \
+            dist/*
