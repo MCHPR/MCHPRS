@@ -4,6 +4,7 @@ use mchprs_world::World;
 
 // LUT generated via f32::powf(2.0, (note as f32 - 12.0) / 12.0)
 // This is hardcoded because at this point floating point operations are not allowed in const contexts
+#[allow(clippy::approx_constant)]
 const PITCHES_TABLE: [f32; 25] = [
     0.5, 0.5297315, 0.561231, 0.59460354, 0.62996054, 0.6674199, 0.70710677, 0.74915355, 0.7937005,
     0.8408964, 0.8908987, 0.9438743, 1.0, 1.0594631, 1.122462, 1.1892071, 1.2599211, 1.3348398,
