@@ -1,5 +1,7 @@
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, Lever, LeverFace, RedstoneRepeater};
+use mchprs_blocks::blocks::{
+    Block, ComparatorMode, Lever, LeverFace, RedstoneComparator, RedstoneRepeater,
+};
 use mchprs_blocks::{BlockDirection, BlockPos};
 use mchprs_redpiler::{BackendVariant, Compiler, CompilerOptions};
 use mchprs_redstone::wire::make_cross;
@@ -298,8 +300,6 @@ pub fn make_repeater(
             repeater: RedstoneRepeater {
                 delay,
                 facing: direction,
-                locked: false,
-                powered: false,
                 ..Default::default()
             },
         },
@@ -313,6 +313,26 @@ pub fn make_wire(world: &mut TestWorld, wire_pos: BlockPos) {
         wire_pos,
         Block::RedstoneWire {
             wire: make_cross(0),
+        },
+    );
+}
+
+/// Creates a comparator at `comp_pos` with a block of sandstone below it
+pub fn make_comparator(
+    world: &mut TestWorld,
+    comp_pos: BlockPos,
+    mode: ComparatorMode,
+    facing: BlockDirection,
+) {
+    place_on_block(
+        world,
+        comp_pos,
+        Block::RedstoneComparator {
+            comparator: RedstoneComparator {
+                mode,
+                facing,
+                ..Default::default()
+            },
         },
     );
 }
