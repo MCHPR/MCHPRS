@@ -186,6 +186,13 @@ impl<'a, W: World> InputSearchState<'a, W> {
             let pos = queue.pop_front().unwrap();
             distance = discovered[&pos];
 
+            // We can stop looking once we've reached the max ss of a wire. This also prevents
+            // overflowing the distance past 255
+            if distance > 15 {
+                continue;
+            }
+
+            // The block above the wire. If it's solid, we can't connect up diagonally
             let up_pos = pos.offset(BlockFace::Top);
             let up_block = self.world.get_block(up_pos);
 
