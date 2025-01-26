@@ -140,3 +140,45 @@ fn repeater_on_off(backend: TestBackend) {
         runner.check_block_powered(trapdoor_pos, false);
     }
 }
+
+test_all_backends!(wire_barely_reaches);
+fn wire_barely_reaches(backend: TestBackend) {
+    let lever_pos = pos(0, 1, 0);
+    let trapdoor_pos = pos(16, 1, 0);
+
+    let mut world = TestWorld::new(2);
+    make_lever(&mut world, lever_pos);
+    // 15 wire blocks between lever and trapdoor
+    for x in 1..=15 {
+        make_wire(&mut world, pos(x, 1, 0));
+    }
+    world.set_block(trapdoor_pos, trapdoor());
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.check_block_powered(trapdoor_pos, false);
+    runner.use_block(lever_pos);
+    runner.check_block_powered(trapdoor_pos, true);
+    runner.use_block(lever_pos);
+    runner.check_block_powered(trapdoor_pos, false);
+}
+
+test_all_backends!(wire_no_reach);
+fn wire_no_reach(backend: TestBackend) {
+    let lever_pos = pos(0, 1, 0);
+    let trapdoor_pos = pos(17, 1, 0);
+
+    let mut world = TestWorld::new(2);
+    make_lever(&mut world, lever_pos);
+    // 16 wire blocks between lever and trapdoor
+    for x in 1..=16 {
+        make_wire(&mut world, pos(x, 1, 0));
+    }
+    world.set_block(trapdoor_pos, trapdoor());
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.check_block_powered(trapdoor_pos, false);
+    runner.use_block(lever_pos);
+    runner.check_block_powered(trapdoor_pos, false);
+    runner.use_block(lever_pos);
+    runner.check_block_powered(trapdoor_pos, false);
+}
