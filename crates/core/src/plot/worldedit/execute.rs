@@ -356,6 +356,13 @@ pub(super) fn execute_stack(ctx: CommandExecuteContext<'_>) {
     };
     ctx.player.worldedit_undo.push(undo);
 
+    if ctx.has_flag('s') {
+        let first_pos = direction.offset_pos(pos1, (stack_offset*stack_amt) as i32);
+        let second_pos = direction.offset_pos(pos2, (stack_offset*stack_amt) as i32);
+        ctx.player.worldedit_set_first_position(first_pos);
+        ctx.player.worldedit_set_second_position(second_pos);
+    }
+
     ctx.player.send_worldedit_message(&format!(
         "Your selection was stacked. ({:?})",
         start_time.elapsed()
