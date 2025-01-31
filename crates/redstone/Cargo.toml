@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 mchprs_blocks = { path = "../blocks" }
 mchprs_world = { path = "../world" }
-tracing = "0.1"
-rustc-hash = "2.0"
+tracing = { workspace = true }
+rustc-hash = { workspace = true }

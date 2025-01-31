@@ -13,10 +13,10 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hematite-nbt = "0.5"
-flate2 = "1"
-serde = "1"
-byteorder = "1.4"
-tracing = "0.1"
-bitvec = "1"
 mchprs_text = { path = "../text" }
+hematite-nbt = { workspace = true }
+flate2 = { workspace = true }
+serde = { workspace = true }
+byteorder = { workspace = true }
+tracing = { workspace = true }
+bitvec = { workspace = true }

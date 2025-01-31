@@ -13,7 +13,7 @@ repository.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = "1"
-hematite-nbt = "0.5"
 mchprs_utils = { path = "../utils" }
 mchprs_proc_macros = { path = "../proc_macros" }
+serde = { workspace = true }
+hematite-nbt = { workspace = true }
