@@ -32,7 +32,6 @@ md5 = { workspace = true }
 bus = { workspace = true }
 ctrlc = { workspace = true, features = ["termination"] }
 tracing = { workspace = true }
-chrono = { workspace = true }
 rand = { workspace = true }
 regex = { workspace = true }
 backtrace = { workspace = true }
@@ -43,7 +42,6 @@ mysql = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 reqwest = { workspace = true, features = ["json"] }
 itertools = { workspace = true }
-impls = { workspace = true }
 bincode = { workspace = true }
 once_cell = { workspace = true }
 rustc-hash = { workspace = true }

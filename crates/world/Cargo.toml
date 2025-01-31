@@ -18,7 +18,6 @@ mchprs_network = { path = "../network", optional = true }
 serde = { workspace = true }
 rustc-hash = { workspace = true }
 hematite-nbt = { workspace = true }
-itertools = { workspace = true }
 
 [features]
 default = ["networking"]
