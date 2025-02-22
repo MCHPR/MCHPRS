@@ -243,10 +243,8 @@ impl NodeAnnotation {
         if !(s.starts_with('[') && s.ends_with(']')) {
             return None;
         }
-        let parts = s[1..s.len() - 1].split(' ').collect_vec();
-        match parts.as_slice() {
-            _ => None,
-        }
+        let _parts = s[1..s.len() - 1].split(' ').collect_vec();
+        None
     }
 
     fn apply(

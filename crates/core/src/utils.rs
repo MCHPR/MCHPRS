@@ -10,14 +10,17 @@ use std::str::FromStr;
 #[derive(Debug)]
 pub struct HyphenatedUUID(pub u128);
 
-impl ToString for HyphenatedUUID {
-    fn to_string(&self) -> String {
-        let mut hex = format!("{:032x}", self.0);
-        hex.insert(8, '-');
-        hex.insert(13, '-');
-        hex.insert(18, '-');
-        hex.insert(23, '-');
-        hex
+impl std::fmt::Display for HyphenatedUUID {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
+            self.0 >> 96,
+            (self.0 >> 80) & 0xFFFF,
+            (self.0 >> 64) & 0xFFFF,
+            (self.0 >> 48) & 0xFFFF,
+            self.0 & 0xFFFFFFFFFFFF,
+        )
     }
 }
 
@@ -40,7 +43,7 @@ impl Serialize for HyphenatedUUID {
 
 struct HyphenatedUUIDVisitor;
 
-impl<'de> Visitor<'de> for HyphenatedUUIDVisitor {
+impl Visitor<'_> for HyphenatedUUIDVisitor {
     type Value = HyphenatedUUID;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -417,9 +417,10 @@ impl Player {
 
     /// Sends a raw chat message to the player
     pub fn send_chat_message(&self, message: &[TextComponent]) {
-        let mut component: TextComponent = Default::default();
-        component.extra = message.to_vec();
-        self.send_raw_chat(component);
+        self.send_raw_chat(TextComponent {
+            extra: message.to_vec(),
+            ..Default::default()
+        });
     }
 
     pub fn send_no_permission_message(&self) {
@@ -533,7 +534,7 @@ impl Player {
             window_id: 0,
             state_id: 0,
             slot: slot as i16,
-            slot_data: item.as_ref().map(|item| utils::encode_slot_data(item)),
+            slot_data: item.as_ref().map(utils::encode_slot_data),
         }
         .encode();
         self.client.send_packet(&set_slot);

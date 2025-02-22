@@ -140,7 +140,7 @@ impl RedstoneWireTurbo {
         let mut neighbors_visited = Vec::with_capacity(24);
         let mut neighbor_nodes = Vec::with_capacity(24);
 
-        for (_i, neighbor_pos) in neighbors[0..24].iter().enumerate() {
+        for neighbor_pos in &neighbors[0..24] {
             let neighbor = if !self.node_cache.contains_key(neighbor_pos) {
                 let node_id = NodeId {
                     index: self.nodes.len(),

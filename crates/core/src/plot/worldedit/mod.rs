@@ -19,9 +19,9 @@ use rand::Rng;
 use regex::Regex;
 use rustc_hash::FxHashMap;
 use std::collections::HashMap;
+use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
-use std::{fmt, i32};
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
 // The command is not handled if it is not found in the worldedit commands and alias lists.
@@ -404,7 +404,7 @@ struct CommandExecuteContext<'a> {
     flags: Vec<char>,
 }
 
-impl<'a> CommandExecuteContext<'a> {
+impl CommandExecuteContext<'_> {
     fn has_flag(&self, c: char) -> bool {
         self.flags.contains(&c)
     }

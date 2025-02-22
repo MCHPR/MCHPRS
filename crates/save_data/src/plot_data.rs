@@ -8,7 +8,7 @@ use mchprs_world::storage::{Chunk, ChunkSection};
 use mchprs_world::TickEntry;
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
 use std::{fmt, io};
@@ -190,7 +190,7 @@ impl PlotData {
     }
 
     pub fn save_to_file(&self, path: impl AsRef<Path>) -> Result<(), PlotSaveError> {
-        let mut file = OpenOptions::new().write(true).create(true).open(path)?;
+        let mut file = File::create(path)?;
 
         file.write_all(PLOT_MAGIC)?;
         file.write_u32::<LittleEndian>(VERSION)?;

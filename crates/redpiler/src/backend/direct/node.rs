@@ -141,7 +141,7 @@ pub struct NonMaxU8(NonZeroU8);
 
 impl NonMaxU8 {
     pub fn new(value: u8) -> Option<Self> {
-        NonZeroU8::new(value + 1).map(|x| Self(x))
+        NonZeroU8::new(value + 1).map(Self)
     }
 
     pub fn get(self) -> u8 {

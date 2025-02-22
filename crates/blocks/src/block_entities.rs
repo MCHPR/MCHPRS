@@ -39,14 +39,13 @@ impl FromStr for ContainerType {
     }
 }
 
-impl ToString for ContainerType {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for ContainerType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
             ContainerType::Furnace => "minecraft:furnace",
             ContainerType::Barrel => "minecraft:barrel",
             ContainerType::Hopper => "minecraft:hopper",
-        }
-        .to_owned()
+        })
     }
 }
 
