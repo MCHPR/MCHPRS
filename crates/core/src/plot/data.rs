@@ -51,8 +51,7 @@ static EMPTY_PLOT: Lazy<PlotData> = Lazy::new(|| {
             to_be_ticked: Vec::new(),
             packet_senders: Vec::new(),
         };
-        let chunk_data: Vec<ChunkData> =
-            world.chunks.iter_mut().map(|c| ChunkData::new(c)).collect();
+        let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(ChunkData::new).collect();
         PlotData {
             tps: Tps::Limited(10),
             world_send_rate: WorldSendRate::default(),

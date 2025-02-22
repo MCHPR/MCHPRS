@@ -12,8 +12,8 @@ pub trait ClientBoundPacket {
 
 fn encode_plugin_message(packet_id: u32, channel: &str, data: &[u8]) -> PacketEncoder {
     let mut buf = Vec::new();
-    buf.write_string(32767, &channel);
-    buf.write_bytes(&data);
+    buf.write_string(32767, channel);
+    buf.write_bytes(data);
     PacketEncoder::new(buf, packet_id)
 }
 
@@ -1036,7 +1036,7 @@ impl ClientBoundPacket for CResetScore {
         buf.write_string(32767, &self.entity_name);
         buf.write_bool(self.objective_name.is_some());
         if let Some(objective_name) = &self.objective_name {
-            buf.write_string(32767, &objective_name);
+            buf.write_string(32767, objective_name);
         }
         PacketEncoder::new(buf, 0x42)
     }
@@ -1217,7 +1217,7 @@ impl ClientBoundPacket for CUpdateScore {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.entity_name);
         buf.write_string(32767, &self.objective_name);
-        buf.write_varint(self.value as i32);
+        buf.write_varint(self.value);
         buf.write_bool(self.display_name.is_some());
         if let Some(display_name) = &self.display_name {
             buf.write_text_component(display_name);

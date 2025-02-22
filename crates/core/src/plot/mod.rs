@@ -183,10 +183,7 @@ impl World for PlotWorld {
     }
 
     fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
-        let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
-            Some(idx) => idx,
-            None => return None,
-        };
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z)?;
         let chunk = &self.chunks[chunk_index];
         chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }
@@ -521,9 +518,7 @@ impl Plot {
         if let Some(item) = &item_in_hand {
             let has_permission = self.players[player].has_permission("worldedit.selection.pos");
             if item.item_type == (Item::WEWand {}) && has_permission {
-                let same = self.players[player]
-                    .second_position
-                    .map_or(false, |p| p == block_pos);
+                let same = self.players[player].second_position == Some(block_pos);
                 if !same {
                     self.players[player].worldedit_set_second_position(block_pos);
                 }
@@ -696,7 +691,7 @@ impl Plot {
         thread::scope(|s| {
             let handle = s.spawn(|| {
                 self.redpiler
-                    .compile(&mut self.world, bounds, options, ticks, monitor)
+                    .compile(&self.world, bounds, options, ticks, monitor)
             });
             while !handle.is_finished() {
                 // We'll update the players so that they don't time out.
@@ -861,14 +856,13 @@ impl Plot {
                     let player_info = CPlayerInfoUpdate {
                         players: vec![CPlayerInfoUpdatePlayer {
                             uuid: player_join_info.uuid,
-                            actions: {
-                                let mut actions: CPlayerInfoActions = Default::default();
-                                actions.add_player = Some(CPlayerInfoAddPlayer {
+                            actions: CPlayerInfoActions {
+                                add_player: Some(CPlayerInfoAddPlayer {
                                     name: player_join_info.username,
                                     properties: player_join_info.properties,
-                                });
-                                actions.update_gamemode = Some(player_join_info.gamemode.get_id());
-                                actions
+                                }),
+                                update_gamemode: Some(player_join_info.gamemode.get_id()),
+                                ..Default::default()
                             },
                         }],
                     }
@@ -900,10 +894,9 @@ impl Plot {
                     let player_info = CPlayerInfoUpdate {
                         players: vec![CPlayerInfoUpdatePlayer {
                             uuid,
-                            actions: {
-                                let mut actions: CPlayerInfoActions = Default::default();
-                                actions.update_gamemode = Some(gamemode.get_id());
-                                actions
+                            actions: CPlayerInfoActions {
+                                update_gamemode: Some(gamemode.get_id()),
+                                ..Default::default()
                             },
                         }],
                     }
@@ -1189,8 +1182,7 @@ impl Plot {
 
     fn save(&mut self) {
         let world = &mut self.world;
-        let chunk_data: Vec<ChunkData> =
-            world.chunks.iter_mut().map(|c| ChunkData::new(c)).collect();
+        let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(ChunkData::new).collect();
         let data = PlotData {
             tps: self.tps,
             world_send_rate: self.world_send_rate,
