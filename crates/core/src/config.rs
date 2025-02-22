@@ -27,7 +27,7 @@ impl_simple_default!(String, i64, bool);
 
 impl<T> ConfigSerializeDefault for Option<T> {
     fn fix_config(self, _: &str, _: &mut DocumentMut) {
-        assert!(matches!(self, None), "`Some` as default is unimplemented");
+        assert!(self.is_none(), "`Some` as default is unimplemented");
     }
 }
 

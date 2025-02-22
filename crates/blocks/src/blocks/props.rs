@@ -79,12 +79,12 @@ impl FromStr for ComparatorMode {
     }
 }
 
-impl ToString for ComparatorMode {
-    fn to_string(&self) -> String {
-        match self {
-            ComparatorMode::Subtract => "subtract".to_owned(),
-            ComparatorMode::Compare => "compare".to_owned(),
-        }
+impl std::fmt::Display for ComparatorMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ComparatorMode::Subtract => "subtract",
+            ComparatorMode::Compare => "compare",
+        })
     }
 }
 
@@ -145,13 +145,13 @@ impl FromStr for LeverFace {
     }
 }
 
-impl ToString for LeverFace {
-    fn to_string(&self) -> String {
-        match self {
-            LeverFace::Floor => "floor".to_owned(),
-            LeverFace::Ceiling => "ceiling".to_owned(),
-            LeverFace::Wall => "wall".to_owned(),
-        }
+impl std::fmt::Display for LeverFace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            LeverFace::Floor => "floor",
+            LeverFace::Ceiling => "ceiling",
+            LeverFace::Wall => "wall",
+        })
     }
 }
 
@@ -212,13 +212,13 @@ impl FromStr for ButtonFace {
     }
 }
 
-impl ToString for ButtonFace {
-    fn to_string(&self) -> String {
-        match self {
-            ButtonFace::Floor => "floor".to_owned(),
-            ButtonFace::Ceiling => "ceiling".to_owned(),
-            ButtonFace::Wall => "wall".to_owned(),
-        }
+impl std::fmt::Display for ButtonFace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ButtonFace::Floor => "floor",
+            ButtonFace::Ceiling => "ceiling",
+            ButtonFace::Wall => "wall",
+        })
     }
 }
 
@@ -266,13 +266,13 @@ impl FromStr for RedstoneWireSide {
     }
 }
 
-impl ToString for RedstoneWireSide {
-    fn to_string(&self) -> String {
-        match self {
-            RedstoneWireSide::Up => "up".to_owned(),
-            RedstoneWireSide::Side => "side".to_owned(),
-            RedstoneWireSide::None => "none".to_owned(),
-        }
+impl std::fmt::Display for RedstoneWireSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RedstoneWireSide::Up => "up",
+            RedstoneWireSide::Side => "side",
+            RedstoneWireSide::None => "none",
+        })
     }
 }
 
@@ -371,12 +371,12 @@ impl TrapdoorHalf {
     }
 }
 
-impl ToString for TrapdoorHalf {
-    fn to_string(&self) -> String {
-        match self {
-            TrapdoorHalf::Top => "top".to_owned(),
-            TrapdoorHalf::Bottom => "bottom".to_owned(),
-        }
+impl std::fmt::Display for TrapdoorHalf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            TrapdoorHalf::Top => "top",
+            TrapdoorHalf::Bottom => "bottom",
+        })
     }
 }
 
@@ -513,9 +513,9 @@ impl Instrument {
     }
 }
 
-impl ToString for Instrument {
-    fn to_string(&self) -> String {
-        match self {
+impl std::fmt::Display for Instrument {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
             Instrument::Harp => "harp",
             Instrument::Basedrum => "basedrum",
             Instrument::Snare => "snare",
@@ -538,8 +538,7 @@ impl ToString for Instrument {
             Instrument::Dragon => "dragon",
             Instrument::WitherSkeleton => "wither_skeleton",
             Instrument::Piglin => "piglin",
-        }
-        .to_owned()
+        })
     }
 }
 
@@ -564,6 +563,12 @@ impl FromStr for Instrument {
             "bit" => Instrument::Bit,
             "banjo" => Instrument::Banjo,
             "pling" => Instrument::Pling,
+            "zombie" => Instrument::Zombie,
+            "skeleton" => Instrument::Skeleton,
+            "creeper" => Instrument::Creeper,
+            "dragon" => Instrument::Dragon,
+            "wither_skeleton" => Instrument::WitherSkeleton,
+            "piglin" => Instrument::Piglin,
             _ => return Err(()),
         })
     }
