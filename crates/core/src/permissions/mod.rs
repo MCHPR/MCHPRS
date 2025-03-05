@@ -28,16 +28,11 @@ enum PathSegment {
 #[derive(Debug)]
 struct PermissionNode {
     path: Vec<PathSegment>,
-    value: i32,
-    server_context: String,
+    value: bool,
 }
 
 impl PermissionNode {
     fn matches(&self, str: &str) -> bool {
-        if self.server_context != "global" && self.server_context != config().server_context {
-            return false;
-        }
-
         for (i, segment) in str.split('.').enumerate() {
             match &self.path[i] {
                 PathSegment::WildCard => return true,
@@ -52,19 +47,30 @@ impl PermissionNode {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PlayerPermissionsCache {
     nodes: Vec<PermissionNode>,
 }
 
 impl PlayerPermissionsCache {
-    pub fn get_node_val(&self, name: &str) -> Option<i32> {
+    pub fn get_node_val(&self, name: &str) -> Option<bool> {
         for node in &self.nodes {
             if node.matches(name) {
                 return Some(node.value);
             }
         }
         None
+    }
+
+    fn insert(&mut self, name: &str, value: bool) {
+        let path = name
+            .split('.')
+            .map(|s| match s {
+                "*" => PathSegment::WildCard,
+                s => PathSegment::Named(s.to_owned()),
+            })
+            .collect();
+        self.nodes.push(PermissionNode { path, value });
     }
 }
 
@@ -90,43 +96,52 @@ pub fn init(config: PermissionsConfig) -> Result<()> {
     Ok(())
 }
 
-pub fn load_player_cache(uuid: u128) -> Result<PlayerPermissionsCache> {
+fn load_group(cache: &mut PlayerPermissionsCache, name: &str, server_context: &str) -> Result<()> {
+    let mut conn = conn()?;
+
+    let rows: Vec<Row> = conn.exec(
+        r#"
+            SELECT permission, value
+            FROM luckperms_group_permissions
+            WHERE name=? AND (server="global" OR server=?);
+        "#,
+        (&name, server_context),
+    )?;
+    for row in rows {
+        let path_str = String::from_value(row[0].clone());
+        let value = FromValue::from_value(row[1].clone());
+        cache.insert(&path_str, value);
+
+        if let Some(group_name) = path_str.strip_prefix("group.") {
+            load_group(cache, group_name, server_context)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn load_player_cache(uuid: u128, config: &PermissionsConfig) -> Result<PlayerPermissionsCache> {
     let uuid = HyphenatedUUID(uuid).to_string();
     let mut conn = conn()?;
-    let res: Vec<Row> = conn.exec(
-        "
-        WITH RECURSIVE groups_inherited AS (
-            SELECT *
-            FROM luckperms_user_permissions
-            WHERE uuid LIKE ?
-            UNION
-            SELECT luckperms_group_permissions.*
-            FROM groups_inherited, luckperms_group_permissions
-            WHERE luckperms_group_permissions.name = SUBSTR(groups_inherited.permission, 7)
-        )
-        SELECT *
-        FROM groups_inherited;
-    ",
-        (&uuid,),
-    )?;
 
-    let mut nodes = Vec::new();
-    for row in res {
-        let path_str = String::from_value(row[2].clone());
-        let path = path_str
-            .split('.')
-            .map(|s| match s {
-                "*" => PathSegment::WildCard,
-                s => PathSegment::Named(s.to_owned()),
-            })
-            .collect();
-        let node = PermissionNode {
-            path,
-            server_context: FromValue::from_value(row[4].clone()),
-            value: FromValue::from_value(row[3].clone()),
-        };
-        nodes.push(node);
+    let mut cache: PlayerPermissionsCache = Default::default();
+
+    let user_rows: Vec<Row> = conn.exec(
+        r#"
+            SELECT permission, value
+            FROM luckperms_user_permissions
+            WHERE uuid=? AND (server="global" OR server=?);
+        "#,
+        (&uuid, &config.server_context),
+    )?;
+    for row in user_rows {
+        let path_str = String::from_value(row[0].clone());
+        let value = FromValue::from_value(row[1].clone());
+        cache.insert(&path_str, value);
+
+        if let Some(group_name) = path_str.strip_prefix("group.") {
+            load_group(&mut cache, group_name, &config.server_context)?;
+        }
     }
 
-    Ok(PlayerPermissionsCache { nodes })
+    Ok(cache)
 }

@@ -210,8 +210,8 @@ impl Player {
         }
         let permissions_cache = CONFIG
             .luckperms
-            .is_some()
-            .then(|| permissions::load_player_cache(uuid).unwrap());
+            .as_ref()
+            .map(|config| permissions::load_player_cache(uuid, &config).unwrap());
         Player {
             uuid,
             username,
@@ -491,7 +491,7 @@ impl Player {
     pub fn has_permission(&self, node: &str) -> bool {
         if let Some(cache) = &self.permissions_cache {
             if let Some(val) = cache.get_node_val(node) {
-                val > 0
+                val
             } else {
                 // Node is not in database
                 false
