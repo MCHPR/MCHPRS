@@ -545,7 +545,7 @@ impl Player {
         CSpawnEntity {
             entity_id: self.entity_id as i32,
             entity_uuid: self.uuid,
-            entity_type: 122, // minecraft::player
+            entity_type: 124, // minecraft::player
             pitch: self.pitch,
             yaw: self.yaw,
             // TODO: probably not the same
