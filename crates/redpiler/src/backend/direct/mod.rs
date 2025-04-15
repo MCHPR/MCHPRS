@@ -308,16 +308,14 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-const BOOL_INPUT_MASK: u128 = u128::from_ne_bytes([
-    0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
-]);
-
 fn get_bool_input(node: &Node) -> bool {
-    u128::from_le_bytes(node.default_inputs.ss_counts) & BOOL_INPUT_MASK != 0
+    // During compilation its ensured all signal strength buckets add up to 255
+    // So if and only if the zero bucket contains 255 is the input zero
+    node.default_inputs.ss_counts[0] != 255
 }
 
 fn get_bool_side(node: &Node) -> bool {
-    u128::from_le_bytes(node.side_inputs.ss_counts) & BOOL_INPUT_MASK != 0
+    node.side_inputs.ss_counts[0] != 255
 }
 
 fn last_index_positive(array: &[u8; 16]) -> u32 {
