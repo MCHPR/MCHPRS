@@ -320,14 +320,14 @@ impl FromStr for BlockDirection {
     }
 }
 
-impl ToString for BlockDirection {
-    fn to_string(&self) -> String {
-        match self {
-            BlockDirection::North => "north".to_owned(),
-            BlockDirection::South => "south".to_owned(),
-            BlockDirection::East => "east".to_owned(),
-            BlockDirection::West => "west".to_owned(),
-        }
+impl std::fmt::Display for BlockDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            BlockDirection::North => "north",
+            BlockDirection::South => "south",
+            BlockDirection::East => "east",
+            BlockDirection::West => "west",
+        })
     }
 }
 
@@ -401,16 +401,16 @@ impl BlockFacing {
     }
 }
 
-impl ToString for BlockFacing {
-    fn to_string(&self) -> String {
-        match self {
-            BlockFacing::North => "north".to_owned(),
-            BlockFacing::South => "south".to_owned(),
-            BlockFacing::East => "east".to_owned(),
-            BlockFacing::West => "west".to_owned(),
-            BlockFacing::Up => "up".to_owned(),
-            BlockFacing::Down => "down".to_owned(),
-        }
+impl std::fmt::Display for BlockFacing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            BlockFacing::North => "north",
+            BlockFacing::South => "south",
+            BlockFacing::East => "east",
+            BlockFacing::West => "west",
+            BlockFacing::Up => "up",
+            BlockFacing::Down => "down",
+        })
     }
 }
 

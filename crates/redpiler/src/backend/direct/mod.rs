@@ -360,7 +360,7 @@ impl fmt::Display for DirectBackend {
             }
             let label = match node.ty {
                 NodeType::Repeater { delay, .. } => format!("Repeater({})", delay),
-                NodeType::Torch => format!("Torch"),
+                NodeType::Torch => "Torch".to_string(),
                 NodeType::Comparator { mode, .. } => format!(
                     "Comparator({})",
                     match mode {
@@ -368,14 +368,14 @@ impl fmt::Display for DirectBackend {
                         ComparatorMode::Subtract => "Sub",
                     }
                 ),
-                NodeType::Lamp => format!("Lamp"),
-                NodeType::Button => format!("Button"),
-                NodeType::Lever => format!("Lever"),
-                NodeType::PressurePlate => format!("PressurePlate"),
-                NodeType::Trapdoor => format!("Trapdoor"),
-                NodeType::Wire => format!("Wire"),
+                NodeType::Lamp => "Lamp".to_string(),
+                NodeType::Button => "Button".to_string(),
+                NodeType::Lever => "Lever".to_string(),
+                NodeType::PressurePlate => "PressurePlate".to_string(),
+                NodeType::Trapdoor => "Trapdoor".to_string(),
+                NodeType::Wire => "Wire".to_string(),
                 NodeType::Constant => format!("Constant({})", node.output_power),
-                NodeType::NoteBlock { .. } => format!("NoteBlock"),
+                NodeType::NoteBlock { .. } => "NoteBlock".to_string(),
             };
             let pos = if let Some((pos, _)) = self.blocks[id] {
                 format!("{}, {}, {}", pos.x, pos.y, pos.z)

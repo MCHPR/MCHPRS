@@ -37,7 +37,7 @@ impl ServerBoundPacketHandler for Plot {
         let mut path = PathBuf::from("./schems");
         if CONFIG.schemati {
             let uuid = self.players[player_idx].uuid;
-            path.push(&HyphenatedUUID(uuid).to_string());
+            path.push(HyphenatedUUID(uuid).to_string());
         }
 
         let current = &packet.text[7..];
@@ -53,7 +53,7 @@ impl ServerBoundPacketHandler for Plot {
             Err(err) => {
                 if err.kind() != std::io::ErrorKind::NotFound {
                     error!("There was an error completing //load");
-                    error!("{}", err.to_string());
+                    error!("{}", err);
                 }
                 return;
             }
@@ -93,7 +93,7 @@ impl ServerBoundPacketHandler for Plot {
             let item = ItemStack {
                 count: slot_data.item_count as u8,
                 item_type: Item::from_id(slot_data.item_id as u32),
-                nbt: slot_data.nbt.map(|nbt| nbt::Blob::with_content(nbt)),
+                nbt: slot_data.nbt.map(nbt::Blob::with_content),
             };
             self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
             if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
@@ -104,7 +104,7 @@ impl ServerBoundPacketHandler for Plot {
                         item: self.players[player].inventory
                             [creative_inventory_action.slot as usize]
                             .as_ref()
-                            .map(|item| utils::encode_slot_data(&item)),
+                            .map(utils::encode_slot_data),
                     }],
                 }
                 .encode();
@@ -413,7 +413,7 @@ impl ServerBoundPacketHandler for Plot {
                 slot: 0, // Main hand
                 item: self.players[player].inventory[held_item_change.slot as usize + 36]
                     .as_ref()
-                    .map(|item| utils::encode_slot_data(item)),
+                    .map(utils::encode_slot_data),
             }],
         }
         .encode();
