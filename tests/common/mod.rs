@@ -87,10 +87,7 @@ impl World for TestWorld {
     }
 
     fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
-        let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
-            Some(idx) => idx,
-            None => return None,
-        };
+        let chunk_index = self.get_chunk_index_for_block(pos.x, pos.z)?;
         let chunk = &self.chunks[chunk_index];
         chunk.get_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF))
     }

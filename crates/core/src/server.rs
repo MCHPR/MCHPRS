@@ -140,7 +140,7 @@ impl MinecraftServer {
     pub fn run() {
         std::panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
-            error!("plot {}\n{:?}", panic_info.to_string(), backtrace);
+            error!("plot {}\n{:?}", panic_info, backtrace);
         }));
 
         info!("Starting server...");
@@ -307,7 +307,7 @@ impl MinecraftServer {
     fn handle_player_enter_play(&mut self, client_idx: usize) {
         let client = self.network.handshaking_clients.remove(client_idx);
 
-        let uuid = client.uuid.clone().unwrap();
+        let uuid = client.uuid.unwrap();
         let username = client.username.clone().unwrap();
         let properties = client.properties.clone();
         let player = Player::load_player(uuid, username, properties, client.into());
@@ -355,27 +355,30 @@ impl MinecraftServer {
         // (This is the list you see when you press tab in-game)
         let mut add_player_list = Vec::new();
         for (&uuid, player) in &self.online_players {
-            let mut actions: CPlayerInfoActions = Default::default();
-            actions.add_player = Some(CPlayerInfoAddPlayer {
-                name: player.username.clone(),
-                properties: player.properties.clone(),
+            add_player_list.push(CPlayerInfoUpdatePlayer {
+                uuid,
+                actions: CPlayerInfoActions {
+                    add_player: Some(CPlayerInfoAddPlayer {
+                        name: player.username.clone(),
+                        properties: player.properties.clone(),
+                    }),
+                    update_gamemode: Some(player.gamemode.get_id()),
+                    update_listed: Some(true),
+                    ..Default::default()
+                },
             });
-            actions.update_gamemode = Some(player.gamemode.get_id());
-            actions.update_listed = Some(true);
-            add_player_list.push(CPlayerInfoUpdatePlayer { uuid, actions });
         }
-        add_player_list.push({
-            let mut actions: CPlayerInfoActions = Default::default();
-            actions.add_player = Some(CPlayerInfoAddPlayer {
-                name: player.username.clone(),
-                properties: player.properties.clone(),
-            });
-            actions.update_gamemode = Some(player.gamemode.get_id());
-            actions.update_listed = Some(true);
-            CPlayerInfoUpdatePlayer {
-                uuid: player.uuid,
-                actions,
-            }
+        add_player_list.push(CPlayerInfoUpdatePlayer {
+            uuid: player.uuid,
+            actions: CPlayerInfoActions {
+                add_player: Some(CPlayerInfoAddPlayer {
+                    name: player.username.clone(),
+                    properties: player.properties.clone(),
+                }),
+                update_gamemode: Some(player.gamemode.get_id()),
+                update_listed: Some(true),
+                ..Default::default()
+            },
         });
 
         let player_info = CPlayerInfoUpdate {
@@ -388,7 +391,7 @@ impl MinecraftServer {
         let slot_data: Vec<Option<SlotData>> = player
             .inventory
             .iter()
-            .map(|op| op.as_ref().map(|item| utils::encode_slot_data(item)))
+            .map(|op| op.as_ref().map(utils::encode_slot_data))
             .collect();
         let window_items = CSetContainerContent {
             window_id: 0,
@@ -590,7 +593,7 @@ impl MinecraftServer {
                     let msg = format!("{} was sucessfully added to the whitelist.", &username);
                     sender.send_system_message(&msg);
                     let uuid = HyphenatedUUID(uuid);
-                    debug!("Added to whitelist: {} ({})", &username, uuid.to_string());
+                    debug!("Added to whitelist: {} ({})", username, uuid);
 
                     whitelist.push(WhitelistEntry {
                         name: username,
@@ -611,10 +614,7 @@ impl MinecraftServer {
                                 &entry.name
                             );
                             sender.send_system_message(&msg);
-                            debug!(
-                                "Removed from whitelist: {}",
-                                HyphenatedUUID(uuid).to_string()
-                            );
+                            debug!("Removed from whitelist: {}", HyphenatedUUID(uuid));
                             found = true;
                         }
                         !matches

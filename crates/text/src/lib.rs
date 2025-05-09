@@ -271,8 +271,9 @@ where
     S: Into<String>,
 {
     fn from(value: S) -> Self {
-        let mut tc: TextComponent = Default::default();
-        tc.text = value.into();
-        tc
+        TextComponent {
+            text: value.into(),
+            ..Default::default()
+        }
     }
 }

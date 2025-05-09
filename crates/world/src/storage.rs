@@ -56,8 +56,7 @@ impl BitBuffer {
     pub fn create(bits_per_entry: u8, entries: usize) -> BitBuffer {
         // 4..9, 15
         let entries_per_long = 64 / bits_per_entry as u64;
-        // Rounding up div
-        let longs_len = (entries + entries_per_long as usize - 1) / entries_per_long as usize;
+        let longs_len = entries.div_ceil(entries_per_long as usize);
         let longs = vec![0; longs_len];
         BitBuffer {
             bits_per_entry: bits_per_entry as u64,
