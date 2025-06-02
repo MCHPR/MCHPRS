@@ -363,8 +363,11 @@ impl Plot {
         let block = self.world.get_block(pos);
         match block {
             Block::StonePressurePlate { .. } => {
-                self.world
-                    .set_block(pos, Block::StonePressurePlate { powered });
+                mchprs_redstone::change_block(
+                    &mut self.world,
+                    pos,
+                    Block::StonePressurePlate { powered }
+                );
                 mchprs_redstone::update_surrounding_blocks(&mut self.world, pos);
                 mchprs_redstone::update_surrounding_blocks(
                     &mut self.world,

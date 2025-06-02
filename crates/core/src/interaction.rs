@@ -8,6 +8,7 @@ use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockFace, BlockPos, SignType};
 use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use mchprs_redstone as redstone;
+use mchprs_redstone::change_block;
 use mchprs_utils::nbt_unwrap_val;
 use mchprs_world::World;
 
@@ -17,24 +18,26 @@ pub fn on_use(
     player: &mut Player,
     pos: BlockPos,
     item_in_hand: Option<Item>,
-) -> ActionResult {
+) -> (ActionResult, bool) {
     if redstone::on_use(block, world, pos) {
-        return ActionResult::Success;
+        return (ActionResult::Success, true);
     }
 
     match block {
         Block::SeaPickle { pickles } => {
-            if let Some(Item::SeaPickle {}) = item_in_hand {
+            let changed = if let Some(Item::SeaPickle {}) = item_in_hand {
                 if pickles < 4 {
-                    world.set_block(
+                    change_block(
+                        world,
                         pos,
                         Block::SeaPickle {
                             pickles: pickles + 1,
                         },
                     );
-                }
-            }
-            ActionResult::Success
+                    true
+                } else { false }
+            } else { false };
+            (ActionResult::Success, changed)
         }
         b if b.has_block_entity() => {
             // Open container
@@ -42,9 +45,9 @@ pub fn on_use(
             if let Some(BlockEntity::Container { inventory, ty, .. }) = block_entity {
                 player.open_container(inventory, *ty);
             }
-            ActionResult::Success
+            (ActionResult::Success, false)
         }
-        _ => ActionResult::Pass,
+        _ => (ActionResult::Pass, false),
     }
 }
 
@@ -110,6 +113,12 @@ pub fn get_state_for_placement(
             lit: redstone::redstone_lamp_should_be_lit(world, pos),
         },
         Item::RedstoneBlock {} => Block::RedstoneBlock {},
+        Item::Observer {} => Block::RedstoneObserver {
+            observer: RedstoneObserver {
+                facing: context.player.get_facing(),
+                powered: false
+            }
+        },
         Item::Hopper {} => Block::Hopper {},
         Item::Terracotta {} => Block::Terracotta {},
         Item::ColoredTerracotta { color } => Block::ColoredTerracotta { color },
@@ -218,7 +227,7 @@ pub fn place_in_world(
             }
         };
     }
-    world.set_block(pos, block);
+    change_block(world, pos, block);
     change_surrounding_blocks(world, pos);
     if let Block::RedstoneWire { .. } = block {
         redstone::update_wire_neighbors(world, pos);
@@ -234,12 +243,12 @@ pub fn destroy(block: Block, world: &mut impl World, pos: BlockPos) {
 
     match block {
         Block::RedstoneWire { .. } => {
-            world.set_block(pos, Block::Air {});
+            change_block(world, pos, Block::Air {});
             change_surrounding_blocks(world, pos);
             redstone::update_wire_neighbors(world, pos);
         }
         Block::Lever { lever } => {
-            world.set_block(pos, Block::Air {});
+            change_block(world, pos, Block::Air {});
             // This is a horrible idea, don't do this.
             // One day this will be fixed, but for now... too bad!
             match lever.face {
@@ -264,7 +273,7 @@ pub fn destroy(block: Block, world: &mut impl World, pos: BlockPos) {
             }
         }
         _ => {
-            world.set_block(pos, Block::Air {});
+            change_block(world, pos, Block::Air {});
             change_surrounding_blocks(world, pos);
             redstone::update_surrounding_blocks(world, pos);
         }
@@ -334,7 +343,7 @@ pub fn change(block: Block, world: &mut impl World, pos: BlockPos, direction: Bl
     }
     if let Block::RedstoneWire { wire } = block {
         let new_state = redstone::wire::on_neighbor_changed(wire, world, pos, direction);
-        if world.set_block(pos, Block::RedstoneWire { wire: new_state }) {
+        if change_block(world, pos, Block::RedstoneWire { wire: new_state }) {
             redstone::update_wire_neighbors(world, pos);
         }
     }
@@ -402,7 +411,7 @@ pub fn use_item_on_block(
             ctx.block_pos,
             Some(item.item_type),
         )
-        .is_success()
+        .0.is_success()
     {
         return false;
     }

@@ -47,10 +47,7 @@ fn compile_node(
         match weight.ty {
             LinkType::Default => {
                 if default_input_count >= MAX_INPUTS {
-                    panic!(
-                        "Exceeded the maximum number of default inputs {}",
-                        MAX_INPUTS
-                    );
+                    panic!("Exceeded the maximum number of default inputs {}", MAX_INPUTS);
                 }
                 default_input_count += 1;
                 default_inputs.ss_counts[ss as usize] += 1;
@@ -109,6 +106,7 @@ fn compile_node(
             far_input: far_input.map(|value| NonMaxU8::new(value).unwrap()),
             facing_diode: *facing_diode,
         },
+        CNodeType::Observer => NodeType::Observer,
         CNodeType::Lamp => NodeType::Lamp,
         CNodeType::Button => NodeType::Button,
         CNodeType::Lever => NodeType::Lever,

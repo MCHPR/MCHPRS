@@ -58,6 +58,7 @@ fn convert_node(
                 CComparatorMode::Compare => ComparatorMode::Compare,
                 CComparatorMode::Subtract => ComparatorMode::Subtract,
             }),
+            CNodeType::Observer => NodeType::Observer,
             CNodeType::Lamp => NodeType::Lamp,
             CNodeType::Button => NodeType::Button,
             CNodeType::Lever => NodeType::Lever,

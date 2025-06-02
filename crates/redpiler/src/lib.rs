@@ -22,6 +22,7 @@ fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
         Block::RedstoneTorch { lit } => lit,
         Block::RedstoneWallTorch { lit, .. } => lit,
         Block::RedstoneRepeater { repeater } => &mut repeater.powered,
+        Block::RedstoneObserver { observer } => &mut observer.powered,
         Block::Lever { lever } => &mut lever.powered,
         Block::StoneButton { button } => &mut button.powered,
         Block::StonePressurePlate { powered } => powered,
@@ -214,6 +215,10 @@ impl Compiler {
 
     pub fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
         self.backend().set_pressure_plate(pos, powered);
+    }
+
+    pub fn on_observe_trigger(&mut self, pos: BlockPos) {
+        self.backend().on_observe_trigger(pos);
     }
 
     pub fn flush<W: World>(&mut self, world: &mut W) {

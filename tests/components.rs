@@ -1,8 +1,8 @@
 mod common;
 use common::*;
 
-use mchprs_blocks::blocks::Block;
-use mchprs_blocks::BlockDirection;
+use mchprs_blocks::blocks::{Block, RedstoneObserver};
+use mchprs_blocks::{BlockDirection, BlockFacing};
 use mchprs_world::World;
 
 test_all_backends!(lever_on_off);
@@ -181,4 +181,73 @@ fn wire_no_reach(backend: TestBackend) {
     runner.check_block_powered(trapdoor_pos, false);
     runner.use_block(lever_pos);
     runner.check_block_powered(trapdoor_pos, false);
+}
+
+test_all_backends!(observer_on_off);
+fn observer_on_off(backend: TestBackend) {
+    let lever_pos = pos(0, 1, 0);
+    let observer_pos = pos(1, 1, 0);
+    let output_pos = pos(2, 1, 0);
+
+    let mut world = TestWorld::new(1);
+    make_lever(&mut world, lever_pos);
+    world.set_block(
+        observer_pos,
+        Block::RedstoneObserver {
+            observer: RedstoneObserver {
+                facing: BlockFacing::West,
+                powered: false
+            }
+        }
+    );
+    make_wire(&mut world, output_pos);
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.check_block_powered(observer_pos, false);
+    runner.check_block_powered(output_pos, false);
+    runner.use_block(lever_pos);
+    runner.check_block_powered(observer_pos, false);
+    runner.check_block_powered(output_pos, false);
+    runner.tick();
+    runner.check_block_powered(observer_pos, true);
+    runner.check_block_powered(output_pos, true);
+    runner.tick();
+    runner.check_block_powered(observer_pos, false);
+    runner.check_block_powered(output_pos, false);
+}
+
+test_all_backends!(observer_repeater_lock);
+fn observer_repeater_lock(backend: TestBackend) {
+    let repeater_pos_1 = pos(0, 1, 1);
+    let lever_pos_1 = pos(0, 1, 0);
+    let repeater_pos_2 = pos(1, 1, 1);
+    let lever_pos_2 = pos(2, 1, 1);
+    let observer_pos = pos(0, 2, 1);
+
+    let mut world = TestWorld::new(1);
+    make_repeater(&mut world, repeater_pos_1, 1, BlockDirection::North);
+    make_lever(&mut world, lever_pos_1);
+    make_repeater(&mut world, repeater_pos_2, 1, BlockDirection::East);
+    make_lever(&mut world, lever_pos_2);
+    world.set_block(
+        observer_pos,
+        Block::RedstoneObserver {
+            observer: RedstoneObserver {
+                facing: BlockFacing::Down,
+                powered: false
+            }
+        }
+    );
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.use_block(lever_pos_2);
+    runner.check_block_powered(observer_pos, false);
+    runner.tick();
+    runner.check_block_powered(observer_pos, false);
+    runner.tick();
+    runner.check_block_powered(observer_pos, true);
+    runner.tick();
+    runner.check_block_powered(observer_pos, false);
+    runner.use_block(lever_pos_1); // Should not yield an update since the repeater is now locked
+    runner.check_powered_for(observer_pos, false, 5);
 }

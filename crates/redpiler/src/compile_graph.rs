@@ -16,6 +16,7 @@ pub enum NodeType {
         far_input: Option<u8>,
         facing_diode: bool,
     },
+    Observer,
     Lamp,
     Button,
     Lever,

@@ -182,10 +182,10 @@ pub fn tick(mut comp: RedstoneComparator, world: &mut impl World, pos: BlockPos)
         let powered = comp.powered;
         if powered && !should_be_powered {
             comp.powered = false;
-            world.set_block(pos, Block::RedstoneComparator { comparator: comp });
+            super::change_block(world, pos, Block::RedstoneComparator { comparator: comp });
         } else if !powered && should_be_powered {
             comp.powered = true;
-            world.set_block(pos, Block::RedstoneComparator { comparator: comp });
+            super::change_block(world, pos, Block::RedstoneComparator { comparator: comp });
         }
         on_state_change(comp, world, pos);
     }

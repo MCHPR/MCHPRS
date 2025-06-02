@@ -118,6 +118,7 @@ pub enum NodeType {
         far_input: Option<NonMaxU8>,
         facing_diode: bool,
     },
+    Observer,
     Lamp,
     Button,
     Lever,
