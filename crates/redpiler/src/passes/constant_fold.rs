@@ -98,6 +98,10 @@ fn fold(graph: &mut CompileGraph) -> usize {
                     15
                 }
             }
+            NodeType::Observer => {
+                // Observed power is constant, observer will never output a signal
+                0
+            }
             _ => continue,
         };
 

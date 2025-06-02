@@ -6,6 +6,7 @@ use mchprs_blocks::blocks::{Block, RedstoneWire};
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_world::World;
 use rustc_hash::FxHashMap;
+use crate::change_block;
 
 fn unwrap_wire(block: Block) -> RedstoneWire {
     match block {
@@ -389,7 +390,7 @@ impl RedstoneWireTurbo {
         }
         if i != j {
             wire.power = j;
-            world.set_block(pos, Block::RedstoneWire { wire });
+            change_block(world, pos, Block::RedstoneWire { wire });
         }
         wire
     }

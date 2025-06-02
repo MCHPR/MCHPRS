@@ -122,7 +122,32 @@ impl DirectBackend {
         self.scheduler.schedule_tick(node_id, delay, priority);
     }
 
-    fn set_node(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
+    fn update_all(&mut self, node_id: NodeId) {
+        let node = &self.nodes[node_id];
+        for i in 0..node.updates.len() {
+            let node = &self.nodes[node_id];
+            let update_node = unsafe { node.updates.get_unchecked(i).node() };
+            self.update_node(update_node);
+        }
+    }
+
+    /// Set node for use in `update`. None of the nodes here have usable output power,
+    /// so this function does not set that.
+    fn set_node_powered(&mut self, node_id: NodeId, powered: bool) {
+        let node = &mut self.nodes[node_id];
+        node.powered = powered;
+        node.changed = true;
+        self.update_all(node_id);
+    }
+
+    fn set_node_locked(&mut self, node_id: NodeId, locked: bool) {
+        let node = &mut self.nodes[node_id];
+        node.locked = locked;
+        node.changed = true;
+        self.update_all(node_id);
+    }
+
+    fn set_node_power(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
         let node = &mut self.nodes[node_id];
         let old_power = node.output_power;
 
@@ -131,6 +156,7 @@ impl DirectBackend {
         node.output_power = new_power;
         for i in 0..node.updates.len() {
             let node = &self.nodes[node_id];
+            let observer = matches!(node.ty, NodeType::Observer);
             let update_link = unsafe { *node.updates.get_unchecked(i) };
             let side = update_link.side();
             let distance = update_link.ss();
@@ -150,18 +176,28 @@ impl DirectBackend {
                 continue;
             }
 
+            let old_max_ss = if observer {
+                last_index_positive(&inputs.ss_counts)
+            } else {
+                0 // Don't calculate max signal strength if not relevant
+            };
+
             // Safety: signal strength is never larger than 15
             unsafe {
                 *inputs.ss_counts.get_unchecked_mut(old_power as usize) -= 1;
                 *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
             }
 
-            update::update_node(
-                &mut self.scheduler,
-                &mut self.events,
-                &mut self.nodes,
-                update,
-            );
+            let perform_update = if observer {
+                // Only update observer nodes if the signal strength changed
+                let new_max_ss = last_index_positive(&inputs.ss_counts);
+                old_max_ss != new_max_ss
+            } else {
+                true
+            };
+            if perform_update {
+                self.update_node(update);
+            }
         }
     }
 }
@@ -211,10 +247,10 @@ impl JITBackend for DirectBackend {
                     return;
                 }
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(node_id, true, 15);
+                self.set_node_power(node_id, true, 15);
             }
             NodeType::Lever => {
-                self.set_node(node_id, !node.powered, bool_to_ss(!node.powered));
+                self.set_node_power(node_id, !node.powered, bool_to_ss(!node.powered));
             }
             _ => warn!("Tried to use a {:?} redpiler node", node.ty),
         }
@@ -225,9 +261,23 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             NodeType::PressurePlate => {
-                self.set_node(node_id, powered, bool_to_ss(powered));
+                self.set_node_power(node_id, powered, bool_to_ss(powered));
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.ty),
+        }
+    }
+
+    fn on_observe_trigger(&mut self, pos: BlockPos) {
+        let node_id = self.pos_map[&pos];
+        let node = &self.nodes[node_id];
+        match node.ty {
+            NodeType::Observer => {
+                if node.powered || node.pending_tick {
+                    return;
+                }
+                self.schedule_tick(node_id, 1, TickPriority::Normal);
+            }
+            _ => warn!("Tried to call observe trigger on a {:?} redpiler node", node.ty),
         }
     }
 
@@ -283,18 +333,6 @@ impl JITBackend for DirectBackend {
     fn has_pending_ticks(&self) -> bool {
         self.scheduler.has_pending_ticks()
     }
-}
-
-/// Set node for use in `update`. None of the nodes here have usable output power,
-/// so this function does not set that.
-fn set_node(node: &mut Node, powered: bool) {
-    node.powered = powered;
-    node.changed = true;
-}
-
-fn set_node_locked(node: &mut Node, locked: bool) {
-    node.locked = locked;
-    node.changed = true;
 }
 
 fn schedule_tick(
@@ -368,6 +406,7 @@ impl fmt::Display for DirectBackend {
                         ComparatorMode::Subtract => "Sub",
                     }
                 ),
+                NodeType::Observer => format!("Observer"),
                 NodeType::Lamp => format!("Lamp"),
                 NodeType::Button => format!("Button"),
                 NodeType::Lever => format!("Lever"),

@@ -6,6 +6,7 @@ pub mod comparator;
 pub mod noteblock;
 pub mod repeater;
 pub mod wire;
+mod observer;
 
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace, RedstoneWire};
@@ -45,6 +46,11 @@ fn get_weak_power(
             } else {
                 0
             }
+        }
+        Block::RedstoneObserver { observer }
+            if observer.facing.block_face() == side && observer.powered =>
+        {
+            15
         }
         Block::RedstoneWire { wire } if dust_power => match side {
             BlockFace::Top => wire.power,
@@ -95,6 +101,7 @@ fn get_strong_power(
         Block::RedstoneWire { .. } => get_weak_power(block, world, pos, side, dust_power),
         Block::RedstoneRepeater { .. } => get_weak_power(block, world, pos, side, dust_power),
         Block::RedstoneComparator { .. } => get_weak_power(block, world, pos, side, dust_power),
+        Block::RedstoneObserver { .. } => get_weak_power(block, world, pos, side, dust_power),
         _ => 0,
     }
 }
@@ -183,6 +190,29 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     power
 }
 
+/// Triggers the observer at the given position, if present
+pub fn trigger_observer(world: &mut impl World, pos: BlockPos, source_face: BlockFace) {
+    let block = world.get_block(pos);
+    match block {
+        Block::RedstoneObserver { observer } => {
+            observer::on_neighbour_changed(observer, world, pos, source_face);
+        }
+        _ => {}
+    }
+}
+
+pub fn change_block(world: &mut impl World, pos: BlockPos, block: Block) -> bool {
+    if world.set_block(pos, block) {
+        for direction in &BlockFace::values() {
+            let neighbor_pos = pos.offset(*direction);
+            trigger_observer(world, neighbor_pos, direction.opposite());
+        }
+        true
+    } else {
+        false
+    }
+}
+
 pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
     match block {
         Block::RedstoneWire { wire } => {
@@ -209,7 +239,7 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
             if lit && !should_be_lit {
                 world.schedule_tick(pos, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
-                world.set_block(pos, Block::RedstoneLamp { lit: true });
+                change_block(world, pos, Block::RedstoneLamp { lit: true });
             }
         }
         Block::IronTrapdoor {
@@ -224,7 +254,7 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
                     half,
                     powered: should_be_powered,
                 };
-                world.set_block(pos, new_block);
+                change_block(world, pos, new_block);
             }
         }
         Block::NoteBlock {
@@ -250,7 +280,7 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
                 if should_be_powered && noteblock::is_noteblock_unblocked(world, pos) {
                     noteblock::play_note(world, pos, instrument, note);
                 }
-                world.set_block(pos, new_block);
+                change_block(world, pos, new_block);
             }
         }
         _ => {}
@@ -265,36 +295,39 @@ pub fn tick(block: Block, world: &mut impl World, pos: BlockPos) {
         Block::RedstoneComparator { comparator } => {
             comparator::tick(comparator, world, pos);
         }
+        Block::RedstoneObserver { observer } => {
+            observer::tick(observer, world, pos);
+        }
         Block::RedstoneTorch { lit } => {
             let should_be_off = torch_should_be_off(world, pos);
             if lit && should_be_off {
-                world.set_block(pos, Block::RedstoneTorch { lit: false });
+                change_block(world, pos, Block::RedstoneTorch { lit: false });
                 update_surrounding_blocks(world, pos);
             } else if !lit && !should_be_off {
-                world.set_block(pos, Block::RedstoneTorch { lit: true });
+                change_block(world, pos, Block::RedstoneTorch { lit: true });
                 update_surrounding_blocks(world, pos);
             }
         }
         Block::RedstoneWallTorch { lit, facing } => {
             let should_be_off = wall_torch_should_be_off(world, pos, facing);
             if lit && should_be_off {
-                world.set_block(pos, Block::RedstoneWallTorch { lit: false, facing });
+                change_block(world, pos, Block::RedstoneWallTorch { lit: false, facing });
                 update_surrounding_blocks(world, pos);
             } else if !lit && !should_be_off {
-                world.set_block(pos, Block::RedstoneWallTorch { lit: true, facing });
+                change_block(world, pos, Block::RedstoneWallTorch { lit: true, facing });
                 update_surrounding_blocks(world, pos);
             }
         }
         Block::RedstoneLamp { lit } => {
             let should_be_lit = redstone_lamp_should_be_lit(world, pos);
             if lit && !should_be_lit {
-                world.set_block(pos, Block::RedstoneLamp { lit: false });
+                change_block(world, pos, Block::RedstoneLamp { lit: false });
             }
         }
         Block::StoneButton { mut button } => {
             if button.powered {
                 button.powered = false;
-                world.set_block(pos, Block::StoneButton { button });
+                change_block(world, pos, Block::StoneButton { button });
                 update_surrounding_blocks(world, pos);
                 match button.face {
                     ButtonFace::Ceiling => {
@@ -361,19 +394,19 @@ pub fn on_use(block: Block, world: &mut impl World, pos: BlockPos) -> bool {
             if repeater.delay > 4 {
                 repeater.delay -= 4;
             }
-            world.set_block(pos, Block::RedstoneRepeater { repeater });
+            change_block(world, pos, Block::RedstoneRepeater { repeater });
             true
         }
         Block::RedstoneComparator { comparator } => {
             let mut comparator = comparator;
             comparator.mode = comparator.mode.toggle();
             comparator::tick(comparator, world, pos);
-            world.set_block(pos, Block::RedstoneComparator { comparator });
+            change_block(world, pos, Block::RedstoneComparator { comparator });
             true
         }
         Block::Lever { mut lever } => {
             lever.powered = !lever.powered;
-            world.set_block(pos, Block::Lever { lever });
+            change_block(world, pos, Block::Lever { lever });
             update_surrounding_blocks(world, pos);
             match lever.face {
                 LeverFace::Ceiling => {
@@ -392,7 +425,7 @@ pub fn on_use(block: Block, world: &mut impl World, pos: BlockPos) -> bool {
         Block::StoneButton { mut button } => {
             if !button.powered {
                 button.powered = true;
-                world.set_block(pos, Block::StoneButton { button });
+                change_block(world, pos, Block::StoneButton { button });
                 world.schedule_tick(pos, 10, TickPriority::Normal);
                 update_surrounding_blocks(world, pos);
                 match button.face {
@@ -420,7 +453,7 @@ pub fn on_use(block: Block, world: &mut impl World, pos: BlockPos) -> bool {
                 new_wire.power = wire.power;
                 new_wire = wire::get_regulated_sides(new_wire, world, pos);
                 if wire != new_wire {
-                    world.set_block(pos, Block::RedstoneWire { wire: new_wire });
+                    change_block(world, pos, Block::RedstoneWire { wire: new_wire });
                     update_wire_neighbors(world, pos);
                     return true;
                 }
@@ -431,7 +464,8 @@ pub fn on_use(block: Block, world: &mut impl World, pos: BlockPos) -> bool {
             let note = (note + 1) % 25;
             let instrument = noteblock::get_noteblock_instrument(world, pos);
 
-            world.set_block(
+            change_block(
+                world,
                 pos,
                 Block::NoteBlock {
                     instrument,

@@ -137,6 +137,18 @@ impl BlockFace {
             _ => panic!("invalid BlockFace with id {}", id),
         }
     }
+
+    pub fn opposite(self) -> BlockFace {
+        use BlockFace::*;
+        match self {
+            Bottom => Top,
+            Top => Bottom,
+            North => South,
+            South => North,
+            West => East,
+            East => West,
+        }
+    }
 }
 
 impl BlockFace {
@@ -397,6 +409,30 @@ impl BlockFacing {
             South => East,
             East => North,
             other => other,
+        }
+    }
+
+    pub fn opposite(self) -> BlockFacing {
+        use BlockFacing::*;
+        match self {
+            North => South,
+            South => North,
+            East => West,
+            West => East,
+            Up => Down,
+            Down => Up,
+        }
+    }
+
+    pub fn block_face(&self) -> BlockFace {
+        use BlockFacing::*;
+        match self {
+            North => BlockFace::North,
+            East => BlockFace::East,
+            South => BlockFace::South,
+            West => BlockFace::West,
+            Up => BlockFace::Top,
+            Down => BlockFace::Bottom,
         }
     }
 }

@@ -54,7 +54,6 @@ noop_block_transform!(
     u32,
     bool,
     BlockColorVariant,
-    BlockFacing,
     TrapdoorHalf,
     SignType,
     ButtonFace,
@@ -85,6 +84,33 @@ impl BlockTransform for BlockDirection {
             BlockDirection::East => BlockDirection::South,
             BlockDirection::South => BlockDirection::West,
             BlockDirection::West => BlockDirection::North,
+        }
+    }
+}
+
+impl BlockTransform for BlockFacing {
+    fn rotate90(&mut self) {
+        *self = match self {
+            BlockFacing::North => BlockFacing::East,
+            BlockFacing::East => BlockFacing::South,
+            BlockFacing::South => BlockFacing::West,
+            BlockFacing::West => BlockFacing::North,
+            BlockFacing::Up | BlockFacing::Down => *self,
+        }
+    }
+
+    fn flip(&mut self, dir: FlipDirection) {
+        match dir {
+            FlipDirection::FlipX => match self {
+                BlockFacing::East => *self = BlockFacing::West,
+                BlockFacing::West => *self = BlockFacing::East,
+                _ => {}
+            },
+            FlipDirection::FlipZ => match self {
+                BlockFacing::North => *self = BlockFacing::South,
+                BlockFacing::South => *self = BlockFacing::North,
+                _ => {}
+            },
         }
     }
 }
@@ -743,22 +769,31 @@ blocks! {
         transparent: true,
         cube: true,
     },
-    Observer {
+    RedstoneObserver {
         props: {
-            facing: BlockFacing
+            observer: RedstoneObserver
         },
-        get_id: (facing.get_id() << 1) + 12551,
-        from_id_offset: 12551,
-        from_id(id): 12551..=12561 => {
-            facing: BlockFacing::from_id(id >> 1)
+        get_id: {
+            observer.facing.get_id() * 2
+                + !observer.powered as u32
+                + 12550
+        },
+        from_id_offset: 12550,
+        from_id(id): 12550..=12561 => {
+            observer: {
+                RedstoneObserver::new(
+                    BlockFacing::from_id(id >> 1),
+                    (id & 1) == 0
+                )
+            }
         },
         from_names(_name): {
             "observer" => {
-                facing: Default::default()
+                observer: Default::default()
             }
         },
         get_name: "observer",
-        solid: true,
+        transparent: true,
         cube: true,
     },
     SeaPickle {

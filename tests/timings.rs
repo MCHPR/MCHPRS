@@ -1,8 +1,9 @@
 mod common;
 use common::*;
 
-use mchprs_blocks::blocks::{Block, ComparatorMode};
-use mchprs_blocks::BlockDirection;
+use mchprs_blocks::blocks::{Block, ComparatorMode, RedstoneObserver};
+use mchprs_blocks::{BlockDirection, BlockFace, BlockFacing};
+use mchprs_world::World;
 
 test_all_backends!(repeater_t_flip_flop);
 fn repeater_t_flip_flop(backend: TestBackend) {
@@ -105,4 +106,46 @@ fn pulse_gen_1t(backend: TestBackend) {
     runner.check_powered_for(output_pos, false, 1);
     runner.check_powered_for(output_pos, true, 1);
     runner.check_powered_for(output_pos, false, 10);
+}
+
+test_all_backends!(observer_clock);
+fn observer_clock(backend: TestBackend) {
+    let observer_pos_1 = pos(0, 0, 0);
+    let observer_pos_2 = pos(0, 1, 0);
+
+    let mut world = TestWorld::new(1);
+    world.set_block(
+        observer_pos_1,
+        Block::RedstoneObserver {
+            observer: RedstoneObserver {
+                facing: BlockFacing::Up,
+                powered: false
+            }
+        }
+    );
+    world.set_block(
+        observer_pos_2,
+        Block::RedstoneObserver {
+            observer: RedstoneObserver {
+                facing: BlockFacing::Down,
+                powered: false
+            }
+        }
+    );
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.trigger_observer(observer_pos_1, BlockFace::Top);
+    for _ in 0..10 {
+        // The vanilla observer clock sequence includes a phase where both observers are depowered
+        // (This is because of their update order)
+        runner.check_block_powered(observer_pos_1, false);
+        runner.check_block_powered(observer_pos_2, false);
+        runner.tick();
+        runner.check_block_powered(observer_pos_1, true);
+        runner.check_block_powered(observer_pos_2, false);
+        runner.tick();
+        runner.check_block_powered(observer_pos_1, false);
+        runner.check_block_powered(observer_pos_2, true);
+        runner.tick();
+    }
 }

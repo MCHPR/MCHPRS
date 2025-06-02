@@ -255,6 +255,12 @@ items! {
         from_id(_id): 658 => {},
         block: true,
     },
+    Observer {
+        props: {},
+        get_id: 665,
+        from_id(_id): 665 => {},
+        block: true,
+    },
     Hopper {
         props: {},
         get_id: 666,

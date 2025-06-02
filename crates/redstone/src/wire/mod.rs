@@ -4,6 +4,7 @@ use mchprs_blocks::blocks::{Block, RedstoneWire, RedstoneWireSide};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::World;
 use turbo::RedstoneWireTurbo;
+use crate::change_block;
 
 pub fn make_cross(power: u8) -> RedstoneWire {
     RedstoneWire {
@@ -77,7 +78,7 @@ pub fn on_neighbor_updated(mut wire: RedstoneWire, world: &mut impl World, pos: 
 
     if wire.power != new_power {
         wire.power = new_power;
-        world.set_block(pos, Block::RedstoneWire { wire });
+        change_block(world, pos, Block::RedstoneWire { wire });
         RedstoneWireTurbo::update_surrounding_neighbors(world, pos);
     }
 }
@@ -115,7 +116,7 @@ fn can_connect_to(block: Block, side: BlockDirection) -> bool {
         Block::RedstoneRepeater { repeater } => {
             repeater.facing == side || repeater.facing == side.opposite()
         }
-        Block::Observer { facing } => facing == side.block_facing(),
+        Block::RedstoneObserver { observer } => observer.facing == side.block_facing(),
         _ => false,
     }
 }

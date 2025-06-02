@@ -34,6 +34,7 @@ pub enum NodeType {
     Repeater(u8),
     Torch,
     Comparator(ComparatorMode),
+    Observer,
     Lamp,
     Button,
     Lever,

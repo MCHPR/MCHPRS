@@ -2,7 +2,7 @@ use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{
     Block, ComparatorMode, Lever, LeverFace, RedstoneComparator, RedstoneRepeater,
 };
-use mchprs_blocks::{BlockDirection, BlockPos};
+use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_redpiler::{BackendVariant, Compiler, CompilerOptions};
 use mchprs_redstone::wire::make_cross;
 use mchprs_world::storage::Chunk;
@@ -200,6 +200,15 @@ impl BackendRunner {
         mchprs_redstone::on_use(self.world.get_block(pos), &mut self.world, pos);
     }
 
+    pub fn trigger_observer(&mut self, pos: BlockPos, source_face: BlockFace) {
+        if let Some(redpiler) = &mut self.redpiler {
+            redpiler.compiler.on_observe_trigger(pos);
+            redpiler.compiler.flush(&mut self.world);
+            return;
+        }
+        mchprs_redstone::trigger_observer(&mut self.world, pos, source_face);
+    }
+
     pub fn check_block_powered(&self, pos: BlockPos, powered: bool) {
         if let Some(redpiler) = &self.redpiler {
             assert_eq!(
@@ -231,12 +240,14 @@ fn is_block_powered(block: Block) -> Option<bool> {
         Block::RedstoneTorch { lit } => lit,
         Block::RedstoneWallTorch { lit, .. } => lit,
         Block::RedstoneRepeater { repeater } => repeater.powered,
+        Block::RedstoneObserver { observer } => observer.powered,
         Block::Lever { lever } => lever.powered,
         Block::StoneButton { button } => button.powered,
         Block::StonePressurePlate { powered } => powered,
         Block::RedstoneLamp { lit } => lit,
         Block::IronTrapdoor { powered, .. } => powered,
         Block::NoteBlock { powered, .. } => powered,
+        Block::RedstoneWire { wire } => wire.power > 0,
         _ => return None,
     })
 }

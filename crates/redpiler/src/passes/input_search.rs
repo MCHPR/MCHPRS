@@ -7,7 +7,7 @@ use super::Pass;
 use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
-use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_blocks::{BlockDirection, BlockFace, BlockFacing, BlockPos};
 use mchprs_redstone::{self, comparator, wire};
 use mchprs_world::World;
 use petgraph::visit::NodeIndexable;
@@ -69,7 +69,8 @@ impl<'a, W: World> InputSearchState<'a, W> {
             Block::RedstoneRepeater { repeater } if repeater.facing.block_face() == side => true,
             Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => {
                 true
-            }
+            },
+            Block::RedstoneObserver { observer } if observer.facing.block_face() == side => true,
             _ => false,
         }
     }
@@ -91,7 +92,27 @@ impl<'a, W: World> InputSearchState<'a, W> {
             },
             Block::RedstoneRepeater { .. } => self.provides_weak_power(block, side),
             Block::RedstoneComparator { .. } => self.provides_weak_power(block, side),
+            Block::RedstoneObserver { .. } => self.provides_weak_power(block, side),
             _ => false,
+        }
+    }
+
+    fn is_observable(&self, block: Block) -> bool {
+        match block {
+            Block::RedstoneWire { .. } => true,
+            Block::Lever { .. } => true,
+            Block::StoneButton { .. } => true,
+            Block::RedstoneTorch { .. } => true,
+            Block::RedstoneWallTorch { .. } => true,
+            Block::RedstoneRepeater { .. } => true,
+            Block::RedstoneLamp { .. } => true,
+            Block::TripwireHook { .. } => true,
+            Block::RedstoneComparator { .. } => true,
+            Block::RedstoneObserver { .. } => true,
+            Block::StonePressurePlate { .. } => true,
+            Block::IronTrapdoor { .. } => true,
+            Block::NoteBlock { .. } => true,
+            _ => false
         }
     }
 
@@ -132,9 +153,9 @@ impl<'a, W: World> InputSearchState<'a, W> {
                             let direction = side.unwrap_direction();
                             if search_wire
                                 && !wire::get_current_side(
-                                    wire::get_regulated_sides(wire, self.world, pos),
-                                    direction.opposite(),
-                                )
+                                wire::get_regulated_sides(wire, self.world, pos),
+                                direction.opposite(),
+                            )
                                 .is_none()
                             {
                                 self.search_wire(start_node, pos, link_ty, distance);
@@ -157,14 +178,35 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     let direction = side.unwrap_direction();
                     if search_wire
                         && !wire::get_current_side(
-                            wire::get_regulated_sides(wire, self.world, pos),
-                            direction.opposite(),
-                        )
+                        wire::get_regulated_sides(wire, self.world, pos),
+                        direction.opposite(),
+                    )
                         .is_none()
                     {
                         self.search_wire(start_node, pos, link_ty, distance);
                     }
                 }
+            }
+        }
+    }
+
+    fn get_observable_links(
+        &mut self,
+        block: Block,
+        pos: BlockPos,
+        link_ty: LinkType,
+        distance: u8,
+        start_node: NodeIdx,
+    ) {
+        if self.is_observable(block) {
+            if let Block::RedstoneWire { .. } = block {
+                self.search_wire(start_node, pos, link_ty, distance);
+            } else {
+                self.graph.add_edge(
+                    self.pos_map[&pos],
+                    start_node,
+                    CompileLink::default(distance),
+                );
             }
         }
     }
@@ -238,6 +280,18 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 }
             }
         }
+    }
+
+    fn search_observer_input(&mut self, id: NodeIdx, pos: BlockPos, facing: BlockFacing) {
+        let input_pos = pos.offset(facing.block_face());
+        let input_block = self.world.get_block(input_pos);
+        self.get_observable_links(
+            input_block,
+            input_pos,
+            LinkType::Default,
+            0,
+            id
+        )
     }
 
     fn search_diode_inputs(&mut self, id: NodeIdx, pos: BlockPos, facing: BlockDirection) {
@@ -328,6 +382,9 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 self.search_diode_inputs(id, pos, facing);
                 self.search_repeater_side(id, pos, facing.rotate());
                 self.search_repeater_side(id, pos, facing.rotate_ccw());
+            }
+            Block::RedstoneObserver { observer } => {
+                self.search_observer_input(id, pos, observer.facing);
             }
             Block::RedstoneWire { .. } => {
                 self.search_wire(id, pos, LinkType::Default, 0);

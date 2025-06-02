@@ -144,6 +144,9 @@ fn identify_block<W: World>(
                 },
             ),
         ),
+        Block::RedstoneObserver { observer } => {
+            (NodeType::Observer, NodeState::simple(observer.powered))
+        },
         Block::RedstoneTorch { lit, .. } | Block::RedstoneWallTorch { lit, .. } => {
             (NodeType::Torch, NodeState::simple(lit))
         }
