@@ -156,7 +156,6 @@ impl DirectBackend {
         node.output_power = new_power;
         for i in 0..node.updates.len() {
             let node = &self.nodes[node_id];
-            let observer = matches!(node.ty, NodeType::Observer);
             let update_link = unsafe { *node.updates.get_unchecked(i) };
             let side = update_link.side();
             let distance = update_link.ss();
@@ -176,26 +175,17 @@ impl DirectBackend {
                 continue;
             }
 
-            let old_max_ss = if observer {
-                last_index_positive(&inputs.ss_counts)
-            } else {
-                0 // Don't calculate max signal strength if not relevant
-            };
-
+            let old_max_ss = last_index_positive(&inputs.ss_counts);
             // Safety: signal strength is never larger than 15
             unsafe {
                 *inputs.ss_counts.get_unchecked_mut(old_power as usize) -= 1;
                 *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
             }
+            let new_max_ss = last_index_positive(&inputs.ss_counts);
 
-            let perform_update = if observer {
-                // Only update observer nodes if the signal strength changed
-                let new_max_ss = last_index_positive(&inputs.ss_counts);
-                old_max_ss != new_max_ss
-            } else {
-                true
-            };
-            if perform_update {
+            // There is no node that actually uses any of the signal strengths below the max, 
+            // so we only need to update if the max changed
+            if old_max_ss != new_max_ss {
                 self.update_node(update);
             }
         }
