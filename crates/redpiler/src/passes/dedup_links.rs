@@ -7,6 +7,7 @@
 
 use super::Pass;
 use crate::compile_graph::{CompileGraph, NodeIdx};
+use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};
@@ -15,7 +16,13 @@ use petgraph::Direction;
 pub struct DedupLinks;
 
 impl<W: World> Pass<W> for DedupLinks {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
+    fn run_pass(
+        &self,
+        graph: &mut CompileGraph,
+        _: &CompilerOptions,
+        _: &CompilerInput<'_, W>,
+        _: &mut AnalysisInfos,
+    ) {
         for i in 0..graph.node_bound() {
             let idx = NodeIdx::new(i);
             if !graph.contains_node(idx) {

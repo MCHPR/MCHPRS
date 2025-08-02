@@ -7,8 +7,8 @@ use byteorder::{BigEndian, ReadBytesExt};
 use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
-use mchprs_network::packets::{clientbound::*, PlayerProperty};
-use mchprs_network::packets::{PacketEncoder, SlotData};
+use mchprs_network::packets::clientbound::*;
+use mchprs_network::packets::{PacketEncoder, PlayerProperty, SlotData};
 use mchprs_network::{PlayerConn, PlayerPacketSender};
 use mchprs_text::{ColorCode, TextComponent, TextComponentBuilder};
 use serde::{Deserialize, Serialize};
@@ -462,7 +462,8 @@ impl Player {
         self.client.send_packet(&cui_plugin_message);
     }
 
-    /// Sends the player the disconnect packet, it is still up to the player to end the network stream.
+    /// Sends the player the disconnect packet, it is still up to the player to end the network
+    /// stream.
     pub fn kick(&self, reason: TextComponent) {
         let disconnect = CDisconnect { reason }.encode();
         self.client.send_packet(&disconnect);

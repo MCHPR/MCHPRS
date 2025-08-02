@@ -9,6 +9,7 @@
 
 use super::Pass;
 use crate::compile_graph::{Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
+use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
@@ -28,6 +29,7 @@ impl<W: World> Pass<W> for IdentifyNodes {
         graph: &mut CompileGraph,
         options: &CompilerOptions,
         input: &CompilerInput<'_, W>,
+        _: &mut AnalysisInfos,
     ) {
         let ignore_wires = options.optimize;
         let plot = input.world;

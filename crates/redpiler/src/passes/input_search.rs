@@ -5,6 +5,7 @@
 
 use super::Pass;
 use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
+use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
@@ -22,6 +23,7 @@ impl<W: World> Pass<W> for InputSearch {
         graph: &mut CompileGraph,
         _: &CompilerOptions,
         input: &CompilerInput<'_, W>,
+        _: &mut AnalysisInfos,
     ) {
         let mut state = InputSearchState::new(input.world, graph);
         state.search();

@@ -172,9 +172,11 @@ pub struct CRegistryDamageType {
 }
 
 pub struct CRegistryDataCodec {
-    /// The `minecraft:dimension_type registry`. It defines the types of dimension that can be attributed to a world, along with all their characteristics.
+    /// The `minecraft:dimension_type registry`. It defines the types of dimension that can be
+    /// attributed to a world, along with all their characteristics.
     pub dimension_types: HashMap<String, CRegistryDimensionType>,
-    /// The `minecraft:worldgen/biome` registry. It defines several aesthetic characteristics of the biomes present in the game.
+    /// The `minecraft:worldgen/biome` registry. It defines several aesthetic characteristics of
+    /// the biomes present in the game.
     pub biomes: HashMap<String, CRegistryBiome>,
 }
 

@@ -3,7 +3,8 @@ use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_world::World;
 
 // LUT generated via f32::powf(2.0, (note as f32 - 12.0) / 12.0)
-// This is hardcoded because at this point floating point operations are not allowed in const contexts
+// This is hardcoded because at this point floating point operations are not allowed in const
+// contexts
 #[allow(clippy::approx_constant)]
 const PITCHES_TABLE: [f32; 25] = [
     0.5, 0.5297315, 0.561231, 0.59460354, 0.62996054, 0.6674199, 0.70710677, 0.74915355, 0.7937005,

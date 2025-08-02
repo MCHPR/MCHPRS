@@ -25,8 +25,7 @@ use mchprs_redpiler::{Compiler, CompilerOptions};
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use mchprs_text::TextComponent;
 use mchprs_world::storage::Chunk;
-use mchprs_world::World;
-use mchprs_world::{TickEntry, TickPriority};
+use mchprs_world::{TickEntry, TickPriority, World};
 use monitor::TimingsMonitor;
 use scoreboard::RedpilerState;
 use std::cmp::Ordering;
@@ -244,8 +243,9 @@ impl World for PlotWorld {
         volume: f32,
         pitch: f32,
     ) {
-        // FIXME: We do not know the players location here, so we send the sound packet to all players
-        // A notchian server would only send to players in hearing distance (volume.clamp(0.0, 1.0) * 16.0)
+        // FIXME: We do not know the players location here, so we send the sound packet to all
+        // players A notchian server would only send to players in hearing distance
+        // (volume.clamp(0.0, 1.0) * 16.0)
         let sound_effect_data = CSoundEffect {
             sound_id,
             sound_name: None,
@@ -528,8 +528,8 @@ impl Plot {
                     self.players[player].worldedit_set_second_position(block_pos);
                 }
                 cancel(self);
-                // FIXME: Because the client sends another packet after this for the left hand for most blocks,
-                // redpiler will get reset anyways.
+                // FIXME: Because the client sends another packet after this for the left hand for
+                // most blocks, redpiler will get reset anyways.
                 return;
             }
         }
@@ -607,7 +607,8 @@ impl Plot {
             return;
         }
 
-        // This worldedit wand stuff should probably be done in another file. It's good enough for now.
+        // This worldedit wand stuff should probably be done in another file. It's good enough for
+        // now.
         let item_in_hand = self.players[player].inventory
             [self.players[player].selected_slot as usize + 36]
             .clone();
@@ -722,7 +723,8 @@ impl Plot {
         self.reset_timings();
     }
 
-    /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This can be
+    /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This
+    /// can be
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active() {
             debug!("Discarding redpiler");
@@ -1020,7 +1022,8 @@ impl Plot {
             self.last_update_time = now;
             if batch_size != 0 {
                 // 50_000 (= 3.33 MHz) here is arbitrary.
-                // We just need a number that's not too high so we actually get around to sending block updates.
+                // We just need a number that's not too high so we actually get around to sending
+                // block updates.
                 let batch_size = batch_size.min(50_000) as u32;
                 let mut ticks_completed = batch_size;
                 if self.redpiler.is_active() {
@@ -1232,7 +1235,8 @@ impl Plot {
         self.save();
     }
 
-    /// This function is used in case of an error. It will try to send the player to spawn if this isn't already a spawn plot.
+    /// This function is used in case of an error. It will try to send the player to spawn if this
+    /// isn't already a spawn plot.
     fn send_player_away(plot_x: i32, plot_z: i32, player: &mut Player) {
         let (px, pz) = if plot_x == 0 && plot_z == 0 {
             // Can't send players to spawn if spawn crashed!

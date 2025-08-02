@@ -13,8 +13,7 @@ use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
 use mchprs_redstone::{bool_to_ss, noteblock};
-use mchprs_world::World;
-use mchprs_world::{TickEntry, TickPriority};
+use mchprs_world::{TickEntry, TickPriority, World};
 use node::{Node, NodeId, NodeType, Nodes};
 use rustc_hash::FxHashMap;
 use std::sync::Arc;
@@ -338,7 +337,8 @@ fn get_all_input(node: &Node) -> (u8, u8) {
     (input_power, side_input_power)
 }
 
-// This function is optimized for input values from 0 to 15 and does not work correctly outside that range
+// This function is optimized for input values from 0 to 15 and does not work correctly outside that
+// range
 fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_on_sides: u8) -> u8 {
     let difference = input_strength.wrapping_sub(power_on_sides);
     if difference <= 15 {

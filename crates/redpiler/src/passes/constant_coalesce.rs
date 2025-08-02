@@ -2,6 +2,7 @@ use std::collections::hash_map::Entry;
 
 use super::Pass;
 use crate::compile_graph::{CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
+use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::unionfind::UnionFind;
@@ -12,7 +13,13 @@ use rustc_hash::FxHashMap;
 pub struct ConstantCoalesce;
 
 impl<W: World> Pass<W> for ConstantCoalesce {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
+    fn run_pass(
+        &self,
+        graph: &mut CompileGraph,
+        _: &CompilerOptions,
+        _: &CompilerInput<'_, W>,
+        _: &mut AnalysisInfos,
+    ) {
         let mut vertex_sets = UnionFind::new(graph.node_bound());
         for edge in graph.edge_references() {
             let (src, dest) = (edge.source(), edge.target());

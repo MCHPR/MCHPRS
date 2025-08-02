@@ -165,7 +165,8 @@ impl NetworkClient {
 /// This represents the network portion of a minecraft server
 pub struct NetworkServer {
     client_receiver: mpsc::Receiver<NetworkClient>,
-    /// These clients are either in the handshake, login, or ping state, once they shift to play, they will be moved to a plot
+    /// These clients are either in the handshake, login, or ping state, once they shift to play,
+    /// they will be moved to a plot
     pub handshaking_clients: Vec<HandshakingConn>,
 }
 
@@ -184,7 +185,8 @@ impl NetworkServer {
             });
             sender
                 .send(NetworkClient {
-                    // The index will increment after each client making it unique. We'll just use this as the enitity id.
+                    // The index will increment after each client making it unique. We'll just use
+                    // this as the enitity id.
                     id: index as u32,
                     stream,
                     packets: packet_receiver,

@@ -404,8 +404,8 @@ impl Chunk {
     #[cfg(feature = "networking")]
     pub fn encode_packet(&self) -> PacketEncoder {
         let block_height = self.sections.len() * 16;
-        // Integer arithmetic trick: ceil(log2(x)) can be calculated with 32 - (x - 1).leading_zeros().
-        // See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
+        // Integer arithmetic trick: ceil(log2(x)) can be calculated with 32 - (x -
+        // 1).leading_zeros(). See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
         let heightmap_bits = (32 - ((block_height as u32 + 1) - 1).leading_zeros()) as u8;
         let mut heightmap_buffer = BitBuffer::create(heightmap_bits, 16 * 16);
         for x in 0..16 {

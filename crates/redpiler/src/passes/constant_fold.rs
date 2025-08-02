@@ -1,5 +1,6 @@
 use super::Pass;
 use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
+use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;
@@ -10,7 +11,13 @@ use tracing::trace;
 pub struct ConstantFold;
 
 impl<W: World> Pass<W> for ConstantFold {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
+    fn run_pass(
+        &self,
+        graph: &mut CompileGraph,
+        _: &CompilerOptions,
+        _: &CompilerInput<'_, W>,
+        _: &mut AnalysisInfos,
+    ) {
         loop {
             let num_folded = fold(graph);
             if num_folded == 0 {

@@ -1,5 +1,6 @@
 use super::Pass;
 use crate::compile_graph::{CompileGraph, LinkType as CLinkType, NodeIdx, NodeType as CNodeType};
+use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode as CComparatorMode;
@@ -92,7 +93,13 @@ fn convert_node(
 pub struct ExportGraph;
 
 impl<W: World> Pass<W> for ExportGraph {
-    fn run_pass(&self, graph: &mut CompileGraph, _: &CompilerOptions, _: &CompilerInput<'_, W>) {
+    fn run_pass(
+        &self,
+        graph: &mut CompileGraph,
+        _: &CompilerOptions,
+        _: &CompilerInput<'_, W>,
+        _: &mut AnalysisInfos,
+    ) {
         let mut nodes_map =
             FxHashMap::with_capacity_and_hasher(graph.node_count(), Default::default());
         for node in graph.node_indices() {
