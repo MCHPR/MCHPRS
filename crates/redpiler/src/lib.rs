@@ -1,8 +1,8 @@
 mod backend;
 mod compile_graph;
-mod task_monitor;
-// mod debug_graph;
 mod passes;
+mod ril;
+mod task_monitor;
 
 use backend::{BackendDispatcher, JITBackend};
 use mchprs_blocks::blocks::Block;
