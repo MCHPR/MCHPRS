@@ -33,7 +33,7 @@ fn dump_edges<'a>(
     ctx: &FmtContext<'_>,
     edges: impl Iterator<Item = EdgeReference<'a, CompileLink>>,
 ) -> fmt::Result {
-    write!(f, "{{")?;
+    write!(f, "[")?;
     let mut first = true;
     for edge in edges {
         if !first {
@@ -43,7 +43,7 @@ fn dump_edges<'a>(
         }
         dump_edge(f, ctx, edge.source(), edge.weight())?;
     }
-    write!(f, "}}")
+    write!(f, "]")
 }
 
 struct FmtContext<'a> {
@@ -117,6 +117,10 @@ fn dump_node(f: &mut fmt::Formatter<'_>, ctx: &FmtContext<'_>) -> fmt::Result {
     let node = ctx.node();
     let inputs = InputFormatter { ctx };
 
+    write!(f, "  ")?;
+    dump_node_name(f, ctx.naming, ctx.node_idx)?;
+    write!(f, " = ")?;
+
     match node.ty {
         NodeType::Repeater {
             delay,
@@ -159,13 +163,35 @@ fn dump_node(f: &mut fmt::Formatter<'_>, ctx: &FmtContext<'_>) -> fmt::Result {
         NodeType::Button => write!(f, "button {}", node.state.powered),
         NodeType::Lever => write!(f, "lever {}", node.state.powered),
         NodeType::PressurePlate => write!(f, "pressure_plate {}", node.state.powered),
-        NodeType::Trapdoor => write!(f, "trapdoor {}", node.state.powered),
-        NodeType::Wire => write!(f, "wire {}", node.state.output_strength),
+        NodeType::Trapdoor => write!(
+            f,
+            "trapdoor {}, {}",
+            node.state.powered,
+            inputs.default_inputs()
+        ),
+        NodeType::Wire => write!(
+            f,
+            "wire {}, {}",
+            node.state.output_strength,
+            inputs.default_inputs()
+        ),
         NodeType::Constant => write!(f, "constant {}", node.state.output_strength),
         NodeType::NoteBlock { instrument, note } => {
-            write!(f, "note_block {}, {}", instrument.to_string(), note)
+            write!(
+                f,
+                "note_block {}, {}, {}",
+                instrument.to_string(),
+                note,
+                inputs.default_inputs()
+            )
         }
+    }?;
+
+    if let Some((pos, _)) = node.block {
+        write!(f, "  # Loc: {}", pos)?;
     }
+
+    Ok(())
 }
 
 pub fn dump_graph(
@@ -175,9 +201,6 @@ pub fn dump_graph(
 ) -> fmt::Result {
     writeln!(f, "circuit {{")?;
     for node_idx in graph.node_indices() {
-        write!(f, "  ")?;
-        dump_node_name(f, naming, node_idx)?;
-        write!(f, " = ")?;
         let ctx = FmtContext {
             graph,
             node_idx,
