@@ -20,17 +20,18 @@ impl<W: World> Pass<W> for ConstantCoalesce {
         _: &CompilerInput<'_, W>,
         _: &mut AnalysisInfos,
     ) {
-        let mut vertex_sets = UnionFind::new(graph.node_bound());
+        // Allow room for new constant nodes
+        let mut vertex_sets = UnionFind::new(graph.node_bound() + 15);
         for edge in graph.edge_references() {
             let (src, dest) = (edge.source(), edge.target());
             let node = &graph[src];
             if node.ty != NodeType::Constant || !node.is_removable() {
-                vertex_sets.union(graph.to_index(src), graph.to_index(dest));
+                vertex_sets.union(src.index(), dest.index());
             }
         }
 
         let mut constant_nodes = FxHashMap::default();
-        for i in 0..graph.node_bound() {
+        'constants: for i in 0..graph.node_bound() {
             let idx = NodeIdx::new(i);
             if !graph.contains_node(idx) {
                 continue;
@@ -43,8 +44,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
 
             let mut neighbors = graph.neighbors_directed(idx, Direction::Outgoing).detach();
             while let Some((edge, dest)) = neighbors.next(graph) {
-                let weight = graph.remove_edge(edge).unwrap();
-                let subgraph_component = vertex_sets.find(graph.to_index(dest));
+                let subgraph_component = vertex_sets.find(dest.index());
 
                 let constant_idx = match constant_nodes.entry((subgraph_component, ss)) {
                     Entry::Occupied(entry) => *entry.get(),
@@ -57,9 +57,15 @@ impl<W: World> Pass<W> for ConstantCoalesce {
                             is_output: false,
                             annotations: Default::default(),
                         });
+                        vertex_sets.union(constant_idx.index(), dest.index());
                         *entry.insert(constant_idx)
                     }
                 };
+                if constant_idx == idx {
+                    // This is a newly added constant
+                    continue 'constants;
+                }
+                let weight = graph.remove_edge(edge).unwrap();
                 graph.add_edge(constant_idx, dest, weight);
             }
             graph.remove_node(idx);
