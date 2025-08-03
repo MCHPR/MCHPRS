@@ -140,7 +140,14 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
         // Give all left over nodes a full range
         for node_idx in graph.node_indices() {
             if range_info.get_range(node_idx).is_none() {
-                range_info.set_range(node_idx, SSRange::FULL);
+                let node = &graph[node_idx];
+
+                let (default_range, side_range) =
+                    Self::collect_input_range(graph, &mut range_info, node_idx, true).unwrap();
+                let output_range =
+                    Self::evaluate_with_range(&node.ty, &node.state, default_range, side_range);
+
+                range_info.set_range(node_idx, output_range);
                 Self::propogate_ss_ranges(graph, &mut range_info, node_idx);
             }
         }
@@ -161,6 +168,34 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
 
 impl SSRangeAnalysis {
     fn propogate_ss_ranges(graph: &CompileGraph, range_info: &mut SSRangeInfo, from: NodeIndex) {
+        let mut queue = graph
+            .neighbors_directed(from, Direction::Outgoing)
+            .collect_vec();
+        while let Some(node_idx) = queue.pop() {
+            if range_info.get_range(node_idx).is_some() {
+                continue;
+            }
+
+            let Some((default_range, side_range)) =
+                Self::collect_input_range(graph, range_info, node_idx, false)
+            else {
+                continue;
+            };
+
+            let node = &graph[node_idx];
+            let output_range =
+                Self::evaluate_with_range(&node.ty, &node.state, default_range, side_range);
+            range_info.set_range(node_idx, output_range);
+            queue.extend(graph.neighbors_directed(node_idx, Direction::Outgoing));
+        }
+    }
+
+    fn collect_input_range(
+        graph: &CompileGraph,
+        range_info: &mut SSRangeInfo,
+        node_idx: NodeIndex,
+        allow_missing: bool,
+    ) -> Option<(SSRange, SSRange)> {
         fn reduce_range(acc: &mut Option<SSRange>, range: SSRange) {
             if let Some(acc) = acc.as_mut() {
                 acc.low = acc.low.min(range.low);
@@ -170,39 +205,29 @@ impl SSRangeAnalysis {
             }
         }
 
-        let mut queue = graph
-            .neighbors_directed(from, Direction::Outgoing)
-            .collect_vec();
-        'queue: while let Some(node_idx) = queue.pop() {
-            if range_info.get_range(node_idx).is_some() {
-                continue;
-            }
+        let mut default_range = None;
+        let mut side_range = None;
+        for edge in graph.edges_directed(node_idx, Direction::Incoming) {
+            let source_idx = edge.source();
+            let link = edge.weight();
+            let src_range = range_info.get_range(source_idx).or_else(|| {
+                if allow_missing {
+                    Some(SSRange::FULL)
+                } else {
+                    None
+                }
+            })?;
+            let src_range = src_range.decay(link.ss);
 
-            let mut default_range = None;
-            let mut side_range = None;
-            for edge in graph.edges_directed(node_idx, Direction::Incoming) {
-                let source_idx = edge.source();
-                let link = edge.weight();
-                let Some(src_range) = range_info.get_range(source_idx) else {
-                    continue 'queue;
-                };
-                let src_range = src_range.decay(link.ss);
-
-                let acc = match link.ty {
-                    LinkType::Default => &mut default_range,
-                    LinkType::Side => &mut side_range,
-                };
-                reduce_range(acc, src_range);
-            }
-            let default_range = default_range.unwrap_or(SSRange::constant(0));
-            let side_range = side_range.unwrap_or(SSRange::constant(0));
-
-            let node = &graph[node_idx];
-            let output_range =
-                Self::evaluate_with_range(&node.ty, &node.state, default_range, side_range);
-            range_info.set_range(node_idx, output_range);
-            queue.extend(graph.neighbors_directed(node_idx, Direction::Outgoing));
+            let acc = match link.ty {
+                LinkType::Default => &mut default_range,
+                LinkType::Side => &mut side_range,
+            };
+            reduce_range(acc, src_range);
         }
+        let default_range = default_range.unwrap_or(SSRange::constant(0));
+        let side_range = side_range.unwrap_or(SSRange::constant(0));
+        Some((default_range, side_range))
     }
 
     fn evaluate_with_range(

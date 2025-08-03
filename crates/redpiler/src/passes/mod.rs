@@ -32,9 +32,9 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &constant_fold::ConstantFold,
         &analysis::ss_range_analysis::SSRangeAnalysis,
         &unreachable_output::UnreachableOutput,
+        &constant_coalesce::ConstantCoalesce,
         &coalesce::Coalesce,
         &prune_orphans::PruneOrphans,
-        &constant_coalesce::ConstantCoalesce,
         &export_graph::ExportGraph,
     ])
 }
