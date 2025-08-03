@@ -49,8 +49,8 @@ impl SSRange {
 
     fn saturating_sub(self, other: SSRange) -> SSRange {
         SSRange {
-            low: self.low.saturating_sub(other.low),
-            high: self.high.saturating_sub(other.high),
+            low: self.low.saturating_sub(other.high),
+            high: self.high.saturating_sub(other.low),
         }
     }
 }
@@ -70,11 +70,6 @@ impl SSRangeInfo {
     fn set_range(&mut self, node_idx: NodeIndex, range: SSRange) {
         let idx = node_idx.index();
         if idx >= self.ranges.len() {
-            println!(
-                "{idx} >= {}, extending ranges by: {}",
-                self.ranges.len(),
-                idx - self.ranges.len() + 1
-            );
             self.ranges
                 .extend(iter::repeat_n(None, idx - self.ranges.len() + 1));
         }
@@ -83,6 +78,17 @@ impl SSRangeInfo {
 
     pub fn get_range(&self, node_idx: NodeIndex) -> Option<SSRange> {
         self.ranges.get(node_idx.index()).copied().flatten()
+    }
+
+    fn extend_range_to_include(&mut self, node_idx: NodeIndex, ss: u8) {
+        if let Some(range) = &mut self.ranges[node_idx.index()] {
+            if range.low > ss {
+                range.low = ss;
+            }
+            if range.high < ss {
+                range.high = ss;
+            }
+        }
     }
 }
 
@@ -139,6 +145,12 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
             }
         }
 
+        // Handle transient states
+        for node_idx in graph.node_indices() {
+            let node = &graph[node_idx];
+            range_info.extend_range_to_include(node_idx, node.state.output_strength);
+        }
+
         analysis_infos.insert_analysis(range_info);
     }
 
@@ -152,7 +164,7 @@ impl SSRangeAnalysis {
         fn reduce_range(acc: &mut Option<SSRange>, range: SSRange) {
             if let Some(acc) = acc.as_mut() {
                 acc.low = acc.low.min(range.low);
-                acc.high = acc.high.min(range.high);
+                acc.high = acc.high.max(range.high);
             } else {
                 *acc = Some(range);
             }
@@ -161,14 +173,18 @@ impl SSRangeAnalysis {
         let mut queue = graph
             .neighbors_directed(from, Direction::Outgoing)
             .collect_vec();
-        while let Some(node_idx) = queue.pop() {
+        'queue: while let Some(node_idx) = queue.pop() {
+            if range_info.get_range(node_idx).is_some() {
+                continue;
+            }
+
             let mut default_range = None;
             let mut side_range = None;
             for edge in graph.edges_directed(node_idx, Direction::Incoming) {
                 let source_idx = edge.source();
                 let link = edge.weight();
                 let Some(src_range) = range_info.get_range(source_idx) else {
-                    continue;
+                    continue 'queue;
                 };
                 let src_range = src_range.decay(link.ss);
 
@@ -182,19 +198,32 @@ impl SSRangeAnalysis {
             let side_range = side_range.unwrap_or(SSRange::constant(0));
 
             let node = &graph[node_idx];
-            let output_range = Self::evaluate_with_range(&node.ty, default_range, side_range);
+            let output_range =
+                Self::evaluate_with_range(&node.ty, &node.state, default_range, side_range);
             range_info.set_range(node_idx, output_range);
             queue.extend(graph.neighbors_directed(node_idx, Direction::Outgoing));
         }
     }
 
-    fn evaluate_with_range(ty: &NodeType, default_range: SSRange, side_range: SSRange) -> SSRange {
+    fn evaluate_with_range(
+        ty: &NodeType,
+        state: &NodeState,
+        default_range: SSRange,
+        side_range: SSRange,
+    ) -> SSRange {
         match ty {
             NodeType::Repeater { .. }
             | NodeType::Torch
             | NodeType::NoteBlock { .. }
             | NodeType::Lamp
             | NodeType::Trapdoor => {
+                if matches!(ty, NodeType::Repeater { .. })
+                    && state.repeater_locked
+                    && side_range.low > 0
+                {
+                    // This repeater is always locked, use current state
+                    return SSRange::constant(state.output_strength);
+                }
                 // For binary nodes, there are 3 possibilities: always powered, never powered, and
                 // sometimes powered
                 let always_powered = default_range.low > 0;
