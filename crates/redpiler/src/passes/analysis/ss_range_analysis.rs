@@ -24,7 +24,7 @@ use petgraph::Direction;
 use std::iter;
 
 /// The possible output range of a node
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct SSRange {
     /// The lower bound of the range (inclusive)
     pub low: u8,
@@ -182,7 +182,9 @@ impl SSRangeAnalysis {
             let side_range = side_range.unwrap_or(SSRange::constant(0));
 
             let node = &graph[node_idx];
-            Self::evaluate_with_range(&node.ty, default_range, side_range);
+            let output_range = Self::evaluate_with_range(&node.ty, default_range, side_range);
+            range_info.set_range(node_idx, output_range);
+            queue.extend(graph.neighbors_directed(node_idx, Direction::Outgoing));
         }
     }
 
