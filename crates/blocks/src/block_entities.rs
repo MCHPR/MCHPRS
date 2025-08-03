@@ -110,7 +110,7 @@ impl BlockEntity {
                     .or_else(|| item_compound.get("id"))?,
                 Value::String
             );
-            let item_type = Item::from_name(namespaced_name.split(':').last()?);
+            let item_type = Item::from_name(namespaced_name.split(':').next_back()?);
 
             let mut blob = nbt::Blob::new();
             for (k, v) in item_compound {

@@ -147,7 +147,7 @@ fn dump_node(f: &mut fmt::Formatter<'_>, ctx: &FmtContext<'_>) -> fmt::Result {
         } => write!(
             f,
             "comparator {}, {}, {}, {}, {}, {}",
-            mode.to_string(),
+            mode,
             FarInputFormatter(far_input),
             facing_diode,
             node.state.output_strength,
@@ -180,7 +180,7 @@ fn dump_node(f: &mut fmt::Formatter<'_>, ctx: &FmtContext<'_>) -> fmt::Result {
             write!(
                 f,
                 "note_block {}, {}, {}",
-                instrument.to_string(),
+                instrument,
                 note,
                 inputs.default_inputs()
             )

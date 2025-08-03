@@ -67,7 +67,8 @@ fn compile_node(
     stats.default_link_count += default_input_count;
     stats.side_link_count += side_input_count;
 
-    // Make sure signal strength buckets add up to 255 so we can easily check for all zeros in get_bool_input
+    // Make sure signal strength buckets add up to 255 so we can easily check for all zeros in
+    // get_bool_input
     default_inputs.ss_counts[0] += (MAX_INPUTS - default_input_count) as u8;
     side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
 

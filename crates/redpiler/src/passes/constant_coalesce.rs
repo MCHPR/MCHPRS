@@ -37,7 +37,10 @@ impl<W: World> Pass<W> for ConstantCoalesce {
                 continue;
             }
             let node = &graph[idx];
-            if node.ty != NodeType::Constant || !node.is_removable() || constant_nodes.contains(&idx) {
+            if node.ty != NodeType::Constant
+                || !node.is_removable()
+                || constant_nodes.contains(&idx)
+            {
                 continue;
             }
             let ss = node.state.output_strength;

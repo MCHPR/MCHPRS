@@ -105,7 +105,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
         analysis_infos: &mut AnalysisInfos,
     ) {
         let mut range_info = SSRangeInfo::default();
-        range_info.reserve(&graph);
+        range_info.reserve(graph);
 
         // First, we give all nodes with no inputs the default range
         for node_idx in graph.node_indices() {
@@ -129,8 +129,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
 
             let first_side_edge = graph
                 .edges_directed(node_idx, Direction::Incoming)
-                .filter(|edge| edge.weight().ty == LinkType::Side)
-                .next();
+                .find(|edge| edge.weight().ty == LinkType::Side);
             if first_side_edge.is_some() {
                 range_info.set_range(node_idx, SSRange::FULL);
                 Self::propogate_ss_ranges(graph, &mut range_info, node_idx);
@@ -210,7 +209,7 @@ impl SSRangeAnalysis {
         for edge in graph.edges_directed(node_idx, Direction::Incoming) {
             let source_idx = edge.source();
             let link = edge.weight();
-            let src_range = range_info.get_range(source_idx).or_else(|| {
+            let src_range = range_info.get_range(source_idx).or({
                 if allow_missing {
                     Some(SSRange::FULL)
                 } else {

@@ -21,7 +21,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::{trace, debug};
+use tracing::{debug, trace};
 
 pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
     PassManager::new(&[
@@ -56,8 +56,7 @@ impl AnalysisInfos {
         let type_id = TypeId::of::<A>();
         self.analysis_infos
             .get(&type_id)
-            .map(|ai| (ai.as_ref() as &dyn Any).downcast_ref())
-            .flatten()
+            .and_then(|ai| (ai.as_ref() as &dyn Any).downcast_ref())
     }
 }
 
