@@ -111,6 +111,11 @@ impl<'p, W: World> PassManager<'p, W> {
             }
         }
 
+        if options.print_before_backend {
+            debug!("Printing circuit before backend compile:");
+            graph.dump();
+        }
+
         graph
     }
 }
