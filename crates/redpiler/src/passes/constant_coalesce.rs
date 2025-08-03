@@ -8,7 +8,7 @@ use mchprs_world::World;
 use petgraph::unionfind::UnionFind;
 use petgraph::visit::{EdgeRef, IntoEdgeReferences, NodeIndexable};
 use petgraph::Direction;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 pub struct ConstantCoalesce;
 
@@ -20,8 +20,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
         _: &CompilerInput<'_, W>,
         _: &mut AnalysisInfos,
     ) {
-        // Allow room for new constant nodes
-        let mut vertex_sets = UnionFind::new(graph.node_bound() + 15);
+        let mut vertex_sets = UnionFind::new(graph.node_bound());
         for edge in graph.edge_references() {
             let (src, dest) = (edge.source(), edge.target());
             let node = &graph[src];
@@ -30,14 +29,15 @@ impl<W: World> Pass<W> for ConstantCoalesce {
             }
         }
 
-        let mut constant_nodes = FxHashMap::default();
+        let mut constant_nodes = FxHashSet::default();
+        let mut constant_map = FxHashMap::default();
         'constants: for i in 0..graph.node_bound() {
             let idx = NodeIdx::new(i);
             if !graph.contains_node(idx) {
                 continue;
             }
             let node = &graph[idx];
-            if node.ty != NodeType::Constant || !node.is_removable() {
+            if node.ty != NodeType::Constant || !node.is_removable() || constant_nodes.contains(&idx) {
                 continue;
             }
             let ss = node.state.output_strength;
@@ -46,7 +46,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
             while let Some((edge, dest)) = neighbors.next(graph) {
                 let subgraph_component = vertex_sets.find(dest.index());
 
-                let constant_idx = match constant_nodes.entry((subgraph_component, ss)) {
+                let constant_idx = match constant_map.entry((subgraph_component, ss)) {
                     Entry::Occupied(entry) => *entry.get(),
                     Entry::Vacant(entry) => {
                         let constant_idx = graph.add_node(CompileNode {
@@ -57,7 +57,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
                             is_output: false,
                             annotations: Default::default(),
                         });
-                        vertex_sets.union(constant_idx.index(), dest.index());
+                        constant_nodes.insert(constant_idx);
                         *entry.insert(constant_idx)
                     }
                 };
