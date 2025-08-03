@@ -45,6 +45,8 @@ pub struct CompilerOptions {
     pub export_dot_graph: bool,
     /// Consider a redstone dot to be an output block (for color screens)
     pub wire_dot_out: bool,
+    /// Print out the RIL circuit after every redpiler pass
+    pub print_after_all: bool,
     /// The backend variant to be used after compilation
     pub backend_variant: BackendVariant,
 }
@@ -68,6 +70,7 @@ impl CompilerOptions {
                     "--update" => co.update = true,
                     "--export-dot" => co.export_dot_graph = true,
                     "--wire-dot-out" => co.wire_dot_out = true,
+                    "--print-after-all" => co.print_after_all = true,
                     // FIXME: use actual error handling
                     _ => warn!("Unrecognized option: {}", option),
                 }
@@ -252,6 +255,7 @@ mod tests {
             update: true,
             export_dot_graph: false,
             wire_dot_out: false,
+            print_after_all: false,
             backend_variant: BackendVariant::default(),
         };
         let options = CompilerOptions::parse(input);

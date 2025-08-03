@@ -21,7 +21,7 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
-use tracing::trace;
+use tracing::{trace, debug};
 
 pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
     PassManager::new(&[
@@ -32,9 +32,9 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &constant_fold::ConstantFold,
         &analysis::ss_range_analysis::SSRangeAnalysis,
         &unreachable_output::UnreachableOutput,
-        &constant_coalesce::ConstantCoalesce,
         &coalesce::Coalesce,
         &prune_orphans::PruneOrphans,
+        &constant_coalesce::ConstantCoalesce,
         &export_graph::ExportGraph,
     ])
 }
@@ -104,6 +104,11 @@ impl<'p, W: World> PassManager<'p, W> {
             trace!("node_count: {}", graph.node_count());
             trace!("edge_count: {}", graph.edge_count());
             monitor.inc_progress();
+
+            if options.print_after_all {
+                debug!("Printing circuit after pass: {}", pass.name());
+                graph.dump();
+            }
         }
 
         graph
