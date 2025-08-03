@@ -4,13 +4,12 @@
 //! output ss of a node is never higher than the weight of the link.
 
 use super::Pass;
-use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
+use crate::compile_graph::{CompileGraph, NodeIdx};
 use crate::passes::analysis::ss_range_analysis::SSRangeInfo;
 use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
-use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;
-use petgraph::visit::{EdgeRef, NodeIndexable};
+use petgraph::visit::NodeIndexable;
 use petgraph::Direction;
 
 pub struct UnreachableOutput;
