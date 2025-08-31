@@ -554,6 +554,7 @@ static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
             flags: &[
                 flag!('a', None, "Skip air blocks"),
                 flag!('u', None, "Also update all affected blocks"),
+                flag!('s', None, "Select the volume of the pasted in schematic"),
             ],
             permission_node: "worldedit.clipboard.paste",
             ..Default::default()
