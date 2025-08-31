@@ -240,6 +240,10 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
         if ctx.has_flag('u') {
             update(ctx.plot, first_pos, second_pos);
         }
+        if ctx.has_flag('s') {
+            ctx.player.worldedit_set_first_position(first_pos);
+            ctx.player.worldedit_set_second_position(second_pos);
+        }
         ctx.player.send_worldedit_message(&format!(
             "Your clipboard was pasted. ({:?})",
             start_time.elapsed()
