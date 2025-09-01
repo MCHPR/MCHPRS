@@ -235,6 +235,17 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
             offset_y + cb.size_y as i32,
             offset_z + cb.size_z as i32,
         );
+        let (min, max) = ctx.plot.get_corners();
+        if first_pos.x < min.x || first_pos.y < min.y || first_pos.z < min.z {
+            ctx.player.send_error_message(&format!("Can't paste schematic outside of plot, min pos {:?} exceeds bounds {:?}", first_pos, min));
+            return;
+        }
+
+        if second_pos.x > max.x || second_pos.y > max.y || second_pos.z > max.z {
+            ctx.player.send_error_message(&format!("Can't paste schematic outside of plot, max pos {:?} exceeds bounds {:?}", second_pos, max));
+            return;
+        }
+
         capture_undo(ctx.plot, ctx.player, first_pos, second_pos);
         paste_clipboard(ctx.plot, cb, pos, ctx.has_flag('a'));
         if ctx.has_flag('u') {
