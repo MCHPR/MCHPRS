@@ -967,6 +967,7 @@ pub(super) fn execute_rstack(ctx: CommandExecuteContext<'_>) {
         ));
         paste_clipboard(ctx.plot, &clipboard, block_pos, !ctx.has_flag('a'));
     }
+    undo_cbs.reverse();
     let undo = WorldEditUndo {
         clipboards: undo_cbs,
         pos: pos1,
