@@ -431,6 +431,17 @@ items! {
         from_id(_id): 339 => {},
         block: true,
     },
+    EndPortalFrame {
+        props: {},
+        get_id: 375,
+        from_id(_id): 375 => {},
+        block: true,
+    },
+    EnderEye {
+        props: {},
+        get_id: 1003,
+        from_id(_id): 1003 => {},
+    },
     Unknown {
         props: {
             id: u32

@@ -1342,6 +1342,28 @@ blocks! {
         solid: true,
         cube: true,
     },
+    EndPortalFrame {
+        props: {
+            eye: bool,
+            facing: BlockDirection
+        },
+        get_id: (!eye as u32) * 4
+            + facing.get_id()
+            + 7407,
+        from_id_offset: 7407,
+        from_id(id): 7407..=7414 => {
+            eye: (id >> 2) == 0,
+            facing: BlockDirection::from_id(id % 4)
+        },
+        from_names(_name): {
+            "end_portal_frame" => {
+                eye: false,
+                facing: BlockDirection::West
+            }
+        },
+        get_name: "end_portal_frame",
+        transparent: true,
+    },
     Unknown {
         props: {
             id: u32

@@ -34,6 +34,7 @@ pub fn has_override(block: Block) -> bool {
             | Block::Cauldron { .. }
             | Block::Composter { .. }
             | Block::Cake { .. }
+            | Block::EndPortalFrame { eye: true, .. }
     )
 }
 
@@ -56,6 +57,7 @@ pub fn get_override(block: Block, world: &impl World, pos: BlockPos) -> u8 {
         Block::Cauldron { level } => level,
         Block::Composter { level } => level,
         Block::Cake { bites } => 14 - 2 * bites,
+        Block::EndPortalFrame { eye: true, .. } => 15,
         _ => unreachable!("Block does not override comparators"),
     }
 }

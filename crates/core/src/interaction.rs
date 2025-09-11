@@ -35,6 +35,16 @@ pub fn on_use(
             }
             ActionResult::Success
         }
+        Block::EndPortalFrame { eye, facing } => {
+            if let Some(Item::EnderEye {}) = item_in_hand {
+                if !eye {
+                    world.set_block(pos, Block::EndPortalFrame { eye: true, facing });
+                    redstone::update_surrounding_blocks(world, pos);
+                    return ActionResult::Success;
+                }
+            }
+            ActionResult::Pass
+        }
         b if b.has_block_entity() => {
             // Open container
             let block_entity = world.get_block_entity(pos);
@@ -183,6 +193,10 @@ pub fn get_state_for_placement(
         Item::HayBlock {} => Block::HayBlock {},
         Item::Sand {} => Block::Sand {},
         Item::StoneBricks {} => Block::StoneBricks {},
+        Item::EndPortalFrame {} => Block::EndPortalFrame {
+            eye: false,
+            facing: context.player.get_direction().opposite(),
+        },
         _ => Block::Air {},
     };
     if is_valid_position(block, world, pos) {
