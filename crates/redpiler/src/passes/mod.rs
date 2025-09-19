@@ -9,6 +9,8 @@ mod identify_nodes;
 mod input_search;
 mod prune_orphans;
 mod unreachable_output;
+mod coalesce2;
+mod constant_fold2;
 
 use mchprs_world::World;
 
@@ -29,11 +31,12 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &input_search::InputSearch,
         &clamp_weights::ClampWeights,
         &dedup_links::DedupLinks,
-        &constant_fold::ConstantFold,
         &analysis::ss_range_analysis::SSRangeAnalysis,
+        
+        &constant_fold2::ConstantFold2,
         &unreachable_output::UnreachableOutput,
-        &constant_coalesce::ConstantCoalesce,
-        &coalesce::Coalesce,
+        &coalesce2::Coalesce2,
+        
         &prune_orphans::PruneOrphans,
         &export_graph::ExportGraph,
     ])
@@ -57,6 +60,13 @@ impl AnalysisInfos {
         self.analysis_infos
             .get(&type_id)
             .and_then(|ai| (ai.as_ref() as &dyn Any).downcast_ref())
+    }
+
+    pub fn get_analysis_mut<A: AnalysisInfo>(&mut self) -> Option<&mut A> {
+        let type_id = TypeId::of::<A>();
+        self.analysis_infos
+            .get_mut(&type_id)
+            .and_then(|ai| (ai.as_mut() as &mut dyn Any).downcast_mut())
     }
 }
 

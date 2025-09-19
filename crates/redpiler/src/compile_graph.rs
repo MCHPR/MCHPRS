@@ -29,7 +29,13 @@ pub enum NodeType {
     },
 }
 
-#[derive(Debug, Clone, Default)]
+impl NodeType {
+    pub fn is_bool(&self) -> bool {
+        !matches!(self, NodeType::Wire | NodeType::Comparator { .. })
+    }
+}
+
+#[derive(Debug, Clone, Default, Hash, PartialEq, Eq)]
 pub struct NodeState {
     pub powered: bool,
     pub repeater_locked: bool,
