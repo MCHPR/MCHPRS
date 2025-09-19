@@ -12,7 +12,7 @@
 //! TODO: handle cases where a cycle has a constrained input. Pulse extender example: button ->
 //! comparator subtract by constant -> comparator loop
 
-use crate::compile_graph::{CompileGraph, LinkType, NodeState, NodeType};
+use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeState, NodeType};
 use crate::passes::{AnalysisInfo, AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
@@ -22,9 +22,10 @@ use petgraph::graph::NodeIndex;
 use petgraph::visit::{EdgeRef, NodeIndexable};
 use petgraph::Direction;
 use std::iter;
+use crate::backend::direct::calculate_comparator_output;
 
 /// The possible output range of a node
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SSRange {
     /// The lower bound of the range (inclusive)
     pub low: u8,
@@ -37,6 +38,29 @@ impl SSRange {
 
     pub fn constant(ss: u8) -> SSRange {
         SSRange { low: ss, high: ss }
+    }
+
+    pub fn dust_or(self, other: Self) -> Self {
+        SSRange { low: self.low.max(other.low), high: self.high.max(other.high) }
+    }
+
+    pub fn contains(self, ss: u8) -> bool {
+        self.low <= ss && ss <= self.high
+    }
+
+    pub fn contains_positive(self) -> bool {
+        self.high > 0
+    }
+
+    pub fn with(self, ss: u8) -> Self {
+        Self {
+            low: self.low.min(ss),
+            high: self.high.max(ss),
+        }
+    }
+
+    pub fn insert(&mut self, ss: u8) {
+        *self = self.with(ss);
     }
 
     /// Perform a saturating sub on each component of the range for ss decay
@@ -55,23 +79,18 @@ impl SSRange {
     }
 
     pub fn bool_signature(self, dist: u8) -> u16 {
-        let Self {low, high} = self;
-        (0xffffu16 >> (15u8 + low - high) << low) & (0xfffe << dist)
+        // let Self {low, high} = self;
+        // let bitset = 0xffffu16 >> (15u8 + low - high) << low;
+        // bitset & (0xffff << dist)
+        dist as u16
     }
 
     pub fn hex_signature(self, dist: u8) -> u16 {
         dist as u16
+        // let Self {low, high} = self;
+        // let bitset = 0xffffu16 >> (15u8 + low - high) << low;
+        // (bitset & 1) | ((bitset & 0xfffe) >> dist)
     }
-}
-
-fn range_to_bitset(low: u8, high: u8) -> u16 {
-    (0xffff << (low + high)) >> low
-}
-
-fn bitset_to_range(bitset: u16) -> (u8, u8) {
-    let low = (bitset.trailing_zeros() as u8) & 15;
-    let high = bitset.checked_ilog2().unwrap_or(0) as u8;
-    (low, high)
 }
 
 
@@ -126,55 +145,31 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
     ) {
         let mut range_info = SSRangeInfo::default();
         range_info.reserve(graph);
-
+        
         // First, we give all nodes with no inputs the default range
         for node_idx in graph.node_indices() {
             let node = &graph[node_idx];
-            let first_edge = graph.edges_directed(node_idx, Direction::Incoming).next();
-            if first_edge.is_none() {
-                let range = Self::range_for_no_inputs(&node.ty, &node.state);
-                range_info.set_range(node_idx, range);
-                Self::propogate_ss_ranges(graph, &mut range_info, node_idx);
-            }
+            // TODO: check if this is correct if there are pending ticks
+            let range = match node.ty {
+                // Inputs
+                NodeType::Button | NodeType::Lever | NodeType::PressurePlate => SSRange::constant(0).with(15),
+                // Outputs
+                NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. } => SSRange::constant(0),
+                // Hex components
+                NodeType::Constant | NodeType::Comparator { .. } | NodeType::Wire | NodeType::Repeater { .. } | NodeType::Torch
+                    => SSRange::constant(node.state.output_strength),
+            };
+            
+            range_info.set_range(node_idx, range);
         }
+        
 
-        // Give left over locking repeaters a full range
-        for node_idx in graph.node_indices() {
-            let node = &graph[node_idx];
-            if !matches!(node.ty, NodeType::Repeater { .. })
-                || range_info.get_range(node_idx).is_some()
-            {
-                continue;
+
+        loop {
+            let num_updated = narrow_iteration(graph, &mut range_info);
+            if num_updated == 0 {
+                break;
             }
-
-            let first_side_edge = graph
-                .edges_directed(node_idx, Direction::Incoming)
-                .find(|edge| edge.weight().ty == LinkType::Side);
-            if first_side_edge.is_some() {
-                range_info.set_range(node_idx, SSRange::FULL);
-                Self::propogate_ss_ranges(graph, &mut range_info, node_idx);
-            }
-        }
-
-        // Give all left over nodes a full range
-        for node_idx in graph.node_indices() {
-            if range_info.get_range(node_idx).is_none() {
-                let node = &graph[node_idx];
-
-                let (default_range, side_range) =
-                    Self::collect_input_range(graph, &mut range_info, node_idx, true).unwrap();
-                let output_range =
-                    Self::evaluate_with_range(&node.ty, &node.state, default_range, side_range);
-
-                range_info.set_range(node_idx, output_range);
-                Self::propogate_ss_ranges(graph, &mut range_info, node_idx);
-            }
-        }
-
-        // Handle transient states
-        for node_idx in graph.node_indices() {
-            let node = &graph[node_idx];
-            range_info.extend_range_to_include(node_idx, node.state.output_strength);
         }
 
         analysis_infos.insert_analysis(range_info);
@@ -185,164 +180,103 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
     }
 }
 
-impl SSRangeAnalysis {
-    fn propogate_ss_ranges(graph: &CompileGraph, range_info: &mut SSRangeInfo, from: NodeIndex) {
-        let mut queue = graph
-            .neighbors_directed(from, Direction::Outgoing)
-            .collect_vec();
-        while let Some(node_idx) = queue.pop() {
-            if range_info.get_range(node_idx).is_some() {
-                continue;
-            }
-
-            let Some((default_range, side_range)) =
-                Self::collect_input_range(graph, range_info, node_idx, false)
-            else {
-                continue;
-            };
-
-            let node = &graph[node_idx];
-            let output_range =
-                Self::evaluate_with_range(&node.ty, &node.state, default_range, side_range);
-            range_info.set_range(node_idx, output_range);
-            queue.extend(graph.neighbors_directed(node_idx, Direction::Outgoing));
+pub fn calc_possible_inputs(graph: &CompileGraph, range_info: &SSRangeInfo, idx: NodeIdx) -> (SSRange, SSRange) {
+    let node = &graph[idx];
+    let mut def = SSRange::constant(0);
+    let mut side = SSRange::constant(0);
+    for edge in graph.edges_directed(idx, Direction::Incoming) {
+        let source = edge.source();
+        let weight = edge.weight();
+        let ss = weight.ss;
+        let ty = weight.ty;
+        let val = range_info.get_range(source).unwrap();
+        let val = val.decay(ss);
+        if ty == LinkType::Default {
+            def = def.dust_or(val);
+        } else {
+            side = side.dust_or(val);
         }
     }
 
-    fn collect_input_range(
-        graph: &CompileGraph,
-        range_info: &mut SSRangeInfo,
-        node_idx: NodeIndex,
-        allow_missing: bool,
-    ) -> Option<(SSRange, SSRange)> {
-        fn reduce_range(acc: &mut Option<SSRange>, range: SSRange) {
-            if let Some(acc) = acc.as_mut() {
-                acc.low = acc.low.min(range.low);
-                acc.high = acc.high.max(range.high);
-            } else {
-                *acc = Some(range);
-            }
-        }
-
-        let mut default_range = None;
-        let mut side_range = None;
-        for edge in graph.edges_directed(node_idx, Direction::Incoming) {
-            let source_idx = edge.source();
-            let link = edge.weight();
-            let src_range = range_info.get_range(source_idx).or({
-                if allow_missing {
-                    Some(SSRange::FULL)
-                } else {
-                    None
-                }
-            })?;
-            let src_range = src_range.decay(link.ss);
-
-            let acc = match link.ty {
-                LinkType::Default => &mut default_range,
-                LinkType::Side => &mut side_range,
-            };
-            reduce_range(acc, src_range);
-        }
-        let default_range = default_range.unwrap_or(SSRange::constant(0));
-        let side_range = side_range.unwrap_or(SSRange::constant(0));
-        Some((default_range, side_range))
+    if let NodeType::Comparator {
+        far_input: Some(far_input),
+        ..
+    } = node.ty
+    {
+        def = if def == SSRange::constant(15) {
+            SSRange::constant(15)
+        } else if def.contains(15) {
+            SSRange::constant(15).with(far_input)
+        } else {
+            SSRange::constant(far_input)
+        };
     }
 
-    fn evaluate_with_range(
-        ty: &NodeType,
-        state: &NodeState,
-        default_range: SSRange,
-        side_range: SSRange,
-    ) -> SSRange {
-        match ty {
-            NodeType::Repeater { .. }
-            | NodeType::Torch
-            | NodeType::NoteBlock { .. }
-            | NodeType::Lamp
-            | NodeType::Trapdoor => {
-                if matches!(ty, NodeType::Repeater { .. })
-                    && state.repeater_locked
-                    && side_range.low > 0
-                {
-                    // This repeater is always locked, use current state
-                    return SSRange::constant(state.output_strength);
+    (def, side)
+}
+
+fn calc_possible_outputs(graph: &CompileGraph, range_info: &SSRangeInfo, idx: NodeIdx) -> SSRange {
+    let node = &graph[idx];
+    let (def, side) = calc_possible_inputs(graph, range_info, idx);
+
+    let mut outputs = SSRange::constant(node.state.output_strength);
+    match node.ty {
+        NodeType::Repeater { .. } => {
+            if def.contains(0) {
+                outputs.insert(0)
+            }
+            if def.contains_positive() {
+                outputs.insert(15)
+            }
+        }
+        NodeType::Torch => {
+            if def.contains(0) {
+                outputs.insert(15)
+            }
+            if def.contains_positive() {
+                outputs.insert(0);
+            }
+        }
+        NodeType::Comparator { mode, .. } => {
+            for def_ss in 0..=15u8 {
+                if !def.contains(def_ss) {
+                    continue;
                 }
-                // For binary nodes, there are 3 possibilities: always powered, never powered, and
-                // sometimes powered
-                let always_powered = default_range.low > 0;
-                let never_powered = default_range.high == 0;
-                if always_powered || never_powered {
-                    let output_powered = if *ty == NodeType::Torch {
-                        never_powered
-                    } else {
-                        always_powered
-                    };
-                    if output_powered {
-                        SSRange::constant(15)
-                    } else {
-                        SSRange::constant(0)
+                for side_ss in 0..=15u8 {
+                    if !side.contains(side_ss) {
+                        continue;
                     }
-                } else {
-                    SSRange::FULL
+                    let output = calculate_comparator_output(mode, def_ss, side_ss);
+                    outputs.insert(output);
                 }
             }
-            NodeType::Comparator {
-                mode, far_input, ..
-            } => {
-                let input_range = if let Some(far_override) = far_input {
-                    if default_range.high < 15 {
-                        // The default input can never reach 15 ss, so we always use far override
-                        SSRange::constant(*far_override)
-                    } else {
-                        // The default range reaches 15 ss, overriding the far override, so the high
-                        // must be 15. The low is always the far override, because if the default
-                        // input is lower than the far override, it cannot possibly be 15.
-                        SSRange {
-                            low: *far_override,
-                            high: 15,
-                        }
-                    }
-                } else {
-                    default_range
-                };
+        }
+        NodeType::Wire => outputs = def,
+        NodeType::Lamp
+        | NodeType::Button
+        | NodeType::Lever
+        | NodeType::PressurePlate
+        | NodeType::Trapdoor
+        | NodeType::Constant
+        | NodeType::NoteBlock { .. } => outputs = range_info.get_range(idx).unwrap(),
+    }
+    outputs
+}
 
-                match mode {
-                    ComparatorMode::Compare => {
-                        if input_range.high < side_range.low {
-                            // The side input is always greater than the default input
-                            SSRange::constant(0)
-                        } else if input_range.low >= side_range.high {
-                            // The side input is always less than or equal to the default input
-                            input_range
-                        } else {
-                            // The output can be either the default input, or 0 if the side input is
-                            // greater
-                            let mut range = default_range;
-                            range.low = 0;
-                            range
-                        }
-                    }
-                    ComparatorMode::Subtract => default_range.saturating_sub(side_range),
-                }
-            }
-            NodeType::Wire => default_range,
-            _ => unreachable!("evaluate node ty: {:?}", ty),
+fn narrow_iteration(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) -> usize {
+    let mut updated = 0;
+    for i in 0..graph.node_bound() {
+        let idx = NodeIdx::new(i);
+        if !graph.contains_node(idx) {
+            continue;
+        }
+        let old = range_info.get_range(idx).unwrap();
+        let new_possible_outputs = calc_possible_outputs(graph, range_info, idx);
+
+        if new_possible_outputs != old {
+            updated += 1;
+            range_info.set_range(idx, new_possible_outputs);
         }
     }
-
-    fn range_for_no_inputs(ty: &NodeType, state: &NodeState) -> SSRange {
-        match ty {
-            NodeType::Repeater { .. }
-            | NodeType::Comparator { .. }
-            // Nodes that cannot be used as inputs are given 0 arbitrarily
-            | NodeType::Lamp
-            | NodeType::Trapdoor
-            | NodeType::Wire
-            | NodeType::NoteBlock { .. } => SSRange::constant(0),
-            NodeType::Torch => SSRange::constant(15),
-            NodeType::Constant => SSRange::constant(state.output_strength),
-            NodeType::Button | NodeType::Lever | NodeType::PressurePlate => SSRange::FULL,
-        }
-    }
+    return updated;
 }
