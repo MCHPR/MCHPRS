@@ -130,6 +130,13 @@ impl AnalysisInfos {
             .get(&type_id)
             .and_then(|ai| (ai.as_ref() as &dyn Any).downcast_ref())
     }
+
+    pub fn get_analysis_mut<A: AnalysisInfo>(&mut self) -> Option<&mut A> {
+        let type_id = TypeId::of::<A>();
+        self.analysis_infos
+            .get_mut(&type_id)
+            .and_then(|ai| (ai.as_mut() as &mut dyn Any).downcast_mut())
+    }
 }
 
 pub struct PassPipelineBuilder<'p, W: World> {

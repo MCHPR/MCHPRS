@@ -35,7 +35,7 @@ pub struct SSRange {
 impl SSRange {
     pub const FULL: SSRange = SSRange { low: 0, high: 15 };
 
-    fn constant(ss: u8) -> SSRange {
+    pub fn constant(ss: u8) -> SSRange {
         SSRange { low: ss, high: ss }
     }
 
@@ -53,7 +53,27 @@ impl SSRange {
             high: self.high.saturating_sub(other.low),
         }
     }
+
+    pub fn bool_signature(self, dist: u8) -> u16 {
+        let Self {low, high} = self;
+        (0xffffu16 >> (15u8 + low - high) << low) & (0xfffe << dist)
+    }
+
+    pub fn hex_signature(self, dist: u8) -> u16 {
+        dist as u16
+    }
 }
+
+fn range_to_bitset(low: u8, high: u8) -> u16 {
+    (0xffff << (low + high)) >> low
+}
+
+fn bitset_to_range(bitset: u16) -> (u8, u8) {
+    let low = (bitset.trailing_zeros() as u8) & 15;
+    let high = bitset.checked_ilog2().unwrap_or(0) as u8;
+    (low, high)
+}
+
 
 #[derive(Default)]
 pub struct SSRangeInfo {
@@ -67,7 +87,7 @@ impl SSRangeInfo {
         self.ranges.extend(iter::repeat_n(None, len));
     }
 
-    fn set_range(&mut self, node_idx: NodeIndex, range: SSRange) {
+    pub fn set_range(&mut self, node_idx: NodeIndex, range: SSRange) {
         let idx = node_idx.index();
         if idx >= self.ranges.len() {
             self.ranges

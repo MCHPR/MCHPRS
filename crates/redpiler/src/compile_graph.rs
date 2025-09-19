@@ -46,7 +46,13 @@ impl NodeType {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+impl NodeType {
+    pub fn is_bool(&self) -> bool {
+        !matches!(self, NodeType::Wire | NodeType::Comparator { .. })
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct NodeState {
     pub powered: bool,
     pub repeater_locked: bool,
