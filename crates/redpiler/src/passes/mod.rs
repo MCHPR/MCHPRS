@@ -33,8 +33,8 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &dedup_links::DedupLinks,
         &analysis::ss_range_analysis::SSRangeAnalysis,
         
-        &constant_fold2::ConstantFold2,
         &unreachable_output::UnreachableOutput,
+        &constant_fold2::ConstantFold2,
         &coalesce2::Coalesce2,
         
         &prune_orphans::PruneOrphans,
