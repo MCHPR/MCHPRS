@@ -79,17 +79,15 @@ impl SSRange {
     }
 
     pub fn bool_signature(self, dist: u8) -> u16 {
-        // let Self {low, high} = self;
-        // let bitset = 0xffffu16 >> (15u8 + low - high) << low;
-        // bitset & (0xffff << dist)
-        dist as u16
+        let Self {low, high} = self;
+        let bitset = 0xffffu16 >> (15u8 + low - high) << low;
+        bitset & (0xfffe << dist)
     }
 
     pub fn hex_signature(self, dist: u8) -> u16 {
-        dist as u16
-        // let Self {low, high} = self;
-        // let bitset = 0xffffu16 >> (15u8 + low - high) << low;
-        // (bitset & 1) | ((bitset & 0xfffe) >> dist)
+        let Self {low, high} = self;
+        let bitset = 0xffffu16 >> (15u8 + low - high) << low;
+        (bitset & 1) | ((bitset & 0xfffe) >> dist)
     }
 }
 
