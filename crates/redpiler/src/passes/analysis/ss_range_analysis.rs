@@ -26,37 +26,36 @@ use crate::backend::direct::calculate_comparator_output;
 
 /// The possible output range of a node
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SSRange {
-    /// The lower bound of the range (inclusive)
-    pub low: u8,
-    /// The upper bound of the range (inclusive)
-    pub high: u8,
-}
+pub struct SSRange(u16);
 
 impl SSRange {
-    pub const FULL: SSRange = SSRange { low: 0, high: 15 };
-
     pub fn constant(ss: u8) -> SSRange {
-        SSRange { low: ss, high: ss }
+        SSRange(1 << ss)
     }
 
     pub fn dust_or(self, other: Self) -> Self {
-        SSRange { low: self.low.max(other.low), high: self.high.max(other.high) }
+        let a = self.0;
+        let b = other.0;
+
+        let a_lsb = a & (0u16.wrapping_sub(a));
+        let a_mask = !a_lsb.saturating_sub(1);
+
+        let b_lsb = b & (0u16.wrapping_sub(b));
+        let b_mask = !b_lsb.saturating_sub(1);
+
+        Self((a | b) & a_mask & b_mask)
     }
 
     pub fn contains(self, ss: u8) -> bool {
-        self.low <= ss && ss <= self.high
+        (self.0 & (1 << ss)) != 0
     }
 
     pub fn contains_positive(self) -> bool {
-        self.high > 0
+        self.0 & 0xfffe != 0
     }
 
     pub fn with(self, ss: u8) -> Self {
-        Self {
-            low: self.low.min(ss),
-            high: self.high.max(ss),
-        }
+        Self(self.0 | (1 << ss))
     }
 
     pub fn insert(&mut self, ss: u8) {
@@ -65,29 +64,24 @@ impl SSRange {
 
     /// Perform a saturating sub on each component of the range for ss decay
     fn decay(self, ss: u8) -> SSRange {
-        SSRange {
-            low: self.low.saturating_sub(ss),
-            high: self.high.saturating_sub(ss),
-        }
+        Self((self.0 & 1) | (self.0 >> ss))
     }
 
-    fn saturating_sub(self, other: SSRange) -> SSRange {
-        SSRange {
-            low: self.low.saturating_sub(other.high),
-            high: self.high.saturating_sub(other.low),
-        }
+    pub fn low(self) -> u8 {
+        (self.0.trailing_zeros() as u8) & 15
+    }
+
+    pub fn high(self) -> u8 {
+        debug_assert!(self.0 != 0);
+        15 - self.0.leading_zeros() as u8
     }
 
     pub fn bool_signature(self, dist: u8) -> u16 {
-        let Self {low, high} = self;
-        let bitset = 0xffffu16 >> (15u8 + low - high) << low;
-        bitset & (0xfffe << dist)
+        self.0 & (0xfffe << dist)
     }
 
     pub fn hex_signature(self, dist: u8) -> u16 {
-        let Self {low, high} = self;
-        let bitset = 0xffffu16 >> (15u8 + low - high) << low;
-        (bitset & 1) | ((bitset & 0xfffe) >> dist)
+        (self.0 & 1) | ((self.0 & 0xfffe) >> dist)
     }
 }
 
@@ -115,17 +109,6 @@ impl SSRangeInfo {
 
     pub fn get_range(&self, node_idx: NodeIndex) -> Option<SSRange> {
         self.ranges.get(node_idx.index()).copied().flatten()
-    }
-
-    fn extend_range_to_include(&mut self, node_idx: NodeIndex, ss: u8) {
-        if let Some(range) = &mut self.ranges[node_idx.index()] {
-            if range.low > ss {
-                range.low = ss;
-            }
-            if range.high < ss {
-                range.high = ss;
-            }
-        }
     }
 }
 
