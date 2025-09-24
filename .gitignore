@@ -4,3 +4,5 @@
 /test_proxy
 /generators
 /.direnv
+/Config.toml
+/world
