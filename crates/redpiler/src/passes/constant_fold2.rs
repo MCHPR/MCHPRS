@@ -50,13 +50,13 @@ impl<W: World> Pass<W> for ConstantFold2 {
             }
 
             let possible_outputs = range_info.get_range(idx).unwrap();
-            if possible_outputs.low != possible_outputs.high {
+            if possible_outputs.low() != possible_outputs.high() {
                 continue;
             };
-            if possible_outputs.low == 0 {
+            if possible_outputs.low() == 0 {
                 graph.remove_node(idx);
             } else {
-                coalesce(graph, idx, constant, 15 - possible_outputs.low);
+                coalesce(graph, idx, constant, 15 - possible_outputs.low());
             }
         }
     }
