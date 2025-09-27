@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/proc_macros", "crates/redpiler_graph"]
+members = ["crates/proc_macros", "crates/redpiler_graph", "crates/world_exporter"]
 
 [package]
 name = "mchprs"
@@ -84,3 +84,5 @@ quote = "1"
 tracing-subscriber = "0.3"
 tracing-appender = "0.2"
 paste = "1.0"
+chrono = "0.4"
+clap = { version = "4.5", features = ["derive"] }

@@ -2,6 +2,7 @@ mod props;
 
 use crate::{BlockColorVariant, BlockDirection, BlockFacing, BlockProperty, SignType};
 use mchprs_proc_macros::BlockTransform;
+use mchprs_utils::map;
 pub use props::*;
 use std::collections::HashMap;
 
@@ -116,6 +117,15 @@ impl Block {
             | 10755..=10756 // Tall Grass
             | 10757..=10758 // Large Fern
         )
+    }
+
+    pub fn properties(&self) -> HashMap<&'static str, String> {
+        if matches!(self, Block::SmoothStoneSlab {} | Block::QuartzSlab {}) {
+            return map! {
+                "type" => "top".to_string()
+            };
+        }
+        self.gen_properties()
     }
 }
 
@@ -289,7 +299,7 @@ macro_rules! blocks {
                 }
             }
 
-            pub fn properties(&self) -> HashMap<&'static str, String> {
+            pub fn gen_properties(&self) -> HashMap<&'static str, String> {
                 let mut props = HashMap::new();
                 match self {
                     $(
@@ -904,7 +914,7 @@ blocks! {
         from_names(_name): {
             "smooth_stone_slab" => {}
         },
-        get_name: "smooth_stone_slab[type=top]",
+        get_name: "smooth_stone_slab",
         transparent: true,
         cube: true,
     },

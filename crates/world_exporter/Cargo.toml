@@ -1,0 +1,25 @@
+
+[package]
+name = "mchprs_world_exporter"
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+mchprs_blocks = { path = "../blocks" }
+mchprs_save_data = { path = "../save_data" }
+mchprs_utils = { path = "../utils" }
+mchprs_world = { path = "../world" }
+serde = { workspace = true }
+hematite-nbt = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }

@@ -136,7 +136,7 @@ impl PalettedBitBuffer {
         }
     }
 
-    fn load(
+    pub fn load(
         entries: usize,
         bits_per_entry: u8,
         longs: Vec<u64>,
@@ -216,6 +216,18 @@ impl PalettedBitBuffer {
 
     pub fn entries(&self) -> usize {
         self.data.entries
+    }
+
+    pub fn palette(&self) -> &[u32] {
+        &self.palette
+    }
+
+    pub fn data(&self) -> &[u64] {
+        &self.data.longs
+    }
+
+    pub fn bits_per_entry(&self) -> u8 {
+        self.data.bits_per_entry as u8
     }
 
     #[cfg(feature = "networking")]
@@ -303,15 +315,15 @@ impl ChunkSection {
     }
 
     pub fn data(&self) -> &[u64] {
-        &self.buffer.data.longs
+        self.buffer.data()
     }
 
     pub fn palette(&self) -> &[u32] {
-        &self.buffer.palette
+        self.buffer.palette()
     }
 
     pub fn bits_per_block(&self) -> u8 {
-        self.buffer.data.bits_per_entry as u8
+        self.buffer.bits_per_entry()
     }
 
     pub fn block_count(&self) -> u32 {
