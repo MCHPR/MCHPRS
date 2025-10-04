@@ -488,8 +488,16 @@ impl Plot {
                 self.players[player].set_inventory_slot(slot, Some(item));
             }
             "worldsendrate" | "wsr" => {
+                if args.is_empty() {
+                    self.players[player].send_system_message(&format!(
+                        "Current world send rate: {} Hz",
+                        self.world_send_rate.0
+                    ));
+                    return false;
+                }
+
                 if args.len() != 1 {
-                    self.players[player].send_error_message("Usage: /worldsendrate <hertz>");
+                    self.players[player].send_error_message("Usage: /worldsendrate [hertz]");
                     return false;
                 }
 
@@ -984,7 +992,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             },
             // 49: /worldsendrate
             Node {
-                flags: (CommandFlags::LITERAL).bits() as i8,
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![50],
                 redirect_node: None,
                 name: Some("worldsendrate"),
