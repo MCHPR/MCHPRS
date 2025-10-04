@@ -102,6 +102,7 @@ server_context = "global"
 | `/speed [speed]` | None | Sets your flyspeed. |
 | `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
 | `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
+| `/worldsendrate <hertz>` | `/wsr` | Sets the world send rate to `<hertz>` (frequency of world updates sent to clients). Range: 1-1000. Default: 60. |
 | `/toggleautorp` | None | Toggles automatic redpiler compilation. |
 | `/stop` | None | Stops the server. |
 
