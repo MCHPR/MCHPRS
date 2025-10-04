@@ -95,13 +95,13 @@ server_context = "global"
 ### General Commands
 | Command | Alias | Description |
 | --- | --- |--- |
-| `/rtps [rtps\|unlimited]` | None | Set the **redstone** ticks per second in the plot to `[rtps]`. (There are two game ticks in a redstone tick) |
-| `/radvance [ticks]` | `/radv` | Advances the plot by `[ticks]` redstone ticks. |
-| `/teleport [player]` | `/tp` | Teleports you to `[player]`. |
-| `/teleport [x] [y] [z]` | `/tp` | Teleports you to `[x] [y] [z]`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
-| `/speed [speed]` | None | Sets your flyspeed. |
-| `/gamemode [mode]` | `/gmc`, `/gmsp` | Sets your gamemode. |
-| `/container [type] [power]` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
+| `/rtps [rtps\|unlimited]` | None | Set the **redstone** ticks per second in the plot to `[rtps]` or `unlimited`. Default: 10. (There are two game ticks in a redstone tick) |
+| `/radvance <ticks>` | `/radv` | Advances the plot by `<ticks>` redstone ticks. |
+| `/teleport <player>` | `/tp` | Teleports you to `<player>`. |
+| `/teleport <x> <y> <z>` | `/tp` | Teleports you to `<x> <y> <z>`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
+| `/speed <speed>` | None | Sets your flyspeed. |
+| `/gamemode <mode>` | `/gmc`, `/gmsp` | Sets your gamemode. |
+| `/container <type> <power>` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
 | `/worldsendrate [hertz]` | `/wsr` | Sets the world send rate to `[hertz]` (frequency of world updates sent to clients). Range: 1-1000. Default: 60. |
 | `/toggleautorp` | None | Toggles automatic redpiler compilation. |
 | `/stop` | None | Stops the server. |
@@ -115,8 +115,8 @@ These are the commands that are currently implemented:
 | `/plot claim` | `/p c` | Claims the plot you are in if it is not already claimed. |
 | `/plot auto` | `/p a` | Automatically finds an unclaimed plot and claims. |
 | `/plot middle` | None | Teleports you to the center of the plot you are in. |
-| `/plot visit [player]` | `/p v` | Teleports you to a player's plot. |
-| `/plot tp [x] [z]` | None | Teleports you to the plot at `[x] [y]`. Supports relative coordinates. |
+| `/plot visit <player> [index]` | `/p v` | Teleports you to a player's plot. |
+| `/plot tp <x> <z>` | None | Teleports you to the plot at `<x> <z>`. Supports relative coordinates. |
 | `/plot lock` | None | Locks the player into the plot so moving outside of the plot bounds does not transfer you to other plots. |
 | `/plot unlock` | None | Reverses the locking done by `/plot lock`. |
 | `/plot select` | `/p sel` | Uses WorldEdit to select the entire plot. |
