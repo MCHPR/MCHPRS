@@ -244,7 +244,7 @@ impl World for PlotWorld {
         // players A notchian server would only send to players in hearing distance
         // (volume.clamp(0.0, 1.0) * 16.0)
         let sound_effect_data = CSoundEffect {
-            sound_id,
+            sound_id: sound_id + 1,
             sound_name: None,
             has_fixed_range: None,
             range: None,
