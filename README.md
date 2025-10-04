@@ -174,6 +174,8 @@ Placing or breaking blocks while redpiler is running will cause a reset and disa
 | `--update` | `-u` | Update all blocks after redpiler resets. |
 | `--export` | `-e` | Export the compile graph using a binary format. This can be useful for developing out-of-tree uses of redpiler graphs. |
 | `--export-dot` | None | Create a graphvis dot file of backend graph. Used for debugging/development. |
+| `--print-after-all` | None | Print out the RIL circuit after every redpiler pass. Used for debugging/development. |
+| `--print-before-backend` | None | Print out the RIL circuit before starting backend compilation. Used for debugging/development. |
 
 ## Acknowledgments
 - [@AL1L](https://github.com/AL1L) for his contributions to worldedit and other various features.
