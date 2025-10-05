@@ -293,7 +293,11 @@ impl Plot {
                     return false;
                 }
 
-                let tps = if let Ok(tps) = args[0].parse::<u32>() {
+                let tps = if let Ok(tps) = args[0].parse::<f32>() {
+                    if tps < 0.0 {
+                        self.players[player].send_error_message("RTPS must be cannot be negative!");
+                        return false;
+                    }
                     Tps::Limited(tps)
                 } else if !args[0].is_empty() && "unlimited".starts_with(args[0]) {
                     Tps::Unlimited
@@ -490,7 +494,7 @@ impl Plot {
             "worldsendrate" | "wsr" => {
                 if args.is_empty() {
                     self.players[player].send_system_message(&format!(
-                        "Current world send rate: {} Hz",
+                        "Current world send rate: {:.2} Hz",
                         self.world_send_rate.0
                     ));
                     return false;
@@ -501,17 +505,18 @@ impl Plot {
                     return false;
                 }
 
-                let Ok(hertz) = args[0].parse::<u32>() else {
+                let Ok(hertz) = args[0].parse::<f32>() else {
                     self.players[player].send_error_message("Unable to parse send rate!");
                     return false;
                 };
-                if hertz == 0 {
-                    self.players[player].send_error_message("The world send rate cannot be 0!");
+                if hertz < 0.0 {
+                    self.players[player]
+                        .send_error_message("The world send rate cannot be negative!");
                     return false;
                 }
-                if hertz > 1000 {
+                if hertz > 1000.0 {
                     self.players[player]
-                        .send_error_message("The world send rate cannot go higher than 1000!");
+                        .send_error_message("The world send rate cannot be higher than 1000!");
                     return false;
                 }
 
@@ -615,7 +620,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 children: vec![],
                 redirect_node: None,
                 name: Some("rtps"),
-                parser: Some(Parser::Integer(0, i32::MAX)),
+                parser: Some(Parser::Float(0.0, f32::MAX)),
                 suggestions_type: None,
             },
             // 8: /radvance
@@ -999,13 +1004,13 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 parser: None,
                 suggestions_type: None,
             },
-            // 50: /worldsendrate [rticks]
+            // 50: /worldsendrate [hertz]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![],
                 redirect_node: None,
                 name: Some("hertz"),
-                parser: Some(Parser::Integer(0, 1000)),
+                parser: Some(Parser::Float(0.0, 1000.0)),
                 suggestions_type: None,
             },
             // 51: /wsr
