@@ -149,12 +149,19 @@ impl NonMaxU8 {
     }
 }
 
+// The size of `Node` is 96 bytes (aligned to 16 bytes boundaries).
+// This means 4 nodes fit into 3 cache lines (assuming 128 byte long cache lines).
+// For the best possbile memory layout adjust the inline array capacity of `updates: SmallVec<_>` as follows:
+// 1. The capacity should be always be odd as one entry is always used internally as discriminant
+// 2. Optionally increase or decrease the capacity by 2 to eleminate `Node` padding
+// 3. Finally increase or decrease the capacity by multiples of 4 until satisfied
+// There are currently 6 bytes unused due to alignment/padding.
 #[derive(Debug, Clone)]
 pub struct Node {
     pub ty: NodeType,
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
-    pub updates: SmallVec<[ForwardLink; 10]>,
+    pub updates: SmallVec<[ForwardLink; 9]>,
     pub is_io: bool,
 
     /// Powered or lit
