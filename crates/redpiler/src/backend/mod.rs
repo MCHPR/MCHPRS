@@ -9,6 +9,11 @@ use enum_dispatch::enum_dispatch;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{TickEntry, World};
 
+// JITBackend Lifecycle:
+// 1. compile
+// 2. tick / flush / interactions
+// 3. reset
+// 4. may repeat with 1. again
 #[enum_dispatch]
 pub trait JITBackend {
     fn compile(
