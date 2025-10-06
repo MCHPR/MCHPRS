@@ -190,9 +190,11 @@ pub fn compile(
     // Schedule backend ticks
     for entry in ticks {
         if let Some(node) = backend.pos_map.get(&entry.pos) {
-            backend
-                .scheduler
-                .schedule_tick(*node, entry.ticks_left as usize, entry.tick_priority);
+            backend.execution_context.schedule_tick(
+                *node,
+                entry.ticks_left as usize,
+                entry.tick_priority,
+            );
             backend.nodes[*node].pending_tick = true;
         }
     }

@@ -18,7 +18,7 @@ impl DirectBackend {
                 } else if !node.powered {
                     if !should_be_powered {
                         schedule_tick(
-                            &mut self.scheduler,
+                            &mut self.execution_context,
                             node_id,
                             node,
                             delay as usize,
