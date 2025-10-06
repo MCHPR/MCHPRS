@@ -33,8 +33,8 @@ pub trait JITBackend {
 
     fn on_use_block(&mut self, pos: BlockPos);
     fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool);
-    fn flush<W: World>(&mut self, world: &mut W, io_only: bool);
-    fn reset<W: World>(&mut self, world: &mut W, io_only: bool);
+    fn flush<W: World>(&mut self, world: &mut W);
+    fn reset<W: World>(&mut self, world: &mut W);
     fn has_pending_ticks(&self) -> bool;
     /// Inspect block for debugging
     fn inspect(&mut self, pos: BlockPos);
