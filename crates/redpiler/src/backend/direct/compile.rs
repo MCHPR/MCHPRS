@@ -1,3 +1,4 @@
+use crate::backend::direct::Options;
 use crate::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::TaskMonitor;
 use itertools::Itertools;
@@ -28,6 +29,7 @@ fn compile_node(
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
     noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
+    options: &Options,
     stats: &mut FinalGraphStats,
 ) -> Node {
     let node = &graph[node_idx];
@@ -138,7 +140,7 @@ fn compile_node(
         locked: node.state.repeater_locked,
         pending_tick: false,
         changed: false,
-        is_io: node.is_input || node.is_output,
+        is_frozen: !(node.is_input || node.is_output) && options.is_io_only,
     }
 }
 
@@ -166,6 +168,7 @@ pub fn compile(
                 nodes_len,
                 &nodes_map,
                 &mut backend.noteblock_info,
+                &backend.options,
                 &mut stats,
             )
         })

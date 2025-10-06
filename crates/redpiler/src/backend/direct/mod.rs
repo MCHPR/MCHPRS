@@ -2,6 +2,7 @@
 
 mod compile;
 mod execution_context;
+mod flush;
 mod node;
 mod tick;
 mod update;
@@ -10,11 +11,10 @@ use super::JITBackend;
 use crate::backend::direct::execution_context::ExecutionContext;
 use crate::compile_graph::CompileGraph;
 use crate::task_monitor::TaskMonitor;
-use crate::{block_powered_mut, CompilerOptions};
-use mchprs_blocks::block_entities::BlockEntity;
+use crate::CompilerOptions;
 use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
-use mchprs_redstone::{bool_to_ss, noteblock};
+use mchprs_redstone::bool_to_ss;
 use mchprs_world::{TickEntry, TickPriority, World};
 use node::{Node, NodeId, NodeType, Nodes};
 use rustc_hash::FxHashMap;
@@ -38,7 +38,7 @@ pub struct DirectBackend {
 
 #[derive(Default)]
 struct Options {
-    is_io_only: bool
+    is_io_only: bool,
 }
 
 impl DirectBackend {
@@ -51,7 +51,10 @@ impl DirectBackend {
         let node = &mut self.nodes[node_id];
         let old_power = node.output_power;
 
-        node.changed = true;
+        if !node.is_frozen && !node.changed {
+            self.execution_context.push_change(node_id);
+            node.changed = true;
+        }
         node.powered = powered;
         node.output_power = new_power;
         for i in 0..node.updates.len() {
@@ -97,26 +100,13 @@ impl JITBackend for DirectBackend {
     }
 
     fn reset<W: World>(&mut self, world: &mut W) {
-        self.execution_context.reset(world, &self.blocks);
+        self.flush_events(world);
+        self.flush_block_changes(world);
 
-        let nodes = std::mem::take(&mut self.nodes);
+        self.flush_scheduled_ticks(world);
 
-        for (i, node) in nodes.into_inner().iter().enumerate() {
-            let Some((pos, block)) = self.blocks[i] else {
-                continue;
-            };
-            if matches!(node.ty, NodeType::Comparator { .. }) {
-                let block_entity = BlockEntity::Comparator {
-                    output_strength: node.output_power,
-                };
-                world.set_block_entity(pos, block_entity);
-            }
-
-            if self.options.is_io_only && !node.is_io {
-                world.set_block(pos, block);
-            }
-        }
-
+        let _ = std::mem::take(&mut self.nodes);
+        self.blocks.clear();
         self.pos_map.clear();
         self.noteblock_info.clear();
     }
@@ -161,32 +151,8 @@ impl JITBackend for DirectBackend {
     }
 
     fn flush<W: World>(&mut self, world: &mut W) {
-        for event in self.execution_context.drain_events() {
-            match event {
-                Event::NoteBlockPlay { noteblock_id } => {
-                    let (pos, instrument, note) = self.noteblock_info[noteblock_id as usize];
-                    noteblock::play_note(world, pos, instrument, note);
-                }
-            }
-        }
-        for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
-            let Some((pos, block)) = &mut self.blocks[i] else {
-                continue;
-            };
-            if node.changed && (!self.options.is_io_only || node.is_io) {
-                if let Some(powered) = block_powered_mut(block) {
-                    *powered = node.powered
-                }
-                if let Block::RedstoneWire { wire, .. } = block {
-                    wire.power = node.output_power
-                };
-                if let Block::RedstoneRepeater { repeater } = block {
-                    repeater.locked = node.locked;
-                }
-                world.set_block(*pos, *block);
-            }
-            node.changed = false;
-        }
+        self.flush_events(world);
+        self.flush_block_changes(world);
     }
 
     fn compile(
@@ -212,14 +178,30 @@ impl JITBackend for DirectBackend {
 
 /// Set node for use in `update`. None of the nodes here have usable output power,
 /// so this function does not set that.
-fn set_node(node: &mut Node, powered: bool) {
+fn set_node(
+    execution_context: &mut ExecutionContext,
+    node_id: NodeId,
+    node: &mut Node,
+    powered: bool,
+) {
     node.powered = powered;
-    node.changed = true;
+    if !node.is_frozen && !node.changed {
+        execution_context.push_change(node_id);
+        node.changed = true;
+    }
 }
 
-fn set_node_locked(node: &mut Node, locked: bool) {
+fn set_node_locked(
+    execution_context: &mut ExecutionContext,
+    node_id: NodeId,
+    node: &mut Node,
+    locked: bool,
+) {
     node.locked = locked;
-    node.changed = true;
+    if !node.is_frozen && !node.changed {
+        execution_context.push_change(node_id);
+        node.changed = true;
+    }
 }
 
 fn schedule_tick(
