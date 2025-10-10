@@ -1,6 +1,7 @@
 use crate::permissions::PermissionsConfig;
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use toml_edit::{value, DocumentMut};
@@ -28,6 +29,18 @@ impl_simple_default!(String, i64, bool);
 impl<T> ConfigSerializeDefault for Option<T> {
     fn fix_config(self, _: &str, _: &mut DocumentMut) {
         assert!(self.is_none(), "`Some` as default is unimplemented");
+    }
+}
+
+impl ConfigSerializeDefault for HashMap<String, String> {
+    fn fix_config(self, name: &str, doc: &mut DocumentMut) {
+        if doc.get(name).is_none() {
+            let mut table = toml_edit::Table::new();
+            for (key, val) in self {
+                table.insert(&key, toml_edit::value(val));
+            }
+            doc.insert(name, toml_edit::Item::Table(table));
+        }
     }
 }
 
@@ -74,7 +87,8 @@ gen_config! {
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true,
     auto_redpiler: bool = false,
-    velocity: Option<VelocityConfig> = None
+    velocity: Option<VelocityConfig> = None,
+    command_aliases: HashMap<String, String> = HashMap::new()
 }
 
 #[derive(Serialize, Deserialize)]

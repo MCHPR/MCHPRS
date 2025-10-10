@@ -1,11 +1,11 @@
-pub mod commands;
-mod data;
+pub mod data;
 pub mod database;
 mod monitor;
 mod packet_handlers;
 mod scoreboard;
-pub mod worldedit;
 
+use self::scoreboard::Scoreboard;
+use crate::commands::{CommandSender, COMMAND_REGISTRY};
 use crate::config::CONFIG;
 use crate::interaction;
 use crate::interaction::UseOnBlockContext;
@@ -36,9 +36,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 use tokio::runtime::Runtime;
 use tracing::{debug, error, warn};
-
-use self::data::sleep_time_for_tps;
-use self::scoreboard::Scoreboard;
 
 /// The width of a plot (2^n)
 pub const PLOT_SCALE: u32 = 5;
@@ -86,7 +83,7 @@ pub struct Plot {
     running: bool,
     /// If true, the plot will remain running even if no players are on for a long time.
     always_running: bool,
-    auto_redpiler: bool,
+    pub auto_redpiler: bool,
 
     owner: Option<u128>,
     async_rt: Runtime,
@@ -117,7 +114,7 @@ impl PlotWorld {
         Some(((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize)
     }
 
-    fn flush_block_changes(&mut self) {
+    pub fn flush_block_changes(&mut self) {
         for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
             let encoded = packet.encode();
             for player in &self.packet_senders {
@@ -266,7 +263,7 @@ impl World for PlotWorld {
 }
 
 impl Plot {
-    fn tickn(&mut self, ticks: u64) {
+    pub fn tickn(&mut self, ticks: u64) {
         if self.redpiler.is_active() {
             self.timings.tickn(ticks);
             self.redpiler.tickn(ticks);
@@ -326,7 +323,7 @@ impl Plot {
         }
     }
 
-    fn change_player_gamemode(&mut self, player_idx: usize, gamemode: Gamemode) {
+    pub fn change_player_gamemode(&mut self, player_idx: usize, gamemode: Gamemode) {
         self.players[player_idx].set_gamemode(gamemode);
         let _ = self.message_sender.send(Message::PlayerUpdateGamemode(
             self.players[player_idx].uuid,
@@ -668,14 +665,14 @@ impl Plot {
     /// After an expensive operation or change in timings, it's important to
     /// call this function so our timings monitor doesn't think we're running
     /// behind.
-    fn reset_timings(&mut self) {
+    pub fn reset_timings(&mut self) {
         self.lag_time = Duration::ZERO;
         self.last_update_time = Instant::now();
         self.last_nspt = None;
         self.timings.reset_timings();
     }
 
-    fn start_redpiler(&mut self, options: CompilerOptions) {
+    pub fn start_redpiler(&mut self, options: CompilerOptions) {
         debug!("Starting redpiler");
         self.scoreboard
             .set_redpiler_state(&self.players, RedpilerState::Compiling);
@@ -720,7 +717,7 @@ impl Plot {
 
     /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This
     /// can be
-    fn reset_redpiler(&mut self) {
+    pub fn reset_redpiler(&mut self) {
         if self.redpiler.is_active() {
             debug!("Discarding redpiler");
             let bounds = self.world.get_corners();
@@ -735,6 +732,79 @@ impl Plot {
         }
     }
 
+    pub fn owner(&self) -> Option<u128> {
+        self.owner
+    }
+
+    // Send a message to the server message bus
+    pub fn send_message(&self, message: Message) {
+        let _ = self.message_sender.send(message);
+    }
+
+    pub fn generate_timings_report(&self) -> Option<monitor::TimingsReport> {
+        self.timings.generate_report()
+    }
+
+    pub fn tps(&self) -> Tps {
+        self.tps
+    }
+
+    pub fn set_tps(&mut self, tps: Tps) {
+        self.tps = tps;
+        self.sleep_time = sleep_time_for_tps(tps);
+        self.timings.set_tps(tps);
+        self.reset_timings();
+    }
+
+    pub fn world_send_rate(&self) -> WorldSendRate {
+        self.world_send_rate
+    }
+
+    pub fn set_world_send_rate(&mut self, rate: WorldSendRate) {
+        self.world_send_rate = rate;
+        self.reset_timings();
+    }
+
+    pub fn add_locked_player(&mut self, entity_id: EntityId) -> bool {
+        self.locked_players.insert(entity_id)
+    }
+
+    pub fn remove_locked_player(&mut self, entity_id: EntityId) -> bool {
+        self.locked_players.remove(&entity_id)
+    }
+
+    pub fn whitelist_add(&self, username: String, packet_sender: PlayerPacketSender) {
+        let sender = self.message_sender.clone();
+        self.async_rt.spawn(async move {
+            match crate::profile::PlayerProfile::lookup_by_username(&username).await {
+                Ok(profile) => {
+                    let _ = sender.send(Message::WhitelistAdd(
+                        profile.uuid.0,
+                        profile.username,
+                        packet_sender,
+                    ));
+                }
+                Err(_) => {
+                    tracing::debug!("Failed to look up profile for username {:?}", username)
+                }
+            }
+        });
+    }
+
+    pub fn whitelist_remove(&self, username: String, packet_sender: PlayerPacketSender) {
+        let sender = self.message_sender.clone();
+        self.async_rt.spawn(async move {
+            match crate::profile::PlayerProfile::lookup_by_username(&username).await {
+                Ok(profile) => {
+                    let _ = sender.send(Message::WhitelistRemove(profile.uuid.0, packet_sender));
+                }
+                Err(_) => {
+                    tracing::debug!("Failed to look up profile for username {:?}", username)
+                }
+            }
+        });
+    }
+
     fn destroy_entity(&mut self, entity_id: u32) {
         let destroy_entity = CRemoveEntities {
             entity_ids: vec![entity_id as i32],
@@ -745,7 +815,7 @@ impl Plot {
         }
     }
 
-    fn leave_plot(&mut self, uuid: u128) -> Player {
+    pub fn leave_plot(&mut self, uuid: u128) -> Player {
         let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
         self.world.packet_senders.remove(player_idx);
         let player = self.players.remove(player_idx);
@@ -778,7 +848,7 @@ impl Plot {
         plot_x == x && plot_z == z
     }
 
-    fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
+    pub fn in_plot_bounds(plot_x: i32, plot_z: i32, x: i32, z: i32) -> bool {
         Plot::chunk_in_plot_bounds(plot_x, plot_z, x >> 4, z >> 4)
     }
 
@@ -830,16 +900,12 @@ impl Plot {
     }
 
     fn handle_commands(&mut self) {
-        let mut removal_offset = 0;
         for player_idx in 0..self.players.len() {
-            let player_idx = player_idx - removal_offset;
             let commands: Vec<String> = self.players[player_idx].command_queue.drain(..).collect();
-            for command in commands {
-                let mut args: Vec<&str> = command.split(' ').collect();
-                let command = args.remove(0);
-                if self.handle_command(player_idx, command, args) {
-                    removal_offset += 1;
-                }
+            for command_line in commands {
+                COMMAND_REGISTRY
+                    .execute(self, CommandSender::Player(player_idx), &command_line)
+                    .unwrap();
             }
         }
     }
@@ -1299,6 +1365,19 @@ impl Drop for Plot {
             .iter_mut()
             .for_each(|chunk| chunk.compress());
         self.save();
+    }
+}
+
+pub fn sleep_time_for_tps(tps: Tps) -> Duration {
+    match tps {
+        Tps::Limited(tps) => {
+            if tps > 10 {
+                Duration::from_micros(1_000_000 / tps as u64)
+            } else {
+                Duration::from_millis(50)
+            }
+        }
+        Tps::Unlimited => Duration::ZERO,
     }
 }
 

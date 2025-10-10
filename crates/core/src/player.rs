@@ -1,8 +1,8 @@
 use crate::config::CONFIG;
 use crate::permissions::{self, PlayerPermissionsCache};
-use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
 use crate::plot::PLOT_SCALE;
 use crate::utils::{self, HyphenatedUUID};
+use crate::worldedit::{WorldEditClipboard, WorldEditUndo};
 use byteorder::{BigEndian, ReadBytesExt};
 use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
 use mchprs_blocks::items::{Item, ItemStack};
