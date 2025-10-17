@@ -1,6 +1,6 @@
 pub mod schematic;
 
-use crate::player::{Player, PlayerPos};
+use crate::player::PlayerPos;
 use crate::plot::PlotWorld;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
@@ -292,9 +292,14 @@ pub fn paste_clipboard(
     }
 }
 
-pub fn expand_selection(player: &mut Player, amount: BlockPos, contract: bool) {
-    let mut p1 = player.first_position.unwrap();
-    let mut p2 = player.second_position.unwrap();
+pub fn calculate_expanded_selection(
+    first: BlockPos,
+    second: BlockPos,
+    amount: BlockPos,
+    contract: bool,
+) -> (BlockPos, BlockPos) {
+    let mut p1 = first;
+    let mut p2 = second;
 
     fn get_pos_axis(pos: &mut BlockPos, axis: u8) -> &mut i32 {
         match axis {
@@ -329,12 +334,7 @@ pub fn expand_selection(player: &mut Player, amount: BlockPos, contract: bool) {
         expand_axis(axis);
     }
 
-    if Some(p1) != player.first_position {
-        player.worldedit_set_first_position(p1);
-    }
-    if Some(p2) != player.second_position {
-        player.worldedit_set_second_position(p2);
-    }
+    (p1, p2)
 }
 
 pub fn update(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {

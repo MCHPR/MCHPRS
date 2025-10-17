@@ -362,7 +362,8 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                     .executes(|ctx| {
                         let entity_id = ctx.player()?.entity_id;
                         if ctx.plot.add_locked_player(entity_id) {
-                            let (x, z) = (ctx.plot.world.x, ctx.plot.world.z);
+                            let world = ctx.world();
+                            let (x, z) = (world.x, world.z);
                             ctx.reply(&format!(
                                 "Locked to plot ({}, {}). Use '/p unlock' to unlock.",
                                 x, z
@@ -389,10 +390,10 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                     .alias("sel")
                     .require_permission("plots.select")
                     .executes(|ctx| {
-                        let corners = ctx.plot.world.get_corners();
+                        let corners = ctx.world().get_corners();
                         let player = ctx.player_mut()?;
-                        player.worldedit_set_first_position(corners.0);
-                        player.worldedit_set_second_position(corners.1);
+                        player.worldedit_set_first_pos(corners.0);
+                        player.worldedit_set_second_pos(corners.1);
                         Ok(())
                     }),
             ),

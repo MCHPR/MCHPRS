@@ -515,9 +515,9 @@ impl Plot {
         if let Some(item) = &item_in_hand {
             let has_permission = self.players[player].has_permission("worldedit.selection.pos");
             if item.item_type == (Item::WEWand {}) && has_permission {
-                let same = self.players[player].second_position == Some(block_pos);
+                let same = self.players[player].worldedit_second_pos() == Some(block_pos);
                 if !same {
-                    self.players[player].worldedit_set_second_position(block_pos);
+                    self.players[player].worldedit_set_second_pos(block_pos);
                 }
                 cancel(self);
                 // FIXME: Because the client sends another packet after this for the left hand for
@@ -608,12 +608,12 @@ impl Plot {
             let has_permission = self.players[player].has_permission("worldedit.selection.pos");
             if item.item_type == (Item::WEWand {}) && has_permission {
                 self.send_block_change(block_pos, block.get_id());
-                if let Some(pos) = self.players[player].first_position {
+                if let Some(pos) = self.players[player].worldedit_first_pos() {
                     if pos == block_pos {
                         return;
                     }
                 }
-                self.players[player].worldedit_set_first_position(block_pos);
+                self.players[player].worldedit_set_first_pos(block_pos);
                 return;
             }
         }

@@ -150,7 +150,7 @@ impl<'a> ExecutionContext<'a> {
         let plot_z = self.plot.world.z;
         let player = self.player()?;
 
-        match (player.first_position, player.second_position) {
+        match (player.worldedit_first_pos(), player.worldedit_second_pos()) {
             (Some(first), Some(second)) => {
                 if !Plot::in_plot_bounds(plot_x, plot_z, first.x, first.z) {
                     return Err(RuntimeError::SelectionOutOfBounds {

@@ -8,8 +8,8 @@ use crate::plot::PLOT_BLOCK_HEIGHT;
 use crate::utils::{self, HyphenatedUUID};
 use crate::worldedit::schematic::{load_schematic, save_schematic};
 use crate::worldedit::{
-    clear_area, create_clipboard, expand_selection, paste_clipboard, ray_trace_block, update,
-    WorldEditClipboard, WorldEditUndo,
+    calculate_expanded_selection, clear_area, create_clipboard, paste_clipboard, ray_trace_block,
+    update, WorldEditClipboard, WorldEditUndo,
 };
 use mchprs_blocks::block_entities::{BlockEntity, ContainerType, InventoryEntry};
 use mchprs_blocks::blocks::{Block, FlipDirection, RotateAmt};
@@ -162,7 +162,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             .require_plot_ownership()
             .executes(|ctx| {
                 let pos = ctx.player()?.pos.block_pos();
-                ctx.player_mut()?.worldedit_set_first_position(pos);
+                ctx.player_mut()?.worldedit_set_first_pos(pos);
                 Ok(())
             }),
     );
@@ -174,7 +174,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             .require_plot_ownership()
             .executes(|ctx| {
                 let pos = ctx.player()?.pos.block_pos();
-                ctx.player_mut()?.worldedit_set_second_position(pos);
+                ctx.player_mut()?.worldedit_set_second_pos(pos);
                 Ok(())
             }),
     );
@@ -189,11 +189,11 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                 let pitch = player.pitch as f64;
                 let yaw = player.yaw as f64;
                 let player_pos = player.pos;
-                let pos = match ray_trace_block(&ctx.plot.world, player_pos, pitch, yaw, 300.0) {
+                let pos = match ray_trace_block(ctx.world(), player_pos, pitch, yaw, 300.0) {
                     Some(pos) => pos,
                     None => return Err(RuntimeError::NoBlockInSight.into()),
                 };
-                ctx.player_mut()?.worldedit_set_first_position(pos);
+                ctx.player_mut()?.worldedit_set_first_pos(pos);
                 Ok(())
             }),
     );
@@ -208,11 +208,11 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                 let pitch = player.pitch as f64;
                 let yaw = player.yaw as f64;
                 let player_pos = player.pos;
-                let pos = match ray_trace_block(&ctx.plot.world, player_pos, pitch, yaw, 300.0) {
+                let pos = match ray_trace_block(ctx.world(), player_pos, pitch, yaw, 300.0) {
                     Some(pos) => pos,
                     None => return Err(RuntimeError::NoBlockInSight.into()),
                 };
-                ctx.player_mut()?.worldedit_set_second_position(pos);
+                ctx.player_mut()?.worldedit_set_second_pos(pos);
                 Ok(())
             }),
     );
@@ -222,11 +222,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             .require_permission("worldedit.selection.pos")
             .require_plot_ownership()
             .executes(|ctx| {
-                let player = ctx.player_mut()?;
-                player.first_position = None;
-                player.second_position = None;
-                player.send_worldedit_message("Selection cleared.");
-                player.worldedit_send_cui("s|cuboid");
+                ctx.player_mut()?.worldedit_clear_pos();
                 Ok(())
             }),
     );
@@ -362,8 +358,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
 
                 let start_time = Instant::now();
                 let origin = ctx.player()?.pos.block_pos();
-                let clipboard =
-                    create_clipboard(&mut ctx.plot.world, origin, first_pos, second_pos);
+                let clipboard = create_clipboard(ctx.world_mut(), origin, first_pos, second_pos);
                 ctx.set_clipboard(clipboard)?;
 
                 ctx.worldedit_message(&format!(
@@ -387,10 +382,9 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
 
                 let start_time = Instant::now();
                 let origin = ctx.player()?.pos.block_pos();
-                let clipboard =
-                    create_clipboard(&mut ctx.plot.world, origin, first_pos, second_pos);
+                let clipboard = create_clipboard(ctx.world_mut(), origin, first_pos, second_pos);
                 ctx.set_clipboard(clipboard)?;
-                clear_area(&mut ctx.plot.world, first_pos, second_pos);
+                clear_area(ctx.world_mut(), first_pos, second_pos);
 
                 ctx.worldedit_message(&format!(
                     "Your selection was cut. ({:?})",
@@ -421,10 +415,10 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         );
         ctx.capture_undo_regions([(paste_min, paste_max)], paste_min, true)?;
 
-        paste_clipboard(&mut ctx.plot.world, &clipboard, pos, ignore_air);
+        paste_clipboard(ctx.world_mut(), &clipboard, pos, ignore_air);
 
         if should_update {
-            update(&mut ctx.plot.world, paste_min, paste_max);
+            update(ctx.world_mut(), paste_min, paste_max);
         }
 
         ctx.worldedit_message(&format!(
@@ -460,8 +454,9 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                 let player = ctx.player_mut()?;
 
                 if let Some(undo) = player.worldedit_undo.pop() {
-                    let plot_x = ctx.plot.world.x;
-                    let plot_z = ctx.plot.world.z;
+                    let world = ctx.world_mut();
+                    let plot_x = world.x;
+                    let plot_z = world.z;
 
                     if undo.plot_x != plot_x || undo.plot_z != plot_z {
                         return Err(RuntimeError::UndoFromDifferentPlot.into());
@@ -481,12 +476,12 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                                 y: first_pos.y + cb.size_y as i32 - 1,
                                 z: first_pos.z + cb.size_z as i32 - 1,
                             };
-                            create_clipboard(&mut ctx.plot.world, undo.pos, first_pos, second_pos)
+                            create_clipboard(world, undo.pos, first_pos, second_pos)
                         })
                         .collect();
 
                     for clipboard in &undo.clipboards {
-                        paste_clipboard(&mut ctx.plot.world, clipboard, undo.pos, false);
+                        paste_clipboard(world, clipboard, undo.pos, false);
                     }
 
                     let redo = WorldEditUndo {
@@ -514,8 +509,8 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                 let player = ctx.player_mut()?;
 
                 if let Some(redo) = player.worldedit_redo.pop() {
-                    let plot_x = ctx.plot.world.x;
-                    let plot_z = ctx.plot.world.z;
+                    let plot_x = ctx.world().x;
+                    let plot_z = ctx.world().z;
 
                     if redo.plot_x != plot_x || redo.plot_z != plot_z {
                         return Err(RuntimeError::RedoFromDifferentPlot.into());
@@ -535,12 +530,12 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                                 y: first_pos.y + cb.size_y as i32 - 1,
                                 z: first_pos.z + cb.size_z as i32 - 1,
                             };
-                            create_clipboard(&mut ctx.plot.world, redo.pos, first_pos, second_pos)
+                            create_clipboard(ctx.world_mut(), redo.pos, first_pos, second_pos)
                         })
                         .collect();
 
                     for clipboard in &redo.clipboards {
-                        paste_clipboard(&mut ctx.plot.world, clipboard, redo.pos, false);
+                        paste_clipboard(ctx.world_mut(), clipboard, redo.pos, false);
                     }
 
                     let undo = WorldEditUndo {
@@ -570,7 +565,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         let (first_pos, second_pos) = ctx.get_selection()?;
         let start_time = Instant::now();
 
-        let clipboard = create_clipboard(&mut ctx.plot.world, first_pos, first_pos, second_pos);
+        let clipboard = create_clipboard(ctx.world_mut(), first_pos, first_pos, second_pos);
         let stack_offset = match direction {
             BlockFacing::North | BlockFacing::South => clipboard.size_z as i32,
             BlockFacing::East | BlockFacing::West => clipboard.size_x as i32,
@@ -589,7 +584,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         for i in 1..=count {
             let offset = i * stack_offset;
             let paste_pos = direction.offset_pos(first_pos, offset);
-            paste_clipboard(&mut ctx.plot.world, &clipboard, paste_pos, ignore_air);
+            paste_clipboard(ctx.world_mut(), &clipboard, paste_pos, ignore_air);
         }
 
         ctx.worldedit_message(&format!(
@@ -656,10 +651,10 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         )?;
 
         let origin = BlockPos::zero();
-        let clipboard = create_clipboard(&mut ctx.plot.world, origin, first_pos, second_pos);
-        clear_area(&mut ctx.plot.world, first_pos, second_pos);
+        let clipboard = create_clipboard(ctx.world_mut(), origin, first_pos, second_pos);
+        clear_area(ctx.world_mut(), first_pos, second_pos);
         paste_clipboard(
-            &mut ctx.plot.world,
+            ctx.world_mut(),
             &clipboard,
             origin + offset_amount,
             ignore_air,
@@ -667,8 +662,8 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
 
         if shift_selection {
             let player = ctx.player_mut()?;
-            player.worldedit_set_first_position(first_pos + offset_amount);
-            player.worldedit_set_second_position(second_pos + offset_amount);
+            player.worldedit_set_first_pos(first_pos + offset_amount);
+            player.worldedit_set_second_pos(second_pos + offset_amount);
         }
 
         ctx.worldedit_message(&format!(
@@ -716,7 +711,17 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
     ) -> CommandResult<()> {
         let offset = direction.offset_pos(BlockPos::zero(), amount);
         let player = ctx.player_mut()?;
-        expand_selection(player, offset, false);
+        let (first, second) = match (player.worldedit_first_pos(), player.worldedit_second_pos()) {
+            (Some(f), Some(s)) => (f, s),
+            _ => return Err(RuntimeError::NoSelection.into()),
+        };
+        let (new_first, new_second) = calculate_expanded_selection(first, second, offset, false);
+        if new_first != first {
+            player.worldedit_set_first_pos(new_first);
+        }
+        if new_second != second {
+            player.worldedit_set_second_pos(new_second);
+        }
         ctx.worldedit_message(&format!("Region expanded {} block(s).", amount))
     }
 
@@ -752,8 +757,19 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         direction: BlockFacing,
     ) -> CommandResult<()> {
         let offset = direction.offset_pos(BlockPos::zero(), amount);
+        let player = ctx.player()?;
+        let (first, second) = match (player.worldedit_first_pos(), player.worldedit_second_pos()) {
+            (Some(f), Some(s)) => (f, s),
+            _ => return Err(RuntimeError::NoSelection.into()),
+        };
+        let (new_first, new_second) = calculate_expanded_selection(first, second, offset, true);
         let player = ctx.player_mut()?;
-        expand_selection(player, offset, true);
+        if new_first != first {
+            player.worldedit_set_first_pos(new_first);
+        }
+        if new_second != second {
+            player.worldedit_set_second_pos(new_second);
+        }
         ctx.worldedit_message(&format!("Region contracted {} block(s).", amount))
     }
 
@@ -787,16 +803,19 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         amount: i32,
         direction: BlockFacing,
     ) -> CommandResult<()> {
+        let (first, second) = {
+            let player = ctx.player()?;
+            match (player.worldedit_first_pos(), player.worldedit_second_pos()) {
+                (Some(f), Some(s)) => (f, s),
+                _ => return Err(RuntimeError::NoSelection.into()),
+            }
+        };
+        let offset = direction.offset_pos(BlockPos::zero(), amount);
         let player = ctx.player_mut()?;
-        if let (Some(first), Some(second)) = (player.first_position, player.second_position) {
-            let offset = direction.offset_pos(BlockPos::zero(), amount);
-            player.worldedit_set_first_position(first + offset);
-            player.worldedit_set_second_position(second + offset);
-            ctx.worldedit_message(&format!("Region shifted {} block(s).", amount))?;
-            Ok(())
-        } else {
-            Err(RuntimeError::NoSelection.into())
-        }
+        player.worldedit_set_first_pos(first + offset);
+        player.worldedit_set_second_pos(second + offset);
+        ctx.worldedit_message(&format!("Region shifted {} block(s).", amount))?;
+        Ok(())
     }
 
     registry.register(
@@ -1119,12 +1138,12 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         let flags = ctx.args().get_flags("flags")?;
 
         if flags.contains("plot") {
-            let corners = ctx.plot.world.get_corners();
-            update(&mut ctx.plot.world, corners.0, corners.1);
+            let corners = ctx.world().get_corners();
+            update(ctx.world_mut(), corners.0, corners.1);
             ctx.worldedit_message("Updated entire plot.")
         } else {
             let (first_pos, second_pos) = ctx.get_selection()?;
-            update(&mut ctx.plot.world, first_pos, second_pos);
+            update(ctx.world_mut(), first_pos, second_pos);
             ctx.worldedit_message("Updated selection.")
         }
     }
@@ -1190,7 +1209,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         let (first_pos, second_pos) = ctx.get_selection()?;
         let start_time = Instant::now();
 
-        let clipboard = create_clipboard(&mut ctx.plot.world, first_pos, first_pos, second_pos);
+        let clipboard = create_clipboard(ctx.world_mut(), first_pos, first_pos, second_pos);
 
         let undo_positions = (1..=count).rev().map(|i| {
             let offset = direction * (i * spacing);
@@ -1201,12 +1220,26 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         for i in 1..=count {
             let offset = direction * (i * spacing);
             let paste_pos = first_pos + offset;
-            paste_clipboard(&mut ctx.plot.world, &clipboard, paste_pos, !include_air);
+            paste_clipboard(ctx.world_mut(), &clipboard, paste_pos, !include_air);
         }
 
         if expand_selection_flag {
+            let player = ctx.player()?;
+            let (first, second) =
+                match (player.worldedit_first_pos(), player.worldedit_second_pos()) {
+                    (Some(f), Some(s)) => (f, s),
+                    _ => return Err(RuntimeError::NoSelection.into()),
+                };
+            let offset = direction * (count * spacing);
+            let (new_first, new_second) =
+                calculate_expanded_selection(first, second, offset, false);
             let player = ctx.player_mut()?;
-            expand_selection(player, direction * (count * spacing), false);
+            if new_first != first {
+                player.worldedit_set_first_pos(new_first);
+            }
+            if new_second != second {
+                player.worldedit_set_second_pos(new_second);
+            }
         }
 
         ctx.worldedit_message(&format!(
