@@ -2,7 +2,7 @@ use crate::{
     commands::{
         argument_set::ArgumentSet,
         context::ExecutionContext,
-        error::{CommandError, CommandResult, InternalError},
+        error::{CommandError, CommandResult, InternalError, UnwrapRuntimeError},
         node::CommandNode,
         parser::{self, ParseResult},
         registry::CommandRegistry,
@@ -36,7 +36,7 @@ impl CommandRegistry {
                 match Self::execute_impl(&mut ctx, node, &path) {
                     Ok(()) => Ok(()),
                     Err(CommandError::Runtime(err)) => {
-                        Self::send_error(&ctx, &err.to_string())?;
+                        ctx.error(&err.to_string()).unwrap_runtime()?;
                         Ok(())
                     }
                     Err(CommandError::Internal(err)) => Err(err),
@@ -62,7 +62,7 @@ impl CommandRegistry {
 
             ParseResult::NothingMatched { .. } => {
                 let ctx = ExecutionContext::new(plot, sender, ArgumentSet::empty());
-                Self::send_error(&ctx, "Command not found!")?;
+                ctx.error("Command not found!").unwrap_runtime()?;
                 Ok(())
             }
         }
@@ -116,26 +116,18 @@ impl CommandRegistry {
     ) -> Result<(), InternalError> {
         let ctx = ExecutionContext::new(plot, sender, ArgumentSet::empty());
 
-        Self::send_error(&ctx, error_message)?;
+        ctx.error(error_message).unwrap_runtime()?;
 
         let usage = usage::generate_usage(path);
-        Self::send_error(&ctx, &usage)?;
+        ctx.reply_legacy(&format!("&6Usage: &e{}", usage))
+            .unwrap_runtime()?;
         let base_name = usage::generate_base_name(path);
-        Self::send_error(
-            &ctx,
-            &format!("Run /help {base_name} for more information."),
-        )?;
+        ctx.reply_legacy(&format!(
+            "&eRun &e/help {}&e for more information.",
+            base_name
+        ))
+        .unwrap_runtime()?;
 
         Ok(())
-    }
-
-    fn send_error(ctx: &ExecutionContext<'_>, message: &str) -> Result<(), InternalError> {
-        match ctx.error(message) {
-            Ok(()) => Ok(()),
-            Err(CommandError::Internal(err)) => Err(err),
-            Err(CommandError::Runtime(_)) => {
-                unreachable!("ExecutionContext::error should never return a runtime error")
-            }
-        }
     }
 }

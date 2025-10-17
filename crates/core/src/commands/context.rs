@@ -4,6 +4,7 @@ use crate::player::{PacketSender, Player};
 use crate::plot::{Plot, PlotWorld};
 use crate::worldedit::{create_clipboard, WorldEditClipboard, WorldEditUndo};
 use mchprs_blocks::BlockPos;
+use mchprs_text::TextComponent;
 
 pub struct ExecutionContext<'a> {
     pub plot: &'a mut Plot,
@@ -43,6 +44,19 @@ impl<'a> ExecutionContext<'a> {
             }
             CommandSender::Console => {
                 eprintln!("Error: {}", message);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn reply_legacy(&self, message: &str) -> CommandResult<()> {
+        match &self.sender {
+            CommandSender::Player(_) => {
+                let components = TextComponent::from_legacy_text(message);
+                self.player()?.send_chat_message(&components);
+            }
+            CommandSender::Console => {
+                println!("{}", message);
             }
         }
         Ok(())

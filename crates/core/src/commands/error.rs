@@ -63,3 +63,18 @@ impl CommandError {
 }
 
 pub type CommandResult<T> = Result<T, CommandError>;
+
+pub(crate) trait UnwrapRuntimeError<T> {
+    fn unwrap_runtime(self) -> Result<T, InternalError>;
+}
+
+impl<T> UnwrapRuntimeError<T> for CommandResult<T> {
+    fn unwrap_runtime(self) -> Result<T, InternalError> {
+        self.map_err(|err| match err {
+            CommandError::Runtime(err) => InternalError::Message {
+                message: format!("Runtime Error: {}", err),
+            },
+            CommandError::Internal(err) => err,
+        })
+    }
+}

@@ -6,7 +6,7 @@ use crate::plot::Plot;
 use crate::server::Message;
 use crate::worldedit::ray_trace_block;
 use crate::{
-    player::{Gamemode, PacketSender, PlayerPos},
+    player::{Gamemode, PlayerPos},
     plot::database,
 };
 use mchprs_blocks::items::ItemStack;
@@ -417,15 +417,17 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             let msg =
                 "Redpiler optimization is highly unstable and can break builds. Use with caution!";
             tracing::warn!("{}", msg);
-            ctx.player()?.send_system_message(msg);
+            ctx.reply(msg)?;
         }
 
         ctx.plot.reset_redpiler();
         let start_time = Instant::now();
         ctx.plot.start_redpiler(options);
         let duration = start_time.elapsed();
-        debug!("Compile took {:?}", duration);
-        ctx.reply(&format!("Compilation completed in {:?}", duration))
+        let msg = format!("Compilation completed in {:?}", duration);
+        debug!(msg);
+        ctx.reply(&msg)?;
+        Ok(())
     }
 
     let redpiler_flag_arg = ArgumentType::flags()
