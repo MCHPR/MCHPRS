@@ -1,6 +1,6 @@
+use crate::commands::COMMAND_REGISTRY;
 use crate::config::CONFIG;
 use crate::player::{Gamemode, PacketSender, Player};
-use crate::plot::commands::DECLARE_COMMANDS;
 use crate::plot::{self, database, Plot, PLOT_BLOCK_HEIGHT};
 use crate::utils::HyphenatedUUID;
 use crate::{permissions, utils};
@@ -409,7 +409,9 @@ impl MinecraftServer {
         .encode();
         player.client.send_packet(&held_item_change);
 
-        player.client.send_packet(&DECLARE_COMMANDS);
+        player
+            .client
+            .send_packet(COMMAND_REGISTRY.get_declare_commands_packet());
 
         let time_update = UpdateTime {
             world_age: 0,

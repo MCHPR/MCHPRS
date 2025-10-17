@@ -3,21 +3,6 @@ use anyhow::{Context, Result};
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use once_cell::sync::Lazy;
 use std::path::Path;
-use std::time::Duration;
-
-// TODO: where to put this?
-pub fn sleep_time_for_tps(tps: Tps) -> Duration {
-    match tps {
-        Tps::Limited(tps) => {
-            if tps > 10 {
-                Duration::from_micros(1_000_000 / tps as u64)
-            } else {
-                Duration::from_millis(50)
-            }
-        }
-        Tps::Unlimited => Duration::ZERO,
-    }
-}
 
 pub fn load_plot(path: impl AsRef<Path>) -> Result<PlotData> {
     let path = path.as_ref();

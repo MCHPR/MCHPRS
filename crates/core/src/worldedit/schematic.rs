@@ -1,20 +1,19 @@
 //! This implements Sponge Schematic Specification ver. 2
 //! https://github.com/SpongePowered/Schematic-Specification/blob/master/versions/schematic-2.md
 
-use super::WorldEditClipboard;
-use crate::server::MC_DATA_VERSION;
+use crate::{server::MC_DATA_VERSION, worldedit::WorldEditClipboard};
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
-use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::Block;
-use mchprs_blocks::BlockPos;
+use mchprs_blocks::{block_entities::BlockEntity, blocks::Block, BlockPos};
 use mchprs_world::storage::PalettedBitBuffer;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use rustc_hash::FxHashMap;
 use serde::Serialize;
-use std::fs::{self, File};
-use std::path::PathBuf;
+use std::{
+    fs::{self, File},
+    path::PathBuf,
+};
 
 macro_rules! nbt_as {
     // I'm not sure if path is the right type here.
