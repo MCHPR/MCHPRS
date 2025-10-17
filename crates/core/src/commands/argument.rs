@@ -28,7 +28,12 @@ pub struct ArgumentTypeFlagBuilder {
 pub struct FlagSpec {
     pub(super) short: Option<char>,
     pub(super) long: String,
+    pub(super) description: Option<String>,
 }
+
+pub(super) struct OptionChar(Option<char>);
+
+pub(super) struct OptionString(Option<String>);
 
 impl ArgumentType {
     pub(super) fn parse<'a>(&self, input: &'a str) -> ArgumentParseResult<'a> {
@@ -129,12 +134,21 @@ impl ArgumentType {
 }
 
 impl ArgumentTypeFlagBuilder {
-    pub fn add(mut self, flag: impl Into<FlagSpec>) -> Self {
-        self.flags.push(flag.into());
+    pub(super) fn add(
+        mut self,
+        short: impl Into<OptionChar>,
+        long: &str,
+        description: impl Into<OptionString>,
+    ) -> Self {
+        self.flags.push(FlagSpec {
+            short: short.into().0,
+            long: long.to_string(),
+            description: description.into().0,
+        });
         self
     }
 
-    pub fn build(self) -> ArgumentType {
+    pub(super) fn build(self) -> ArgumentType {
         ArgumentType::Flags { flags: self.flags }
     }
 }
@@ -145,20 +159,26 @@ impl From<ArgumentTypeFlagBuilder> for ArgumentType {
     }
 }
 
-impl From<&str> for FlagSpec {
-    fn from(value: &str) -> Self {
-        Self {
-            short: None,
-            long: value.to_string(),
-        }
+impl From<char> for OptionChar {
+    fn from(c: char) -> Self {
+        OptionChar(Some(c))
     }
 }
 
-impl From<(&str, char)> for FlagSpec {
-    fn from(value: (&str, char)) -> Self {
-        Self {
-            short: Some(value.1),
-            long: value.0.to_string(),
-        }
+impl From<Option<char>> for OptionChar {
+    fn from(o: Option<char>) -> Self {
+        OptionChar(o)
+    }
+}
+
+impl From<&str> for OptionString {
+    fn from(s: &str) -> Self {
+        OptionString(Some(s.to_string()))
+    }
+}
+
+impl From<Option<&str>> for OptionString {
+    fn from(o: Option<&str>) -> Self {
+        OptionString(o.map(|s| s.to_string()))
     }
 }

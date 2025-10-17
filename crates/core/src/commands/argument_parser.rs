@@ -37,7 +37,7 @@ pub fn parse_greedy_string(input: &str) -> ArgumentParseResult<'_> {
     Ok((Value::GreedyString(input.to_string()), ""))
 }
 
-pub fn parse_flags<'a>(input: &'a str, specs: &[FlagSpec]) -> ArgumentParseResult<'a> {
+pub fn parse_flags<'a>(input: &'a str, flags_specs: &[FlagSpec]) -> ArgumentParseResult<'a> {
     let input = skip_whitespace(input);
 
     let mut flags = FxHashSet::default();
@@ -45,11 +45,11 @@ pub fn parse_flags<'a>(input: &'a str, specs: &[FlagSpec]) -> ArgumentParseResul
 
     for token in tokens {
         if let Some(long_name) = token.strip_prefix("--") {
-            let spec = specs.iter().find(|s| s.long == long_name).ok_or(())?;
+            let spec = flags_specs.iter().find(|s| s.long == long_name).ok_or(())?;
             flags.insert(spec.long.clone());
         } else if let Some(flag_chars) = token.strip_prefix('-') {
             for c in flag_chars.chars() {
-                let spec = specs.iter().find(|s| s.short == Some(c)).ok_or(())?;
+                let spec = flags_specs.iter().find(|s| s.short == Some(c)).ok_or(())?;
                 flags.insert(spec.long.clone());
             }
         } else {

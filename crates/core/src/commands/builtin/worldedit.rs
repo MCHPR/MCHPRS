@@ -443,8 +443,8 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                 CommandNode::argument(
                     "flags",
                     ArgumentType::flags()
-                        .add(("ignore-air", 'a'))
-                        .add(("update", 'u')),
+                        .add('a', "ignore-air", "Paste without air blocks")
+                        .add('u', "update", "Update blocks after pasting"),
                 )
                 .executes(exec_paste),
             ),
@@ -598,7 +598,8 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         ))
     }
 
-    let stack_flag_argument = ArgumentType::flags().add(("ignore-air", 'a'));
+    let stack_flag_arg = ArgumentType::flags().add('a', "ignore-air", "Stack without air blocks");
+
     registry.register(
         CommandNode::literal("/stack")
             .alias("/s")
@@ -609,7 +610,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                 CommandNode::argument("count", ArgumentType::integer(1, 1000))
                     .then(
                         CommandNode::argument("direction", ArgumentType::direction()).then(
-                            CommandNode::argument("flags", stack_flag_argument.clone()).executes(
+                            CommandNode::argument("flags", stack_flag_arg.clone()).executes(
                                 |ctx| {
                                     let count = ctx.args().get_integer("count")?;
                                     let direction = ctx.args().get_direction("direction")?;
@@ -621,13 +622,11 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                         ),
                     )
                     .then(
-                        CommandNode::argument("flags", stack_flag_argument.clone()).executes(
-                            |ctx| {
-                                let count = ctx.args().get_integer("count")?;
-                                let player_facing = ctx.player()?.get_facing();
-                                exec_stack(ctx, count, player_facing)
-                            },
-                        ),
+                        CommandNode::argument("flags", stack_flag_arg.clone()).executes(|ctx| {
+                            let count = ctx.args().get_integer("count")?;
+                            let player_facing = ctx.player()?.get_facing();
+                            exec_stack(ctx, count, player_facing)
+                        }),
                     ),
             ),
     );
@@ -678,9 +677,10 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         ))
     }
 
-    let move_flag_args = ArgumentType::flags()
-        .add(("ignore-air", 'a'))
-        .add(("shift-selection", 's'));
+    let move_flag_arg = ArgumentType::flags()
+        .add('a', "ignore-air", "Move without air blocks")
+        .add('s', "shift-selection", "Shift selection with the move");
+
     registry.register(
         CommandNode::literal("/move")
             .require_permission("worldedit.region.move")
@@ -690,19 +690,17 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                 CommandNode::argument("count", ArgumentType::integer(1, 1000))
                     .then(
                         CommandNode::argument("direction", ArgumentType::direction()).then(
-                            CommandNode::argument("flags", move_flag_args.clone()).executes(
-                                |ctx| {
-                                    let count = ctx.args().get_integer("count")?;
-                                    let direction = ctx.args().get_direction("direction")?;
-                                    let player_facing = ctx.player()?.get_facing();
-                                    let direction = direction.resolve(player_facing);
-                                    exec_move(ctx, count, direction)
-                                },
-                            ),
+                            CommandNode::argument("flags", move_flag_arg.clone()).executes(|ctx| {
+                                let count = ctx.args().get_integer("count")?;
+                                let direction = ctx.args().get_direction("direction")?;
+                                let player_facing = ctx.player()?.get_facing();
+                                let direction = direction.resolve(player_facing);
+                                exec_move(ctx, count, direction)
+                            }),
                         ),
                     )
                     .then(
-                        CommandNode::argument("flags", move_flag_args.clone()).executes(|ctx| {
+                        CommandNode::argument("flags", move_flag_arg.clone()).executes(|ctx| {
                             let count = ctx.args().get_integer("count")?;
                             let player_facing = ctx.player()?.get_facing();
                             exec_move(ctx, count, player_facing)
@@ -1137,8 +1135,11 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             .require_plot_ownership()
             .mutates_world()
             .then(
-                CommandNode::argument("flags", ArgumentType::flags().add(("plot", 'p')))
-                    .executes(exec_update),
+                CommandNode::argument(
+                    "flags",
+                    ArgumentType::flags().add('p', "plot", "Update the entire plot"),
+                )
+                .executes(exec_update),
             ),
     );
 
@@ -1214,9 +1215,14 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         ))
     }
 
-    let rstack_flag_args = ArgumentType::flags()
-        .add(("include-air", 'a'))
-        .add(("expand-selection", 'e'));
+    let rstack_flag_arg = ArgumentType::flags()
+        .add('a', "include-air", "Include air blocks in stack")
+        .add(
+            'e',
+            "expand-selection",
+            "Expand selection to include stacked region",
+        );
+
     registry.register(
         CommandNode::literal("/rstack")
             .alias("/rs")
@@ -1230,7 +1236,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                             .then(
                                 CommandNode::argument("direction", ArgumentType::direction_ext())
                                     .then(
-                                        CommandNode::argument("flags", rstack_flag_args.clone())
+                                        CommandNode::argument("flags", rstack_flag_arg.clone())
                                             .executes(|ctx| {
                                                 let count = ctx.args().get_integer("count")?;
                                                 let spacing = ctx.args().get_integer("spacing")?;
@@ -1241,7 +1247,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                                     ),
                             )
                             .then(
-                                CommandNode::argument("flags", rstack_flag_args.clone()).executes(
+                                CommandNode::argument("flags", rstack_flag_arg.clone()).executes(
                                     |ctx| {
                                         let count = ctx.args().get_integer("count")?;
                                         let spacing = ctx.args().get_integer("spacing")?;
@@ -1251,7 +1257,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                             ),
                     )
                     .then(
-                        CommandNode::argument("flags", rstack_flag_args.clone()).executes(|ctx| {
+                        CommandNode::argument("flags", rstack_flag_arg.clone()).executes(|ctx| {
                             let count = ctx.args().get_integer("count")?;
                             exec_rstack(ctx, count, 2, DirectionExt::Me)
                         }),

@@ -54,8 +54,16 @@ fn register_help(registry: &mut CommandRegistry) {
                     let flag_details = usage::generate_flag_details(path.last().unwrap());
                     if !flag_details.is_empty() {
                         ctx.reply("Available flags:")?;
-                        for flag_detail in flag_details {
-                            ctx.reply(&format!(" {flag_detail}"))?;
+                        for flag in flag_details {
+                            let flag_part = match flag.short {
+                                Some(short) => format!("-{} | --{}", short, flag.long),
+                                None => format!("--{}", flag.long),
+                            };
+                            let flag_details = match &flag.description {
+                                Some(desc) => format!(" {} ({})", flag_part, desc),
+                                None => format!(" {}", flag_part),
+                            };
+                            ctx.reply(&flag_details)?;
                         }
                     }
                 }

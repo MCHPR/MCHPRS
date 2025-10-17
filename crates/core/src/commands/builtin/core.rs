@@ -428,6 +428,28 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         ctx.reply(&format!("Compilation completed in {:?}", duration))
     }
 
+    let redpiler_flag_arg = ArgumentType::flags()
+        .add('o', "optimize", "Enable redpiler optimizations")
+        .add('e', "export", "Export the compile graph")
+        .add(
+            'i',
+            "io-only",
+            "Only send block updates of relevant input/output blocks",
+        )
+        .add('u', "update", "Update all blocks after redpiler resets")
+        .add(
+            'd',
+            "wire-dot-out",
+            "Consider wires in dot shape as output block",
+        )
+        .add(
+            None,
+            "export-dot",
+            "Create a graphviz dot file of backend graph",
+        )
+        .add(None, "print-after-all", "Print after all passes")
+        .add(None, "print-before-backend", "Print before backend");
+
     registry.register(
         CommandNode::literal("redpiler")
             .alias("rp")
@@ -437,20 +459,8 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                     .require_permission("mchprs.redpiler.compile")
                     .executes(exec_redpiler_compile)
                     .then(
-                        CommandNode::argument(
-                            "options",
-                            ArgumentType::flags()
-                                .add(("optimize", 'o'))
-                                .add(("export", 'e'))
-                                .add(("io-only", 'i'))
-                                .add(("update", 'u'))
-                                .add(("wire-dot-out", 'd'))
-                                .add("export-dot")
-                                .add("wire-dot-out")
-                                .add("print-after-all")
-                                .add("print-before-backend"),
-                        )
-                        .executes(exec_redpiler_compile),
+                        CommandNode::argument("options", redpiler_flag_arg)
+                            .executes(exec_redpiler_compile),
                     ),
             )
             .then(

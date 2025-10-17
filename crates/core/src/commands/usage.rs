@@ -164,25 +164,19 @@ fn get_display_name(node: &CommandNode) -> String {
     }
 }
 
-pub fn generate_flag_details(node: &CommandNode) -> Vec<String> {
+pub fn generate_flag_details(node: &CommandNode) -> Vec<&FlagSpec> {
     let mut flags = IndexSet::default();
     get_flag_details_from_node(&mut flags, node);
-    flags
-        .into_iter()
-        .map(|spec| match spec.short {
-            Some(short) => format!("-{} | --{}", short, spec.long),
-            None => format!("--{}", spec.long),
-        })
-        .collect()
+    flags.into_iter().collect()
 }
 
-fn get_flag_details_from_node(all_flags: &mut IndexSet<FlagSpec>, node: &CommandNode) {
+fn get_flag_details_from_node<'a>(all_flags: &mut IndexSet<&'a FlagSpec>, node: &'a CommandNode) {
     if let NodeType::Argument {
         arg_type: ArgumentType::Flags { flags },
         ..
     } = &node.node_type
     {
-        all_flags.extend(flags.iter().cloned());
+        all_flags.extend(flags.iter());
     }
     for child in &node.children {
         get_flag_details_from_node(all_flags, child);
@@ -200,5 +194,5 @@ pub fn generate_base_name(path: &[&CommandNode]) -> String {
         }
     }
 
-    format!("/{}", parts.into_iter().join(" "))
+    parts.into_iter().join(" ")
 }
