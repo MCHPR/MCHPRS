@@ -1,7 +1,8 @@
-use crate::commands::error::{CommandResult, InternalError};
-use crate::worldedit::WorldEditPattern;
-use mchprs_blocks::block_entities::ContainerType;
-use mchprs_blocks::{BlockFacing, BlockPos};
+use crate::{
+    commands::error::{CommandResult, InternalError},
+    worldedit::WorldEditPattern,
+};
+use mchprs_blocks::{block_entities::ContainerType, BlockFacing, BlockPos};
 use rustc_hash::FxHashSet;
 
 #[derive(Debug, Clone, Copy)]

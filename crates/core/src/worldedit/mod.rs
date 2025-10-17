@@ -1,18 +1,13 @@
-pub mod schematic;
+pub(crate) mod schematic;
 
-use crate::player::PlayerPos;
-use crate::plot::PlotWorld;
-use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::Block;
-use mchprs_blocks::BlockPos;
-use mchprs_world::storage::PalettedBitBuffer;
-use mchprs_world::{for_each_block_mut_optimized, World};
+use crate::{player::PlayerPos, plot::PlotWorld};
+use mchprs_blocks::{block_entities::BlockEntity, blocks::Block, BlockPos};
+use mchprs_world::{for_each_block_mut_optimized, storage::PalettedBitBuffer, World};
 use once_cell::sync::Lazy;
 use rand::Rng;
 use regex::Regex;
 use rustc_hash::FxHashMap;
-use std::fmt;
-use std::str::FromStr;
+use std::{fmt, str::FromStr};
 
 #[derive(Clone, Debug)]
 pub struct WorldEditClipboard {

@@ -1,6 +1,8 @@
-use super::value::{ColumnPos, Direction, DirectionExt, Value, Vec3};
 use crate::{
-    commands::error::{CommandResult, InternalError},
+    commands::{
+        error::{CommandResult, InternalError},
+        value::{ColumnPos, Direction, DirectionExt, Value, Vec3},
+    },
     worldedit::WorldEditPattern,
 };
 use rustc_hash::{FxHashMap, FxHashSet};

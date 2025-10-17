@@ -12,10 +12,9 @@ mod registry;
 mod usage;
 mod value;
 
+use crate::config::CONFIG;
 use once_cell::sync::Lazy;
 use registry::CommandRegistry;
-
-use crate::config::CONFIG;
 
 pub static COMMAND_REGISTRY: Lazy<CommandRegistry> = Lazy::new(|| {
     let mut registry = CommandRegistry::new();

@@ -1,5 +1,7 @@
-use super::{argument::ArgumentType, node::CommandNode, node::NodeType};
-use crate::commands::argument::FlagSpec;
+use crate::commands::{
+    argument::{ArgumentType, FlagSpec},
+    node::{CommandNode, NodeType},
+};
 use indexmap::IndexSet;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};

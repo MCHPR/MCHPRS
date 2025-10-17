@@ -1,8 +1,8 @@
-use crate::commands::argument::FlagSpec;
-use crate::commands::value::*;
-use crate::worldedit::WorldEditPattern;
-use mchprs_blocks::block_entities::ContainerType;
-use mchprs_blocks::BlockPos;
+use crate::{
+    commands::{argument::FlagSpec, value::*},
+    worldedit::WorldEditPattern,
+};
+use mchprs_blocks::{block_entities::ContainerType, BlockPos};
 use rustc_hash::FxHashSet;
 use std::str::FromStr;
 

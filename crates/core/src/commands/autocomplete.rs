@@ -1,11 +1,14 @@
-use super::{
-    argument::ArgumentType, node::CommandNode, node::NodeType, parser, registry::CommandRegistry,
+use crate::commands::{
+    argument::ArgumentType,
+    node::{CommandNode, NodeType},
+    parser,
+    registry::CommandRegistry,
 };
 use itertools::Itertools;
-use mchprs_network::packets::clientbound::{
-    CCommands, CCommandsNode, CDeclareCommandsNodeParser, ClientBoundPacket,
+use mchprs_network::packets::{
+    clientbound::{CCommands, CCommandsNode, CDeclareCommandsNodeParser, ClientBoundPacket},
+    PacketEncoder,
 };
-use mchprs_network::packets::PacketEncoder;
 use rustc_hash::FxHashMap;
 use tracing::{debug, warn};
 

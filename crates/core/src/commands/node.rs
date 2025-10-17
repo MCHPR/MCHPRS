@@ -1,6 +1,4 @@
-use crate::commands::error::CommandResult;
-
-use super::{argument::ArgumentType, context::ExecutionContext};
+use crate::commands::{argument::ArgumentType, context::ExecutionContext, error::CommandResult};
 
 pub type Executor = fn(&mut ExecutionContext<'_>) -> CommandResult<()>;
 

@@ -1,4 +1,4 @@
-use super::{autocomplete, node::CommandNode};
+use crate::commands::{autocomplete, node::CommandNode};
 use mchprs_network::packets::PacketEncoder;
 
 pub struct CommandRegistry {

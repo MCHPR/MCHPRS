@@ -1,4 +1,4 @@
-use super::argument_parser::*;
+use crate::commands::argument_parser::*;
 
 #[derive(Clone)]
 pub enum ArgumentType {

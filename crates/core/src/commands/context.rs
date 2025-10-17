@@ -1,8 +1,13 @@
-use super::{argument_set::ArgumentSet, CommandSender};
-use crate::commands::error::{CommandResult, InternalError, RuntimeError};
-use crate::player::{PacketSender, Player};
-use crate::plot::{Plot, PlotWorld};
-use crate::worldedit::{create_clipboard, WorldEditClipboard, WorldEditUndo};
+use crate::{
+    commands::{
+        argument_set::ArgumentSet,
+        error::{CommandResult, InternalError, RuntimeError},
+        CommandSender,
+    },
+    player::{PacketSender, Player},
+    plot::{Plot, PlotWorld},
+    worldedit::{create_clipboard, WorldEditClipboard, WorldEditUndo},
+};
 use mchprs_blocks::BlockPos;
 use mchprs_text::TextComponent;
 
