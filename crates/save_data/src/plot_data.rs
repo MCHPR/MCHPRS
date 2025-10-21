@@ -1,4 +1,5 @@
 mod fixer;
+mod v2_to_v3;
 
 use self::fixer::FixInfo;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -18,7 +19,8 @@ use thiserror::Error;
 /// 0: Initial plot data file with header (MC 1.18.2)
 /// 1: Add world send rate
 /// 2: Update to MC 1.20.4
-pub const VERSION: u32 = 2;
+/// 3: Change Tps and WorldSendRate to support real values (f32)
+pub const VERSION: u32 = 3;
 
 #[derive(Error, Debug)]
 pub enum PlotLoadError {
@@ -132,18 +134,18 @@ impl ChunkData {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum Tps {
-    Limited(u32),
+    Limited(f32),
     Unlimited,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WorldSendRate(pub u32);
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct WorldSendRate(pub f32);
 
 impl Default for WorldSendRate {
     fn default() -> Self {
-        Self(60)
+        Self(60.0)
     }
 }
 

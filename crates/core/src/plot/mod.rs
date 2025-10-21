@@ -987,25 +987,31 @@ impl Plot {
             let now = Instant::now();
             self.last_player_time = now;
 
-            let world_send_rate =
-                Duration::from_nanos(1_000_000_000 / self.world_send_rate.0 as u64);
+            let world_send_rate = if self.world_send_rate.0 == 0.0 {
+                Duration::MAX
+            } else {
+                Duration::from_secs_f32(1.0 / self.world_send_rate.0)
+            };
 
+            // 50_000 (= 3.33 MHz) here is arbitrary.
+            // We just need a number that's not too high so we actually get around to sending block updates.
             let max_batch_size = match self.last_nspt {
                 Some(Duration::ZERO) | None => 1,
                 Some(last_nspt) => {
-                    let ticks_fit = (world_send_rate.as_nanos() / last_nspt.as_nanos()) as u64;
+                    let ticks_fit = (world_send_rate.as_nanos() / last_nspt.as_nanos()) as u32;
                     // A tick previously took longer than the world send rate.
                     // Run at least one just so we're not stuck doing nothing
                     ticks_fit.max(1)
                 }
-            };
+            }
+            .min(50_000);
 
             let batch_size = match self.tps {
-                Tps::Limited(tps) if tps != 0 => {
-                    let dur_per_tick = Duration::from_nanos(1_000_000_000 / tps as u64);
+                Tps::Limited(tps) if tps != 0.0 => {
+                    let dur_per_tick = Duration::from_secs_f32(1.0 / tps);
                     self.lag_time += now - self.last_update_time;
-                    let batch_size = (self.lag_time.as_nanos() / dur_per_tick.as_nanos()) as u64;
-                    self.lag_time -= dur_per_tick * batch_size as u32;
+                    let batch_size = (self.lag_time.as_nanos() / dur_per_tick.as_nanos()) as u32;
+                    self.lag_time -= dur_per_tick * batch_size;
                     batch_size.min(max_batch_size)
                 }
                 Tps::Unlimited => max_batch_size,
@@ -1014,24 +1020,24 @@ impl Plot {
 
             self.last_update_time = now;
             if batch_size != 0 {
-                // 50_000 (= 3.33 MHz) here is arbitrary.
-                // We just need a number that's not too high so we actually get around to sending
-                // block updates.
-                let batch_size = batch_size.min(50_000) as u32;
-                let mut ticks_completed = batch_size;
+                let mut ticks_completed = 0;
                 if self.redpiler.is_active() {
                     self.tickn(batch_size as u64);
                     self.redpiler.flush(&mut self.world);
+                    ticks_completed += batch_size;
                 } else {
-                    for i in 0..batch_size {
+                    for _ in 0..batch_size {
                         self.tick();
+                        ticks_completed += 1;
                         if now.elapsed() > Duration::from_millis(200) {
-                            ticks_completed = i + 1;
                             break;
                         }
                     }
                 }
-                self.last_nspt = Some(self.last_update_time.elapsed() / ticks_completed);
+
+                if ticks_completed != 0 {
+                    self.last_nspt = Some(self.last_update_time.elapsed() / ticks_completed);
+                }
             }
 
             if self.auto_redpiler
