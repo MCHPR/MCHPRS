@@ -40,14 +40,6 @@ impl Nodes {
     pub fn inner(&self) -> &[Node] {
         &self.nodes
     }
-
-    pub fn inner_mut(&mut self) -> &mut [Node] {
-        &mut self.nodes
-    }
-
-    pub fn into_inner(self) -> Box<[Node]> {
-        self.nodes
-    }
 }
 
 impl Index<NodeId> for Nodes {
@@ -155,7 +147,7 @@ pub struct Node {
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
     pub updates: SmallVec<[ForwardLink; 10]>,
-    pub is_io: bool,
+    pub is_frozen: bool,
 
     /// Powered or lit
     pub powered: bool,

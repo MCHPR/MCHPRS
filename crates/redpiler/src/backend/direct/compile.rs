@@ -1,5 +1,6 @@
+use crate::backend::direct::Options;
 use crate::compile_graph::{CompileGraph, LinkType, NodeIdx};
-use crate::{CompilerOptions, TaskMonitor};
+use crate::TaskMonitor;
 use itertools::Itertools;
 use mchprs_blocks::blocks::{Block, Instrument};
 use mchprs_blocks::BlockPos;
@@ -28,6 +29,7 @@ fn compile_node(
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
     noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
+    options: &Options,
     stats: &mut FinalGraphStats,
 ) -> Node {
     let node = &graph[node_idx];
@@ -138,7 +140,7 @@ fn compile_node(
         locked: node.state.repeater_locked,
         pending_tick: false,
         changed: false,
-        is_io: node.is_input || node.is_output,
+        is_frozen: !(node.is_input || node.is_output) && options.is_io_only,
     }
 }
 
@@ -146,7 +148,6 @@ pub fn compile(
     backend: &mut DirectBackend,
     graph: CompileGraph,
     ticks: Vec<TickEntry>,
-    options: &CompilerOptions,
     _monitor: Arc<TaskMonitor>,
 ) {
     // Create a mapping from compile to backend node indices
@@ -167,6 +168,7 @@ pub fn compile(
                 nodes_len,
                 &nodes_map,
                 &mut backend.noteblock_info,
+                &backend.options,
                 &mut stats,
             )
         })
@@ -190,15 +192,12 @@ pub fn compile(
     // Schedule backend ticks
     for entry in ticks {
         if let Some(node) = backend.pos_map.get(&entry.pos) {
-            backend
-                .scheduler
-                .schedule_tick(*node, entry.ticks_left as usize, entry.tick_priority);
+            backend.execution_context.schedule_tick(
+                *node,
+                entry.ticks_left as usize,
+                entry.tick_priority,
+            );
             backend.nodes[*node].pending_tick = true;
         }
-    }
-
-    // Dot file output
-    if options.export_dot_graph {
-        std::fs::write("backend_graph.dot", format!("{}", backend)).unwrap();
     }
 }

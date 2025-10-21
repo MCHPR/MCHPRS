@@ -179,7 +179,7 @@ impl Compiler {
         if self.is_active {
             self.is_active = false;
             if let Some(jit) = &mut self.jit {
-                jit.reset(world, self.options.io_only)
+                jit.reset(world)
             }
         }
 
@@ -222,8 +222,7 @@ impl Compiler {
     }
 
     pub fn flush<W: World>(&mut self, world: &mut W) {
-        let io_only = self.options.io_only;
-        self.backend().flush(world, io_only);
+        self.backend().flush(world);
     }
 
     pub fn inspect(&mut self, pos: BlockPos) {

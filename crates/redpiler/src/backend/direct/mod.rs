@@ -1,108 +1,28 @@
 //! The direct backend does not do code generation and operates on the `CompileNode` graph directly
 
 mod compile;
+mod execution_context;
+mod flush;
 mod node;
 mod tick;
 mod update;
 
 use super::JITBackend;
+use crate::backend::direct::execution_context::ExecutionContext;
 use crate::compile_graph::CompileGraph;
 use crate::task_monitor::TaskMonitor;
-use crate::{block_powered_mut, CompilerOptions};
-use mchprs_blocks::block_entities::BlockEntity;
+use crate::CompilerOptions;
 use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
-use mchprs_redstone::{bool_to_ss, noteblock};
+use mchprs_redstone::bool_to_ss;
 use mchprs_world::{TickEntry, TickPriority, World};
 use node::{Node, NodeId, NodeType, Nodes};
 use rustc_hash::FxHashMap;
+use std::fmt;
 use std::sync::Arc;
-use std::{fmt, mem};
 use tracing::{debug, warn};
 
-#[derive(Default, Clone)]
-struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
-
-impl Queues {
-    fn drain_iter(&mut self) -> impl Iterator<Item = NodeId> + '_ {
-        let [q0, q1, q2, q3] = &mut self.0;
-        let [q0, q1, q2, q3] = [q0, q1, q2, q3].map(|q| q.drain(..));
-        q0.chain(q1).chain(q2).chain(q3)
-    }
-}
-
-#[derive(Default)]
-struct TickScheduler {
-    queues_deque: [Queues; Self::NUM_QUEUES],
-    pos: usize,
-}
-
-impl TickScheduler {
-    const NUM_PRIORITIES: usize = 4;
-    const NUM_QUEUES: usize = 16;
-
-    fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
-        for (idx, queues) in self.queues_deque.iter().enumerate() {
-            let delay = if self.pos >= idx {
-                idx + Self::NUM_QUEUES
-            } else {
-                idx
-            } - self.pos;
-            for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
-                for node in entries {
-                    let Some((pos, _)) = blocks[node.index()] else {
-                        warn!("Cannot schedule tick for node {:?} because block information is missing", node);
-                        continue;
-                    };
-                    world.schedule_tick(pos, delay as u32, priority);
-                }
-            }
-        }
-        for queues in self.queues_deque.iter_mut() {
-            for queue in queues.0.iter_mut() {
-                queue.clear();
-            }
-        }
-    }
-
-    fn schedule_tick(&mut self, node: NodeId, delay: usize, priority: TickPriority) {
-        self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[priority as usize].push(node);
-    }
-
-    fn queues_this_tick(&mut self) -> Queues {
-        self.pos = (self.pos + 1) % Self::NUM_QUEUES;
-        mem::take(&mut self.queues_deque[self.pos])
-    }
-
-    fn end_tick(&mut self, mut queues: Queues) {
-        for queue in &mut queues.0 {
-            queue.clear();
-        }
-        self.queues_deque[self.pos] = queues;
-    }
-
-    fn priorities() -> [TickPriority; Self::NUM_PRIORITIES] {
-        [
-            TickPriority::Highest,
-            TickPriority::Higher,
-            TickPriority::High,
-            TickPriority::Normal,
-        ]
-    }
-
-    fn has_pending_ticks(&self) -> bool {
-        for queues in &self.queues_deque {
-            for queue in &queues.0 {
-                if !queue.is_empty() {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-}
-
-enum Event {
+pub enum Event {
     NoteBlockPlay { noteblock_id: u16 },
 }
 
@@ -111,21 +31,30 @@ pub struct DirectBackend {
     nodes: Nodes,
     blocks: Vec<Option<(BlockPos, Block)>>,
     pos_map: FxHashMap<BlockPos, NodeId>,
-    scheduler: TickScheduler,
-    events: Vec<Event>,
     noteblock_info: Vec<(BlockPos, Instrument, u32)>,
+    execution_context: ExecutionContext,
+    options: Options,
+}
+
+#[derive(Default)]
+struct Options {
+    is_io_only: bool,
 }
 
 impl DirectBackend {
     fn schedule_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
-        self.scheduler.schedule_tick(node_id, delay, priority);
+        self.execution_context
+            .schedule_tick(node_id, delay, priority);
     }
 
     fn set_node(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
         let node = &mut self.nodes[node_id];
         let old_power = node.output_power;
 
-        node.changed = true;
+        if !node.is_frozen && !node.changed {
+            self.execution_context.push_change(node_id);
+            node.changed = true;
+        }
         node.powered = powered;
         node.output_power = new_power;
         for i in 0..node.updates.len() {
@@ -155,12 +84,7 @@ impl DirectBackend {
                 *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
             }
 
-            update::update_node(
-                &mut self.scheduler,
-                &mut self.events,
-                &mut self.nodes,
-                update,
-            );
+            update::update_node(&mut self.execution_context, &mut self.nodes, update);
         }
     }
 }
@@ -175,30 +99,16 @@ impl JITBackend for DirectBackend {
         debug!("Node {:?}: {:#?}", node_id, self.nodes[*node_id]);
     }
 
-    fn reset<W: World>(&mut self, world: &mut W, io_only: bool) {
-        self.scheduler.reset(world, &self.blocks);
+    fn reset<W: World>(&mut self, world: &mut W) {
+        self.flush_events(world);
+        self.flush_block_changes(world);
 
-        let nodes = std::mem::take(&mut self.nodes);
+        self.flush_scheduled_ticks(world);
 
-        for (i, node) in nodes.into_inner().iter().enumerate() {
-            let Some((pos, block)) = self.blocks[i] else {
-                continue;
-            };
-            if matches!(node.ty, NodeType::Comparator { .. }) {
-                let block_entity = BlockEntity::Comparator {
-                    output_strength: node.output_power,
-                };
-                world.set_block_entity(pos, block_entity);
-            }
-
-            if io_only && !node.is_io {
-                world.set_block(pos, block);
-            }
-        }
-
+        let _ = std::mem::take(&mut self.nodes);
+        self.blocks.clear();
         self.pos_map.clear();
         self.noteblock_info.clear();
-        self.events.clear();
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
@@ -231,42 +141,18 @@ impl JITBackend for DirectBackend {
     }
 
     fn tick(&mut self) {
-        let mut queues = self.scheduler.queues_this_tick();
+        let mut queues = self.execution_context.queues_this_tick();
 
         for node_id in queues.drain_iter() {
             self.tick_node(node_id);
         }
 
-        self.scheduler.end_tick(queues);
+        self.execution_context.end_tick(queues);
     }
 
-    fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
-        for event in self.events.drain(..) {
-            match event {
-                Event::NoteBlockPlay { noteblock_id } => {
-                    let (pos, instrument, note) = self.noteblock_info[noteblock_id as usize];
-                    noteblock::play_note(world, pos, instrument, note);
-                }
-            }
-        }
-        for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
-            let Some((pos, block)) = &mut self.blocks[i] else {
-                continue;
-            };
-            if node.changed && (!io_only || node.is_io) {
-                if let Some(powered) = block_powered_mut(block) {
-                    *powered = node.powered
-                }
-                if let Block::RedstoneWire { wire, .. } = block {
-                    wire.power = node.output_power
-                };
-                if let Block::RedstoneRepeater { repeater } = block {
-                    repeater.locked = node.locked;
-                }
-                world.set_block(*pos, *block);
-            }
-            node.changed = false;
-        }
+    fn flush<W: World>(&mut self, world: &mut W) {
+        self.flush_events(world);
+        self.flush_block_changes(world);
     }
 
     fn compile(
@@ -276,35 +162,57 @@ impl JITBackend for DirectBackend {
         options: &CompilerOptions,
         monitor: Arc<TaskMonitor>,
     ) {
-        compile::compile(self, graph, ticks, options, monitor);
+        self.options.is_io_only = options.io_only;
+
+        compile::compile(self, graph, ticks, monitor);
+
+        if options.export_dot_graph {
+            std::fs::write("backend_graph.dot", format!("{}", self)).unwrap();
+        }
     }
 
     fn has_pending_ticks(&self) -> bool {
-        self.scheduler.has_pending_ticks()
+        self.execution_context.has_pending_ticks()
     }
 }
 
 /// Set node for use in `update`. None of the nodes here have usable output power,
 /// so this function does not set that.
-fn set_node(node: &mut Node, powered: bool) {
+fn set_node(
+    execution_context: &mut ExecutionContext,
+    node_id: NodeId,
+    node: &mut Node,
+    powered: bool,
+) {
     node.powered = powered;
-    node.changed = true;
+    if !node.is_frozen && !node.changed {
+        execution_context.push_change(node_id);
+        node.changed = true;
+    }
 }
 
-fn set_node_locked(node: &mut Node, locked: bool) {
+fn set_node_locked(
+    execution_context: &mut ExecutionContext,
+    node_id: NodeId,
+    node: &mut Node,
+    locked: bool,
+) {
     node.locked = locked;
-    node.changed = true;
+    if !node.is_frozen && !node.changed {
+        execution_context.push_change(node_id);
+        node.changed = true;
+    }
 }
 
 fn schedule_tick(
-    scheduler: &mut TickScheduler,
+    execution_context: &mut ExecutionContext,
     node_id: NodeId,
     node: &mut Node,
     delay: usize,
     priority: TickPriority,
 ) {
     node.pending_tick = true;
-    scheduler.schedule_tick(node_id, delay, priority);
+    execution_context.schedule_tick(node_id, delay, priority);
 }
 
 fn get_bool_input(node: &Node) -> bool {
