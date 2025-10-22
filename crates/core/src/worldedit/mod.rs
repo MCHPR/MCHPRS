@@ -219,16 +219,13 @@ pub fn create_clipboard(
 }
 
 pub fn clear_area(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
+    for_each_block_mut_optimized(plot, first_pos, second_pos, |world, pos| {
+        world.set_block_raw(pos, 0);
+    });
+
+    // Send modified chunks
     let start_pos = first_pos.min(second_pos);
     let end_pos = first_pos.max(second_pos);
-    for y in start_pos.y..=end_pos.y {
-        for z in start_pos.z..=end_pos.z {
-            for x in start_pos.x..=end_pos.x {
-                plot.set_block_raw(BlockPos::new(x, y, z), 0);
-            }
-        }
-    }
-    // Send modified chunks
     for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
         for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
             if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
@@ -285,6 +282,12 @@ pub fn paste_clipboard(
         };
         plot.set_block_entity(new_pos, block_entity.clone());
     }
+}
+
+pub fn calculate_selection_volume(first_pos: BlockPos, second_pos: BlockPos) -> i32 {
+    let min = first_pos.min(second_pos);
+    let max = first_pos.max(second_pos);
+    (max.x - min.x + 1) * (max.y - min.y + 1) * (max.z - min.z + 1)
 }
 
 pub fn calculate_expanded_selection(
