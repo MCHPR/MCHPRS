@@ -568,6 +568,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
     ) -> CommandResult<()> {
         let flags = ctx.args().get_flags("flags")?;
         let ignore_air = flags.contains("ignore-air");
+        let shift_selection = flags.contains("shift-selection");
 
         let (first_pos, second_pos) = ctx.get_selection()?;
         let start_time = Instant::now();
@@ -594,13 +595,26 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             paste_clipboard(ctx.world_mut(), &clipboard, paste_pos, ignore_air);
         }
 
+        if shift_selection {
+            let offset_amount = direction.offset_pos(BlockPos::zero(), count * stack_offset);
+            let player = ctx.player_mut()?;
+            player.worldedit_set_first_pos(first_pos + offset_amount);
+            player.worldedit_set_second_pos(second_pos + offset_amount);
+        }
+
         ctx.worldedit_message(&format!(
             "Your selection was stacked. ({:?})",
             start_time.elapsed()
         ))
     }
 
-    let stack_flag_arg = ArgumentType::flags().add('a', "ignore-air", "Stack without air blocks");
+    let stack_flag_arg = ArgumentType::flags()
+        .add('a', "ignore-air", "Stack without air blocks")
+        .add(
+            's',
+            "shift-selection",
+            "Shift the selection to the last stacked copy",
+        );
 
     registry.register(
         CommandNode::literal("/stack")
