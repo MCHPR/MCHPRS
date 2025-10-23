@@ -192,7 +192,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             .require_permission("mchprs.container")
             .then(
                 CommandNode::argument("type", ArgumentType::container()).then(
-                    CommandNode::argument("power", ArgumentType::integer(1, 15)).executes(|ctx| {
+                    CommandNode::argument("power", ArgumentType::integer(0, 15)).executes(|ctx| {
                         let container_type = ctx.args().get_container("type")?;
                         let power = ctx.args().get_integer("power")?;
 
