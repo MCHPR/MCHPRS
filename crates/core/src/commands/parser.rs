@@ -1,4 +1,5 @@
 use crate::commands::{
+    argument::ArgumentType,
     argument_parser,
     node::{CommandNode, NodeType},
     value::Value,
@@ -115,4 +116,37 @@ fn parse_next(
     }
 
     false
+}
+
+pub fn backtrack_overgreedy_matches<'a>(
+    mut path: Vec<&'a CommandNode>,
+    arguments: &[(String, Value)],
+) -> Vec<&'a CommandNode> {
+    while let Some(last_node) = path.last() {
+        if let NodeType::Argument { name, arg_type } = &last_node.node_type {
+            let is_greedy = matches!(
+                arg_type,
+                ArgumentType::Flags { .. } | ArgumentType::GreedyString
+            );
+
+            if is_greedy {
+                if let Some((_, value)) = arguments.iter().find(|(arg_name, _)| arg_name == name) {
+                    let is_empty = match value {
+                        Value::Flags(set) => set.is_empty(),
+                        Value::GreedyString(s) => s.is_empty(),
+                        _ => false,
+                    };
+
+                    if is_empty {
+                        path.pop();
+                        continue;
+                    }
+                }
+            }
+        }
+
+        break;
+    }
+
+    path
 }

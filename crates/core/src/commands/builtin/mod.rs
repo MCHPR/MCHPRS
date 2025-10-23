@@ -45,13 +45,22 @@ fn register_help(registry: &mut CommandRegistry) {
             }
         } else {
             match parser::parse(root, command) {
-                parser::ParseResult::Success { path, .. }
-                | parser::ParseResult::Partial { path, .. }
-                | parser::ParseResult::TooManyArguments { path, .. }
-                | parser::ParseResult::InvalidArgument { path, .. } => {
-                    let usage = usage::generate_usage(&path);
+                parser::ParseResult::Success {
+                    path, arguments, ..
+                }
+                | parser::ParseResult::Partial {
+                    path, arguments, ..
+                }
+                | parser::ParseResult::TooManyArguments {
+                    path, arguments, ..
+                }
+                | parser::ParseResult::InvalidArgument {
+                    path, arguments, ..
+                } => {
+                    let cleaned_path = parser::backtrack_overgreedy_matches(path, &arguments);
+                    let usage = usage::generate_usage(&cleaned_path);
                     ctx.reply_legacy(&format!("&6Usage: &e{}", usage))?;
-                    let flag_details = usage::generate_flag_details(path.last().unwrap());
+                    let flag_details = usage::generate_flag_details(cleaned_path.last().unwrap());
                     if !flag_details.is_empty() {
                         ctx.reply_legacy("&6Available flags:")?;
                         for flag in flag_details {
