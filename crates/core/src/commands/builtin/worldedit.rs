@@ -1331,53 +1331,91 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             ),
     );
 
-    registry.register(
-        CommandNode::literal("/load")
-            .require_permission("worldedit.clipboard.load")
-            .require_plot_ownership()
-            .then(
-                CommandNode::argument("filename", ArgumentType::string()).executes(
-                    |ctx| {
-                                                let start_time = Instant::now();
-                        let mut filename = ctx.args().get_string("filename")?;
+    fn exec_schematic_list(ctx: &mut ExecutionContext<'_>) -> CommandResult<()> {
+        let player = ctx.player()?;
 
-                        if !SCHEMATI_VALIDATE_REGEX.is_match(&filename) {
-                            return Err(CommandError::runtime("Filename is invalid"));
+        let schems_dir = if CONFIG.schemati {
+            let uuid = HyphenatedUUID(player.uuid).to_string();
+            format!("./schems/{}", uuid)
+        } else {
+            "./schems".to_string()
+        };
+
+        let entries = match std::fs::read_dir(&schems_dir) {
+            Ok(entries) => entries,
+            Err(_) => {
+                return ctx.worldedit_message("No schematics found.");
+            }
+        };
+
+        let mut schematics = Vec::new();
+        for entry in entries.flatten() {
+            if let Ok(file_type) = entry.file_type() {
+                if file_type.is_file() {
+                    if let Some(filename) = entry.file_name().to_str() {
+                        if filename.ends_with(".schem") || filename.ends_with(".schematic") {
+                            schematics.push(filename.to_string());
                         }
+                    }
+                }
+            }
+        }
 
-                        if CONFIG.schemati {
-                            let player = ctx.player()?;
-                            let prefix = HyphenatedUUID(player.uuid).to_string() + "/";
-                            filename.insert_str(0, &prefix);
-                        }
+        if schematics.is_empty() {
+            return ctx.worldedit_message("No schematics found.");
+        }
 
-                        match load_schematic(&filename) {
-                            Ok(clipboard) => {
-                                ctx.set_clipboard(clipboard)?;
-                                ctx.worldedit_message(&format!(
-                                    "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
-                                    start_time.elapsed()
-                                ))
-                            }
-                            Err(e) => {
-                                if let Some(io_err) = e.downcast_ref::<std::io::Error>() {
-                                    if io_err.kind() == std::io::ErrorKind::NotFound {
-                                        return Err(CommandError::runtime("The specified schematic file could not be found."));
-                                    }
-                                }
-                                warn!("There was an error loading a schematic:");
-                                warn!("{}", e);
-                                Err(CommandError::runtime("There was an error loading the schematic. Check console for more details."))
-                            }
-                        }
-                    },
-                ),
-            ),
-    );
+        schematics.sort();
+        let list = schematics.join(", ");
+        ctx.worldedit_message(&format!(
+            "Available schematics ({}): {}",
+            schematics.len(),
+            list
+        ))
+    }
 
-    fn exec_save(ctx: &mut ExecutionContext<'_>) -> CommandResult<()> {
+    fn exec_schematic_load(ctx: &mut ExecutionContext<'_>, filename: String) -> CommandResult<()> {
         let start_time = Instant::now();
-        let mut filename = ctx.args().get_string("filename")?;
+        let mut filename = filename;
+
+        if !SCHEMATI_VALIDATE_REGEX.is_match(&filename) {
+            return Err(CommandError::runtime("Filename is invalid"));
+        }
+
+        if CONFIG.schemati {
+            let player = ctx.player()?;
+            let prefix = HyphenatedUUID(player.uuid).to_string() + "/";
+            filename.insert_str(0, &prefix);
+        }
+
+        match load_schematic(&filename) {
+            Ok(clipboard) => {
+                ctx.set_clipboard(clipboard)?;
+                ctx.worldedit_message(&format!(
+                    "The schematic was loaded to your clipboard. Do //paste to birth it into the world. ({:?})",
+                    start_time.elapsed()
+                ))
+            }
+            Err(e) => {
+                if let Some(io_err) = e.downcast_ref::<std::io::Error>() {
+                    if io_err.kind() == std::io::ErrorKind::NotFound {
+                        return Err(CommandError::runtime(
+                            "The specified schematic file could not be found.",
+                        ));
+                    }
+                }
+                warn!("There was an error loading a schematic:");
+                warn!("{}", e);
+                Err(CommandError::runtime(
+                    "There was an error loading the schematic. Check console for more details.",
+                ))
+            }
+        }
+    }
+
+    fn exec_schematic_save(ctx: &mut ExecutionContext<'_>, filename: String) -> CommandResult<()> {
+        let start_time = Instant::now();
+        let mut filename = filename;
         let flags = ctx.args().get_flags("flags").unwrap_or_default();
         let force_overwrite = flags.contains("force-overwrite");
 
@@ -1416,23 +1454,52 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
     }
 
     registry.register(
-        CommandNode::literal("/save")
-            .require_permission("worldedit.clipboard.save")
-            .require_plot_ownership()
+        CommandNode::literal("schematic")
+            .alias("schem")
+            .alias("/schematic")
+            .alias("/schem")
+            .require_permission("worldedit.schematic")
             .then(
-                CommandNode::argument("filename", ArgumentType::string()).then(
-                    CommandNode::argument(
-                        "flags",
-                        ArgumentType::flags().add(
-                            'f',
-                            "force-overwrite",
-                            "Overwrite existing file",
+                CommandNode::literal("list")
+                    .alias("all")
+                    .alias("ls")
+                    .executes(exec_schematic_list),
+            )
+            .then(
+                CommandNode::literal("load")
+                    .require_permission("worldedit.clipboard.load")
+                    .require_plot_ownership()
+                    .then(
+                        CommandNode::argument("filename", ArgumentType::string()).executes(|ctx| {
+                            let filename = ctx.args().get_string("filename")?;
+                            exec_schematic_load(ctx, filename)
+                        }),
+                    ),
+            )
+            .then(
+                CommandNode::literal("save")
+                    .require_permission("worldedit.clipboard.save")
+                    .require_plot_ownership()
+                    .then(
+                        CommandNode::argument("filename", ArgumentType::string()).then(
+                            CommandNode::argument(
+                                "flags",
+                                ArgumentType::flags().add(
+                                    'f',
+                                    "force-overwrite",
+                                    "Overwrite existing file",
+                                ),
+                            )
+                            .executes(|ctx| {
+                                let filename = ctx.args().get_string("filename")?;
+                                exec_schematic_save(ctx, filename)
+                            }),
                         ),
-                    )
-                    .executes(exec_save),
-                ),
+                    ),
             ),
     );
+    registry.add_custom_alias("/load", "/schematic load");
+    registry.add_custom_alias("/save", "/schematic save");
 
     fn exec_update(ctx: &mut ExecutionContext<'_>) -> CommandResult<()> {
         let flags = ctx.args().get_flags("flags")?;
