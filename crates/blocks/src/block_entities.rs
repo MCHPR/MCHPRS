@@ -58,6 +58,15 @@ impl ContainerType {
         }
     }
 
+    pub fn items_needed_for_signal_strength(self, signal_strength: u8) -> usize {
+        let slots = self.num_slots() as usize;
+        match signal_strength {
+            0 => 0,
+            15 => slots * 64,
+            _ => ((32 * slots * signal_strength as usize) as f32 / 7.0 - 1.0).ceil() as usize,
+        }
+    }
+
     pub fn window_type(self) -> u8 {
         // https://wiki.vg/Inventory
         match self {

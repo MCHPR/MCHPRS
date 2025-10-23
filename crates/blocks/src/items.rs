@@ -17,13 +17,8 @@ impl ItemStack {
             ContainerType::Hopper => Item::Hopper {},
             ContainerType::Furnace => Item::Furnace {},
         };
-        let slots = container_ty.num_slots() as u32;
 
-        let items_needed = match ss {
-            0 => 0,
-            15 => slots * 64,
-            _ => ((32 * slots * ss as u32) as f32 / 7.0 - 1.0).ceil() as u32,
-        } as usize;
+        let items_needed = container_ty.items_needed_for_signal_strength(ss);
 
         let nbt = match items_needed {
             0 => None,

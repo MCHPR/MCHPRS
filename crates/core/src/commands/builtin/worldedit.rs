@@ -1606,7 +1606,6 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             ContainerType::Barrel => Block::Barrel {},
             ContainerType::Hopper => Block::Hopper {},
         };
-        let slots = to.num_slots() as u32;
 
         let start_pos = first_pos.min(second_pos);
         let end_pos = first_pos.max(second_pos);
@@ -1639,11 +1638,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
 
                         let ss = *comparator_override;
 
-                        let items_needed = match ss {
-                            0 => 0,
-                            15 => slots * 64,
-                            _ => ((32 * slots * ss as u32) as f32 / 7.0 - 1.0).ceil() as u32,
-                        } as usize;
+                        let items_needed = to.items_needed_for_signal_strength(ss);
 
                         let mut inventory = Vec::new();
                         for (slot, items_added) in (0..items_needed).step_by(64).enumerate() {
