@@ -8,6 +8,7 @@ use crate::{
         value::{Direction, DirectionExt},
     },
     config::CONFIG,
+    player::PlayerPos,
     plot::PLOT_BLOCK_HEIGHT,
     utils::{self, HyphenatedUUID},
     worldedit::{
@@ -17,6 +18,7 @@ use crate::{
         update, WorldEditClipboard, WorldEditPattern, WorldEditUndo,
     },
 };
+use itertools::Itertools;
 use mchprs_blocks::{
     block_entities::{BlockEntity, ContainerType, InventoryEntry},
     blocks::{Block, FlipDirection, RotateAmt},
@@ -27,6 +29,7 @@ use mchprs_network::packets::clientbound::*;
 use mchprs_world::{storage::PalettedBitBuffer, World};
 use once_cell::sync::Lazy;
 use regex::Regex;
+use rustc_hash::FxHashMap;
 use std::time::Instant;
 use tracing::warn;
 
@@ -34,6 +37,58 @@ static SCHEMATI_VALIDATE_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
 
 pub(super) fn register_commands(registry: &mut CommandRegistry) {
+    registry.register(
+        CommandNode::literal("jumpto")
+            .alias("j")
+            .require_permission("worldedit.navigation.jumpto.command")
+            .executes(|ctx| {
+                let player = ctx.player()?;
+                let pos = ray_trace_block(
+                    ctx.world(),
+                    player.pos,
+                    player.pitch as f64,
+                    player.yaw as f64,
+                    1000.0,
+                )
+                .ok_or(RuntimeError::NoBlockInSight)?;
+
+                let new_pos =
+                    PlayerPos::new(pos.x as f64 + 0.5, pos.y as f64 + 1.0, pos.z as f64 + 0.5);
+
+                ctx.player_mut()?.teleport(new_pos);
+                ctx.worldedit_message("Teleported to block.")?;
+                Ok(())
+            }),
+    );
+
+    registry.register(
+        CommandNode::literal("unstuck")
+            .alias("!")
+            .require_permission("worldedit.navigation.unstuck")
+            .executes(|ctx| {
+                let player_pos = ctx.player()?.pos.block_pos();
+
+                let world = ctx.world();
+                let found_y = (player_pos.y..PLOT_BLOCK_HEIGHT - 1).find(|&y| {
+                    let pos = BlockPos::new(player_pos.x, y, player_pos.z);
+                    let head = BlockPos::new(player_pos.x, y + 1, player_pos.z);
+                    world.get_block(pos) == (Block::Air {})
+                        && world.get_block(head) == (Block::Air {})
+                });
+
+                let y =
+                    found_y.ok_or_else(|| CommandError::runtime("No free spot above found."))?;
+                let new_pos = PlayerPos::new(
+                    player_pos.x as f64 + 0.5,
+                    y as f64,
+                    player_pos.z as f64 + 0.5,
+                );
+
+                ctx.player_mut()?.teleport(new_pos);
+                ctx.worldedit_message("Moved to free position.")
+            }),
+    );
+
     fn exec_up(ctx: &mut ExecutionContext<'_>, distance: i32) -> CommandResult<()> {
         let flags = ctx.args().get_flags("flags").unwrap_or_default();
         let force_flight = flags.contains("force-flight");
@@ -174,6 +229,40 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                     let levels = ctx.args().get_integer("levels")?;
                     exec_descend(ctx, levels)
                 }),
+            ),
+    );
+
+    registry.register(
+        CommandNode::literal("/pos")
+            .require_permission("worldedit.selection.pos")
+            .require_plot_ownership()
+            .executes(|ctx| {
+                let player = ctx.player_mut()?;
+                player.worldedit_set_first_pos(player.pos.block_pos());
+                Ok(())
+            })
+            .then(
+                CommandNode::argument("pos1", ArgumentType::block_pos())
+                    .executes(|ctx| {
+                        let relative_pos = ctx.args().get_block_pos("pos1")?;
+                        let player = ctx.player_mut()?;
+                        let pos = relative_pos.resolve(player.pos.block_pos());
+                        player.worldedit_set_first_pos(pos);
+                        Ok(())
+                    })
+                    .then(
+                        CommandNode::argument("pos2", ArgumentType::block_pos()).executes(|ctx| {
+                            let relative_pos1 = ctx.args().get_block_pos("pos1")?;
+                            let relative_pos2 = ctx.args().get_block_pos("pos2")?;
+                            let player = ctx.player_mut()?;
+                            let player_pos = player.pos.block_pos();
+                            let pos1 = relative_pos1.resolve(player_pos);
+                            let pos2 = relative_pos2.resolve(player_pos);
+                            player.worldedit_set_first_pos(pos1);
+                            player.worldedit_set_second_pos(pos2);
+                            Ok(())
+                        }),
+                    ),
             ),
     );
 
@@ -1518,6 +1607,71 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             ctx.worldedit_message("Updated selection.")
         }
     }
+
+    registry.register(
+        CommandNode::literal("/distr")
+            .require_permission("worldedit.analysis.distr")
+            .require_plot_ownership()
+            .then(
+                CommandNode::argument(
+                    "flags",
+                    ArgumentType::flags().add('c', "clipboard", "Get distribution of clipboard"),
+                )
+                .executes(|ctx| {
+                    let flags = ctx.args().get_flags("flags")?;
+                    let use_clipboard = flags.contains("clipboard");
+
+                    let start_time = Instant::now();
+                    let mut block_counts = FxHashMap::default();
+
+                    if use_clipboard {
+                        let clipboard = ctx.get_clipboard()?;
+                        let volume = clipboard.size_x * clipboard.size_y * clipboard.size_z;
+
+                        for i in 0..volume as usize {
+                            let block_id = clipboard.data.get_entry(i);
+                            *block_counts.entry(block_id).or_insert(0) += 1;
+                        }
+                    } else {
+                        let (first_pos, second_pos) = ctx.get_selection()?;
+                        let start_pos = first_pos.min(second_pos);
+                        let end_pos = first_pos.max(second_pos);
+
+                        for x in start_pos.x..=end_pos.x {
+                            for y in start_pos.y..=end_pos.y {
+                                for z in start_pos.z..=end_pos.z {
+                                    let block_pos = BlockPos::new(x, y, z);
+                                    let block = ctx.world().get_block(block_pos);
+                                    let block_id = block.get_id();
+                                    *block_counts.entry(block_id).or_insert(0) += 1;
+                                }
+                            }
+                        }
+                    }
+
+                    let block_counts = block_counts
+                        .into_iter()
+                        .sorted_by_key(|(_, v)| *v)
+                        .collect_vec();
+
+                    let total_blocks: u32 = block_counts.iter().map(|(_, v)| *v).sum();
+                    let mut result = format!("# total blocks: {}\n", total_blocks);
+                    for (block_id, count) in block_counts {
+                        let block = Block::from_id(block_id);
+                        let percentage = (count as f64 / total_blocks as f64) * 100.0;
+                        result.push_str(&format!(
+                            "{:>6} ({:>5.2}%) {}\n",
+                            count,
+                            percentage,
+                            block.get_name()
+                        ));
+                    }
+
+                    result.push_str(&format!("({:?})", start_time.elapsed()));
+                    ctx.worldedit_message(&result)
+                }),
+            ),
+    );
 
     registry.register(
         CommandNode::literal("/update")
