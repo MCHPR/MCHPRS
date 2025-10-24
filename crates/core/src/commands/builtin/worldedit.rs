@@ -1567,7 +1567,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         direction: DirectionExt,
     ) -> CommandResult<()> {
         let flags = ctx.args().get_flags("flags")?;
-        let include_air = flags.contains("include-air");
+        let with_air = flags.contains("with-air");
         let expand_selection_flag = flags.contains("expand-selection");
 
         let player = ctx.player()?;
@@ -1587,7 +1587,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
         for i in 1..=count {
             let offset = direction * (i * spacing);
             let paste_pos = first_pos + offset;
-            paste_clipboard(ctx.world_mut(), &clipboard, paste_pos, !include_air);
+            paste_clipboard(ctx.world_mut(), &clipboard, paste_pos, !with_air);
         }
 
         if expand_selection_flag {
@@ -1610,7 +1610,7 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
     }
 
     let rstack_flags_arg = ArgumentType::flags()
-        .add('a', "include-air", "Include air blocks in stack")
+        .add('w', "with-air", "Stack with air blocks")
         .add(
             'e',
             "expand-selection",
@@ -1628,14 +1628,43 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                     .then(
                         CommandNode::argument("spacing", ArgumentType::integer(1, 1000))
                             .then(
-                                CommandNode::argument("direction", ArgumentType::direction_ext())
+                                CommandNode::argument(
+                                    "direction-ext",
+                                    ArgumentType::direction_ext(),
+                                )
+                                .then(
+                                    CommandNode::argument("flags", rstack_flags_arg.clone())
+                                        .executes(|ctx| {
+                                            let count = ctx.args().get_integer("count")?;
+                                            let spacing = ctx.args().get_integer("spacing")?;
+                                            let direction =
+                                                ctx.args().get_direction_ext("direction-ext")?;
+                                            exec_rstack(ctx, count, spacing, direction)
+                                        }),
+                                ),
+                            )
+                            .then(
+                                CommandNode::argument("flags", rstack_flags_arg.clone()).executes(
+                                    |ctx| {
+                                        let count = ctx.args().get_integer("count")?;
+                                        let spacing = ctx.args().get_integer("spacing")?;
+                                        exec_rstack(ctx, count, spacing, DirectionExt::Me)
+                                    },
+                                ),
+                            ),
+                    )
+                    .then(
+                        CommandNode::argument("direction-ext", ArgumentType::direction_ext())
+                            .then(
+                                CommandNode::argument("spacing", ArgumentType::integer(1, 1000))
                                     .then(
                                         CommandNode::argument("flags", rstack_flags_arg.clone())
                                             .executes(|ctx| {
                                                 let count = ctx.args().get_integer("count")?;
                                                 let spacing = ctx.args().get_integer("spacing")?;
-                                                let direction =
-                                                    ctx.args().get_direction_ext("direction")?;
+                                                let direction = ctx
+                                                    .args()
+                                                    .get_direction_ext("direction-ext")?;
                                                 exec_rstack(ctx, count, spacing, direction)
                                             }),
                                     ),
@@ -1644,8 +1673,9 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
                                 CommandNode::argument("flags", rstack_flags_arg.clone()).executes(
                                     |ctx| {
                                         let count = ctx.args().get_integer("count")?;
-                                        let spacing = ctx.args().get_integer("spacing")?;
-                                        exec_rstack(ctx, count, spacing, DirectionExt::Me)
+                                        let direction =
+                                            ctx.args().get_direction_ext("direction-ext")?;
+                                        exec_rstack(ctx, count, 2, direction)
                                     },
                                 ),
                             ),
