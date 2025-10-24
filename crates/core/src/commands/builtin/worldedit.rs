@@ -189,8 +189,10 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             })
             .then(
                 CommandNode::argument("coordinates", ArgumentType::block_pos()).executes(|ctx| {
-                    let pos = ctx.args().get_block_pos("coordinates")?;
-                    ctx.player_mut()?.worldedit_set_first_pos(pos);
+                    let relative_pos = ctx.args().get_block_pos("coordinates")?;
+                    let player = ctx.player_mut()?;
+                    let pos = relative_pos.resolve(player.pos.block_pos());
+                    player.worldedit_set_first_pos(pos);
                     Ok(())
                 }),
             ),
@@ -208,8 +210,10 @@ pub(super) fn register_commands(registry: &mut CommandRegistry) {
             })
             .then(
                 CommandNode::argument("coordinates", ArgumentType::block_pos()).executes(|ctx| {
-                    let pos = ctx.args().get_block_pos("coordinates")?;
-                    ctx.player_mut()?.worldedit_set_second_pos(pos);
+                    let relative_pos = ctx.args().get_block_pos("coordinates")?;
+                    let player = ctx.player_mut()?;
+                    let pos = relative_pos.resolve(player.pos.block_pos());
+                    player.worldedit_set_second_pos(pos);
                     Ok(())
                 }),
             ),

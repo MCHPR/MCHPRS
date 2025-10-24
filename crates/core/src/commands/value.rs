@@ -139,14 +139,31 @@ impl Vec3 {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct ColumnPos {
+pub struct RelativeColumnPos {
     pub x: RelativeCoord<i32>,
     pub z: RelativeCoord<i32>,
 }
 
-impl ColumnPos {
+impl RelativeColumnPos {
     pub fn resolve(&self, reference: (i32, i32)) -> (i32, i32) {
         (self.x.resolve(reference.0), self.z.resolve(reference.1))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RelativeBlockPos {
+    pub x: RelativeCoord<i32>,
+    pub y: RelativeCoord<i32>,
+    pub z: RelativeCoord<i32>,
+}
+
+impl RelativeBlockPos {
+    pub fn resolve(&self, reference: BlockPos) -> BlockPos {
+        BlockPos::new(
+            self.x.resolve(reference.x),
+            self.y.resolve(reference.y),
+            self.z.resolve(reference.z),
+        )
     }
 }
 
@@ -158,13 +175,13 @@ pub enum Value {
     Boolean(bool),
     Player(String),
     Vec3(Vec3),
-    ColumnPos(ColumnPos),
+    ColumnPos(RelativeColumnPos),
     Container(ContainerType),
     Pattern(WorldEditPattern),
     Mask(WorldEditPattern),
     Direction(Direction),
     DirectionExt(DirectionExt),
-    BlockPos(BlockPos),
+    BlockPos(RelativeBlockPos),
     GreedyString(String),
     Flags(FxHashSet<String>),
 }
@@ -219,7 +236,7 @@ impl Value {
         }
     }
 
-    pub(super) fn as_column_pos(&self) -> CommandResult<ColumnPos> {
+    pub(super) fn as_column_pos(&self) -> CommandResult<RelativeColumnPos> {
         match self {
             Value::ColumnPos(p) => Ok(*p),
             _ => Err(self.type_error("ColumnPos").into()),
@@ -261,7 +278,7 @@ impl Value {
         }
     }
 
-    pub(super) fn as_block_pos(&self) -> CommandResult<BlockPos> {
+    pub(super) fn as_block_pos(&self) -> CommandResult<RelativeBlockPos> {
         match self {
             Value::BlockPos(p) => Ok(*p),
             _ => Err(self.type_error("BlockPos").into()),

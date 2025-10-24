@@ -1,7 +1,7 @@
 use crate::{
     commands::{
         error::{CommandResult, InternalError},
-        value::{ColumnPos, Direction, DirectionExt, Value, Vec3},
+        value::{Direction, DirectionExt, RelativeBlockPos, RelativeColumnPos, Value, Vec3},
     },
     worldedit::WorldEditPattern,
 };
@@ -57,7 +57,7 @@ impl ArgumentSet {
         self.get(name)?.as_vec3()
     }
 
-    pub fn get_column_pos(&self, name: &str) -> CommandResult<ColumnPos> {
+    pub fn get_column_pos(&self, name: &str) -> CommandResult<RelativeColumnPos> {
         self.get(name)?.as_column_pos()
     }
 
@@ -84,7 +84,7 @@ impl ArgumentSet {
         self.get(name)?.as_direction_ext()
     }
 
-    pub fn get_block_pos(&self, name: &str) -> CommandResult<mchprs_blocks::BlockPos> {
+    pub fn get_block_pos(&self, name: &str) -> CommandResult<RelativeBlockPos> {
         self.get(name)?.as_block_pos()
     }
 

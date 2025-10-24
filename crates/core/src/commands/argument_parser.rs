@@ -2,7 +2,7 @@ use crate::{
     commands::{argument::FlagSpec, value::*},
     worldedit::WorldEditPattern,
 };
-use mchprs_blocks::{block_entities::ContainerType, BlockPos};
+use mchprs_blocks::block_entities::ContainerType;
 use rustc_hash::FxHashSet;
 use std::str::FromStr;
 
@@ -157,9 +157,43 @@ pub fn parse_column_pos(input: &str) -> ArgumentParseResult<'_> {
     }
 
     Ok((
-        Value::ColumnPos(ColumnPos {
+        Value::ColumnPos(RelativeColumnPos {
             x: coords[0],
             z: coords[1],
+        }),
+        remaining,
+    ))
+}
+
+pub fn parse_block_pos(input: &str) -> ArgumentParseResult<'_> {
+    let input = skip_whitespace(input);
+
+    let mut coords = Vec::new();
+    let mut remaining = input;
+
+    for _ in 0..3 {
+        remaining = skip_whitespace(remaining);
+        let (token, rest) = consume_token(remaining).ok_or(())?;
+
+        let coord = if token == "~" {
+            RelativeCoord::Relative(0)
+        } else if let Some(offset_str) = token.strip_prefix('~') {
+            let offset = offset_str.parse::<i32>().map_err(|_| ())?;
+            RelativeCoord::Relative(offset)
+        } else {
+            let val = token.parse::<i32>().map_err(|_| ())?;
+            RelativeCoord::Absolute(val)
+        };
+
+        coords.push(coord);
+        remaining = rest;
+    }
+
+    Ok((
+        Value::BlockPos(RelativeBlockPos {
+            x: coords[0],
+            y: coords[1],
+            z: coords[2],
         }),
         remaining,
     ))
@@ -247,26 +281,4 @@ pub fn parse_direction_ext(input: &str) -> ArgumentParseResult<'_> {
     };
 
     Ok((Value::DirectionExt(dir_vec), rest))
-}
-
-pub fn parse_block_pos(input: &str) -> ArgumentParseResult<'_> {
-    let input = skip_whitespace(input);
-
-    let mut coords = Vec::new();
-    let mut remaining = input;
-
-    for _ in 0..3 {
-        remaining = skip_whitespace(remaining);
-        let (token, rest) = consume_token(remaining).ok_or(())?;
-
-        let coord = token.parse::<i32>().map_err(|_| ())?;
-
-        coords.push(coord);
-        remaining = rest;
-    }
-
-    Ok((
-        Value::BlockPos(BlockPos::new(coords[0], coords[1], coords[2])),
-        remaining,
-    ))
 }
