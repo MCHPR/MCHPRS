@@ -102,8 +102,28 @@ impl BlockEntity {
         let mut inventory = Vec::new();
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
-            let count = nbt_unwrap_val!(item_compound["Count"], Value::Byte);
-            let slot = nbt_unwrap_val!(item_compound["Slot"], Value::Byte);
+            let count = match item_compound
+                .get("Count")
+                .or_else(|| item_compound.get("count"))
+                .unwrap()
+            {
+                Value::Byte(val) => *val,
+                Value::Int(val) => *val as i8,
+                _ => {
+                    return None;
+                }
+            };
+            let slot = match item_compound
+                .get("Slot")
+                .or_else(|| item_compound.get("slot"))
+                .unwrap()
+            {
+                Value::Byte(val) => *val,
+                Value::Int(val) => *val as i8,
+                _ => {
+                    return None;
+                }
+            };
             let namespaced_name = nbt_unwrap_val!(
                 item_compound
                     .get("Id")
