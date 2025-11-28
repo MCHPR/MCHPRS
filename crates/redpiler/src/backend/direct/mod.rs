@@ -26,9 +26,7 @@ struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
 
 impl Queues {
     fn drain_iter(&mut self) -> impl Iterator<Item = NodeId> + '_ {
-        let [q0, q1, q2, q3] = &mut self.0;
-        let [q0, q1, q2, q3] = [q0, q1, q2, q3].map(|q| q.drain(..));
-        q0.chain(q1).chain(q2).chain(q3)
+        self.0.iter_mut().flat_map(|q| q.drain(..))
     }
 }
 
