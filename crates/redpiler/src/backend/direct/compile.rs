@@ -73,7 +73,7 @@ fn compile_node(
     side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
 
     use crate::compile_graph::NodeType as CNodeType;
-    let fwd_link_begin = forward_links.len();
+    let fwd_link_begin = forward_links.len() as u32;
     if node.ty != CNodeType::Constant {
         let new_links = graph
             .edges_directed(node_idx, Direction::Outgoing)
@@ -93,8 +93,8 @@ fn compile_node(
             });
         forward_links.extend(new_links);
     };
-    let fwd_link_end = forward_links.len();
-    stats.update_link_count += fwd_link_end - fwd_link_begin;
+    let fwd_link_end = forward_links.len() as u32;
+    stats.update_link_count += (fwd_link_end - fwd_link_begin) as usize;
 
     let ty = match &node.ty {
         CNodeType::Repeater {

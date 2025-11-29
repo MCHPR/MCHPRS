@@ -129,7 +129,7 @@ impl DirectBackend {
         node.powered = powered;
         node.output_power = new_power;
 
-        for forward_link in &self.forward_links[node.fwd_link_begin..node.fwd_link_end] {
+        for forward_link in &self.forward_links[node.fwd_link_begin as usize..node.fwd_link_end as usize] {
             let side = forward_link.side();
             let distance = forward_link.ss();
             let update = forward_link.node();
@@ -381,7 +381,7 @@ impl fmt::Display for DirectBackend {
                 "No Pos".to_string()
             };
             writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id, label, pos)?;
-            for link in &self.forward_links[node.fwd_link_begin..node.fwd_link_end] {
+            for link in &self.forward_links[node.fwd_link_begin as usize..node.fwd_link_end as usize] {
                 let out_index = link.node().index();
                 let distance = link.ss();
                 let color = if link.side() { ",color=\"blue\"" } else { "" };
