@@ -160,9 +160,9 @@ pub struct Node {
     pub side_inputs: NodeInput,
 
     /// The index to the first forward link of this node.
-    pub fwd_link_begin: usize,
+    pub fwd_link_begin: u32,
     /// The index to after the last forward link of this node.
-    pub fwd_link_end: usize,
+    pub fwd_link_end: u32,
 
     pub is_io: bool,
 
