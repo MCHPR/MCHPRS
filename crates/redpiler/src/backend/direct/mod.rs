@@ -6,6 +6,7 @@ mod tick;
 mod update;
 
 use super::JITBackend;
+use crate::backend::direct::node::ForwardLink;
 use crate::compile_graph::CompileGraph;
 use crate::task_monitor::TaskMonitor;
 use crate::{block_powered_mut, CompilerOptions};
@@ -109,6 +110,7 @@ enum Event {
 #[derive(Default)]
 pub struct DirectBackend {
     nodes: Nodes,
+    forward_links: Vec<ForwardLink>,
     blocks: Vec<Option<(BlockPos, Block)>>,
     pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
@@ -128,12 +130,11 @@ impl DirectBackend {
         node.changed = true;
         node.powered = powered;
         node.output_power = new_power;
-        for i in 0..node.updates.len() {
-            let node = &self.nodes[node_id];
-            let update_link = unsafe { *node.updates.get_unchecked(i) };
-            let side = update_link.side();
-            let distance = update_link.ss();
-            let update = update_link.node();
+
+        for forward_link in &self.forward_links[node.fwd_link_begin..node.fwd_link_end] {
+            let side = forward_link.side();
+            let distance = forward_link.ss();
+            let update = forward_link.node();
 
             let update_ref = &mut self.nodes[update];
             let inputs = if side {
@@ -381,7 +382,7 @@ impl fmt::Display for DirectBackend {
                 "No Pos".to_string()
             };
             writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id, label, pos)?;
-            for link in node.updates.iter() {
+            for link in &self.forward_links[node.fwd_link_begin..node.fwd_link_end] {
                 let out_index = link.node().index();
                 let distance = link.ss();
                 let color = if link.side() { ",color=\"blue\"" } else { "" };
