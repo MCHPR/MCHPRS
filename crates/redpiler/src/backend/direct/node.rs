@@ -1,5 +1,4 @@
 use mchprs_blocks::blocks::ComparatorMode;
-use smallvec::SmallVec;
 use std::num::NonZeroU8;
 use std::ops::{Index, IndexMut};
 
@@ -154,7 +153,12 @@ pub struct Node {
     pub ty: NodeType,
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
-    pub updates: SmallVec<[ForwardLink; 10]>,
+
+    /// The index to the first forward link of this node.
+    pub fwd_link_begin: usize,
+    /// The index to after the last forward link of this node.
+    pub fwd_link_end: usize,
+
     pub is_io: bool,
 
     /// Powered or lit

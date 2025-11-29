@@ -7,7 +7,6 @@ use mchprs_world::TickEntry;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use rustc_hash::FxHashMap;
-use smallvec::SmallVec;
 use std::sync::Arc;
 use tracing::trace;
 
@@ -28,6 +27,7 @@ fn compile_node(
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
     noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
+    forward_links: &mut Vec<ForwardLink>,
     stats: &mut FinalGraphStats,
 ) -> Node {
     let node = &graph[node_idx];
@@ -73,8 +73,9 @@ fn compile_node(
     side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
 
     use crate::compile_graph::NodeType as CNodeType;
-    let updates = if node.ty != CNodeType::Constant {
-        graph
+    let fwd_link_begin = forward_links.len();
+    if node.ty != CNodeType::Constant {
+        let new_links = graph
             .edges_directed(node_idx, Direction::Outgoing)
             .sorted_by_key(|edge| nodes_map[&edge.target()])
             .into_group_map_by(|edge| std::mem::discriminant(&graph[edge.target()].ty))
@@ -89,12 +90,11 @@ fn compile_node(
 
                 let weight = edge.weight();
                 ForwardLink::new(target_id, weight.ty == LinkType::Side, weight.ss)
-            })
-            .collect()
-    } else {
-        SmallVec::new()
+            });
+        forward_links.extend(new_links);
     };
-    stats.update_link_count += updates.len();
+    let fwd_link_end = forward_links.len();
+    stats.update_link_count += fwd_link_end - fwd_link_begin;
 
     let ty = match &node.ty {
         CNodeType::Repeater {
@@ -132,7 +132,8 @@ fn compile_node(
         ty,
         default_inputs,
         side_inputs,
-        updates,
+        fwd_link_begin,
+        fwd_link_end,
         powered: node.state.powered,
         output_power: node.state.output_strength,
         locked: node.state.repeater_locked,
@@ -167,6 +168,7 @@ pub fn compile(
                 nodes_len,
                 &nodes_map,
                 &mut backend.noteblock_info,
+                &mut backend.forward_links,
                 &mut stats,
             )
         })
