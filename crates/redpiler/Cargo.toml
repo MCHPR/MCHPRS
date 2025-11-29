@@ -15,5 +15,4 @@ tracing = { workspace = true }
 petgraph = { workspace = true }
 itertools = { workspace = true }
 rustc-hash = { workspace = true }
-smallvec = { workspace = true }
 enum_dispatch = { workspace = true }
