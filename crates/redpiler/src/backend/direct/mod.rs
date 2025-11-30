@@ -197,6 +197,7 @@ impl JITBackend for DirectBackend {
             }
         }
 
+        self.forward_links.clear();
         self.pos_map.clear();
         self.noteblock_info.clear();
         self.events.clear();
