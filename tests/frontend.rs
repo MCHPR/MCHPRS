@@ -351,6 +351,153 @@ fn unpowered_repeater_clock() {
 }
 
 #[test]
+fn repeater_clock_duplicated_repeaters() {
+    //  L  W  W  W  W  W  W
+    //    RN RN RN RS RS RS
+    //  L  W  W  W  W  W  W
+    let mut world = TestWorld::new(1);
+    make_lever(&mut world, pos(0, 1, 0));
+    world.set_block(pos(0, 1, 2), REDSTONE_LAMP_UNLIT);
+    for x in 1..7 {
+        let repeater_direction = match x {
+            ..4 => BlockDirection::North,
+            _ => BlockDirection::South,
+        };
+        make_wire(&mut world, pos(x, 1, 0));
+        make_repeater(&mut world, pos(x, 1, 1), 1, repeater_direction);
+        make_wire(&mut world, pos(x, 1, 2));
+    }
+
+    // Unoptimized
+    let expected = expect![[r#"
+        digraph {
+            0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
+            1 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 1, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            2 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 1, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            3 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 1, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            4 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 1, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            5 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 2, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            6 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 2, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            7 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 2, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            8 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 3, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            9 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 3, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            10 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 3, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            11 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 4, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            12 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 4, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            13 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 4, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            14 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 5, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            15 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 5, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            16 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 5, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            17 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 6, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            18 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 6, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            19 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 6, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            0 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            12 -> 2 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            15 -> 2 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            18 -> 2 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+            0 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            12 -> 3 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            15 -> 3 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            18 -> 3 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+            3 -> 4 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            6 -> 4 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            9 -> 4 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            0 -> 5 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            12 -> 5 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            15 -> 5 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            18 -> 5 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            0 -> 6 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            12 -> 6 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            15 -> 6 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            18 -> 6 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            6 -> 7 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            9 -> 7 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            3 -> 7 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            12 -> 8 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            15 -> 8 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            0 -> 8 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            18 -> 8 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            12 -> 9 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            15 -> 9 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            0 -> 9 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            18 -> 9 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            9 -> 10 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            6 -> 10 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            3 -> 10 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            12 -> 11 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            15 -> 11 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            18 -> 11 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            0 -> 11 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            9 -> 12 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            6 -> 12 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            3 -> 12 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            9 -> 13 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            6 -> 13 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            3 -> 13 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            15 -> 14 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            18 -> 14 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            12 -> 14 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            0 -> 14 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            9 -> 15 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            6 -> 15 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            3 -> 15 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            9 -> 16 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            6 -> 16 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            3 -> 16 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            18 -> 17 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            15 -> 17 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            12 -> 17 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            0 -> 17 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+            9 -> 18 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            6 -> 18 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            3 -> 18 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+            9 -> 19 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            6 -> 19 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            3 -> 19 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+        }
+    "#]];
+    test_frontend(&world, expected, OptLevel::Unoptimized);
+
+    // Optimized
+    // TODO: Missed optimization:
+    // A lot of redundant edges.
+    let expected = expect![[r#"
+        digraph {
+            0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
+            1 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 1, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            2 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 1, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            3 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 2, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            4 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 3, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            5 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 4, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            6 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 5, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            7 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 6, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            0 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            5 -> 2 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            6 -> 2 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            7 -> 2 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+            0 -> 3 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            5 -> 3 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            6 -> 3 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            7 -> 3 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            5 -> 4 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            6 -> 4 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            0 -> 4 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            7 -> 4 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            4 -> 5 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            3 -> 5 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            2 -> 5 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            4 -> 6 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            3 -> 6 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            2 -> 6 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            4 -> 7 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            3 -> 7 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            2 -> 7 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+        }
+    "#]];
+    test_frontend(&world, expected, OptLevel::Optimized);
+}
+
+#[test]
 fn comparator_compare_mode_with_full_ss_rear_input() {
     let mut world = TestWorld::new(1);
     world.set_block(pos(0, 1, 0), REDSTONE_LAMP_UNLIT);
