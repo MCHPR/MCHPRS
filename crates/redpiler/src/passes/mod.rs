@@ -23,22 +23,6 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, trace};
 
-pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
-    PassManager::new(&[
-        &identify_nodes::IdentifyNodes,
-        &input_search::InputSearch,
-        &clamp_weights::ClampWeights,
-        &dedup_links::DedupLinks,
-        &constant_fold::ConstantFold,
-        &analysis::ss_range_analysis::SSRangeAnalysis,
-        &unreachable_output::UnreachableOutput,
-        &constant_coalesce::ConstantCoalesce,
-        &coalesce::Coalesce,
-        &prune_orphans::PruneOrphans,
-        &export_graph::ExportGraph,
-    ])
-}
-
 pub trait AnalysisInfo: Any {}
 
 #[derive(Default)]
@@ -62,6 +46,24 @@ impl AnalysisInfos {
 
 pub struct PassManager<'p, W: World> {
     passes: &'p [&'p dyn Pass<W>],
+}
+
+impl<'p, W: World> Default for PassManager<'p, W> {
+    fn default() -> Self {
+        Self::new(&[
+            &identify_nodes::IdentifyNodes,
+            &input_search::InputSearch,
+            &clamp_weights::ClampWeights,
+            &dedup_links::DedupLinks,
+            &constant_fold::ConstantFold,
+            &analysis::ss_range_analysis::SSRangeAnalysis,
+            &unreachable_output::UnreachableOutput,
+            &constant_coalesce::ConstantCoalesce,
+            &coalesce::Coalesce,
+            &prune_orphans::PruneOrphans,
+            &export_graph::ExportGraph,
+        ])
+    }
 }
 
 impl<'p, W: World> PassManager<'p, W> {
