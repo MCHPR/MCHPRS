@@ -197,7 +197,6 @@ fn long_redstone_wire() {
     }
 
     // Unoptimized
-    // FIXME: Unoptimized mode should not be removing edges
     let expected = expect![[r#"
         digraph {
             0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
@@ -269,7 +268,6 @@ fn long_redstone_wire_with_comparator() {
     world.set_block(pos(0, 1, 20), REDSTONE_LAMP_UNLIT);
 
     // Unoptimized
-    // FIXME: Unoptimized mode should not be removing edges
     let expected = expect![[r#"
         digraph {
             0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
