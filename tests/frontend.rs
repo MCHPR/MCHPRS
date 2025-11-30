@@ -260,7 +260,7 @@ fn long_redstone_wire_with_comparator() {
         &mut world,
         pos(0, 1, 10),
         ComparatorMode::Compare,
-        BlockDirection::West,
+        BlockDirection::North,
     );
     for z in 11..20 {
         make_wire(&mut world, pos(0, 1, z));
@@ -268,6 +268,7 @@ fn long_redstone_wire_with_comparator() {
     world.set_block(pos(0, 1, 20), REDSTONE_LAMP_UNLIT);
 
     // Unoptimized
+    // FIXME: Unoptimized mode should not be removing edges.
     let expected = expect![[r#"
         digraph {
             0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
@@ -280,7 +281,7 @@ fn long_redstone_wire_with_comparator() {
             7 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 7 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             8 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 8 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             9 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 9 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-            10 [ label = "CompileNode { ty: Comparator { mode: Compare, far_input: None, facing_diode: false }, block: Some((BlockPos { x: 0, y: 1, z: 10 }, 9184)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            10 [ label = "CompileNode { ty: Comparator { mode: Compare, far_input: None, facing_diode: false }, block: Some((BlockPos { x: 0, y: 1, z: 10 }, 9176)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             11 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 11 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             12 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 12 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             13 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 13 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
@@ -295,7 +296,12 @@ fn long_redstone_wire_with_comparator() {
             0 -> 7 [ label = "CompileLink { ty: Default, ss: 6 }" ]
             0 -> 8 [ label = "CompileLink { ty: Default, ss: 7 }" ]
             0 -> 9 [ label = "CompileLink { ty: Default, ss: 8 }" ]
-            0 -> 10 [ label = "CompileLink { ty: Side, ss: 8 }" ]
+            0 -> 10 [ label = "CompileLink { ty: Default, ss: 8 }" ]
+            10 -> 11 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            10 -> 12 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            10 -> 13 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            10 -> 14 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            10 -> 15 [ label = "CompileLink { ty: Default, ss: 4 }" ]
         }
     "#]];
     test_frontend(&world, expected, OptLevel::Unoptimized);
@@ -304,8 +310,8 @@ fn long_redstone_wire_with_comparator() {
     let expected = expect![[r#"
         digraph {
             0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
-            1 [ label = "CompileNode { ty: Comparator { mode: Compare, far_input: None, facing_diode: false }, block: Some((BlockPos { x: 0, y: 1, z: 10 }, 9184)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-            0 -> 1 [ label = "CompileLink { ty: Side, ss: 8 }" ]
+            1 [ label = "CompileNode { ty: Comparator { mode: Compare, far_input: None, facing_diode: false }, block: Some((BlockPos { x: 0, y: 1, z: 10 }, 9176)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            0 -> 1 [ label = "CompileLink { ty: Default, ss: 8 }" ]
         }
     "#]];
     test_frontend(&world, expected, OptLevel::Optimized);
