@@ -148,6 +148,11 @@ impl NonMaxU8 {
     }
 }
 
+// The `Node` struct's size is currently 64 bytes which happens to be the same
+// size as an L1 cache line on most modern processors. By forcing a 64-byte
+// alignment, we make sure that the entire `Node` can fit on one cache line,
+// preventing scenarios where we have to fetch 2 cache lines to read a single `Node`.
+#[repr(align(64))]
 #[derive(Debug, Clone)]
 pub struct Node {
     pub ty: NodeType,
