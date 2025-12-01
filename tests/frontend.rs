@@ -9,7 +9,7 @@ use mchprs_blocks::{
     BlockDirection,
 };
 use mchprs_redpiler::{CompileGraph, CompilerInput, CompilerOptions, PassManager};
-use mchprs_world::World;
+use mchprs_world::{TickPriority, World};
 
 enum OptLevel {
     Unoptimized,
@@ -544,6 +544,43 @@ fn comparator_compare_mode_with_full_ss_rear_input() {
             3 -> 1 [ label = "CompileLink { ty: Side, ss: 0 }" ]
             2 -> 1 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             4 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+        }
+    "#]];
+    test_frontend(&world, expected, OptLevel::Optimized);
+}
+
+#[test]
+fn constant_input_repeater_chain_with_pending_update() {
+    let mut world = TestWorld::new(1);
+    world.set_block(pos(0, 1, 0), REDSTONE_BLOCK);
+    make_repeater(&mut world, pos(1, 1, 0), 1, BlockDirection::West);
+    make_repeater(&mut world, pos(2, 1, 0), 1, BlockDirection::West);
+    world.set_block(pos(3, 1, 0), REDSTONE_LAMP_UNLIT);
+    // schedule an update for the first repeater
+    world.schedule_tick(pos(1, 1, 0), 1, TickPriority::Normal);
+
+    // Unoptimized
+    let expected = expect![[r#"
+        digraph {
+            0 [ label = "CompileNode { ty: Constant, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 9223)), state: NodeState { powered: false, repeater_locked: false, output_strength: 15 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            1 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: true }, block: Some((BlockPos { x: 1, y: 1, z: 0 }, 5892)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            2 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 2, y: 1, z: 0 }, 5892)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            3 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 3, y: 1, z: 0 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            0 -> 1 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            1 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            2 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+        }
+    "#]];
+    test_frontend(&world, expected, OptLevel::Unoptimized);
+
+    // Optimized
+    // FIXME: Illegal optimization:
+    // The repeaters must not be optimized away because they become powered in the next ticks.
+    let expected = expect![[r#"
+        digraph {
+            1 [ label = "CompileNode { ty: Constant, block: None, state: NodeState { powered: false, repeater_locked: false, output_strength: 15 }, is_input: false, is_output: false, annotations: Annotations }" ]
+            3 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 3, y: 1, z: 0 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            1 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
         }
     "#]];
     test_frontend(&world, expected, OptLevel::Optimized);
