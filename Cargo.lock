@@ -1273,6 +1273,7 @@ dependencies = [
  "mchprs_core",
  "mchprs_redpiler",
  "mchprs_redstone",
+ "mchprs_save_data",
  "mchprs_world",
  "paste",
  "tracing",

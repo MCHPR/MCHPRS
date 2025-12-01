@@ -45,6 +45,7 @@ mchprs_world = { path = "./crates/world" }
 mchprs_blocks = { path = "./crates/blocks" }
 mchprs_redpiler = { path = "./crates/redpiler" }
 mchprs_redstone = { path = "./crates/redstone" }
+mchprs_save_data = { path = "./crates/save_data" }
 paste = { workspace = true }
 criterion = { workspace = true }
 
