@@ -22,6 +22,24 @@ fn load_plot(path: impl AsRef<std::path::Path>) -> PlotWorld {
     }
 }
 
+/// Compiles the world and interacts with the block at the given position.
+fn compile(world: &PlotWorld, initial_interact_pos: BlockPos) -> Compiler {
+    let compile_options = CompilerOptions {
+        backend_variant: BackendVariant::Direct,
+        ..Default::default()
+    };
+    let mut compiler = Compiler::default();
+    compiler.compile(
+        world,
+        world.get_corners(),
+        compile_options.clone(),
+        Default::default(),
+        Default::default(),
+    );
+    compiler.on_use_block(initial_interact_pos);
+    compiler
+}
+
 /// Runs the simulation until the system reaches a stable state.
 fn run_backend(compiler: &mut Compiler) {
     while compiler.has_pending_ticks() {
@@ -38,27 +56,27 @@ fn repeater_grid_bench(c: &mut Criterion) {
         Block::StoneButton { .. }
     ));
 
-    let setup_and_compile = || {
-        let compile_options = CompilerOptions {
-            backend_variant: BackendVariant::Direct,
-            ..Default::default()
-        };
-        let mut compiler = Compiler::default();
-        compiler.compile(
-            &world,
-            world.get_corners(),
-            compile_options.clone(),
-            Default::default(),
-            Default::default(),
-        );
-        compiler.on_use_block(start_button_pos);
-        compiler
-    };
-
+    let setup = || compile(&world, start_button_pos);
     c.bench_function("repeater_grid", |b| {
-        b.iter_batched_ref(setup_and_compile, run_backend, BatchSize::LargeInput);
+        b.iter_batched_ref(setup, run_backend, BatchSize::LargeInput);
     });
 }
 
-criterion_group!(benches, repeater_grid_bench);
+fn adder_bench(c: &mut Criterion) {
+    let world = load_plot("benches/plots/adder_8_bits");
+
+    // Lever switches adder from ADD to SUB mode.
+    let start_lever_pos = BlockPos::new(30, 3, 46);
+    assert!(matches!(
+        world.get_block(start_lever_pos),
+        Block::Lever { .. }
+    ));
+
+    let setup = || compile(&world, start_lever_pos);
+    c.bench_function("adder_8_bits", |b| {
+        b.iter_batched_ref(setup, run_backend, BatchSize::LargeInput);
+    });
+}
+
+criterion_group!(benches, repeater_grid_bench, adder_bench);
 criterion_main!(benches);
