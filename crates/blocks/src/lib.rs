@@ -19,10 +19,6 @@ impl BlockPos {
         BlockPos { x, y, z }
     }
 
-    pub const fn splat(x: i32) -> BlockPos {
-        BlockPos::new(x, x, x)
-    }
-
     pub fn zero() -> BlockPos {
         BlockPos::new(0, 0, 0)
     }
