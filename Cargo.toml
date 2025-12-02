@@ -91,5 +91,5 @@ clap = { version = "4.5", features = ["derive"] }
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
-name = "direct_backend"
+name = "redpiler_bench"
 harness = false
