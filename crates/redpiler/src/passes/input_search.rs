@@ -141,14 +141,13 @@ impl<'a, W: World> InputSearchState<'a, W> {
         link_ty: LinkType,
         mut distance: u8,
     ) {
-        let mut queue: VecDeque<BlockPos> = VecDeque::new();
+        let mut stack: Vec<BlockPos> = Vec::new();
         let mut discovered = FxHashMap::default();
 
         discovered.insert(root_pos, distance);
-        queue.push_back(root_pos);
+        stack.push(root_pos);
 
-        while !queue.is_empty() {
-            let pos = queue.pop_front().unwrap();
+        while let Some(pos) = stack.pop() {
             distance = discovered[&pos];
 
             // We can stop looking once we've reached the max ss of a wire. This also prevents
@@ -176,7 +175,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 );
 
                 if is_wire(self.world, neighbor_pos) && !discovered.contains_key(&neighbor_pos) {
-                    queue.push_back(neighbor_pos);
+                    stack.push(neighbor_pos);
                     discovered.insert(neighbor_pos, discovered[&pos] + 1);
                 }
 
@@ -186,7 +185,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                         if is_wire(self.world, neighbor_up_pos)
                             && !discovered.contains_key(&neighbor_up_pos)
                         {
-                            queue.push_back(neighbor_up_pos);
+                            stack.push(neighbor_up_pos);
                             discovered.insert(neighbor_up_pos, discovered[&pos] + 1);
                         }
                     }
@@ -196,7 +195,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                         if is_wire(self.world, neighbor_down_pos)
                             && !discovered.contains_key(&neighbor_down_pos)
                         {
-                            queue.push_back(neighbor_down_pos);
+                            stack.push(neighbor_down_pos);
                             discovered.insert(neighbor_down_pos, discovered[&pos] + 1);
                         }
                     }
