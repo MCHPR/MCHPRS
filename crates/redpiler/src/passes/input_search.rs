@@ -38,10 +38,42 @@ impl<W: World> Pass<W> for InputSearch {
     }
 }
 
+/// Querying blocks from the world may be expensive, so we save recently
+/// queried blocks in a cache to reduce the number of times we query the world.
+struct BlockLookupCache<'world, W: World> {
+    world: &'world W,
+    cache: [[[Option<(Block, BlockPos)>; 16]; 16]; 16],
+}
+
+impl<'world, W: World> BlockLookupCache<'world, W> {
+    pub fn new(world: &'world W) -> Self {
+        Self {
+            world,
+            cache: Default::default(),
+        }
+    }
+
+    fn get_block(&mut self, pos: BlockPos) -> Block {
+        let cache_x = pos.x as usize % 16;
+        let cache_y = pos.y as usize % 16;
+        let cache_z = pos.z as usize % 16;
+        let cache_entry = &mut self.cache[cache_x][cache_y][cache_z];
+        match cache_entry {
+            Some((block, block_pos)) if *block_pos == pos => *block,
+            _ => {
+                let block = self.world.get_block(pos);
+                *cache_entry = Some((block, pos));
+                block
+            }
+        }
+    }
+}
+
 struct InputSearchState<'a, W: World> {
     world: &'a W,
     graph: &'a mut CompileGraph,
     pos_map: FxHashMap<BlockPos, NodeIdx>,
+    block_lookup_cache: BlockLookupCache<'a, W>,
 }
 
 impl<'a, W: World> InputSearchState<'a, W> {
@@ -56,6 +88,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
             world,
             graph,
             pos_map,
+            block_lookup_cache: BlockLookupCache::new(world),
         }
     }
 
@@ -74,7 +107,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
         if block.is_solid() {
             for side in &BlockFace::values() {
                 let pos = pos.offset(*side);
-                let block = self.world.get_block(pos);
+                let block = self.block_lookup_cache.get_block(pos);
                 if provides_strong_power(block, *side) {
                     self.graph.add_edge(
                         self.pos_map[&pos],
@@ -142,6 +175,8 @@ impl<'a, W: World> InputSearchState<'a, W> {
     ) {
         let mut discovered = vec![(root_pos, initial_distance)];
 
+        // Linear search has better runtime performance than any other lookup when there are
+        // only a few elements, which is most of the time.
         let has_been_discovered =
             |discovered: &[_], new_pos| discovered.iter().any(|(pos, _)| *pos == new_pos);
 
@@ -158,11 +193,11 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
             // The block above the wire. If it's solid, we can't connect up diagonally
             let up_pos = pos.offset(BlockFace::Top);
-            let up_block = self.world.get_block(up_pos);
+            let up_block = self.block_lookup_cache.get_block(up_pos);
 
             for side in &BlockFace::values() {
                 let neighbor_pos = pos.offset(*side);
-                let neighbor = self.world.get_block(neighbor_pos);
+                let neighbor = self.block_lookup_cache.get_block(neighbor_pos);
 
                 self.get_redstone_links(
                     neighbor,
@@ -174,16 +209,14 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     false,
                 );
 
-                if is_wire(self.world, neighbor_pos)
-                    && !has_been_discovered(&discovered, neighbor_pos)
-                {
+                if is_wire(neighbor) && !has_been_discovered(&discovered, neighbor_pos) {
                     discovered.push((neighbor_pos, distance + 1));
                 }
 
                 if side.is_horizontal() {
                     if !up_block.is_solid() && !neighbor.is_transparent() {
                         let neighbor_up_pos = neighbor_pos.offset(BlockFace::Top);
-                        if is_wire(self.world, neighbor_up_pos)
+                        if is_wire(self.block_lookup_cache.get_block(neighbor_up_pos))
                             && !has_been_discovered(&discovered, neighbor_up_pos)
                         {
                             discovered.push((neighbor_up_pos, distance + 1));
@@ -192,7 +225,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
                     if !neighbor.is_solid() {
                         let neighbor_down_pos = neighbor_pos.offset(BlockFace::Bottom);
-                        if is_wire(self.world, neighbor_down_pos)
+                        if is_wire(self.block_lookup_cache.get_block(neighbor_down_pos))
                             && !has_been_discovered(&discovered, neighbor_down_pos)
                         {
                             discovered.push((neighbor_down_pos, distance + 1));
@@ -205,7 +238,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
     fn search_diode_inputs(&mut self, id: NodeIdx, pos: BlockPos, facing: BlockDirection) {
         let input_pos = pos.offset(facing.block_face());
-        let input_block = self.world.get_block(input_pos);
+        let input_block = self.block_lookup_cache.get_block(input_pos);
         self.get_redstone_links(
             input_block,
             facing.block_face(),
@@ -219,7 +252,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
     fn search_repeater_side(&mut self, id: NodeIdx, pos: BlockPos, side: BlockDirection) {
         let side_pos = pos.offset(side.block_face());
-        let side_block = self.world.get_block(side_pos);
+        let side_block = self.block_lookup_cache.get_block(side_pos);
         if mchprs_redstone::is_diode(side_block)
             && provides_weak_power(side_block, side.block_face())
         {
@@ -230,7 +263,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
     fn search_comparator_side(&mut self, id: NodeIdx, pos: BlockPos, side: BlockDirection) {
         let side_pos = pos.offset(side.block_face());
-        let side_block = self.world.get_block(side_pos);
+        let side_block = self.block_lookup_cache.get_block(side_pos);
         if (mchprs_redstone::is_diode(side_block)
             && provides_weak_power(side_block, side.block_face()))
             || matches!(side_block, Block::RedstoneBlock { .. })
@@ -246,7 +279,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
         match Block::from_id(block_id) {
             Block::RedstoneTorch { .. } => {
                 let bottom_pos = pos.offset(BlockFace::Bottom);
-                let bottom_block = self.world.get_block(bottom_pos);
+                let bottom_block = self.block_lookup_cache.get_block(bottom_pos);
                 self.get_redstone_links(
                     bottom_block,
                     BlockFace::Top,
@@ -259,7 +292,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
             }
             Block::RedstoneWallTorch { facing, .. } => {
                 let wall_pos = pos.offset(facing.opposite().block_face());
-                let wall_block = self.world.get_block(wall_pos);
+                let wall_block = self.block_lookup_cache.get_block(wall_pos);
                 self.get_redstone_links(
                     wall_block,
                     facing.opposite().block_face(),
@@ -277,7 +310,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 self.search_comparator_side(id, pos, facing.rotate_ccw());
 
                 let input_pos = pos.offset(facing.block_face());
-                let input_block = self.world.get_block(input_pos);
+                let input_block = self.block_lookup_cache.get_block(input_pos);
                 if comparator::has_override(input_block) {
                     self.graph
                         .add_edge(self.pos_map[&input_pos], id, CompileLink::default(0));
@@ -298,7 +331,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
             Block::RedstoneLamp { .. } | Block::IronTrapdoor { .. } | Block::NoteBlock { .. } => {
                 for face in &BlockFace::values() {
                     let neighbor_pos = pos.offset(*face);
-                    let neighbor_block = self.world.get_block(neighbor_pos);
+                    let neighbor_block = self.block_lookup_cache.get_block(neighbor_pos);
                     self.get_redstone_links(
                         neighbor_block,
                         *face,
@@ -326,20 +359,20 @@ impl<'a, W: World> InputSearchState<'a, W> {
     }
 }
 
-fn is_wire(world: &impl World, pos: BlockPos) -> bool {
-    matches!(world.get_block(pos), Block::RedstoneWire { .. })
+fn is_wire(block: Block) -> bool {
+    matches!(block, Block::RedstoneWire { .. })
 }
 
 fn provides_weak_power(block: Block, side: BlockFace) -> bool {
     match block {
         Block::RedstoneTorch { .. } => side != BlockFace::Top,
-        Block::RedstoneWallTorch { facing, .. } if facing.block_face() != side => true,
+        Block::RedstoneWallTorch { facing, .. } => facing.block_face() != side,
         Block::RedstoneBlock {} => true,
         Block::Lever { .. } => true,
         Block::StoneButton { .. } => true,
         Block::StonePressurePlate { .. } => true,
-        Block::RedstoneRepeater { repeater } if repeater.facing.block_face() == side => true,
-        Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => true,
+        Block::RedstoneRepeater { repeater } => repeater.facing.block_face() == side,
+        Block::RedstoneComparator { comparator } => comparator.facing.block_face() == side,
         _ => false,
     }
 }
@@ -359,8 +392,8 @@ fn provides_strong_power(block: Block, side: BlockFace) -> bool {
             BlockFace::Bottom => button.face == ButtonFace::Ceiling,
             _ => button.face == ButtonFace::Wall && button.facing == side.unwrap_direction(),
         },
-        Block::RedstoneRepeater { .. } => provides_weak_power(block, side),
-        Block::RedstoneComparator { .. } => provides_weak_power(block, side),
+        Block::RedstoneRepeater { repeater } => repeater.facing.block_face() == side,
+        Block::RedstoneComparator { comparator } => comparator.facing.block_face() == side,
         _ => false,
     }
 }
