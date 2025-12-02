@@ -22,9 +22,10 @@ fn load_plot(path: impl AsRef<std::path::Path>) -> PlotWorld {
     }
 }
 
-const PLOTS: [(&str, BlockPos); 3] = [
+const PLOTS: [(&str, BlockPos); 4] = [
     ("adder", BlockPos::new(30, 3, 46)),
     ("call_stack", BlockPos::new(29, 0, 10)),
+    ("long_wire", BlockPos::new(31, 1, 16)),
     ("repeater_grid", BlockPos::new(16, 1, 16)),
 ];
 
