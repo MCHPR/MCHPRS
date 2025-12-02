@@ -60,43 +60,6 @@ impl<'a, W: World> InputSearchState<'a, W> {
         }
     }
 
-    fn provides_weak_power(&self, block: Block, side: BlockFace) -> bool {
-        match block {
-            Block::RedstoneTorch { .. } => true,
-            Block::RedstoneWallTorch { facing, .. } if facing.block_face() != side => true,
-            Block::RedstoneBlock {} => true,
-            Block::Lever { .. } => true,
-            Block::StoneButton { .. } => true,
-            Block::StonePressurePlate { .. } => true,
-            Block::RedstoneRepeater { repeater } if repeater.facing.block_face() == side => true,
-            Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    fn provides_strong_power(&self, block: Block, side: BlockFace) -> bool {
-        match block {
-            Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
-            Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
-            Block::StonePressurePlate { .. } if side == BlockFace::Top => true,
-            Block::Lever { lever } => match side {
-                BlockFace::Top => lever.face == LeverFace::Floor,
-                BlockFace::Bottom => lever.face == LeverFace::Ceiling,
-                _ => lever.face == LeverFace::Wall && lever.facing == side.unwrap_direction(),
-            },
-            Block::StoneButton { button } => match side {
-                BlockFace::Top => button.face == ButtonFace::Floor,
-                BlockFace::Bottom => button.face == ButtonFace::Ceiling,
-                _ => button.face == ButtonFace::Wall && button.facing == side.unwrap_direction(),
-            },
-            Block::RedstoneRepeater { .. } => self.provides_weak_power(block, side),
-            Block::RedstoneComparator { .. } => self.provides_weak_power(block, side),
-            _ => false,
-        }
-    }
-
     // unfortunate
     #[allow(clippy::too_many_arguments)]
     fn get_redstone_links(
@@ -113,7 +76,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
             for side in &BlockFace::values() {
                 let pos = pos.offset(*side);
                 let block = self.world.get_block(pos);
-                if self.provides_strong_power(block, *side) {
+                if provides_strong_power(block, *side) {
                     self.graph.add_edge(
                         self.pos_map[&pos],
                         start_node,
@@ -145,7 +108,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     }
                 }
             }
-        } else if self.provides_weak_power(block, side) {
+        } else if provides_weak_power(block, side) {
             self.graph.add_edge(
                 self.pos_map[&pos],
                 start_node,
@@ -260,7 +223,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
         let side_pos = pos.offset(side.block_face());
         let side_block = self.world.get_block(side_pos);
         if mchprs_redstone::is_diode(side_block)
-            && self.provides_weak_power(side_block, side.block_face())
+            && provides_weak_power(side_block, side.block_face())
         {
             self.graph
                 .add_edge(self.pos_map[&side_pos], id, CompileLink::side(0));
@@ -271,7 +234,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
         let side_pos = pos.offset(side.block_face());
         let side_block = self.world.get_block(side_pos);
         if (mchprs_redstone::is_diode(side_block)
-            && self.provides_weak_power(side_block, side.block_face()))
+            && provides_weak_power(side_block, side.block_face()))
             || matches!(side_block, Block::RedstoneBlock { .. })
         {
             self.graph
@@ -367,4 +330,39 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
 fn is_wire(world: &impl World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos), Block::RedstoneWire { .. })
+}
+
+fn provides_weak_power(block: Block, side: BlockFace) -> bool {
+    match block {
+        Block::RedstoneTorch { .. } => true,
+        Block::RedstoneWallTorch { facing, .. } if facing.block_face() != side => true,
+        Block::RedstoneBlock {} => true,
+        Block::Lever { .. } => true,
+        Block::StoneButton { .. } => true,
+        Block::StonePressurePlate { .. } => true,
+        Block::RedstoneRepeater { repeater } if repeater.facing.block_face() == side => true,
+        Block::RedstoneComparator { comparator } if comparator.facing.block_face() == side => true,
+        _ => false,
+    }
+}
+
+fn provides_strong_power(block: Block, side: BlockFace) -> bool {
+    match block {
+        Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
+        Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
+        Block::StonePressurePlate { .. } if side == BlockFace::Top => true,
+        Block::Lever { lever } => match side {
+            BlockFace::Top => lever.face == LeverFace::Floor,
+            BlockFace::Bottom => lever.face == LeverFace::Ceiling,
+            _ => lever.face == LeverFace::Wall && lever.facing == side.unwrap_direction(),
+        },
+        Block::StoneButton { button } => match side {
+            BlockFace::Top => button.face == ButtonFace::Floor,
+            BlockFace::Bottom => button.face == ButtonFace::Ceiling,
+            _ => button.face == ButtonFace::Wall && button.facing == side.unwrap_direction(),
+        },
+        Block::RedstoneRepeater { .. } => provides_weak_power(block, side),
+        Block::RedstoneComparator { .. } => provides_weak_power(block, side),
+        _ => false,
+    }
 }
