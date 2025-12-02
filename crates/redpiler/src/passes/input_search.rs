@@ -13,7 +13,6 @@ use mchprs_redstone::{self, comparator, wire};
 use mchprs_world::World;
 use petgraph::visit::NodeIndexable;
 use rustc_hash::FxHashMap;
-use std::collections::VecDeque;
 
 pub struct InputSearch;
 
@@ -139,19 +138,20 @@ impl<'a, W: World> InputSearchState<'a, W> {
         start_node: NodeIdx,
         root_pos: BlockPos,
         link_ty: LinkType,
-        mut distance: u8,
+        initial_distance: u8,
     ) {
-        let mut stack: Vec<BlockPos> = Vec::new();
-        let mut discovered = FxHashMap::default();
+        let mut discovered = vec![(root_pos, initial_distance)];
 
-        discovered.insert(root_pos, distance);
-        stack.push(root_pos);
+        let has_been_discovered =
+            |discovered: &[_], new_pos| discovered.iter().any(|(pos, _)| *pos == new_pos);
 
-        while let Some(pos) = stack.pop() {
-            distance = discovered[&pos];
+        let mut idx = 0;
+        while idx < discovered.len() {
+            let (pos, distance) = discovered[idx];
+            idx += 1;
 
-            // We can stop looking once we've reached the max ss of a wire. This also prevents
-            // overflowing the distance past 255
+            // We can stop looking once we've reached the max ss of a wire.
+            // This also prevents overflowing the distance past 255.
             if distance > 15 {
                 continue;
             }
@@ -174,29 +174,28 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     false,
                 );
 
-                if is_wire(self.world, neighbor_pos) && !discovered.contains_key(&neighbor_pos) {
-                    stack.push(neighbor_pos);
-                    discovered.insert(neighbor_pos, discovered[&pos] + 1);
+                if is_wire(self.world, neighbor_pos)
+                    && !has_been_discovered(&discovered, neighbor_pos)
+                {
+                    discovered.push((neighbor_pos, distance + 1));
                 }
 
                 if side.is_horizontal() {
                     if !up_block.is_solid() && !neighbor.is_transparent() {
                         let neighbor_up_pos = neighbor_pos.offset(BlockFace::Top);
                         if is_wire(self.world, neighbor_up_pos)
-                            && !discovered.contains_key(&neighbor_up_pos)
+                            && !has_been_discovered(&discovered, neighbor_up_pos)
                         {
-                            stack.push(neighbor_up_pos);
-                            discovered.insert(neighbor_up_pos, discovered[&pos] + 1);
+                            discovered.push((neighbor_up_pos, distance + 1));
                         }
                     }
 
                     if !neighbor.is_solid() {
                         let neighbor_down_pos = neighbor_pos.offset(BlockFace::Bottom);
                         if is_wire(self.world, neighbor_down_pos)
-                            && !discovered.contains_key(&neighbor_down_pos)
+                            && !has_been_discovered(&discovered, neighbor_down_pos)
                         {
-                            stack.push(neighbor_down_pos);
-                            discovered.insert(neighbor_down_pos, discovered[&pos] + 1);
+                            discovered.push((neighbor_down_pos, distance + 1));
                         }
                     }
                 }
