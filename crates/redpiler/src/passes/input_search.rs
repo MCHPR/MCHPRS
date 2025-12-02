@@ -334,7 +334,7 @@ fn is_wire(world: &impl World, pos: BlockPos) -> bool {
 
 fn provides_weak_power(block: Block, side: BlockFace) -> bool {
     match block {
-        Block::RedstoneTorch { .. } => true,
+        Block::RedstoneTorch { .. } => side != BlockFace::Top,
         Block::RedstoneWallTorch { facing, .. } if facing.block_face() != side => true,
         Block::RedstoneBlock {} => true,
         Block::Lever { .. } => true,
