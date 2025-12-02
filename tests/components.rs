@@ -3,7 +3,7 @@ use common::*;
 
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockDirection;
-use mchprs_world::World;
+use mchprs_world::{TickPriority, World};
 
 test_all_backends!(lever_on_off);
 fn lever_on_off(backend: TestBackend) {
@@ -181,4 +181,22 @@ fn wire_no_reach(backend: TestBackend) {
     runner.check_block_powered(trapdoor_pos, false);
     runner.use_block(lever_pos);
     runner.check_block_powered(trapdoor_pos, false);
+}
+
+test_all_backends!(ground_torch_does_not_power_block_below);
+/// https://github.com/MCHPR/MCHPRS/issues/218
+fn ground_torch_does_not_power_block_below(backend: TestBackend) {
+    let torch_pos = pos(0, 1, 0);
+    let lamp_pos = pos(0, 0, 0);
+
+    let mut world = TestWorld::new(1);
+    world.set_block(lamp_pos, Block::RedstoneLamp { lit: true });
+    world.set_block(torch_pos, Block::RedstoneTorch { lit: true });
+
+    world.schedule_tick(torch_pos, 1, TickPriority::Normal);
+    world.schedule_tick(lamp_pos, 1, TickPriority::Normal);
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.tick();
+    runner.check_block_powered(lamp_pos, false);
 }
