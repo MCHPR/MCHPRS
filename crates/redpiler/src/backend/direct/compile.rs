@@ -132,7 +132,7 @@ fn compile_node(
     let forward_links = &forward_links[fwd_link_begin as usize..fwd_link_end as usize];
     let fwd_link_len = forward_links.len();
     assert!(fwd_link_len < u16::MAX as usize);
-    
+
     // Safety: These are simply placeholder values and should not ever be read
     let mut first_links = [ForwardLink::new(unsafe { NodeId::from_index(0) }, false, 0); 5];
     let num_first = fwd_link_len.min(first_links.len());
@@ -173,7 +173,6 @@ pub fn compile(
     options: &CompilerOptions,
     _monitor: Arc<TaskMonitor>,
 ) {
-
     backend.blocks = Vec::with_capacity(graph.node_count());
 
     // Create a mapping from compile to backend node indices
@@ -182,10 +181,13 @@ pub fn compile(
     for node in graph.node_indices() {
         nodes_map.insert(node, nodes_len);
 
-        let outgoing = if graph[node].ty == crate::compile_graph::NodeType::Constant {0} else {graph.neighbors_directed(node, Outgoing).count()};
+        let outgoing = if graph[node].ty == crate::compile_graph::NodeType::Constant {
+            0
+        } else {
+            graph.neighbors_directed(node, Outgoing).count()
+        };
         let extra_nodes = (outgoing + 15 - 5) / 16;
         nodes_len += 1 + extra_nodes;
-
 
         let block = graph[node].block.map(|(pos, id)| (pos, Block::from_id(id)));
         backend.blocks.push(block);
@@ -207,15 +209,14 @@ pub fn compile(
             &mut backend.noteblock_info,
             &mut backend.forward_links,
             &mut stats,
-            &mut nodes
+            &mut nodes,
         );
     }
     stats.nodes_bytes = nodes_len * std::mem::size_of::<Node>();
     trace!("{:#?}", stats);
 
+    assert_eq!(nodes.len(), nodes_len);
 
-    assert_eq!(nodes.len(), nodes_len);        
-    
     backend.nodes = Nodes::new(nodes.into_boxed_slice());
 
     // Create a mapping from block pos to backend NodeId

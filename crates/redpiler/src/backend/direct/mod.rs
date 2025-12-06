@@ -128,15 +128,14 @@ impl DirectBackend {
         node.changed = true;
         node.powered = powered;
         node.output_power = new_power;
-        
+
         let node = &self.nodes[node_id];
 
         // Safety: node is followed by the correct number of ForwardLink blocks
         // Safety: node.fwd_links and node.fwd_link_len are not modified for links's lifetime
-        let links: &[ForwardLink] = unsafe {std::slice::from_raw_parts(
-            node.fwd_links.as_ptr(),
-            node.fwd_link_len as usize
-        )};
+        let links: &[ForwardLink] = unsafe {
+            std::slice::from_raw_parts(node.fwd_links.as_ptr(), node.fwd_link_len as usize)
+        };
 
         for forward_link in links {
             let side = forward_link.side();
@@ -390,7 +389,13 @@ impl fmt::Display for DirectBackend {
             } else {
                 "No Pos".to_string()
             };
-            writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id.index(), label, pos)?;
+            writeln!(
+                f,
+                "    n{} [ label = \"{}\\n({})\" ];",
+                id.index(),
+                label,
+                pos
+            )?;
 
             for link in self.nodes.forward_link(id) {
                 let out_index = link.node().index();
@@ -399,7 +404,10 @@ impl fmt::Display for DirectBackend {
                 writeln!(
                     f,
                     "    n{} -> n{} [ label = \"{}\"{} ];",
-                    id.index(), out_index, distance, color
+                    id.index(),
+                    out_index,
+                    distance,
+                    color
                 )?;
             }
         }

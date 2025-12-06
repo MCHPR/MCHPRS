@@ -22,13 +22,16 @@ impl NodeId {
 #[derive(Default)]
 pub struct Nodes {
     nodes: Box<[Node]>,
-    valid: Box<[bool]>
+    valid: Box<[bool]>,
 }
 
 impl Nodes {
     pub fn new(nodes: Box<[Node]>) -> Nodes {
-        let mut nodes = Nodes { nodes, valid: Box::new([]) };
-        
+        let mut nodes = Nodes {
+            nodes,
+            valid: Box::new([]),
+        };
+
         let mut valid = vec![false; nodes.nodes.len()].into_boxed_slice();
         for id in nodes.ids() {
             valid[id.index()] = true;
@@ -40,7 +43,11 @@ impl Nodes {
 
     pub fn get(&self, idx: usize) -> NodeId {
         if idx >= self.nodes.len() {
-            panic!("node index out of bounds: {}, len={}", idx, self.nodes.len())
+            panic!(
+                "node index out of bounds: {}, len={}",
+                idx,
+                self.nodes.len()
+            )
         }
         if !self.valid[idx] {
             panic!("node index invalid: {}", idx)
@@ -49,44 +56,45 @@ impl Nodes {
     }
 
     pub fn forward_link(&self, id: NodeId) -> &[ForwardLink] {
-        // Safety: Node is followed by correct number of forward links 
+        // Safety: Node is followed by correct number of forward links
         unsafe { self[id].forward_links() }
     }
 
-    pub fn ids(&self) -> impl '_ + Iterator<Item=NodeId> {
+    pub fn ids(&self) -> impl '_ + Iterator<Item = NodeId> {
         self.enumerate().map(|(id, _)| id)
     }
 
-    pub fn enumerate(&self) -> impl Iterator<Item=(NodeId, &Node)> {
+    pub fn enumerate(&self) -> impl Iterator<Item = (NodeId, &Node)> {
         let mut skip = 0;
-        self.nodes.iter().enumerate()
-            .filter_map(move |(i, node)| {
-                if skip > 0 {
-                    skip -= 1;
-                    return None;
-                }
-                skip = node.forward_link_blocks();
-                
-                // Safety: Bounds checked and ForwardLinks skipped over
-                let id = unsafe { NodeId::from_index(i)};
-                Some((id, node))
-            })   
+        self.nodes.iter().enumerate().filter_map(move |(i, node)| {
+            if skip > 0 {
+                skip -= 1;
+                return None;
+            }
+            skip = node.forward_link_blocks();
+
+            // Safety: Bounds checked and ForwardLinks skipped over
+            let id = unsafe { NodeId::from_index(i) };
+            Some((id, node))
+        })
     }
 
-    pub fn enumerate_mut(&mut self) -> impl Iterator<Item=(NodeId, &mut Node)> {
+    pub fn enumerate_mut(&mut self) -> impl Iterator<Item = (NodeId, &mut Node)> {
         let mut skip = 0;
-        self.nodes.iter_mut().enumerate()
+        self.nodes
+            .iter_mut()
+            .enumerate()
             .filter_map(move |(i, node)| {
                 if skip > 0 {
                     skip -= 1;
                     return None;
                 }
                 skip = node.forward_link_blocks();
-                
+
                 // Safety: Bounds checked and ForwardLinks skipped over
-                let id = unsafe { NodeId::from_index(i)};
+                let id = unsafe { NodeId::from_index(i) };
                 Some((id, node))
-            })   
+            })
     }
 }
 
@@ -224,29 +232,26 @@ impl Node {
     #[inline(always)]
     pub fn forward_link_blocks(&self) -> usize {
         const BLOCK_SIZE: usize = std::mem::size_of::<Node>() / std::mem::size_of::<ForwardLink>();
-        
+
         const {
             assert!(std::mem::size_of::<Node>() % std::mem::size_of::<ForwardLink>() == 0);
             assert!(std::mem::align_of::<Node>() % std::mem::align_of::<ForwardLink>() == 0);
-            assert!(std::mem::offset_of!(Node, fwd_links) + std::mem::size_of::<LinkBuffer>() == std::mem::size_of::<Node>())
+            assert!(
+                std::mem::offset_of!(Node, fwd_links) + std::mem::size_of::<LinkBuffer>()
+                    == std::mem::size_of::<Node>()
+            )
         }
 
-        (self.fwd_link_len as usize + BLOCK_SIZE-1 - self.fwd_links.len()) / BLOCK_SIZE
+        (self.fwd_link_len as usize + BLOCK_SIZE - 1 - self.fwd_links.len()) / BLOCK_SIZE
     }
 
     /// Safety: self must be followed by correct number of forward links
     pub unsafe fn forward_links(&self) -> &[ForwardLink] {
-        std::slice::from_raw_parts(
-            self.fwd_links.as_ptr(),
-            self.fwd_link_len as usize
-        )
+        std::slice::from_raw_parts(self.fwd_links.as_ptr(), self.fwd_link_len as usize)
     }
 
     /// Safety: self must be followed by correct number of forward links
     pub unsafe fn forward_links_mut(&mut self) -> &mut [ForwardLink] {
-        std::slice::from_raw_parts_mut(
-            self.fwd_links.as_mut_ptr(),
-            self.fwd_link_len as usize
-        )
+        std::slice::from_raw_parts_mut(self.fwd_links.as_mut_ptr(), self.fwd_link_len as usize)
     }
 }
