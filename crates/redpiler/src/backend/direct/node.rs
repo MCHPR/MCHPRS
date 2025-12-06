@@ -32,7 +32,7 @@ impl Nodes {
         if self.nodes.get(idx).is_some() {
             NodeId(idx as u32)
         } else {
-            panic!("node index out of bounds: {}", idx)
+            panic!("node index out of bounds: {}, len={}", idx, self.nodes.len())
         }
     }
 
@@ -152,17 +152,17 @@ impl NonMaxU8 {
 // size as an L1 cache line on most modern processors. By forcing a 64-byte
 // alignment, we make sure that the entire `Node` can fit on one cache line,
 // preventing scenarios where we have to fetch 2 cache lines to read a single `Node`.
-#[repr(align(64))]
+#[repr(C, align(64))]
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub ty: NodeType,
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
-
     /// The index to the first forward link of this node.
-    pub fwd_link_begin: u32,
-    /// The index to after the last forward link of this node.
-    pub fwd_link_end: u32,
+    pub ty: NodeType,
+
+    pub fwd_link_len: u16,
+
+    pub output_power: u8,
 
     pub is_io: bool,
 
@@ -170,7 +170,8 @@ pub struct Node {
     pub powered: bool,
     /// Only for repeaters
     pub locked: bool,
-    pub output_power: u8,
     pub changed: bool,
     pub pending_tick: bool,
+
+    pub fwd_links: [ForwardLink; 5],
 }

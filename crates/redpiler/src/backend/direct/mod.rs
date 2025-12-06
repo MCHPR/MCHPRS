@@ -128,12 +128,15 @@ impl DirectBackend {
         node.changed = true;
         node.powered = powered;
         node.output_power = new_power;
+        
+        let node = &self.nodes[node_id];
 
-        // Safety: range is guaranteed to be within bounds in DirectBackend::compile_node
-        for forward_link in unsafe {
-            self.forward_links
-                .get_unchecked(node.fwd_link_begin as usize..node.fwd_link_end as usize)
-        } {
+        let links: &[ForwardLink] = unsafe {std::slice::from_raw_parts(
+            node.fwd_links.as_ptr(),
+            node.fwd_link_len as usize
+        )};
+
+        for forward_link in links {
             let side = forward_link.side();
             let distance = forward_link.ss();
             let update = forward_link.node();
@@ -253,7 +256,16 @@ impl JITBackend for DirectBackend {
                 }
             }
         }
+        let mut skip = 0;
+
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
+            if skip > 0 {
+                skip -= 1;
+                continue;
+            }
+            
+            skip = (node.fwd_link_len + 15 - 5) / 16;
+
             let Some((pos, block)) = &mut self.blocks[i] else {
                 continue;
             };
@@ -385,9 +397,13 @@ impl fmt::Display for DirectBackend {
                 "No Pos".to_string()
             };
             writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id, label, pos)?;
-            for link in
-                &self.forward_links[node.fwd_link_begin as usize..node.fwd_link_end as usize]
-            {
+
+            let links: &[ForwardLink] = unsafe {std::slice::from_raw_parts(
+                node.fwd_links.as_ptr(),
+                node.fwd_link_len as usize
+            )};
+
+            for link in links {
                 let out_index = link.node().index();
                 let distance = link.ss();
                 let color = if link.side() { ",color=\"blue\"" } else { "" };

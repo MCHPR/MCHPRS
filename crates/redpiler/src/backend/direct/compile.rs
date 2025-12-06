@@ -5,7 +5,7 @@ use mchprs_blocks::blocks::{Block, Instrument};
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
+use petgraph::Direction::{self, Outgoing};
 use rustc_hash::FxHashMap;
 use std::sync::Arc;
 use tracing::trace;
@@ -29,7 +29,8 @@ fn compile_node(
     noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
     forward_links: &mut Vec<ForwardLink>,
     stats: &mut FinalGraphStats,
-) -> Node {
+    out_nodes: &mut Vec<Node>,
+) {
     let node = &graph[node_idx];
 
     const MAX_INPUTS: usize = 255;
@@ -128,19 +129,64 @@ fn compile_node(
         }
     };
 
-    Node {
+    let forward_links = &forward_links[fwd_link_begin as usize..fwd_link_end as usize];
+    let fwd_link_len = forward_links.len();
+    assert!(fwd_link_len < u16::MAX as usize);
+    
+    let mut first_links = [ForwardLink::new(unsafe { NodeId::from_index(0) }, false, 0); 5];
+    let num_first = fwd_link_len.min(first_links.len());
+    first_links[..num_first].copy_from_slice(&forward_links[..num_first]);
+
+    let node = Node {
         ty,
         default_inputs,
         side_inputs,
-        fwd_link_begin,
-        fwd_link_end,
+        fwd_link_len: fwd_link_len as u16,
         powered: node.state.powered,
         output_power: node.state.output_strength,
         locked: node.state.repeater_locked,
         pending_tick: false,
         changed: false,
         is_io: node.is_input || node.is_output,
+        fwd_links: first_links,
+    };
+    let out_i = out_nodes.len();
+    out_nodes.push(node);
+
+    let skip = (fwd_link_len + 15 - 5) / 16;
+
+    const BLOCK_SIZE: usize = std::mem::size_of::<Node>() / std::mem::size_of::<ForwardLink>();
+
+    let mut num_chunks = 0;
+    for chunk in forward_links[num_first..].chunks(BLOCK_SIZE) {
+        let mut block = [
+            ForwardLink::new(unsafe { NodeId::from_index(0) }, false, 0);
+            BLOCK_SIZE
+        ];
+        block[..chunk.len()].copy_from_slice(chunk);
+
+        // println!("{:?}", chunk);
+
+        out_nodes.push(unsafe {
+            std::mem::transmute(block)
+        });
+        num_chunks += 1;
     }
+
+    let source: &[ForwardLink] = unsafe {std::slice::from_raw_parts(
+        forward_links.as_ptr(),
+        fwd_link_len as usize
+    )};
+    
+    let node = &mut out_nodes[out_i];
+    let target: &mut [ForwardLink] = unsafe {std::slice::from_raw_parts_mut(
+        node.fwd_links.as_mut_ptr(),
+        fwd_link_len as usize
+    )};
+
+    target.copy_from_slice(source);
+
+    assert_eq!(skip, num_chunks)
 }
 
 pub fn compile(
@@ -150,40 +196,67 @@ pub fn compile(
     options: &CompilerOptions,
     _monitor: Arc<TaskMonitor>,
 ) {
+
+    backend.blocks = Vec::with_capacity(graph.node_count());
+
     // Create a mapping from compile to backend node indices
     let mut nodes_map = FxHashMap::with_capacity_and_hasher(graph.node_count(), Default::default());
+    let mut nodes_len = 0;
     for node in graph.node_indices() {
-        nodes_map.insert(node, nodes_map.len());
+        nodes_map.insert(node, nodes_len);
+
+        let outgoing = if graph[node].ty == crate::compile_graph::NodeType::Constant {0} else {graph.neighbors_directed(node, Outgoing).count()};
+        let extra_nodes = (outgoing + 15 - 5) / 16;
+        nodes_len += 1 + extra_nodes;
+
+
+        let block = graph[node].block.map(|(pos, id)| (pos, Block::from_id(id)));
+        backend.blocks.push(block);
+
+        for _ in 0..extra_nodes {
+            backend.blocks.push(Some((BlockPos::zero(), Block::Air {  })));
+        }
     }
-    let nodes_len = nodes_map.len();
 
     // Lower nodes
     let mut stats = FinalGraphStats::default();
-    let nodes = graph
-        .node_indices()
-        .map(|idx| {
-            compile_node(
-                &graph,
-                idx,
-                nodes_len,
-                &nodes_map,
-                &mut backend.noteblock_info,
-                &mut backend.forward_links,
-                &mut stats,
-            )
-        })
-        .collect();
+    let mut nodes = Vec::new();
+    for idx in graph.node_indices() {
+        compile_node(
+            &graph,
+            idx,
+            nodes_len,
+            &nodes_map,
+            &mut backend.noteblock_info,
+            &mut backend.forward_links,
+            &mut stats,
+            &mut nodes
+        );
+    }
     stats.nodes_bytes = nodes_len * std::mem::size_of::<Node>();
     trace!("{:#?}", stats);
 
-    backend.blocks = graph
-        .node_weights()
-        .map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id))))
-        .collect();
-    backend.nodes = Nodes::new(nodes);
+
+    assert_eq!(nodes.len(), nodes_len);
+
+    // backend.blocks = graph
+    //     .node_weights()
+    //     .map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id))))
+    //     .collect();
+    backend.nodes = Nodes::new(nodes.into_boxed_slice());
+
+    assert_eq!(backend.nodes.nodes.len(), backend.blocks.len());
+
+    let mut skip = 0;
 
     // Create a mapping from block pos to backend NodeId
     for i in 0..backend.blocks.len() {
+        if skip > 0 {
+            skip -= 1;
+            continue;
+        }
+        let node = &backend.nodes[backend.nodes.get(i)];
+        skip = (node.fwd_link_len + 15 - 5) / 16;
         if let Some((pos, _)) = backend.blocks[i] {
             backend.pos_map.insert(pos, backend.nodes.get(i));
         }
