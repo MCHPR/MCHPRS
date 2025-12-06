@@ -133,6 +133,7 @@ fn compile_node(
     let fwd_link_len = forward_links.len();
     assert!(fwd_link_len < u16::MAX as usize);
     
+    // Safety: These are simply placeholder values and should not ever be read
     let mut first_links = [ForwardLink::new(unsafe { NodeId::from_index(0) }, false, 0); 5];
     let num_first = fwd_link_len.min(first_links.len());
     first_links[..num_first].copy_from_slice(&forward_links[..num_first]);
@@ -150,43 +151,19 @@ fn compile_node(
         is_io: node.is_input || node.is_output,
         fwd_links: first_links,
     };
-    let out_i = out_nodes.len();
+
+    let num_link_blocks = node.forward_link_blocks();
+
+    out_nodes.reserve(1 + num_link_blocks);
     out_nodes.push(node);
 
-    let skip = (fwd_link_len + 15 - 5) / 16;
-
-    const BLOCK_SIZE: usize = std::mem::size_of::<Node>() / std::mem::size_of::<ForwardLink>();
-
-    let mut num_chunks = 0;
-    for chunk in forward_links[num_first..].chunks(BLOCK_SIZE) {
-        let mut block = [
-            ForwardLink::new(unsafe { NodeId::from_index(0) }, false, 0);
-            BLOCK_SIZE
-        ];
-        block[..chunk.len()].copy_from_slice(chunk);
-
-        // println!("{:?}", chunk);
-
-        out_nodes.push(unsafe {
-            std::mem::transmute(block)
-        });
-        num_chunks += 1;
+    let node = out_nodes.last_mut().unwrap();
+    // Safety: Capacity is previously reserved
+    // Safety: Node.num_link_blocks allows skipping over the ForwardLink's when iterating
+    unsafe {
+        node.forward_links_mut()[num_first..].copy_from_slice(&forward_links[num_first..]);
+        out_nodes.set_len(out_nodes.len() + num_link_blocks);
     }
-
-    let source: &[ForwardLink] = unsafe {std::slice::from_raw_parts(
-        forward_links.as_ptr(),
-        fwd_link_len as usize
-    )};
-    
-    let node = &mut out_nodes[out_i];
-    let target: &mut [ForwardLink] = unsafe {std::slice::from_raw_parts_mut(
-        node.fwd_links.as_mut_ptr(),
-        fwd_link_len as usize
-    )};
-
-    target.copy_from_slice(source);
-
-    assert_eq!(skip, num_chunks)
 }
 
 pub fn compile(
@@ -214,7 +191,7 @@ pub fn compile(
         backend.blocks.push(block);
 
         for _ in 0..extra_nodes {
-            backend.blocks.push(Some((BlockPos::zero(), Block::Air {  })));
+            backend.blocks.push(None);
         }
     }
 
@@ -237,28 +214,14 @@ pub fn compile(
     trace!("{:#?}", stats);
 
 
-    assert_eq!(nodes.len(), nodes_len);
-
-    // backend.blocks = graph
-    //     .node_weights()
-    //     .map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id))))
-    //     .collect();
+    assert_eq!(nodes.len(), nodes_len);        
+    
     backend.nodes = Nodes::new(nodes.into_boxed_slice());
 
-    assert_eq!(backend.nodes.nodes.len(), backend.blocks.len());
-
-    let mut skip = 0;
-
     // Create a mapping from block pos to backend NodeId
-    for i in 0..backend.blocks.len() {
-        if skip > 0 {
-            skip -= 1;
-            continue;
-        }
-        let node = &backend.nodes[backend.nodes.get(i)];
-        skip = (node.fwd_link_len + 15 - 5) / 16;
-        if let Some((pos, _)) = backend.blocks[i] {
-            backend.pos_map.insert(pos, backend.nodes.get(i));
+    for i in backend.nodes.ids() {
+        if let Some((pos, _)) = backend.blocks[i.index()] {
+            backend.pos_map.insert(pos, backend.nodes.get(i.index()));
         }
     }
 

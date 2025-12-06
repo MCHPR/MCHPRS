@@ -131,6 +131,8 @@ impl DirectBackend {
         
         let node = &self.nodes[node_id];
 
+        // Safety: node is followed by the correct number of ForwardLink blocks
+        // Safety: node.fwd_links and node.fwd_link_len are not modified for links's lifetime
         let links: &[ForwardLink] = unsafe {std::slice::from_raw_parts(
             node.fwd_links.as_ptr(),
             node.fwd_link_len as usize
@@ -186,8 +188,8 @@ impl JITBackend for DirectBackend {
 
         let nodes = std::mem::take(&mut self.nodes);
 
-        for (i, node) in nodes.into_inner().iter().enumerate() {
-            let Some((pos, block)) = self.blocks[i] else {
+        for (i, node) in nodes.enumerate() {
+            let Some((pos, block)) = self.blocks[i.index()] else {
                 continue;
             };
             if matches!(node.ty, NodeType::Comparator { .. }) {
@@ -256,17 +258,9 @@ impl JITBackend for DirectBackend {
                 }
             }
         }
-        let mut skip = 0;
 
-        for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
-            if skip > 0 {
-                skip -= 1;
-                continue;
-            }
-            
-            skip = (node.fwd_link_len + 15 - 5) / 16;
-
-            let Some((pos, block)) = &mut self.blocks[i] else {
+        for (i, node) in self.nodes.enumerate_mut() {
+            let Some((pos, block)) = &mut self.blocks[i.index()] else {
                 continue;
             };
             if node.changed && (!io_only || node.is_io) {
@@ -368,7 +362,7 @@ fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_o
 impl fmt::Display for DirectBackend {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "digraph {{")?;
-        for (id, node) in self.nodes.inner().iter().enumerate() {
+        for (id, node) in self.nodes.enumerate() {
             if matches!(node.ty, NodeType::Wire) {
                 continue;
             }
@@ -391,26 +385,21 @@ impl fmt::Display for DirectBackend {
                 NodeType::Constant => format!("Constant({})", node.output_power),
                 NodeType::NoteBlock { .. } => "NoteBlock".to_string(),
             };
-            let pos = if let Some((pos, _)) = self.blocks[id] {
+            let pos = if let Some((pos, _)) = self.blocks[id.index()] {
                 format!("{}, {}, {}", pos.x, pos.y, pos.z)
             } else {
                 "No Pos".to_string()
             };
-            writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id, label, pos)?;
+            writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id.index(), label, pos)?;
 
-            let links: &[ForwardLink] = unsafe {std::slice::from_raw_parts(
-                node.fwd_links.as_ptr(),
-                node.fwd_link_len as usize
-            )};
-
-            for link in links {
+            for link in self.nodes.forward_link(id) {
                 let out_index = link.node().index();
                 let distance = link.ss();
                 let color = if link.side() { ",color=\"blue\"" } else { "" };
                 writeln!(
                     f,
                     "    n{} -> n{} [ label = \"{}\"{} ];",
-                    id, out_index, distance, color
+                    id.index(), out_index, distance, color
                 )?;
             }
         }
