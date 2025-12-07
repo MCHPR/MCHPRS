@@ -206,7 +206,6 @@ impl NonMaxU8 {
 pub struct Node {
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
-    /// The index to the first forward link of this node.
     pub ty: NodeType,
 
     pub fwd_link_len: u16,
