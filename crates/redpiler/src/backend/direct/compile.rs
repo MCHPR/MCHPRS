@@ -186,7 +186,7 @@ pub fn compile(
         } else {
             graph.neighbors_directed(node, Outgoing).count()
         };
-        let extra_nodes = (outgoing + 15 - 5) / 16;
+        let extra_nodes = Node::forward_link_blocks_for(outgoing);
         nodes_len += 1 + extra_nodes;
 
         let block = graph[node].block.map(|(pos, id)| (pos, Block::from_id(id)));

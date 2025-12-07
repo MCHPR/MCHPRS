@@ -226,23 +226,26 @@ pub struct Node {
     pub fwd_links: LinkBuffer,
 }
 
-type LinkBuffer = [ForwardLink; 5];
+const LINKS_IN_NODE: usize = 5;
+type LinkBuffer = [ForwardLink; LINKS_IN_NODE];
 
 impl Node {
-    #[inline(always)]
-    pub fn forward_link_blocks(&self) -> usize {
-        const BLOCK_SIZE: usize = std::mem::size_of::<Node>() / std::mem::size_of::<ForwardLink>();
+    pub fn forward_link_blocks_for(fwd_link_len: usize) -> usize {
+        const BLOCK_SIZE: usize = size_of::<Node>() / size_of::<ForwardLink>();
 
         const {
-            assert!(std::mem::size_of::<Node>() % std::mem::size_of::<ForwardLink>() == 0);
-            assert!(std::mem::align_of::<Node>() % std::mem::align_of::<ForwardLink>() == 0);
-            assert!(
-                std::mem::offset_of!(Node, fwd_links) + std::mem::size_of::<LinkBuffer>()
-                    == std::mem::size_of::<Node>()
-            )
+            use std::mem::offset_of;
+
+            assert!(size_of::<Node>() % size_of::<ForwardLink>() == 0);
+            assert!(align_of::<Node>() % align_of::<ForwardLink>() == 0);
+            assert!(offset_of!(Node, fwd_links) + size_of::<LinkBuffer>() == size_of::<Node>())
         }
 
-        (self.fwd_link_len as usize + BLOCK_SIZE - 1 - self.fwd_links.len()) / BLOCK_SIZE
+        (fwd_link_len as usize + BLOCK_SIZE - 1 - LINKS_IN_NODE) / BLOCK_SIZE
+    }
+
+    pub fn forward_link_blocks(&self) -> usize {
+        Node::forward_link_blocks_for(self.fwd_link_len as usize)
     }
 
     /// Safety: self must be followed by correct number of forward links
