@@ -363,6 +363,8 @@ fn is_wire(block: Block) -> bool {
     matches!(block, Block::RedstoneWire { .. })
 }
 
+/// Returns `true` if the given block provides either weak or strong power to the given side.
+/// Note that `side` is the side of the block receiving power, not the side of the block providing power.
 fn provides_weak_power(block: Block, side: BlockFace) -> bool {
     match block {
         Block::RedstoneTorch { .. } => side != BlockFace::Top,
@@ -377,6 +379,8 @@ fn provides_weak_power(block: Block, side: BlockFace) -> bool {
     }
 }
 
+/// Returns `true` if the given block provides strong power to the given side.
+/// Note that `side` is the side of the block receiving power, not the side of the block providing power.
 fn provides_strong_power(block: Block, side: BlockFace) -> bool {
     match block {
         Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
