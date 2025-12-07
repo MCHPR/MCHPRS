@@ -240,7 +240,7 @@ impl Node {
             assert!(offset_of!(Node, fwd_links) + size_of::<LinkBuffer>() == size_of::<Node>())
         }
 
-        (fwd_link_len + BLOCK_SIZE - 1 - LINKS_IN_NODE) / BLOCK_SIZE
+        fwd_link_len.saturating_sub(LINKS_IN_NODE).div_ceil(BLOCK_SIZE)
     }
 
     pub fn forward_link_blocks(&self) -> usize {
