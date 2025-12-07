@@ -2,16 +2,6 @@ use mchprs_blocks::blocks::{Block, Instrument};
 use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_world::World;
 
-// LUT generated via f32::powf(2.0, (note as f32 - 12.0) / 12.0)
-// This is hardcoded because at this point floating point operations are not allowed in const
-// contexts
-#[allow(clippy::approx_constant)]
-const PITCHES_TABLE: [f32; 25] = [
-    0.5, 0.5297315, 0.561231, 0.59460354, 0.62996054, 0.6674199, 0.70710677, 0.74915355, 0.7937005,
-    0.8408964, 0.8908987, 0.9438743, 1.0, 1.0594631, 1.122462, 1.1892071, 1.2599211, 1.3348398,
-    1.4142135, 1.4983071, 1.587401, 1.6817929, 1.7817974, 1.8877486, 2.0,
-];
-
 pub fn is_noteblock_unblocked(world: &impl World, pos: BlockPos) -> bool {
     matches!(world.get_block(pos.offset(BlockFace::Top)), Block::Air {})
 }
@@ -21,11 +11,11 @@ pub fn get_noteblock_instrument(world: &impl World, pos: BlockPos) -> Instrument
 }
 
 pub fn play_note(world: &mut impl World, pos: BlockPos, instrument: Instrument, note: u32) {
-    world.play_sound(
-        pos,
-        instrument.to_sound_id(),
-        2, // Sound Caregory ID for Records
-        3.0,
-        PITCHES_TABLE[note as usize],
-    );
+    let sound_category = 2; // Sound Caregory ID for Records
+    let volume = 3.0;
+    // The note is mapped to [0, 31] to avoid ultra high pitches in case of invalid values.
+    // The range [0, 31] is used even though it is different from the noteblock's note range
+    // of [0, 24] because mapping to [0, 31] can be done efficiently using bitwise AND.
+    let pitch = f32::exp2(((note % 32) as f32 - 12.0) / 12.0);
+    world.play_sound(pos, instrument.to_sound_id(), sound_category, volume, pitch);
 }
