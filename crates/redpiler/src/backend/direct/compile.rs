@@ -5,7 +5,7 @@ use mchprs_blocks::blocks::{Block, Instrument};
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
 use petgraph::visit::EdgeRef;
-use petgraph::Direction;
+use petgraph::Direction::{self, Outgoing};
 use rustc_hash::FxHashMap;
 use std::sync::Arc;
 use tracing::trace;
@@ -29,7 +29,8 @@ fn compile_node(
     noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
     forward_links: &mut Vec<ForwardLink>,
     stats: &mut FinalGraphStats,
-) -> Node {
+    out_nodes: &mut Vec<Node>,
+) {
     let node = &graph[node_idx];
 
     const MAX_INPUTS: usize = 255;
@@ -73,7 +74,7 @@ fn compile_node(
     side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
 
     use crate::compile_graph::NodeType as CNodeType;
-    let fwd_link_begin = forward_links.len();
+    forward_links.clear();
     if node.ty != CNodeType::Constant {
         let new_links = graph
             .edges_directed(node_idx, Direction::Outgoing)
@@ -93,8 +94,7 @@ fn compile_node(
             });
         forward_links.extend(new_links);
     };
-    let fwd_link_end = forward_links.len();
-    stats.update_link_count += fwd_link_end - fwd_link_begin;
+    stats.update_link_count += forward_links.len();
 
     let ty = match &node.ty {
         CNodeType::Repeater {
@@ -128,18 +128,39 @@ fn compile_node(
         }
     };
 
-    Node {
+    let fwd_link_len = forward_links.len();
+    assert!(fwd_link_len < u16::MAX as usize);
+
+    // Safety: These are simply placeholder values and should never be read
+    let mut first_links = [ForwardLink::new(unsafe { NodeId::from_index(0) }, false, 0); 5];
+    let num_first = fwd_link_len.min(first_links.len());
+    first_links[..num_first].copy_from_slice(&forward_links[..num_first]);
+
+    let node = Node {
         ty,
         default_inputs,
         side_inputs,
-        fwd_link_begin,
-        fwd_link_end,
+        fwd_link_len: fwd_link_len as u16,
         powered: node.state.powered,
         output_power: node.state.output_strength,
         locked: node.state.repeater_locked,
         pending_tick: false,
         changed: false,
         is_io: node.is_input || node.is_output,
+        fwd_links: first_links,
+    };
+
+    let num_link_blocks = node.forward_link_blocks();
+
+    out_nodes.reserve(1 + num_link_blocks);
+    out_nodes.push(node);
+
+    let node = out_nodes.last_mut().unwrap();
+    // Safety: Capacity is previously reserved
+    // Safety: Node.num_link_blocks allows skipping over the ForwardLink's when iterating
+    unsafe {
+        node.forward_links_mut()[num_first..].copy_from_slice(&forward_links[num_first..]);
+        out_nodes.set_len(out_nodes.len() + num_link_blocks);
     }
 }
 
@@ -150,42 +171,57 @@ pub fn compile(
     options: &CompilerOptions,
     _monitor: Arc<TaskMonitor>,
 ) {
+    backend.blocks = Vec::with_capacity(graph.node_count());
+
     // Create a mapping from compile to backend node indices
     let mut nodes_map = FxHashMap::with_capacity_and_hasher(graph.node_count(), Default::default());
+    let mut nodes_len = 0;
     for node in graph.node_indices() {
-        nodes_map.insert(node, nodes_map.len());
+        nodes_map.insert(node, nodes_len);
+
+        let outgoing = if graph[node].ty == crate::compile_graph::NodeType::Constant {
+            0
+        } else {
+            graph.neighbors_directed(node, Outgoing).count()
+        };
+        let extra_nodes = Node::forward_link_blocks_for(outgoing);
+        nodes_len += 1 + extra_nodes;
+
+        let block = graph[node].block.map(|(pos, id)| (pos, Block::from_id(id)));
+        backend.blocks.push(block);
+
+        for _ in 0..extra_nodes {
+            backend.blocks.push(None);
+        }
     }
-    let nodes_len = nodes_map.len();
 
     // Lower nodes
     let mut stats = FinalGraphStats::default();
-    let nodes = graph
-        .node_indices()
-        .map(|idx| {
-            compile_node(
-                &graph,
-                idx,
-                nodes_len,
-                &nodes_map,
-                &mut backend.noteblock_info,
-                &mut backend.forward_links,
-                &mut stats,
-            )
-        })
-        .collect();
+    let mut nodes = Vec::new();
+    let mut forward_links = Vec::new();
+    for idx in graph.node_indices() {
+        compile_node(
+            &graph,
+            idx,
+            nodes_len,
+            &nodes_map,
+            &mut backend.noteblock_info,
+            &mut forward_links,
+            &mut stats,
+            &mut nodes,
+        );
+    }
     stats.nodes_bytes = nodes_len * std::mem::size_of::<Node>();
     trace!("{:#?}", stats);
 
-    backend.blocks = graph
-        .node_weights()
-        .map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id))))
-        .collect();
-    backend.nodes = Nodes::new(nodes);
+    assert_eq!(nodes.len(), nodes_len);
+
+    backend.nodes = Nodes::new(nodes.into_boxed_slice());
 
     // Create a mapping from block pos to backend NodeId
-    for i in 0..backend.blocks.len() {
-        if let Some((pos, _)) = backend.blocks[i] {
-            backend.pos_map.insert(pos, backend.nodes.get(i));
+    for i in backend.nodes.ids() {
+        if let Some((pos, _)) = backend.blocks[i.index()] {
+            backend.pos_map.insert(pos, backend.nodes.get(i.index()));
         }
     }
 
