@@ -18,6 +18,7 @@ pub use task_monitor::TaskMonitor;
 
 pub use compile_graph::*;
 pub use passes::PassManager;
+pub use ril::DumpGraph;
 
 fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     Some(match block {

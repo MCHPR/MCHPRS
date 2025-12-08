@@ -2,13 +2,12 @@ mod common;
 use common::*;
 
 use expect_test::expect_file;
-use petgraph::dot::Dot;
 
 use mchprs_blocks::{
     blocks::{Block, ComparatorMode, Lever, LeverFace},
     BlockDirection,
 };
-use mchprs_redpiler::{CompileGraph, CompilerInput, CompilerOptions, PassManager};
+use mchprs_redpiler::{CompilerInput, CompilerOptions, DumpGraph, PassManager};
 use mchprs_world::{TickPriority, World};
 
 enum OptLevel {
@@ -16,7 +15,7 @@ enum OptLevel {
     Optimized,
 }
 
-fn test_frontend(world: &TestWorld, expected_dot: expect_test::ExpectFile, opt_level: OptLevel) {
+fn test_frontend(world: &TestWorld, expected_ril: expect_test::ExpectFile, opt_level: OptLevel) {
     let compile_options = match opt_level {
         OptLevel::Unoptimized => CompilerOptions {
             optimize: false,
@@ -37,8 +36,8 @@ fn test_frontend(world: &TestWorld, expected_dot: expect_test::ExpectFile, opt_l
         },
         Default::default(),
     );
-    let dot = format!("{:?}", Dot::<&CompileGraph>::new(&graph));
-    expected_dot.assert_eq(&dot);
+    let ril = graph.dump_to_string();
+    expected_ril.assert_eq(&ril);
 }
 
 const SANDSTONE: Block = Block::Sandstone {};

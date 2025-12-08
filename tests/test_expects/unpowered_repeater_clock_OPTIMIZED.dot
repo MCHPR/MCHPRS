@@ -1,4 +1,4 @@
-digraph {
-    1 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 1, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
-    2 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 1, y: 1, z: 0 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+circuit {
+  %1 = lamp false, []  # Loc: (0, 1, 2)
+  %2 = lamp false, []  # Loc: (1, 1, 0)
 }

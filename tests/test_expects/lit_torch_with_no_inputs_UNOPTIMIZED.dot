@@ -1,5 +1,4 @@
-digraph {
-    0 [ label = "CompileNode { ty: Torch, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5738)), state: NodeState { powered: true, repeater_locked: false, output_strength: 15 }, is_input: false, is_output: false, annotations: Annotations }" ]
-    1 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 2, z: 0 }, 7417)), state: NodeState { powered: true, repeater_locked: false, output_strength: 15 }, is_input: false, is_output: true, annotations: Annotations }" ]
-    0 -> 1 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+circuit {
+  %0 = torch true, []  # Loc: (0, 1, 0)
+  %1 = lamp true, [%0:0]  # Loc: (0, 2, 0)
 }

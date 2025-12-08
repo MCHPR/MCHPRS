@@ -1,3 +1,3 @@
-digraph {
-    2 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 2, z: 0 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+circuit {
+  %2 = lamp false, []  # Loc: (0, 2, 0)
 }

@@ -1,10 +1,6 @@
-digraph {
-    2 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 4, y: 1, z: 0 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
-    3 [ label = "CompileNode { ty: Comparator { mode: Subtract, far_input: None, facing_diode: false }, block: Some((BlockPos { x: 4, y: 1, z: 1 }, 9182)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-    4 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 4, y: 1, z: 2 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
-    5 [ label = "CompileNode { ty: Constant, block: None, state: NodeState { powered: false, repeater_locked: false, output_strength: 15 }, is_input: false, is_output: false, annotations: Annotations }" ]
-    3 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    5 -> 3 [ label = "CompileLink { ty: Side, ss: 1 }" ]
-    5 -> 3 [ label = "CompileLink { ty: Side, ss: 3 }" ]
-    4 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+circuit {
+  %2 = lamp false, [%3:0]  # Loc: (4, 1, 0)
+  %3 = comparator subtract, none, false, 0, [%4:0], [%5:1, %5:3]  # Loc: (4, 1, 1)
+  %4 = lever false  # Loc: (4, 1, 2)
+  %5 = constant 15
 }

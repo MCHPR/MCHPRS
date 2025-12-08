@@ -1160,7 +1160,6 @@ dependencies = [
  "mchprs_redstone",
  "mchprs_world",
  "paste",
- "petgraph",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",

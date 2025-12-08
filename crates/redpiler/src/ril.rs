@@ -227,12 +227,17 @@ impl<'a> fmt::Display for GraphDumper<'a> {
 }
 
 pub trait DumpGraph {
-    fn dump(&self);
+    fn dump_to_stderr(&self);
+    fn dump_to_string(&self) -> String;
 }
 
 impl DumpGraph for CompileGraph {
-    fn dump(&self) {
+    fn dump_to_stderr(&self) {
         eprintln!("{}", GraphDumper { graph: self });
+    }
+
+    fn dump_to_string(&self) -> String {
+        format!("{}", GraphDumper { graph: self })
     }
 }
 

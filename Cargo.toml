@@ -46,7 +46,6 @@ mchprs_blocks = { path = "./crates/blocks" }
 mchprs_redpiler = { path = "./crates/redpiler" }
 mchprs_redstone = { path = "./crates/redstone" }
 paste = { workspace = true }
-petgraph = { workspace = true }
 expect-test = { workspace = true }
 
 [workspace.dependencies]

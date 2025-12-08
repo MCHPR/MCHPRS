@@ -1,17 +1,8 @@
-digraph {
-    0 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 1 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-    1 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 1, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-    2 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 1, y: 1, z: 1 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
-    3 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 1, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-    4 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 1, y: 2, z: 1 }, 5627)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
-    5 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 2, y: 1, z: 1 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-    4 -> 0 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 1 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
-    4 -> 5 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+circuit {
+  %0 = wire 0, [%4:0]  # Loc: (0, 1, 1)
+  %1 = wire 0, [%4:0]  # Loc: (1, 1, 0)
+  %2 = lamp false, [%4:0, %4:0, %4:0, %4:0, %4:0]  # Loc: (1, 1, 1)
+  %3 = wire 0, [%4:0]  # Loc: (1, 1, 2)
+  %4 = lever false  # Loc: (1, 2, 1)
+  %5 = wire 0, [%4:0]  # Loc: (2, 1, 1)
 }

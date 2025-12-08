@@ -108,13 +108,13 @@ impl<'p, W: World> PassManager<'p, W> {
 
             if options.print_after_all {
                 debug!("Printing circuit after pass: {}", pass.name());
-                graph.dump();
+                graph.dump_to_stderr();
             }
         }
 
         if options.print_before_backend {
             debug!("Printing circuit before backend compile:");
-            graph.dump();
+            graph.dump_to_stderr();
         }
 
         graph
