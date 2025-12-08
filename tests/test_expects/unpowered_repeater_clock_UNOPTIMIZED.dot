@@ -1,0 +1,8 @@
+digraph {
+    0 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+    1 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 0, y: 1, z: 1 }, 5896)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+    2 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 1, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+    3 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 1, y: 1, z: 0 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+    4 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 1, y: 1, z: 1 }, 5892)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+    5 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 1, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
+}

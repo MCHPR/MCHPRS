@@ -1,0 +1,5 @@
+digraph {
+    0 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 1, y: 1, z: 1 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+    1 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 1, y: 2, z: 1 }, 5627)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
+    1 -> 0 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+}
