@@ -36,7 +36,7 @@ impl Nodes {
             // Safety: bounds checked and invalid indices skipped over
             let id = unsafe { NodeId::from_index(i) };
             let node = &nodes[i];
-            
+
             valid[i] = true;
             ids.push(id);
 
@@ -74,15 +74,13 @@ impl Nodes {
     }
 
     pub fn enumerate(&self) -> impl Iterator<Item = (NodeId, &Node)> {
-        self.ids.iter().copied().map(|id| {
-            (id, &self[id])
-        })
+        self.ids.iter().copied().map(|id| (id, &self[id]))
     }
 
     pub fn enumerate_mut(&mut self) -> impl Iterator<Item = (NodeId, &mut Node)> {
         self.ids.iter().copied().map(|id| {
             // Safety: only unique references are returned and id comes from self
-            (id, unsafe {&mut *self.nodes.as_mut_ptr().add(id.index())})
+            (id, unsafe { &mut *self.nodes.as_mut_ptr().add(id.index()) })
         })
     }
 }
