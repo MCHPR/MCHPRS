@@ -74,7 +74,7 @@ fn compile_node(
     side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
 
     use crate::compile_graph::NodeType as CNodeType;
-    let fwd_link_begin = forward_links.len() as u32;
+    forward_links.clear();
     if node.ty != CNodeType::Constant {
         let new_links = graph
             .edges_directed(node_idx, Direction::Outgoing)
@@ -94,8 +94,7 @@ fn compile_node(
             });
         forward_links.extend(new_links);
     };
-    let fwd_link_end = forward_links.len() as u32;
-    stats.update_link_count += (fwd_link_end - fwd_link_begin) as usize;
+    stats.update_link_count += forward_links.len();
 
     let ty = match &node.ty {
         CNodeType::Repeater {
@@ -129,11 +128,10 @@ fn compile_node(
         }
     };
 
-    let forward_links = &forward_links[fwd_link_begin as usize..fwd_link_end as usize];
     let fwd_link_len = forward_links.len();
     assert!(fwd_link_len < u16::MAX as usize);
 
-    // Safety: These are simply placeholder values and should not ever be read
+    // Safety: These are simply placeholder values and should never be read
     let mut first_links = [ForwardLink::new(unsafe { NodeId::from_index(0) }, false, 0); 5];
     let num_first = fwd_link_len.min(first_links.len());
     first_links[..num_first].copy_from_slice(&forward_links[..num_first]);
@@ -200,6 +198,7 @@ pub fn compile(
     // Lower nodes
     let mut stats = FinalGraphStats::default();
     let mut nodes = Vec::new();
+    let mut forward_links = Vec::new();
     for idx in graph.node_indices() {
         compile_node(
             &graph,
@@ -207,7 +206,7 @@ pub fn compile(
             nodes_len,
             &nodes_map,
             &mut backend.noteblock_info,
-            &mut backend.forward_links,
+            &mut forward_links,
             &mut stats,
             &mut nodes,
         );

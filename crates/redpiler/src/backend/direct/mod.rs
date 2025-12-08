@@ -114,7 +114,6 @@ enum Event {
 #[derive(Default)]
 pub struct DirectBackend {
     nodes: Nodes,
-    forward_links: Vec<ForwardLink>,
     blocks: Vec<Option<(BlockPos, Block)>>,
     pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
@@ -209,7 +208,6 @@ impl JITBackend for DirectBackend {
             }
         }
 
-        self.forward_links.clear();
         self.pos_map.clear();
         self.noteblock_info.clear();
         self.events.clear();
