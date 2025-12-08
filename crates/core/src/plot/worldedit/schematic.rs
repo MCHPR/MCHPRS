@@ -143,12 +143,18 @@ fn load_schematic_sponge(
 
     let (offset_x, offset_y, offset_z) = match version {
         2 => {
-            let metadata = nbt_as!(&nbt["Metadata"], Value::Compound);
-            (
-                -nbt_as!(metadata["WEOffsetX"], Value::Int),
-                -nbt_as!(metadata["WEOffsetY"], Value::Int),
-                -nbt_as!(metadata["WEOffsetZ"], Value::Int),
-            )
+            // Axiom stores the offset like version 3 but specifies version 2
+            if let Some(offset) = nbt.get("Offset") {
+                let offset_array = nbt_as!(offset, Value::IntArray);
+                (-offset_array[0], -offset_array[1], -offset_array[2])
+            } else {
+                let metadata = nbt_as!(&nbt["Metadata"], Value::Compound);
+                (
+                    -nbt_as!(metadata["WEOffsetX"], Value::Int),
+                    -nbt_as!(metadata["WEOffsetY"], Value::Int),
+                    -nbt_as!(metadata["WEOffsetZ"], Value::Int),
+                )
+            }
         }
         3 => {
             let offset_array = nbt_as!(&nbt["Offset"], Value::IntArray);
