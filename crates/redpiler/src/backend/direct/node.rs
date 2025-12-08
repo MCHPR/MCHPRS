@@ -19,7 +19,7 @@ impl NodeId {
 
 // This is Pretty Bad:tm: because one can create a NodeId using another instance of Nodes,
 // but at least some type system protection is better than none.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Nodes {
     nodes: Box<[Node]>,
     valid: Box<[bool]>,

@@ -38,6 +38,7 @@ pub trait JITBackend {
 use direct::DirectBackend;
 
 #[enum_dispatch(JITBackend)]
+#[derive(Clone)]
 pub enum BackendDispatcher {
     DirectBackend,
 }

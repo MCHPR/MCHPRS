@@ -30,7 +30,7 @@ impl Queues {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct TickScheduler {
     queues_deque: [Queues; Self::NUM_QUEUES],
     pos: usize,
@@ -101,11 +101,12 @@ impl TickScheduler {
     }
 }
 
+#[derive(Clone)]
 enum Event {
     NoteBlockPlay { noteblock_id: u16 },
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct DirectBackend {
     nodes: Nodes,
     blocks: Vec<Option<(BlockPos, Block)>>,
