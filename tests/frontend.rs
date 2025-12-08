@@ -17,12 +17,16 @@ enum OptLevel {
 }
 
 fn test_frontend(world: &TestWorld, expected_dot: expect_test::Expect, opt_level: OptLevel) {
-    let compile_options = CompilerOptions {
-        optimize: match opt_level {
-            OptLevel::Unoptimized => false,
-            OptLevel::Optimized => true,
+    let compile_options = match opt_level {
+        OptLevel::Unoptimized => CompilerOptions {
+            optimize: false,
+            ..Default::default()
         },
-        ..Default::default()
+        OptLevel::Optimized => CompilerOptions {
+            optimize: true,
+            io_only: true,
+            ..Default::default()
+        },
     };
     let pass_manager = PassManager::default();
     let graph = pass_manager.run_passes(
@@ -310,8 +314,6 @@ fn long_redstone_wire_with_comparator() {
     let expected = expect![[r#"
         digraph {
             0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
-            1 [ label = "CompileNode { ty: Comparator { mode: Compare, far_input: None, facing_diode: false }, block: Some((BlockPos { x: 0, y: 1, z: 10 }, 9176)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-            0 -> 1 [ label = "CompileLink { ty: Default, ss: 8 }" ]
         }
     "#]];
     test_frontend(&world, expected, OptLevel::Optimized);
@@ -357,7 +359,7 @@ fn repeater_clock_duplicated_repeaters() {
     //  L  W  W  W  W  W  W
     let mut world = TestWorld::new(1);
     make_lever(&mut world, pos(0, 1, 0));
-    world.set_block(pos(0, 1, 2), REDSTONE_LAMP_UNLIT);
+    world.set_block(pos(0, 0, 2), REDSTONE_LAMP_UNLIT);
     for x in 1..7 {
         let repeater_direction = match x {
             ..4 => BlockDirection::North,
@@ -371,8 +373,8 @@ fn repeater_clock_duplicated_repeaters() {
     // Unoptimized
     let expected = expect![[r#"
         digraph {
-            0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
-            1 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 1, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            0 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 0, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            1 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
             2 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 1, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             3 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 1, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             4 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 1, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
@@ -391,22 +393,25 @@ fn repeater_clock_duplicated_repeaters() {
             17 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 6, y: 1, z: 0 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             18 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 6, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             19 [ label = "CompileNode { ty: Wire, block: Some((BlockPos { x: 6, y: 1, z: 2 }, 3558)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-            0 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            3 -> 0 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            6 -> 0 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            9 -> 0 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            1 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             12 -> 2 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             15 -> 2 [ label = "CompileLink { ty: Default, ss: 4 }" ]
             18 -> 2 [ label = "CompileLink { ty: Default, ss: 5 }" ]
-            0 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            1 -> 3 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             12 -> 3 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             15 -> 3 [ label = "CompileLink { ty: Default, ss: 4 }" ]
             18 -> 3 [ label = "CompileLink { ty: Default, ss: 5 }" ]
             3 -> 4 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             6 -> 4 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             9 -> 4 [ label = "CompileLink { ty: Default, ss: 2 }" ]
-            0 -> 5 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            1 -> 5 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             12 -> 5 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             15 -> 5 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             18 -> 5 [ label = "CompileLink { ty: Default, ss: 4 }" ]
-            0 -> 6 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            1 -> 6 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             12 -> 6 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             15 -> 6 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             18 -> 6 [ label = "CompileLink { ty: Default, ss: 4 }" ]
@@ -415,11 +420,11 @@ fn repeater_clock_duplicated_repeaters() {
             3 -> 7 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             12 -> 8 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             15 -> 8 [ label = "CompileLink { ty: Default, ss: 2 }" ]
-            0 -> 8 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            1 -> 8 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             18 -> 8 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             12 -> 9 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             15 -> 9 [ label = "CompileLink { ty: Default, ss: 2 }" ]
-            0 -> 9 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            1 -> 9 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             18 -> 9 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             9 -> 10 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             6 -> 10 [ label = "CompileLink { ty: Default, ss: 1 }" ]
@@ -427,7 +432,7 @@ fn repeater_clock_duplicated_repeaters() {
             12 -> 11 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             15 -> 11 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             18 -> 11 [ label = "CompileLink { ty: Default, ss: 2 }" ]
-            0 -> 11 [ label = "CompileLink { ty: Default, ss: 3 }" ]
+            1 -> 11 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             9 -> 12 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             6 -> 12 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             3 -> 12 [ label = "CompileLink { ty: Default, ss: 3 }" ]
@@ -437,7 +442,7 @@ fn repeater_clock_duplicated_repeaters() {
             15 -> 14 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             18 -> 14 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             12 -> 14 [ label = "CompileLink { ty: Default, ss: 1 }" ]
-            0 -> 14 [ label = "CompileLink { ty: Default, ss: 4 }" ]
+            1 -> 14 [ label = "CompileLink { ty: Default, ss: 4 }" ]
             9 -> 15 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             6 -> 15 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             3 -> 15 [ label = "CompileLink { ty: Default, ss: 4 }" ]
@@ -447,7 +452,7 @@ fn repeater_clock_duplicated_repeaters() {
             18 -> 17 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             15 -> 17 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             12 -> 17 [ label = "CompileLink { ty: Default, ss: 2 }" ]
-            0 -> 17 [ label = "CompileLink { ty: Default, ss: 5 }" ]
+            1 -> 17 [ label = "CompileLink { ty: Default, ss: 5 }" ]
             9 -> 18 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             6 -> 18 [ label = "CompileLink { ty: Default, ss: 4 }" ]
             3 -> 18 [ label = "CompileLink { ty: Default, ss: 5 }" ]
@@ -463,25 +468,28 @@ fn repeater_clock_duplicated_repeaters() {
     // A lot of redundant edges.
     let expected = expect![[r#"
         digraph {
-            0 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
-            1 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 1, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            0 [ label = "CompileNode { ty: Lamp, block: Some((BlockPos { x: 0, y: 0, z: 2 }, 7418)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: true, annotations: Annotations }" ]
+            1 [ label = "CompileNode { ty: Lever, block: Some((BlockPos { x: 0, y: 1, z: 0 }, 5631)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: true, is_output: false, annotations: Annotations }" ]
             2 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 1, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             3 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 2, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             4 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 3, y: 1, z: 1 }, 5884)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             5 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 4, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             6 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 5, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
             7 [ label = "CompileNode { ty: Repeater { delay: 1, facing_diode: false }, block: Some((BlockPos { x: 6, y: 1, z: 1 }, 5888)), state: NodeState { powered: false, repeater_locked: false, output_strength: 0 }, is_input: false, is_output: false, annotations: Annotations }" ]
-            0 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            2 -> 0 [ label = "CompileLink { ty: Default, ss: 0 }" ]
+            3 -> 0 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            4 -> 0 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            1 -> 2 [ label = "CompileLink { ty: Default, ss: 0 }" ]
             5 -> 2 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             6 -> 2 [ label = "CompileLink { ty: Default, ss: 4 }" ]
             7 -> 2 [ label = "CompileLink { ty: Default, ss: 5 }" ]
-            0 -> 3 [ label = "CompileLink { ty: Default, ss: 1 }" ]
+            1 -> 3 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             5 -> 3 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             6 -> 3 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             7 -> 3 [ label = "CompileLink { ty: Default, ss: 4 }" ]
             5 -> 4 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             6 -> 4 [ label = "CompileLink { ty: Default, ss: 2 }" ]
-            0 -> 4 [ label = "CompileLink { ty: Default, ss: 2 }" ]
+            1 -> 4 [ label = "CompileLink { ty: Default, ss: 2 }" ]
             7 -> 4 [ label = "CompileLink { ty: Default, ss: 3 }" ]
             4 -> 5 [ label = "CompileLink { ty: Default, ss: 1 }" ]
             3 -> 5 [ label = "CompileLink { ty: Default, ss: 2 }" ]
