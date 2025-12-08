@@ -23,22 +23,31 @@ impl NodeId {
 pub struct Nodes {
     nodes: Box<[Node]>,
     valid: Box<[bool]>,
+    ids: Box<[NodeId]>,
 }
 
 impl Nodes {
     pub fn new(nodes: Box<[Node]>) -> Nodes {
-        let mut nodes = Nodes {
-            nodes,
-            valid: Box::new([]),
-        };
+        let mut valid = vec![false; nodes.len()].into_boxed_slice();
+        let mut ids = Vec::new();
 
-        let mut valid = vec![false; nodes.nodes.len()].into_boxed_slice();
-        for id in nodes.ids() {
-            valid[id.index()] = true;
+        let mut i = 0;
+        while i < nodes.len() {
+            // Safety: bounds checked and invalid indices skipped over
+            let id = unsafe { NodeId::from_index(i) };
+            let node = &nodes[i];
+            
+            valid[i] = true;
+            ids.push(id);
+
+            i += 1 + node.forward_link_blocks();
         }
-        nodes.valid = valid;
 
-        nodes
+        Nodes {
+            nodes,
+            valid,
+            ids: ids.into_boxed_slice(),
+        }
     }
 
     pub fn get(&self, idx: usize) -> NodeId {
@@ -61,40 +70,20 @@ impl Nodes {
     }
 
     pub fn ids(&self) -> impl '_ + Iterator<Item = NodeId> {
-        self.enumerate().map(|(id, _)| id)
+        self.ids.iter().copied()
     }
 
     pub fn enumerate(&self) -> impl Iterator<Item = (NodeId, &Node)> {
-        let mut skip = 0;
-        self.nodes.iter().enumerate().filter_map(move |(i, node)| {
-            if skip > 0 {
-                skip -= 1;
-                return None;
-            }
-            skip = node.forward_link_blocks();
-
-            // Safety: Bounds checked and ForwardLinks skipped over
-            let id = unsafe { NodeId::from_index(i) };
-            Some((id, node))
+        self.ids.iter().copied().map(|id| {
+            (id, &self[id])
         })
     }
 
     pub fn enumerate_mut(&mut self) -> impl Iterator<Item = (NodeId, &mut Node)> {
-        let mut skip = 0;
-        self.nodes
-            .iter_mut()
-            .enumerate()
-            .filter_map(move |(i, node)| {
-                if skip > 0 {
-                    skip -= 1;
-                    return None;
-                }
-                skip = node.forward_link_blocks();
-
-                // Safety: Bounds checked and ForwardLinks skipped over
-                let id = unsafe { NodeId::from_index(i) };
-                Some((id, node))
-            })
+        self.ids.iter().copied().map(|id| {
+            // Safety: only unique references are returned and id comes from self
+            (id, unsafe {&mut *self.nodes.as_mut_ptr().add(id.index())})
+        })
     }
 }
 
