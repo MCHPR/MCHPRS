@@ -1,0 +1,4 @@
+circuit {
+  %1 = lamp false, []  # Loc: (0, 1, 2)
+  %2 = lamp false, []  # Loc: (1, 1, 0)
+}

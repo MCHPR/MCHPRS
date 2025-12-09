@@ -1,0 +1,7 @@
+circuit {
+  %0 = lamp false, [%1:0]  # Loc: (0, 1, 0)
+  %1 = comparator compare, none, false, 0, [%2:0], [%3:0]  # Loc: (0, 1, 1)
+  %2 = lever false  # Loc: (0, 1, 3)
+  %3 = repeater 1, true, false, false, [%4:0], []  # Loc: (1, 1, 1)
+  %4 = lever false  # Loc: (2, 1, 1)
+}

@@ -1,0 +1,4 @@
+circuit {
+  %0 = torch true, []  # Loc: (0, 1, 0)
+  %1 = lamp true, [%0:0]  # Loc: (0, 2, 0)
+}

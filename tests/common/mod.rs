@@ -31,6 +31,11 @@ impl TestWorld {
         }
     }
 
+    pub fn bounds(&self) -> (BlockPos, BlockPos) {
+        let max_coord = self.size * 16 - 1;
+        (pos(0, 0, 0), pos(max_coord, max_coord, max_coord))
+    }
+
     fn get_chunk_index_for_chunk(&self, chunk_x: i32, chunk_z: i32) -> usize {
         (chunk_x * self.size + chunk_z).unsigned_abs() as usize
     }
