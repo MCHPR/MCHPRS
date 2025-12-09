@@ -65,13 +65,13 @@ fn lever_on_constantly_powered_lamp() {
     world.set_block(pos(0, 2, 0), LEVER_GROUND_DEACTIVATED);
 
     // Unoptimized
-    let expected = expect_file!["test_expects/lever_on_constantly_powered_lamp_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/lever_on_constantly_powered_lamp_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
     // TODO: Missed optimization:
     // The lever has no effect on the lamp.
-    let expected = expect_file!["test_expects/lever_on_constantly_powered_lamp_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/lever_on_constantly_powered_lamp_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -83,11 +83,11 @@ fn lit_torch_with_no_inputs() {
     world.set_block(pos(0, 2, 0), REDSTONE_LAMP_LIT);
 
     // Unoptimized
-    let expected = expect_file!["test_expects/lit_torch_with_no_inputs_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/lit_torch_with_no_inputs_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
-    let expected = expect_file!["test_expects/lit_torch_with_no_inputs_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/lit_torch_with_no_inputs_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -99,11 +99,11 @@ fn unlit_torch_on_redstone_block() {
     world.set_block(pos(0, 2, 0), REDSTONE_LAMP_UNLIT);
 
     // Unoptimized
-    let expected = expect_file!["test_expects/unlit_torch_on_redstone_block_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/unlit_torch_on_redstone_block_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
-    let expected = expect_file!["test_expects/unlit_torch_on_redstone_block_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/unlit_torch_on_redstone_block_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -118,11 +118,11 @@ fn lever_with_many_edges_to_same_lamp() {
     make_wire(&mut world, pos(1, 1, 2));
 
     // Unoptimized
-    let expected = expect_file!["test_expects/lever_with_many_edges_to_same_lamp_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/lever_with_many_edges_to_same_lamp_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
-    let expected = expect_file!["test_expects/lever_with_many_edges_to_same_lamp_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/lever_with_many_edges_to_same_lamp_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -136,11 +136,11 @@ fn long_redstone_wire() {
     }
 
     // Unoptimized
-    let expected = expect_file!["test_expects/long_redstone_wire_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/long_redstone_wire_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
-    let expected = expect_file!["test_expects/long_redstone_wire_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/long_redstone_wire_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -164,11 +164,11 @@ fn long_redstone_wire_with_comparator() {
 
     // Unoptimized
     // FIXME: Unoptimized mode should not be removing edges.
-    let expected = expect_file!["test_expects/long_redstone_wire_with_comparator_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/long_redstone_wire_with_comparator_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
-    let expected = expect_file!["test_expects/long_redstone_wire_with_comparator_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/long_redstone_wire_with_comparator_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -183,11 +183,11 @@ fn unpowered_repeater_clock() {
     world.set_block(pos(1, 1, 0), REDSTONE_LAMP_UNLIT);
 
     // Unoptimized
-    let expected = expect_file!["test_expects/unpowered_repeater_clock_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/unpowered_repeater_clock_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
-    let expected = expect_file!["test_expects/unpowered_repeater_clock_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/unpowered_repeater_clock_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -210,13 +210,13 @@ fn repeater_clock_duplicated_repeaters() {
     }
 
     // Unoptimized
-    let expected = expect_file!["test_expects/repeater_clock_duplicated_repeaters_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/repeater_clock_duplicated_repeaters_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
     // TODO: Missed optimization:
     // A lot of redundant edges.
-    let expected = expect_file!["test_expects/repeater_clock_duplicated_repeaters_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/repeater_clock_duplicated_repeaters_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -236,13 +236,13 @@ fn compare_mode_full_ss_rear_input() {
     make_lever(&mut world, pos(2, 1, 1)); // side input
 
     // Unoptimized
-    let expected = expect_file!["test_expects/compare_mode_full_ss_rear_input_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/compare_mode_full_ss_rear_input_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
     // TODO: Missed optimization:
     // The side input of the comparator has no effect on the comparator.
-    let expected = expect_file!["test_expects/compare_mode_full_ss_rear_input_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/compare_mode_full_ss_rear_input_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -257,13 +257,13 @@ fn repeater_chain_with_pending_update() {
     world.schedule_tick(pos(1, 1, 0), 1, TickPriority::Normal);
 
     // Unoptimized
-    let expected = expect_file!["test_expects/repeater_chain_with_pending_update_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/repeater_chain_with_pending_update_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
     // FIXME: Illegal optimization:
     // The repeaters must not be optimized away because they become powered in the next ticks.
-    let expected = expect_file!["test_expects/repeater_chain_with_pending_update_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/repeater_chain_with_pending_update_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
 
@@ -285,12 +285,12 @@ fn multiple_different_constants() {
     make_lever(&mut world, pos(4, 1, 2));
 
     // Unoptimized
-    let expected = expect_file!["test_expects/multiple_different_constants_UNOPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/multiple_different_constants_UNOPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Unoptimized);
 
     // Optimized
     // TODO: Missed optimization:
     // Redundant edge from constant to comparator.
-    let expected = expect_file!["test_expects/multiple_different_constants_OPTIMIZED.dot"];
+    let expected = expect_file!["test_expects/multiple_different_constants_OPTIMIZED"];
     test_frontend(&world, expected, OptLevel::Optimized);
 }
