@@ -89,7 +89,7 @@ impl CompileNode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum LinkType {
     Default,
     Side,
