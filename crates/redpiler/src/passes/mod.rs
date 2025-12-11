@@ -8,6 +8,7 @@ mod export_graph;
 mod identify_nodes;
 mod input_search;
 mod prune_orphans;
+mod redundant_links;
 mod unreachable_output;
 
 use mchprs_world::World;
@@ -30,6 +31,7 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &clamp_weights::ClampWeights,
         &dedup_links::DedupLinks,
         &constant_fold::ConstantFold,
+        &redundant_links::PruneRedundantLinks,
         &analysis::ss_range_analysis::SSRangeAnalysis,
         &unreachable_output::UnreachableOutput,
         &constant_coalesce::ConstantCoalesce,
