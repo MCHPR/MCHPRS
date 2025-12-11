@@ -70,9 +70,9 @@ fn prune_comparator_inputs(
         let side_distance = *input_distances
             .get(&(edge.source(), LinkType::Side))
             .unwrap_or(&u8::MAX);
-        let dominating_input =
-            dominating_comparator_input(comparator_mode, default_distance, side_distance);
-        if edge.weight().ty != dominating_input {
+        let dominated_input =
+            dominated_comparator_input(comparator_mode, default_distance, side_distance);
+        if Some(edge.weight().ty) == dominated_input {
             edges_to_be_removed.push(edge.id());
         }
     }
@@ -84,24 +84,24 @@ fn prune_comparator_inputs(
     num_edges_pruned
 }
 
-fn dominating_comparator_input(
+fn dominated_comparator_input(
     comparator_mode: ComparatorMode,
     default_distance: u8,
     side_distance: u8,
-) -> LinkType {
+) -> Option<LinkType> {
     match comparator_mode {
         ComparatorMode::Compare => {
             if default_distance <= side_distance {
-                LinkType::Default
+                Some(LinkType::Side)
             } else {
-                LinkType::Side
+                Some(LinkType::Default)
             }
         }
         ComparatorMode::Subtract => {
             if side_distance <= default_distance {
-                LinkType::Side
+                Some(LinkType::Default)
             } else {
-                LinkType::Default
+                None
             }
         }
     }
