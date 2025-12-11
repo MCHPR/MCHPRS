@@ -25,7 +25,11 @@ impl<W: World> Pass<W> for PruneRedundantLinks {
         let node_indices = graph.node_indices().collect::<Vec<_>>();
         for idx in node_indices {
             num_edges_pruned += match graph[idx].ty {
-                NodeType::Comparator { mode, .. } => prune_comparator_inputs(graph, idx, mode),
+                NodeType::Comparator {
+                    mode,
+                    far_input: None,
+                    ..
+                } => prune_comparator_inputs(graph, idx, mode),
                 _ => 0,
             };
         }
