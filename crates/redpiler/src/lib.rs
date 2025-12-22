@@ -31,7 +31,7 @@ fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     })
 }
 
-#[derive(Default, PartialEq, Eq, Debug, Clone)]
+#[derive(Default, PartialEq, Eq, Debug, Clone, Copy)]
 pub struct CompilerOptions {
     /// Enable optimization passes which may significantly increase compile times.
     pub optimize: bool,
