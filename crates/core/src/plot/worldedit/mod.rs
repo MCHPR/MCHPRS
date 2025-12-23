@@ -579,7 +579,8 @@ static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
             execute_fn: execute_stack,
             description: "Repeat the contents of the selection",
             flags: &[
-                flag!('a', None, "Ignore air blocks")
+                flag!('a', None, "Ignore air blocks"),
+                flag!('s', None, "Shift the selection to the target location"),
             ],
             permission_node: "worldedit.region.stack",
             ..Default::default()
