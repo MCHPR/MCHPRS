@@ -1,0 +1,4 @@
+circuit {
+  %0 = lever false  # Loc: (0, 1, 0)
+  %1 = lamp false, []  # Loc: (0, 1, 20)
+}

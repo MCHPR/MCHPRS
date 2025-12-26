@@ -1,0 +1,6 @@
+circuit {
+  %2 = lamp false, [%3:0]  # Loc: (4, 1, 0)
+  %3 = comparator subtract, none, false, 0, [%4:0], [%5:1, %5:3]  # Loc: (4, 1, 1)
+  %4 = lever false  # Loc: (4, 1, 2)
+  %5 = constant 15
+}

@@ -1,0 +1,4 @@
+circuit {
+  %1 = lamp true, [%2:0]  # Loc: (0, 2, 0)
+  %2 = constant 15
+}

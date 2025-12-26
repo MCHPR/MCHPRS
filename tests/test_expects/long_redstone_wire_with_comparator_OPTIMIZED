@@ -1,0 +1,3 @@
+circuit {
+  %0 = lever false  # Loc: (0, 1, 0)
+}

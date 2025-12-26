@@ -5,15 +5,20 @@ mod ril;
 mod task_monitor;
 
 use backend::{BackendDispatcher, JITBackend};
+
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{for_each_block_mut_optimized, TickEntry, World};
-use passes::make_default_pass_manager;
+
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
 
 pub use task_monitor::TaskMonitor;
+
+pub use compile_graph::*;
+pub use passes::PassManager;
+pub use ril::DumpGraph;
 
 fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     Some(match block {
@@ -136,7 +141,7 @@ impl Compiler {
         let start = Instant::now();
 
         let input = CompilerInput { world, bounds };
-        let pass_manager = make_default_pass_manager::<W>();
+        let pass_manager = PassManager::default();
         let graph = pass_manager.run_passes(&options, &input, monitor.clone());
 
         if monitor.cancelled() {

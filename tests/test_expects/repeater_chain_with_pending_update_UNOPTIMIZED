@@ -1,0 +1,6 @@
+circuit {
+  %0 = constant 15  # Loc: (0, 1, 0)
+  %1 = repeater 1, true, false, false, [%0:0], []  # Loc: (1, 1, 0)
+  %2 = repeater 1, false, false, false, [%1:0], []  # Loc: (2, 1, 0)
+  %3 = lamp false, [%2:0]  # Loc: (3, 1, 0)
+}

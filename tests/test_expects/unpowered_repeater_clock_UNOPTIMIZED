@@ -1,0 +1,8 @@
+circuit {
+  %0 = wire 0, []  # Loc: (0, 1, 0)
+  %1 = repeater 1, false, false, false, [], []  # Loc: (0, 1, 1)
+  %2 = lamp false, []  # Loc: (0, 1, 2)
+  %3 = lamp false, []  # Loc: (1, 1, 0)
+  %4 = repeater 1, false, false, false, [], []  # Loc: (1, 1, 1)
+  %5 = wire 0, []  # Loc: (1, 1, 2)
+}
