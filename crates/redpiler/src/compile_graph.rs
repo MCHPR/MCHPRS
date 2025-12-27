@@ -75,10 +75,10 @@ impl NodeState {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Annotations {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompileNode {
     pub ty: NodeType,
     pub block: Option<(BlockPos, u32)>,
@@ -101,7 +101,7 @@ pub enum LinkType {
     Side,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct CompileLink {
     pub ty: LinkType,
     pub ss: u8,
