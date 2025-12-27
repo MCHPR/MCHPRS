@@ -92,10 +92,10 @@ impl NodeState {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Annotations {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompileNode {
     pub ty: NodeType,
     pub block: SmallVec<[(BlockPos, u32); 1]>,
