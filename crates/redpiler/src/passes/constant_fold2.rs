@@ -36,8 +36,6 @@ impl<W: World> Pass<W> for ConstantFold2 {
 
         range_info.set_range(constant, SSRange::constant(15));
 
-
-
         for i in 0..graph.node_bound() {
             let idx = NodeIdx::new(i);
             if idx == constant || !graph.contains_node(idx) {

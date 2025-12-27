@@ -1,16 +1,16 @@
 mod analysis;
 mod clamp_weights;
 mod coalesce;
+mod coalesce2;
 mod constant_coalesce;
 mod constant_fold;
+mod constant_fold2;
 mod dedup_links;
 mod export_graph;
 mod identify_nodes;
 mod input_search;
 mod prune_orphans;
 mod unreachable_output;
-mod coalesce2;
-mod constant_fold2;
 
 use mchprs_world::World;
 
@@ -32,11 +32,9 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &clamp_weights::ClampWeights,
         &dedup_links::DedupLinks,
         &analysis::ss_range_analysis::SSRangeAnalysis,
-        
         &unreachable_output::UnreachableOutput,
         &constant_fold2::ConstantFold2,
         &coalesce2::Coalesce2,
-        
         &prune_orphans::PruneOrphans,
         &export_graph::ExportGraph,
     ])
