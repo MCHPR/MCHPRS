@@ -40,10 +40,10 @@ impl SSRange {
         let a = self.0;
         let b = other.0;
 
-        let a_lsb = a & (0u16.wrapping_sub(a));
+        let a_lsb = a & a.wrapping_neg();
         let a_mask = !a_lsb.saturating_sub(1);
 
-        let b_lsb = b & (0u16.wrapping_sub(b));
+        let b_lsb = b & b.wrapping_neg();
         let b_mask = !b_lsb.saturating_sub(1);
 
         Self((a | b) & a_mask & b_mask)
@@ -83,56 +83,29 @@ impl SSRange {
 
     #[inline(always)]
     pub const fn high(self) -> u8 {
-        debug_assert!(self.0 != 0);
-        15 - self.0.leading_zeros() as u8
+        (1 | self.0).ilog2() as u8
     }
 
     #[inline(always)]
-    pub const fn bool_signature(self, dist: u8) -> u16 {
-        // dist as u16
-        self.0 & (0xfffe << dist)
+    pub const fn normalize_bin_distance(self, dist: u8) -> u8 {
+        (1 | (self.0 & !(0xfffe << dist))).ilog2() as u8
     }
 
     #[inline(always)]
-    pub const fn dist_from_bool_signature(self, sig: u16) -> u8 {
-        // sig as u8
-        Self(1 | (self.0 & !sig)).high()
-    }
-
-    #[inline(always)]
-    pub const fn hex_signature(self, dist: u8) -> u16 {
-        dist as u16
-        // (self.0 & 1) | (self.0 >> dist)
-    }
-
-    #[inline(always)]
-    pub const fn dist_from_hex_signature(self, sig: u16) -> u8 {
-        // let a: i8 = Self(1 | self.0).high() as i8;
-        // let b: i8 =  if sig == 0 {-1} else {Self(sig).high() as i8};
-        // (a - b) as u8
-        sig as u8
+    pub const fn normalize_hex_distance(self, dist: u8) -> u8 {
+        dist
     }
 }
 
 #[test]
-fn test_signature() {
-    for example in (0..=u16::MAX).map(SSRange) {
+fn test_normalize_distance() {
+    for ss_range in (0..=u16::MAX).map(SSRange) {
         for dist in 0..=15u8 {
-            let bin_sig = example.bool_signature(dist);
-            let hex_sig = example.hex_signature(dist);
-
-            let bin_dist = example.dist_from_bool_signature(bin_sig);
-            let bin_sig2 = example.bool_signature(bin_dist);
-
-            let hex_dist = example.dist_from_hex_signature(hex_sig);
-            let hex_sig2 = example.hex_signature(hex_dist);
-
-            // Assert recovered distance results in the same signature
-            assert_eq!(bin_sig, bin_sig2);
-            assert_eq!(hex_sig, hex_sig2);
+            let bin_dist = ss_range.normalize_bin_distance(dist);
+            let hex_dist = ss_range.normalize_hex_distance(dist);
 
             for i in 0..=15u8 {
-                if example.0 & (1 << i) == 0 {
+                if ss_range.0 & (1 << i) == 0 {
                     continue;
                 }
 
@@ -140,11 +113,25 @@ fn test_signature() {
                 let bin_output = i > bin_dist;
                 let hex_output = i.saturating_sub(hex_dist);
 
-                // Assert for every input power using the recovered distance has the same result
+                // Assert for every input power using the normalized distance has the same result
                 assert_eq!(bin_output, output > 0);
                 assert_eq!(hex_output, output);
             }
         }
+    }
+}
+
+#[test]
+fn test_low_high() {
+    for ss_range in (0..=u16::MAX).map(SSRange) {
+        let low = ss_range.low();
+        let high = ss_range.high();
+
+        let e_low = (0..=15u8).find(|&ss| ss_range.contains(ss)).unwrap_or(0);
+        let e_high = (0..=15u8).rev().find(|&ss| ss_range.contains(ss)).unwrap_or(0);
+
+        assert_eq!(low, e_low);
+        assert_eq!(high, e_high);
     }
 }
 
@@ -154,6 +141,10 @@ pub struct SSRangeInfo {
 }
 
 impl SSRangeInfo {
+    pub fn with_reserved(reserved: usize) -> Self {
+        Self { ranges: vec![None; reserved] }
+    }
+
     /// Pre-allocate enough ranges for the entire graph
     fn reserve(&mut self, graph: &CompileGraph) {
         let len = graph.node_bound();
