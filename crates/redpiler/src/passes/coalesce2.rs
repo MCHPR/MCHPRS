@@ -217,9 +217,7 @@ fn from_nod_graph(
         }
         let new_target = old_to_new[old_target.index()];
 
-        for (side, mut old_source, ss_dist) in
-            nods[old_target.index()].inputs.iter().cloned()
-        {
+        for (side, mut old_source, ss_dist) in nods[old_target.index()].inputs.iter().cloned() {
             while old_source != index_map[old_source.index()] {
                 old_source = index_map[old_source.index()];
             }
