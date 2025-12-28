@@ -27,7 +27,7 @@ impl<W: World> Pass<W> for Coalesce2 {
         _: &CompilerInput<'_, W>,
         analysis_infos: &mut AnalysisInfos,
     ) {
-        let range_info: &SSRangeInfo = analysis_infos.get_analysis().unwrap();
+        let range_info: &mut SSRangeInfo = analysis_infos.get_analysis_mut().unwrap();
         run_pass(graph, range_info);
     }
 
@@ -38,7 +38,7 @@ impl<W: World> Pass<W> for Coalesce2 {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct Nod {
-    inputs: Vec<(bool, NodeIdx, u16)>,
+    inputs: Vec<(bool, NodeIdx, u8)>,
     ty: NodeType,
     state: NodeState,
 }
@@ -53,7 +53,7 @@ impl Default for Nod {
     }
 }
 
-fn run_pass(graph: &mut CompileGraph, range_info: &SSRangeInfo) {
+fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
     let (mut nods, mut outputs, mut index_map, mut current) = to_nod_graph(graph, range_info);
 
     let mut next = Vec::<NodeIdx>::new();
@@ -120,7 +120,9 @@ fn run_pass(graph: &mut CompileGraph, range_info: &SSRangeInfo) {
         std::mem::swap(&mut current, &mut next);
     }
 
-    *graph = from_nod_graph(graph, range_info, nods, index_map);
+    let (new_graph, new_range_info) = from_nod_graph(graph, range_info, nods, index_map);
+    *graph = new_graph;
+    *range_info = new_range_info;
 }
 
 fn to_nod_graph(
@@ -160,7 +162,7 @@ fn to_nod_graph(
 
         let is_bool = node.ty.is_bool();
 
-        let mut inputs: Vec<(bool, NodeIdx, u16)> = graph
+        let mut inputs: Vec<(bool, NodeIdx, u8)> = graph
             .edges_directed(idx, Incoming)
             .map(|edge| {
                 let source = edge.source();
@@ -169,13 +171,13 @@ fn to_nod_graph(
                 let is_side = weight.ty == LinkType::Side;
 
                 let possible_outputs = range_info.get_range(source).unwrap();
-                let input_signature = if is_bool {
-                    possible_outputs.bool_signature(ss_dist)
+                let ss_distance = if is_bool {
+                    possible_outputs.normalize_bin_distance(ss_dist)
                 } else {
-                    possible_outputs.hex_signature(ss_dist)
+                    possible_outputs.normalize_hex_distance(ss_dist)
                 };
 
-                (is_side, source, input_signature)
+                (is_side, source, ss_distance)
             })
             .collect();
         inputs.sort();
@@ -192,11 +194,11 @@ fn to_nod_graph(
 }
 
 fn from_nod_graph(
-    graph: &mut CompileGraph,
+    graph: &CompileGraph,
     range_info: &SSRangeInfo,
     nods: Vec<Nod>,
     index_map: Vec<NodeIdx>,
-) -> CompileGraph {
+) -> (CompileGraph, SSRangeInfo) {
     let mut old_to_new: Vec<NodeIdx> = vec![NodeIdx::end(); index_map.len()];
 
     let mut new_graph = CompileGraph::with_capacity(graph.node_count(), graph.edge_count());
@@ -213,23 +215,14 @@ fn from_nod_graph(
         if index_map[old_target.index()] != old_target {
             continue;
         }
-        let is_bool = graph[old_target].ty.is_bool();
         let new_target = old_to_new[old_target.index()];
 
-        for (side, mut old_source, input_signature) in
+        for (side, mut old_source, ss_dist) in
             nods[old_target.index()].inputs.iter().cloned()
         {
             while old_source != index_map[old_source.index()] {
                 old_source = index_map[old_source.index()];
             }
-
-            let source_ss = range_info.get_range(old_source).unwrap();
-
-            let ss_dist = if is_bool {
-                source_ss.dist_from_bool_signature(input_signature)
-            } else {
-                source_ss.dist_from_hex_signature(input_signature)
-            };
 
             let new_source = old_to_new[old_source.index()];
             assert_ne!(new_source, NodeIdx::end());
@@ -249,7 +242,19 @@ fn from_nod_graph(
             );
         }
     }
-    new_graph
+
+    let mut new_range_info = SSRangeInfo::with_reserved(new_graph.node_count());
+
+    for (old, new) in old_to_new.iter().copied().enumerate() {
+        if new == NodeIdx::end() {
+            continue;
+        }
+        let old = NodeIdx::new(old);
+
+        new_range_info.set_range(new, range_info.get_range(old).unwrap());
+    }
+
+    (new_graph, new_range_info)
 }
 
 pub fn coalesce(graph: &mut CompileGraph, node: NodeIdx, into: NodeIdx, extra_distance: u8) {
