@@ -128,7 +128,10 @@ fn test_low_high() {
         let high = ss_range.high();
 
         let e_low = (0..=15u8).find(|&ss| ss_range.contains(ss)).unwrap_or(0);
-        let e_high = (0..=15u8).rev().find(|&ss| ss_range.contains(ss)).unwrap_or(0);
+        let e_high = (0..=15u8)
+            .rev()
+            .find(|&ss| ss_range.contains(ss))
+            .unwrap_or(0);
 
         assert_eq!(low, e_low);
         assert_eq!(high, e_high);
@@ -142,7 +145,9 @@ pub struct SSRangeInfo {
 
 impl SSRangeInfo {
     pub fn with_reserved(reserved: usize) -> Self {
-        Self { ranges: vec![None; reserved] }
+        Self {
+            ranges: vec![None; reserved],
+        }
     }
 
     /// Pre-allocate enough ranges for the entire graph
