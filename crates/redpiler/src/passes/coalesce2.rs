@@ -45,11 +45,14 @@ struct Nod<'a> {
     state: NodeState,
 }
 
-impl <'a> Nod<'a> {
+impl<'a> Nod<'a> {
     // Safety: The values in self.inputs should not be modified for the lifetime of the clone
     unsafe fn unsafe_clone(&self) -> Self {
         Self {
-            inputs: std::slice::from_raw_parts_mut(self.inputs.as_ptr() as *mut Input, self.inputs.len()),
+            inputs: std::slice::from_raw_parts_mut(
+                self.inputs.as_ptr() as *mut Input,
+                self.inputs.len(),
+            ),
             ty: self.ty.clone(),
             state: self.state.clone(),
         }
@@ -109,7 +112,7 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
                     inputs[j] = input;
                     last = input;
                     j += 1;
-                } 
+                }
             }
             nod.inputs = &mut inputs[..j];
 
