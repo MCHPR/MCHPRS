@@ -36,14 +36,27 @@ impl<W: World> Pass<W> for Coalesce2 {
     }
 }
 
-#[derive(PartialEq, Eq, Hash, Clone)]
-struct Nod {
-    inputs: Vec<(bool, NodeIdx, u8)>,
+type Input = (bool, NodeIdx, u8);
+
+#[derive(PartialEq, Eq, Hash)]
+struct Nod<'a> {
+    inputs: &'a mut [Input],
     ty: NodeType,
     state: NodeState,
 }
 
-impl Default for Nod {
+impl <'a> Nod<'a> {
+    // Safety: The values in self.inputs should not be modified for the lifetime of the clone
+    unsafe fn unsafe_clone(&self) -> Self {
+        Self {
+            inputs: std::slice::from_raw_parts_mut(self.inputs.as_ptr() as *mut Input, self.inputs.len()),
+            ty: self.ty.clone(),
+            state: self.state.clone(),
+        }
+    }
+}
+
+impl<'a> Default for Nod<'a> {
     fn default() -> Self {
         Self {
             inputs: Default::default(),
@@ -54,7 +67,8 @@ impl Default for Nod {
 }
 
 fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
-    let (mut nods, mut outputs, mut index_map, mut current) = to_nod_graph(graph, range_info);
+    let (mut nods, nod_inputs, mut outputs, mut index_map, mut current) =
+        to_nod_graph(graph, range_info);
 
     let mut next = Vec::<NodeIdx>::new();
     let mut nod_map: FxHashMap<Nod, NodeIdx> = FxHashMap::default();
@@ -74,18 +88,34 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
             }
 
             let nod = &mut nods[idx.index()];
-            for i in &mut nod.inputs {
+            let inputs = std::mem::take(&mut nod.inputs);
+            for i in inputs.iter_mut() {
                 let mut ii = i.1;
                 while ii != index_map[ii.index()] {
                     ii = index_map[ii.index()];
                 }
                 i.1 = ii;
             }
-            nod.inputs.sort();
-            nod.inputs.dedup();
+            inputs.sort();
+            // Dedup
+            let mut j = 0usize;
+            {
+                let mut last = (false, NodeIdx::end(), 0);
+                for i in 0..inputs.len() {
+                    let input = inputs[i];
+                    if input == last {
+                        continue;
+                    }
+                    inputs[j] = input;
+                    last = input;
+                    j += 1;
+                } 
+            }
+            nod.inputs = &mut inputs[..j];
 
             let Some(&same_node) = nod_map.get(&nod) else {
-                nod_map.insert(nod.clone(), idx);
+                // Safety: nod.inputs is not modified for the lifetime of this clone
+                nod_map.insert(unsafe { nod.unsafe_clone() }, idx);
                 continue;
             };
 
@@ -123,23 +153,25 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
     let (new_graph, new_range_info) = from_nod_graph(graph, range_info, nods, index_map);
     *graph = new_graph;
     *range_info = new_range_info;
+
+    // Only drop nod_inputs at the very end to unsure its not freed with dangling references
+    drop(nod_inputs);
 }
 
-fn to_nod_graph(
+fn to_nod_graph<'a>(
     graph: &petgraph::prelude::StableGraph<crate::compile_graph::CompileNode, CompileLink>,
     range_info: &SSRangeInfo,
 ) -> (
-    Vec<Nod>,
-    Vec<HashSet<petgraph::prelude::NodeIndex>>,
-    Vec<petgraph::prelude::NodeIndex>,
-    Vec<petgraph::prelude::NodeIndex>,
+    Vec<Nod<'a>>,
+    Vec<Input>,
+    Vec<HashSet<NodeIdx>>,
+    Vec<NodeIdx>,
+    Vec<NodeIdx>,
 ) {
-    let empty_nod = Nod {
-        inputs: Default::default(),
-        ty: NodeType::Constant,
-        state: Default::default(),
-    };
     let mut nods: Vec<Nod> = Vec::with_capacity(graph.node_bound());
+    // The initial capacity here should be enough to hold all inputs to ensure safety
+    let mut nod_inputs: Vec<Input> = Vec::with_capacity(graph.edge_count());
+
     let mut outputs: Vec<HashSet<NodeIdx>> = Vec::with_capacity(graph.node_bound());
     let mut index_map: Vec<NodeIdx> = Vec::with_capacity(graph.node_bound());
     let mut next: Vec<NodeIdx> = Vec::new();
@@ -147,7 +179,7 @@ fn to_nod_graph(
     for i in 0..graph.node_bound() {
         let idx = NodeIdx::new(i);
         if !graph.contains_node(idx) {
-            nods.push(empty_nod.clone());
+            nods.push(Nod::default());
             outputs.push(Default::default());
             index_map.push(NodeIdx::end());
             continue;
@@ -162,24 +194,30 @@ fn to_nod_graph(
 
         let is_bool = node.ty.is_bool();
 
-        let mut inputs: Vec<(bool, NodeIdx, u8)> = graph
-            .edges_directed(idx, Incoming)
-            .map(|edge| {
-                let source = edge.source();
-                let weight = edge.weight();
-                let ss_dist = weight.ss;
-                let is_side = weight.ty == LinkType::Side;
+        let start = nod_inputs.len();
+        for edge in graph.edges_directed(idx, Incoming) {
+            let source = edge.source();
+            let weight = edge.weight();
+            let ss_dist = weight.ss;
+            let is_side = weight.ty == LinkType::Side;
 
-                let possible_outputs = range_info.get_range(source).unwrap();
-                let ss_distance = if is_bool {
-                    possible_outputs.normalize_bin_distance(ss_dist)
-                } else {
-                    possible_outputs.normalize_hex_distance(ss_dist)
-                };
+            let possible_outputs = range_info.get_range(source).unwrap();
+            let ss_distance = if is_bool {
+                possible_outputs.normalize_bin_distance(ss_dist)
+            } else {
+                possible_outputs.normalize_hex_distance(ss_dist)
+            };
 
-                (is_side, source, ss_distance)
-            })
-            .collect();
+            nod_inputs.push((is_side, source, ss_distance));
+        }
+        // Safety: slices are non-overlapping, nod_inputs lives at-least as long as inputs,
+        //  nod_inputs is not accessed directly, and nod_inputs has sufficient capacity from the start
+        let inputs = unsafe {
+            std::slice::from_raw_parts_mut(
+                nod_inputs.as_mut_ptr().add(start),
+                nod_inputs.len() - start,
+            )
+        };
         inputs.sort();
 
         let nod = Nod {
@@ -190,7 +228,7 @@ fn to_nod_graph(
 
         nods.push(nod);
     }
-    (nods, outputs, index_map, next)
+    (nods, nod_inputs, outputs, index_map, next)
 }
 
 fn from_nod_graph(
