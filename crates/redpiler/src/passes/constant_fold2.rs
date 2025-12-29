@@ -27,7 +27,7 @@ impl<W: World> Pass<W> for ConstantFold2 {
 
         let constant = graph.add_node(CompileNode {
             ty: NodeType::Constant,
-            block: None,
+            block: Default::default(),
             state: NodeState::ss(15),
             is_input: false,
             is_output: false,
