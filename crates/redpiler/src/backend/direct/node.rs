@@ -11,6 +11,7 @@ impl NodeId {
     }
 
     /// Safety: index must be within bounds of nodes array
+    /// Safety: index must point to a valid Node and not towards a ForwardLink block
     pub unsafe fn from_index(index: usize) -> NodeId {
         NodeId(index as u32)
     }
@@ -18,34 +19,69 @@ impl NodeId {
 
 // This is Pretty Bad:tm: because one can create a NodeId using another instance of Nodes,
 // but at least some type system protection is better than none.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Nodes {
-    pub nodes: Box<[Node]>,
+    nodes: Box<[Node]>,
+    valid: Box<[bool]>,
+    ids: Box<[NodeId]>,
 }
 
 impl Nodes {
     pub fn new(nodes: Box<[Node]>) -> Nodes {
-        Nodes { nodes }
-    }
+        let mut valid = vec![false; nodes.len()].into_boxed_slice();
+        let mut ids = Vec::new();
 
-    pub fn get(&self, idx: usize) -> NodeId {
-        if self.nodes.get(idx).is_some() {
-            NodeId(idx as u32)
-        } else {
-            panic!("node index out of bounds: {}", idx)
+        let mut i = 0;
+        while i < nodes.len() {
+            // Safety: bounds checked and invalid indices skipped over
+            let id = unsafe { NodeId::from_index(i) };
+            let node = &nodes[i];
+
+            valid[i] = true;
+            ids.push(id);
+
+            i += 1 + node.forward_link_blocks();
+        }
+
+        Nodes {
+            nodes,
+            valid,
+            ids: ids.into_boxed_slice(),
         }
     }
 
-    pub fn inner(&self) -> &[Node] {
-        &self.nodes
+    pub fn get(&self, idx: usize) -> NodeId {
+        if idx >= self.nodes.len() {
+            panic!(
+                "node index out of bounds: {}, len={}",
+                idx,
+                self.nodes.len()
+            )
+        }
+        if !self.valid[idx] {
+            panic!("node index invalid: {}", idx)
+        }
+        NodeId(idx as u32)
     }
 
-    pub fn inner_mut(&mut self) -> &mut [Node] {
-        &mut self.nodes
+    pub fn forward_link(&self, id: NodeId) -> &[ForwardLink] {
+        // Safety: Node is followed by correct number of forward links
+        unsafe { self[id].forward_links() }
     }
 
-    pub fn into_inner(self) -> Box<[Node]> {
-        self.nodes
+    pub fn ids(&self) -> impl '_ + Iterator<Item = NodeId> {
+        self.ids.iter().copied()
+    }
+
+    pub fn enumerate(&self) -> impl Iterator<Item = (NodeId, &Node)> {
+        self.ids.iter().copied().map(|id| (id, &self[id]))
+    }
+
+    pub fn enumerate_mut(&mut self) -> impl Iterator<Item = (NodeId, &mut Node)> {
+        self.ids.iter().copied().map(|id| {
+            // Safety: only unique references are returned and id comes from self
+            (id, unsafe { &mut *self.nodes.as_mut_ptr().add(id.index()) })
+        })
     }
 }
 
@@ -152,17 +188,16 @@ impl NonMaxU8 {
 // size as an L1 cache line on most modern processors. By forcing a 64-byte
 // alignment, we make sure that the entire `Node` can fit on one cache line,
 // preventing scenarios where we have to fetch 2 cache lines to read a single `Node`.
-#[repr(align(64))]
+#[repr(C, align(64))]
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub ty: NodeType,
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
+    pub ty: NodeType,
 
-    /// The index to the first forward link of this node.
-    pub fwd_link_begin: usize,
-    /// The index to after the last forward link of this node.
-    pub fwd_link_end: usize,
+    pub fwd_link_len: u16,
+
+    pub output_power: u8,
 
     pub is_io: bool,
 
@@ -170,7 +205,44 @@ pub struct Node {
     pub powered: bool,
     /// Only for repeaters
     pub locked: bool,
-    pub output_power: u8,
     pub changed: bool,
     pub pending_tick: bool,
+
+    // links must be at the very end of the struct
+    pub fwd_links: LinkBuffer,
+}
+
+const LINKS_IN_NODE: usize = 5;
+type LinkBuffer = [ForwardLink; LINKS_IN_NODE];
+
+impl Node {
+    pub fn forward_link_blocks_for(fwd_link_len: usize) -> usize {
+        const BLOCK_SIZE: usize = size_of::<Node>() / size_of::<ForwardLink>();
+
+        const {
+            use std::mem::offset_of;
+
+            assert!(size_of::<Node>() % size_of::<ForwardLink>() == 0);
+            assert!(align_of::<Node>() % align_of::<ForwardLink>() == 0);
+            assert!(offset_of!(Node, fwd_links) + size_of::<LinkBuffer>() == size_of::<Node>())
+        }
+
+        fwd_link_len
+            .saturating_sub(LINKS_IN_NODE)
+            .div_ceil(BLOCK_SIZE)
+    }
+
+    pub fn forward_link_blocks(&self) -> usize {
+        Node::forward_link_blocks_for(self.fwd_link_len as usize)
+    }
+
+    /// Safety: self must be followed by correct number of forward links
+    pub unsafe fn forward_links(&self) -> &[ForwardLink] {
+        std::slice::from_raw_parts(self.fwd_links.as_ptr(), self.fwd_link_len as usize)
+    }
+
+    /// Safety: self must be followed by correct number of forward links
+    pub unsafe fn forward_links_mut(&mut self) -> &mut [ForwardLink] {
+        std::slice::from_raw_parts_mut(self.fwd_links.as_mut_ptr(), self.fwd_link_len as usize)
+    }
 }
