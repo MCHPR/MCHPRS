@@ -143,16 +143,32 @@ fn load_schematic_sponge(
 
     let (offset_x, offset_y, offset_z) = match version {
         2 => {
-            let metadata = nbt_as!(&nbt["Metadata"], Value::Compound);
-            (
-                -nbt_as!(metadata["WEOffsetX"], Value::Int),
-                -nbt_as!(metadata["WEOffsetY"], Value::Int),
-                -nbt_as!(metadata["WEOffsetZ"], Value::Int),
-            )
+            // Older versions of WorldEdit put the offset in Metadata
+            // These offsets are optional but if present all must be present
+            // Its important to check the WEOffset first as both can be present but only the WEOffset is correct
+            if let Some(metadata) = nbt.get("Metadata")
+                && let metadata = nbt_as!(metadata, Value::Compound)
+                && let Some(offset_x) = metadata.get("WEOffsetX")
+            {
+                (
+                    -nbt_as!(offset_x, Value::Int),
+                    -nbt_as!(metadata["WEOffsetY"], Value::Int),
+                    -nbt_as!(metadata["WEOffsetZ"], Value::Int),
+                )
+            } else if let Some(offset) = nbt.get("Offset") {
+                let offset_array = nbt_as!(offset, Value::IntArray);
+                (-offset_array[0], -offset_array[1], -offset_array[2])
+            } else {
+                (0, 0, 0)
+            }
         }
         3 => {
-            let offset_array = nbt_as!(&nbt["Offset"], Value::IntArray);
-            (-offset_array[0], -offset_array[1], -offset_array[2])
+            if let Some(offset_array) = nbt.get("Offset") {
+                let offset_array = nbt_as!(offset_array, Value::IntArray);
+                (-offset_array[0], -offset_array[1], -offset_array[2])
+            } else {
+                (0, 0, 0)
+            }
         }
         _ => unreachable!(),
     };
