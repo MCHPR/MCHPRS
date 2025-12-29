@@ -36,6 +36,7 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &constant_fold2::ConstantFold2,
         &coalesce2::Coalesce2,
         &prune_orphans::PruneOrphans,
+        &dedup_links::DedupLinks,
         &export_graph::ExportGraph,
     ])
 }
