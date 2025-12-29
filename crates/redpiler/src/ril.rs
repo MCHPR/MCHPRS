@@ -191,8 +191,11 @@ fn dump_node(f: &mut fmt::Formatter<'_>, ctx: &FmtContext<'_>) -> fmt::Result {
         }
     }?;
 
-    if let Some((pos, _)) = node.block {
-        write!(f, "  # Loc: {}", pos)?;
+    if node.block.len() > 0 {
+        write!(f, "  # Loc:")?;
+        for (pos, _) in node.block.iter().copied() {
+            write!(f, " {}", pos)?;
+        }
     }
 
     Ok(())

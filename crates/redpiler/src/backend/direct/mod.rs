@@ -17,6 +17,8 @@ use mchprs_redstone::{bool_to_ss, noteblock};
 use mchprs_world::{TickEntry, TickPriority, World};
 use node::{Node, NodeId, NodeType, Nodes};
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
+use std::fmt::Write;
 use std::sync::Arc;
 use std::{fmt, mem};
 use tracing::{debug, warn};
@@ -40,7 +42,7 @@ impl TickScheduler {
     const NUM_PRIORITIES: usize = 4;
     const NUM_QUEUES: usize = 16;
 
-    fn reset<W: World>(&mut self, world: &mut W, blocks: &[Option<(BlockPos, Block)>]) {
+    fn reset<W: World>(&mut self, world: &mut W, blocks: &[impl AsRef<[(BlockPos, Block)]>]) {
         for (idx, queues) in self.queues_deque.iter().enumerate() {
             let delay = if self.pos >= idx {
                 idx + Self::NUM_QUEUES
@@ -49,11 +51,12 @@ impl TickScheduler {
             } - self.pos;
             for (entries, priority) in queues.0.iter().zip(Self::priorities()) {
                 for node in entries {
-                    let Some((pos, _)) = blocks[node.index()] else {
+                    if blocks[node.index()].as_ref().is_empty() {
                         warn!("Cannot schedule tick for node {:?} because block information is missing", node);
-                        continue;
-                    };
-                    world.schedule_tick(pos, delay as u32, priority);
+                    }
+                    for (pos, _) in blocks[node.index()].as_ref().iter().copied() {
+                        world.schedule_tick(pos, delay as u32, priority);
+                    }
                 }
             }
         }
@@ -109,11 +112,11 @@ enum Event {
 pub struct DirectBackend {
     nodes: Nodes,
     forward_links: Vec<ForwardLink>,
-    blocks: Vec<Option<(BlockPos, Block)>>,
+    blocks: Vec<SmallVec<[(BlockPos, Block); 1]>>,
     pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
     events: Vec<Event>,
-    noteblock_info: Vec<(BlockPos, Instrument, u32)>,
+    noteblock_info: Vec<(SmallVec<[BlockPos; 1]>, Instrument, u32)>,
 }
 
 impl DirectBackend {
@@ -180,18 +183,17 @@ impl JITBackend for DirectBackend {
         let nodes = std::mem::take(&mut self.nodes);
 
         for (i, node) in nodes.into_inner().iter().enumerate() {
-            let Some((pos, block)) = self.blocks[i] else {
-                continue;
-            };
-            if matches!(node.ty, NodeType::Comparator { .. }) {
-                let block_entity = BlockEntity::Comparator {
-                    output_strength: node.output_power,
-                };
-                world.set_block_entity(pos, block_entity);
-            }
+            for (pos, block) in self.blocks[i].iter().copied() {
+                if matches!(node.ty, NodeType::Comparator { .. }) {
+                    let block_entity = BlockEntity::Comparator {
+                        output_strength: node.output_power,
+                    };
+                    world.set_block_entity(pos, block_entity);
+                }
 
-            if io_only && !node.is_io {
-                world.set_block(pos, block);
+                if io_only && !node.is_io {
+                    world.set_block(pos, block);
+                }
             }
         }
 
@@ -244,16 +246,19 @@ impl JITBackend for DirectBackend {
         for event in self.events.drain(..) {
             match event {
                 Event::NoteBlockPlay { noteblock_id } => {
-                    let (pos, instrument, note) = self.noteblock_info[noteblock_id as usize];
-                    noteblock::play_note(world, pos, instrument, note);
+                    let (positions, instrument, note) = &self.noteblock_info[noteblock_id as usize];
+                    for pos in positions.iter().copied() {
+                        noteblock::play_note(world, pos, *instrument, *note);
+                    }
                 }
             }
         }
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
-            let Some((pos, block)) = &mut self.blocks[i] else {
+            if !node.changed || (io_only && !node.is_io) {
                 continue;
-            };
-            if node.changed && (!io_only || node.is_io) {
+            }
+            node.changed = false;
+            for (pos, block) in &mut self.blocks[i] {
                 if let Some(powered) = block_powered_mut(block) {
                     *powered = node.powered
                 }
@@ -265,7 +270,6 @@ impl JITBackend for DirectBackend {
                 }
                 world.set_block(*pos, *block);
             }
-            node.changed = false;
         }
     }
 
@@ -379,8 +383,12 @@ impl fmt::Display for DirectBackend {
                 NodeType::Constant => format!("Constant({})", node.output_power),
                 NodeType::NoteBlock { .. } => "NoteBlock".to_string(),
             };
-            let pos = if let Some((pos, _)) = self.blocks[id] {
-                format!("{}, {}, {}", pos.x, pos.y, pos.z)
+            let pos = if self.blocks[id].len() > 0 {
+                let mut string = String::new();
+                for (pos, _) in self.blocks[id].iter() {
+                    write!(&mut string, "{}, {}, {}; ", pos.x, pos.y, pos.z)?;
+                }
+                string
             } else {
                 "No Pos".to_string()
             };

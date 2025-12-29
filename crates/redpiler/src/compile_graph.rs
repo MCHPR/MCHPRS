@@ -1,6 +1,7 @@
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
 use petgraph::stable_graph::{NodeIndex, StableGraph};
+use smallvec::SmallVec;
 
 pub type NodeIdx = NodeIndex;
 
@@ -81,7 +82,7 @@ pub struct Annotations {}
 #[derive(Debug, Clone)]
 pub struct CompileNode {
     pub ty: NodeType,
-    pub block: Option<(BlockPos, u32)>,
+    pub block: SmallVec<[(BlockPos, u32); 1]>,
     pub state: NodeState,
 
     pub is_input: bool,

@@ -129,9 +129,6 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
             same_out.extend(this_out);
 
             for output in same_out.iter().copied() {
-                if graph[output].is_output {
-                    continue;
-                }
                 let output = index_map[output.index()];
 
                 if !dedup_output.insert(output) {
@@ -141,6 +138,11 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
             }
 
             outputs[same_node.index()] = same_out;
+
+            let mut same_blocks = std::mem::take(&mut graph[same_node].block);
+            let this_blocks = &graph[idx].block.as_slice();
+            same_blocks.extend_from_slice(this_blocks);
+            graph[same_node].block = same_blocks;
         }
 
         for (from, to) in changes.drain(..) {
@@ -191,7 +193,7 @@ fn to_nod_graph<'a>(
         outputs.push(graph.neighbors_directed(idx, Outgoing).collect());
 
         let node = &graph[idx];
-        if node.is_removable() {
+        if !node.is_input {
             next.push(idx);
         }
 
@@ -309,5 +311,11 @@ pub fn coalesce(graph: &mut CompileGraph, node: NodeIdx, into: NodeIdx, extra_di
             graph.add_edge(into, dest, CompileLink::new(ty, ss));
         }
     }
+
+    let mut into_blocks = std::mem::take(&mut graph[into].block);
+    let node_blocks = graph[node].block.as_slice();
+    into_blocks.extend_from_slice(node_blocks);
+    graph[into].block = into_blocks;
+
     graph.remove_node(node);
 }
