@@ -55,7 +55,7 @@ pub struct NodeState {
 pub struct Node {
     pub ty: NodeType,
     /// Position and protocol id for block
-    pub block: Option<(BlockPos, u32)>,
+    pub block: Vec<(BlockPos, u32)>,
     pub state: NodeState,
 
     pub facing_diode: bool,
