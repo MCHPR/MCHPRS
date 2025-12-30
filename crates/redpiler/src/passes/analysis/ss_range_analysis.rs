@@ -19,7 +19,8 @@ use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::graph::NodeIndex;
 use petgraph::visit::{EdgeRef, NodeIndexable};
-use petgraph::Direction;
+use petgraph::Direction::{Incoming, Outgoing};
+use std::collections::HashSet;
 use std::iter;
 
 /// The possible output range of a node
@@ -190,6 +191,8 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
         let mut range_info = SSRangeInfo::default();
         range_info.reserve(graph);
 
+        let mut indices = Vec::with_capacity(graph.node_count());
+
         // First, we give all nodes with no inputs the default range
         for node_idx in graph.node_indices() {
             let node = &graph[node_idx];
@@ -198,18 +201,22 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
                 // Inputs
                 NodeType::Button | NodeType::Lever | NodeType::PressurePlate => SSRange::BOOL,
                 // Outputs
-                NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. } => {
-                    SSRange::constant(0)
-                }
+                NodeType::Trapdoor
+                | NodeType::Lamp
+                | NodeType::Wire
+                | NodeType::NoteBlock { .. } => SSRange::constant(0),
                 // Hex components
-                NodeType::Comparator { .. } | NodeType::Wire => {
+                NodeType::Comparator { .. } => {
+                    indices.push(node_idx);
                     if setup_with_full_range {
                         SSRange::FULL
                     } else {
                         SSRange::constant(node.state.output_strength)
                     }
                 }
+                // Binary components
                 NodeType::Repeater { .. } | NodeType::Torch => {
+                    indices.push(node_idx);
                     if setup_with_full_range {
                         SSRange::BOOL
                     } else {
@@ -222,11 +229,17 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
             range_info.set_range(node_idx, range);
         }
 
+        let mut next = Vec::with_capacity(indices.len());
+        let mut dedup = HashSet::new();
+
         loop {
-            let num_updated = narrow_iteration(graph, &mut range_info);
-            if num_updated == 0 {
+            narrow_iteration(graph, &mut range_info, &indices, &mut dedup, &mut next);
+            if next.is_empty() {
                 break;
             }
+            indices.clear();
+            dedup.clear();
+            std::mem::swap(&mut indices, &mut next);
         }
 
         analysis_infos.insert_analysis(range_info);
@@ -245,7 +258,7 @@ pub fn calc_possible_inputs(
     let node = &graph[idx];
     let mut def = SSRange::constant(0);
     let mut side = SSRange::constant(0);
-    for edge in graph.edges_directed(idx, Direction::Incoming) {
+    for edge in graph.edges_directed(idx, Incoming) {
         let source = edge.source();
         let weight = edge.weight();
         let ss = weight.ss;
@@ -324,20 +337,24 @@ fn calc_possible_outputs(graph: &CompileGraph, range_info: &SSRangeInfo, idx: No
     outputs
 }
 
-fn narrow_iteration(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) -> usize {
-    let mut updated = 0;
-    for i in 0..graph.node_bound() {
-        let idx = NodeIdx::new(i);
-        if !graph.contains_node(idx) {
-            continue;
-        }
+fn narrow_iteration(
+    graph: &mut CompileGraph,
+    range_info: &mut SSRangeInfo,
+    current: &[NodeIdx],
+    dedup: &mut HashSet<NodeIdx>,
+    next: &mut Vec<NodeIdx>,
+) {
+    for idx in current.iter().copied() {
         let old = range_info.get_range(idx).unwrap();
         let new_possible_outputs = calc_possible_outputs(graph, range_info, idx);
 
         if new_possible_outputs != old {
-            updated += 1;
             range_info.set_range(idx, new_possible_outputs);
+            for out in graph.neighbors_directed(idx, Outgoing) {
+                if dedup.insert(out) {
+                    next.push(out);
+                }
+            }
         }
     }
-    return updated;
 }
