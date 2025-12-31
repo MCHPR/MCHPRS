@@ -45,20 +45,6 @@ struct Nod<'a> {
     state: NodeState,
 }
 
-impl<'a> Nod<'a> {
-    // Safety: The values in self.inputs should not be modified for the lifetime of the clone
-    unsafe fn unsafe_clone(&self) -> Self {
-        Self {
-            inputs: std::slice::from_raw_parts_mut(
-                self.inputs.as_ptr() as *mut Input,
-                self.inputs.len(),
-            ),
-            ty: self.ty.clone(),
-            state: self.state.clone(),
-        }
-    }
-}
-
 impl<'a> Default for Nod<'a> {
     fn default() -> Self {
         Self {
@@ -75,12 +61,17 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
         to_nod_graph(graph, range_info, &mut nod_inputs);
 
     let mut next = Vec::<NodeIdx>::new();
-    let mut nod_map: FxHashMap<Nod, NodeIdx> = FxHashMap::default();
+
+    // The initial capacity here should be enough to hold all inputs
+    let mut nod_map_inputs = vec![Input::default(); graph.edge_count()];
 
     let mut dedup_output: HashSet<NodeIdx> = HashSet::new();
     let mut changes: Vec<(NodeIdx, NodeIdx)> = Vec::new();
 
     while current.len() > 0 {
+        let mut free_inputs: &mut [Input] = &mut nod_map_inputs;
+        let mut nod_map: FxHashMap<Nod, NodeIdx> = FxHashMap::default();
+
         for old in current.iter().copied() {
             let mut idx = old;
             while idx != index_map[idx.index()] {
@@ -118,8 +109,19 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
             nod.inputs = &mut inputs[..j];
 
             let Some(&same_node) = nod_map.get(&nod) else {
-                // Safety: nod.inputs is not modified for the lifetime of this clone
-                nod_map.insert(unsafe { nod.unsafe_clone() }, idx);
+                let (inputs, next_free) = free_inputs.split_at_mut(nod.inputs.len());
+                free_inputs = next_free;
+
+                inputs.clone_from_slice(&nod.inputs);
+
+                let nod = Nod {
+                    inputs,
+                    ty: nod.ty.clone(),
+                    state: nod.state.clone(),
+                };
+
+                nod_map.insert(nod, idx);
+
                 continue;
             };
 
@@ -152,7 +154,6 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
 
         dedup_output.clear();
         current.clear();
-        nod_map.clear();
         std::mem::swap(&mut current, &mut next);
     }
 
