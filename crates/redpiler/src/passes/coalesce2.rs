@@ -70,8 +70,9 @@ impl<'a> Default for Nod<'a> {
 }
 
 fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
-    let (mut nods, nod_inputs, mut outputs, mut index_map, mut current) =
-        to_nod_graph(graph, range_info);
+    let mut nod_inputs = vec![Input::default(); graph.edge_count()];
+    let (mut nods, mut outputs, mut index_map, mut current) =
+        to_nod_graph(graph, range_info, &mut nod_inputs);
 
     let mut next = Vec::<NodeIdx>::new();
     let mut nod_map: FxHashMap<Nod, NodeIdx> = FxHashMap::default();
@@ -155,27 +156,25 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
         std::mem::swap(&mut current, &mut next);
     }
 
-    let (new_graph, new_range_info) = from_nod_graph(graph, range_info, nods, index_map);
+    let (new_graph, new_range_info) = from_nod_graph(graph, range_info, &nods, &index_map);
     *graph = new_graph;
     *range_info = new_range_info;
-
-    // Only drop nod_inputs at the very end to unsure its not freed with dangling references
-    drop(nod_inputs);
 }
 
 fn to_nod_graph<'a>(
     graph: &petgraph::prelude::StableGraph<crate::compile_graph::CompileNode, CompileLink>,
     range_info: &SSRangeInfo,
+    mut free_inputs: &'a mut [Input],
 ) -> (
-    Vec<Nod<'a>>,
-    Vec<Input>,
-    Vec<HashSet<NodeIdx>>,
-    Vec<NodeIdx>,
+    Box<[Nod<'a>]>,
+    Box<[HashSet<NodeIdx>]>,
+    Box<[NodeIdx]>,
     Vec<NodeIdx>,
 ) {
+    // The initial capacity here should be enough to hold all inputs
+    assert!(free_inputs.len() >= graph.edge_count());
+
     let mut nods: Vec<Nod> = Vec::with_capacity(graph.node_bound());
-    // The initial capacity here should be enough to hold all inputs to ensure safety
-    let mut nod_inputs: Vec<Input> = Vec::with_capacity(graph.edge_count());
 
     let mut outputs: Vec<HashSet<NodeIdx>> = Vec::with_capacity(graph.node_bound());
     let mut index_map: Vec<NodeIdx> = Vec::with_capacity(graph.node_bound());
@@ -184,7 +183,7 @@ fn to_nod_graph<'a>(
     for i in 0..graph.node_bound() {
         let idx = NodeIdx::new(i);
         if !graph.contains_node(idx) {
-            nods.push(Nod::default());
+            nods.push(Default::default());
             outputs.push(Default::default());
             index_map.push(NodeIdx::end());
             continue;
@@ -199,7 +198,7 @@ fn to_nod_graph<'a>(
 
         let is_bool = node.ty.is_bool();
 
-        let start = nod_inputs.len();
+        let mut len = 0;
         for edge in graph.edges_directed(idx, Incoming) {
             let source = edge.source();
             let weight = edge.weight();
@@ -213,16 +212,12 @@ fn to_nod_graph<'a>(
                 possible_outputs.normalize_hex_distance(ss_dist)
             };
 
-            nod_inputs.push((is_side, source, ss_distance));
+            free_inputs[len] = (is_side, source, ss_distance);
+            len += 1;
         }
-        // Safety: slices are non-overlapping, nod_inputs lives at-least as long as inputs,
-        //  nod_inputs is not accessed directly, and nod_inputs has sufficient capacity from the start
-        let inputs = unsafe {
-            std::slice::from_raw_parts_mut(
-                nod_inputs.as_mut_ptr().add(start),
-                nod_inputs.len() - start,
-            )
-        };
+
+        let (inputs, next_free) = free_inputs.split_at_mut(len);
+        free_inputs = next_free;
         inputs.sort();
 
         let nod = Nod {
@@ -233,14 +228,14 @@ fn to_nod_graph<'a>(
 
         nods.push(nod);
     }
-    (nods, nod_inputs, outputs, index_map, next)
+    (nods.into_boxed_slice(), outputs.into_boxed_slice(), index_map.into_boxed_slice(), next)
 }
 
 fn from_nod_graph(
     graph: &CompileGraph,
     range_info: &SSRangeInfo,
-    nods: Vec<Nod>,
-    index_map: Vec<NodeIdx>,
+    nods: &[Nod],
+    index_map: &[NodeIdx],
 ) -> (CompileGraph, SSRangeInfo) {
     let mut old_to_new: Vec<NodeIdx> = vec![NodeIdx::end(); index_map.len()];
 
