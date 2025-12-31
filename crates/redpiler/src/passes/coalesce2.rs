@@ -108,20 +108,18 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
             }
             nod.inputs = &mut inputs[..j];
 
-            let Some(&same_node) = nod_map.get(&nod) else {
-                let (inputs, next_free) = free_inputs.split_at_mut(nod.inputs.len());
-                free_inputs = next_free;
+            let (inputs, next_free) = free_inputs.split_at_mut(nod.inputs.len());
+            free_inputs = next_free;
 
-                inputs.clone_from_slice(&nod.inputs);
+            inputs.clone_from_slice(&nod.inputs);
 
-                let nod = Nod {
-                    inputs,
-                    ty: nod.ty.clone(),
-                    state: nod.state.clone(),
-                };
+            let nod = Nod {
+                inputs,
+                ty: nod.ty.clone(),
+                state: nod.state.clone(),
+            };
 
-                nod_map.insert(nod, idx);
-
+            let Some(same_node) = nod_map.insert(nod, idx) else {
                 continue;
             };
 
