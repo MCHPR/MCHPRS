@@ -228,7 +228,12 @@ fn to_nod_graph<'a>(
 
         nods.push(nod);
     }
-    (nods.into_boxed_slice(), outputs.into_boxed_slice(), index_map.into_boxed_slice(), next)
+    (
+        nods.into_boxed_slice(),
+        outputs.into_boxed_slice(),
+        index_map.into_boxed_slice(),
+        next,
+    )
 }
 
 fn from_nod_graph(
