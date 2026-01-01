@@ -16,3 +16,4 @@ petgraph = { workspace = true }
 itertools = { workspace = true }
 rustc-hash = { workspace = true }
 enum_dispatch = { workspace = true }
+smallvec = { workspace = true }

@@ -75,6 +75,7 @@ hmac = "0.12"
 sha2 = "0.10"
 bitvec = "1"
 flate2 = "1"
+smallvec = { version = "1.15.1", features = ["union"] }
 enum_dispatch = "0.3"
 petgraph = "0.7"
 thiserror = "2"

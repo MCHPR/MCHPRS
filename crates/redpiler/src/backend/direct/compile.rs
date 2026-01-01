@@ -7,6 +7,7 @@ use mchprs_world::TickEntry;
 use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use rustc_hash::FxHashMap;
+use smallvec::SmallVec;
 use std::sync::Arc;
 use tracing::trace;
 
@@ -26,7 +27,7 @@ fn compile_node(
     node_idx: NodeIdx,
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
-    noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
+    noteblock_info: &mut Vec<(SmallVec<[BlockPos; 1]>, Instrument, u32)>,
     forward_links: &mut Vec<ForwardLink>,
     stats: &mut FinalGraphStats,
 ) -> Node {
@@ -123,7 +124,11 @@ fn compile_node(
         CNodeType::Constant => NodeType::Constant,
         CNodeType::NoteBlock { instrument, note } => {
             let noteblock_id = noteblock_info.len().try_into().unwrap();
-            noteblock_info.push((node.block.unwrap().0, *instrument, *note));
+            noteblock_info.push((
+                node.block.iter().copied().map(|(pos, _)| pos).collect(),
+                *instrument,
+                *note,
+            ));
             NodeType::NoteBlock { noteblock_id }
         }
     };
@@ -178,13 +183,19 @@ pub fn compile(
 
     backend.blocks = graph
         .node_weights()
-        .map(|node| node.block.map(|(pos, id)| (pos, Block::from_id(id))))
+        .map(|node| {
+            node.block
+                .iter()
+                .copied()
+                .map(|(pos, id)| (pos, Block::from_id(id)))
+                .collect()
+        })
         .collect();
     backend.nodes = Nodes::new(nodes);
 
     // Create a mapping from block pos to backend NodeId
     for i in 0..backend.blocks.len() {
-        if let Some((pos, _)) = backend.blocks[i] {
+        for (pos, _) in backend.blocks[i].iter().copied() {
             backend.pos_map.insert(pos, backend.nodes.get(i));
         }
     }
