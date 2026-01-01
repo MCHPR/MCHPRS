@@ -65,7 +65,7 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
     // The initial capacity here should be enough to hold all inputs
     let mut nod_map_inputs = vec![Input::default(); graph.edge_count()];
 
-    let mut dedup_output: HashSet<NodeIdx> = HashSet::new();
+    let mut in_next: Vec<bool> = vec![false; graph.node_bound()];
     let mut changes: Vec<(NodeIdx, NodeIdx)> = Vec::new();
 
     while current.len() > 0 {
@@ -127,20 +127,20 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
 
             changes.push((idx, same_node));
 
-            let mut same_out = std::mem::take(&mut outputs[same_node.index()]);
-            let this_out = &outputs[idx.index()];
-            same_out.extend(this_out);
+            let [same_out, this_out] = outputs
+                .get_disjoint_mut([same_node.index(), idx.index()])
+                .unwrap();
+            same_out.extend(this_out.iter());
 
             for output in same_out.iter().copied() {
                 let output = index_map[output.index()];
 
-                if !dedup_output.insert(output) {
+                if in_next[output.index()] {
                     continue;
                 }
+                in_next[output.index()] = true;
                 next.push(output);
             }
-
-            outputs[same_node.index()] = same_out;
 
             let mut same_blocks = std::mem::take(&mut graph[same_node].block);
             let this_blocks = &graph[idx].block.as_slice();
@@ -152,7 +152,10 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
             index_map[from.index()] = to;
         }
 
-        dedup_output.clear();
+        for idx in next.iter() {
+            in_next[idx.index()] = false;
+        }
+
         current.clear();
         std::mem::swap(&mut current, &mut next);
     }
@@ -163,7 +166,7 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
 }
 
 fn to_nod_graph<'a>(
-    graph: &petgraph::prelude::StableGraph<crate::compile_graph::CompileNode, CompileLink>,
+    graph: &CompileGraph,
     range_info: &SSRangeInfo,
     mut free_inputs: &'a mut [Input],
 ) -> (
