@@ -119,9 +119,11 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
                 state: nod.state.clone(),
             };
 
-            let Some(same_node) = nod_map.insert(nod, idx) else {
+            let same_node = *nod_map.entry(nod).or_insert(idx);
+            
+            if same_node == idx {
                 continue;
-            };
+            }
 
             changes.push((idx, same_node));
 
