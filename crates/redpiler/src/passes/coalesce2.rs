@@ -120,7 +120,7 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
             };
 
             let same_node = *nod_map.entry(nod).or_insert(idx);
-            
+
             if same_node == idx {
                 continue;
             }
