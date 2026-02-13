@@ -134,7 +134,11 @@ impl Compiler {
         debug!("Starting compile");
         let start = Instant::now();
 
-        let input = CompilerInput { world, bounds, pending_ticks: &ticks };
+        let input = CompilerInput {
+            world,
+            bounds,
+            pending_ticks: &ticks,
+        };
         let pass_manager = make_default_pass_manager::<W>();
         let graph = pass_manager.run_passes(&options, &input, monitor.clone());
 
