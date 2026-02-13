@@ -196,7 +196,6 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
         // First, we give all nodes with no inputs the default range
         for node_idx in graph.node_indices() {
             let node = &graph[node_idx];
-            // TODO: check if this is correct if there are pending ticks
             let range = match node.ty {
                 // Inputs
                 NodeType::Button | NodeType::Lever | NodeType::PressurePlate => SSRange::BOOL,
@@ -208,7 +207,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
                 // Hex components
                 NodeType::Comparator { .. } => {
                     indices.push(node_idx);
-                    if setup_with_full_range {
+                    if setup_with_full_range || node.has_pending_ticks() {
                         SSRange::FULL
                     } else {
                         SSRange::constant(node.state.output_strength)
@@ -217,7 +216,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
                 // Binary components
                 NodeType::Repeater { .. } | NodeType::Torch => {
                     indices.push(node_idx);
-                    if setup_with_full_range {
+                    if setup_with_full_range || node.has_pending_ticks() {
                         SSRange::BOOL
                     } else {
                         SSRange::constant(node.state.output_strength)
