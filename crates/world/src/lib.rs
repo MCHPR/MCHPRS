@@ -12,7 +12,7 @@ pub const MC_VERSION: &str = "1.20.4";
 pub const MC_DATA_VERSION: i32 = 3700;
 pub const PROTOCOL_VERSION: i32 = 765;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum TickPriority {
     Highest = 0,
     Higher = 1,
