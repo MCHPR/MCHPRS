@@ -38,7 +38,7 @@ struct RegistriesJson {
 struct InfoYaml {
     blocks: IndexMap<String, String>,
     items: IndexMap<String, String>,
-    prop_types: HashMap<String, Vec<String>>,
+    prop_types: IndexMap<String, Vec<String>>,
 }
 
 #[derive(Default, Debug)]
@@ -285,11 +285,12 @@ fn generate_is_attr(
     let match_arms = blocks
         .iter()
         .map(|block| {
-            if attr(block) {
+            let is_dynamic = dynamic_attr.map_or(false, |f| f(block));
+            if attr(block) || is_dynamic {
                 let pat = block.match_ignore();
-                Some(if dynamic_attr.map_or(false, |f| f(block)) {
+                Some(if is_dynamic {
                     quote! {
-                        #pat => #dynamic_fn(self),
+                        #pat => self.#dynamic_fn(),
                     }
                 } else {
                     quote! {

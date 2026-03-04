@@ -634,6 +634,8 @@ impl Block {
             Block::Furnace { .. } => true,
             Block::QuartzBlock => true,
             Block::SmoothQuartz => true,
+            Block::SmoothStoneSlab { .. } => self.is_solid_dynamic(),
+            Block::QuartzSlab { .. } => self.is_solid_dynamic(),
             Block::WhiteConcrete => true,
             Block::OrangeConcrete => true,
             Block::MagentaConcrete => true,
@@ -715,6 +717,8 @@ impl Block {
             Block::Furnace { .. } => true,
             Block::QuartzBlock => true,
             Block::SmoothQuartz => true,
+            Block::SmoothStoneSlab { .. } => self.is_cube_dynamic(),
+            Block::QuartzSlab { .. } => self.is_cube_dynamic(),
             Block::Composter { .. } => true,
             Block::WhiteConcrete => true,
             Block::OrangeConcrete => true,
@@ -804,6 +808,8 @@ impl Block {
             Block::Glowstone => true,
             Block::RedstoneBlock => true,
             Block::Hopper { .. } => true,
+            Block::SmoothStoneSlab { .. } => self.is_transparent_dynamic(),
+            Block::QuartzSlab { .. } => self.is_transparent_dynamic(),
             Block::Cauldron => true,
             Block::WaterCauldron { .. } => true,
             Block::Composter { .. } => true,
@@ -3200,17 +3206,6 @@ impl Block {
         }
     }
 }
-impl FromStr for SlabType {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "top" => SlabType::Top,
-            "bottom" => SlabType::Bottom,
-            "double" => SlabType::Double,
-            _ => return Err(()),
-        })
-    }
-}
 impl FromStr for BlockDirection {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -3219,62 +3214,6 @@ impl FromStr for BlockDirection {
             "south" => BlockDirection::South,
             "west" => BlockDirection::West,
             "east" => BlockDirection::East,
-            _ => return Err(()),
-        })
-    }
-}
-impl FromStr for LeverFace {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "floor" => LeverFace::Floor,
-            "wall" => LeverFace::Wall,
-            "ceiling" => LeverFace::Ceiling,
-            _ => return Err(()),
-        })
-    }
-}
-impl FromStr for BlockAxis {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "x" => BlockAxis::X,
-            "y" => BlockAxis::Y,
-            "z" => BlockAxis::Z,
-            _ => return Err(()),
-        })
-    }
-}
-impl FromStr for RedstoneWireSide {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "up" => RedstoneWireSide::Up,
-            "side" => RedstoneWireSide::Side,
-            "none" => RedstoneWireSide::None,
-            _ => return Err(()),
-        })
-    }
-}
-impl FromStr for HopperFacing {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "down" => HopperFacing::Down,
-            "north" => HopperFacing::North,
-            "south" => HopperFacing::South,
-            "west" => HopperFacing::West,
-            "east" => HopperFacing::East,
-            _ => return Err(()),
-        })
-    }
-}
-impl FromStr for ComparatorMode {
-    type Err = ();
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "compare" => ComparatorMode::Compare,
-            "subtract" => ComparatorMode::Subtract,
             _ => return Err(()),
         })
     }
@@ -3293,12 +3232,48 @@ impl FromStr for BlockFacing {
         })
     }
 }
-impl FromStr for TrapdoorHalf {
+impl FromStr for LeverFace {
     type Err = ();
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match s {
-            "top" => TrapdoorHalf::Top,
-            "bottom" => TrapdoorHalf::Bottom,
+            "floor" => LeverFace::Floor,
+            "wall" => LeverFace::Wall,
+            "ceiling" => LeverFace::Ceiling,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for HopperFacing {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "down" => HopperFacing::Down,
+            "north" => HopperFacing::North,
+            "south" => HopperFacing::South,
+            "west" => HopperFacing::West,
+            "east" => HopperFacing::East,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for SlabType {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "top" => SlabType::Top,
+            "bottom" => SlabType::Bottom,
+            "double" => SlabType::Double,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for BlockAxis {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "x" => BlockAxis::X,
+            "y" => BlockAxis::Y,
+            "z" => BlockAxis::Z,
             _ => return Err(()),
         })
     }
@@ -3334,12 +3309,34 @@ impl FromStr for Instrument {
         })
     }
 }
-impl std::fmt::Display for SlabType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            SlabType::Top => "top",
-            SlabType::Bottom => "bottom",
-            SlabType::Double => "double",
+impl FromStr for RedstoneWireSide {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "up" => RedstoneWireSide::Up,
+            "side" => RedstoneWireSide::Side,
+            "none" => RedstoneWireSide::None,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for TrapdoorHalf {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "top" => TrapdoorHalf::Top,
+            "bottom" => TrapdoorHalf::Bottom,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for ComparatorMode {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "compare" => ComparatorMode::Compare,
+            "subtract" => ComparatorMode::Subtract,
+            _ => return Err(()),
         })
     }
 }
@@ -3350,52 +3347,6 @@ impl std::fmt::Display for BlockDirection {
             BlockDirection::South => "south",
             BlockDirection::West => "west",
             BlockDirection::East => "east",
-        })
-    }
-}
-impl std::fmt::Display for LeverFace {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            LeverFace::Floor => "floor",
-            LeverFace::Wall => "wall",
-            LeverFace::Ceiling => "ceiling",
-        })
-    }
-}
-impl std::fmt::Display for BlockAxis {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            BlockAxis::X => "x",
-            BlockAxis::Y => "y",
-            BlockAxis::Z => "z",
-        })
-    }
-}
-impl std::fmt::Display for RedstoneWireSide {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            RedstoneWireSide::Up => "up",
-            RedstoneWireSide::Side => "side",
-            RedstoneWireSide::None => "none",
-        })
-    }
-}
-impl std::fmt::Display for HopperFacing {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            HopperFacing::Down => "down",
-            HopperFacing::North => "north",
-            HopperFacing::South => "south",
-            HopperFacing::West => "west",
-            HopperFacing::East => "east",
-        })
-    }
-}
-impl std::fmt::Display for ComparatorMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            ComparatorMode::Compare => "compare",
-            ComparatorMode::Subtract => "subtract",
         })
     }
 }
@@ -3411,11 +3362,41 @@ impl std::fmt::Display for BlockFacing {
         })
     }
 }
-impl std::fmt::Display for TrapdoorHalf {
+impl std::fmt::Display for LeverFace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            TrapdoorHalf::Top => "top",
-            TrapdoorHalf::Bottom => "bottom",
+            LeverFace::Floor => "floor",
+            LeverFace::Wall => "wall",
+            LeverFace::Ceiling => "ceiling",
+        })
+    }
+}
+impl std::fmt::Display for HopperFacing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            HopperFacing::Down => "down",
+            HopperFacing::North => "north",
+            HopperFacing::South => "south",
+            HopperFacing::West => "west",
+            HopperFacing::East => "east",
+        })
+    }
+}
+impl std::fmt::Display for SlabType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            SlabType::Top => "top",
+            SlabType::Bottom => "bottom",
+            SlabType::Double => "double",
+        })
+    }
+}
+impl std::fmt::Display for BlockAxis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            BlockAxis::X => "x",
+            BlockAxis::Y => "y",
+            BlockAxis::Z => "z",
         })
     }
 }
@@ -3448,17 +3429,29 @@ impl std::fmt::Display for Instrument {
         })
     }
 }
-impl SlabType {
-    fn get_id(self) -> u32 {
-        self as u32
+impl std::fmt::Display for RedstoneWireSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RedstoneWireSide::Up => "up",
+            RedstoneWireSide::Side => "side",
+            RedstoneWireSide::None => "none",
+        })
     }
-    fn from_id(id: u32) -> Self {
-        match id {
-            0 => SlabType::Top,
-            1 => SlabType::Bottom,
-            2 => SlabType::Double,
-            id => unreachable!(),
-        }
+}
+impl std::fmt::Display for TrapdoorHalf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            TrapdoorHalf::Top => "top",
+            TrapdoorHalf::Bottom => "bottom",
+        })
+    }
+}
+impl std::fmt::Display for ComparatorMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ComparatorMode::Compare => "compare",
+            ComparatorMode::Subtract => "subtract",
+        })
     }
 }
 impl BlockDirection {
@@ -3471,72 +3464,6 @@ impl BlockDirection {
             1 => BlockDirection::South,
             2 => BlockDirection::West,
             3 => BlockDirection::East,
-            id => unreachable!(),
-        }
-    }
-}
-impl LeverFace {
-    fn get_id(self) -> u32 {
-        self as u32
-    }
-    fn from_id(id: u32) -> Self {
-        match id {
-            0 => LeverFace::Floor,
-            1 => LeverFace::Wall,
-            2 => LeverFace::Ceiling,
-            id => unreachable!(),
-        }
-    }
-}
-impl BlockAxis {
-    fn get_id(self) -> u32 {
-        self as u32
-    }
-    fn from_id(id: u32) -> Self {
-        match id {
-            0 => BlockAxis::X,
-            1 => BlockAxis::Y,
-            2 => BlockAxis::Z,
-            id => unreachable!(),
-        }
-    }
-}
-impl RedstoneWireSide {
-    fn get_id(self) -> u32 {
-        self as u32
-    }
-    fn from_id(id: u32) -> Self {
-        match id {
-            0 => RedstoneWireSide::Up,
-            1 => RedstoneWireSide::Side,
-            2 => RedstoneWireSide::None,
-            id => unreachable!(),
-        }
-    }
-}
-impl HopperFacing {
-    fn get_id(self) -> u32 {
-        self as u32
-    }
-    fn from_id(id: u32) -> Self {
-        match id {
-            0 => HopperFacing::Down,
-            1 => HopperFacing::North,
-            2 => HopperFacing::South,
-            3 => HopperFacing::West,
-            4 => HopperFacing::East,
-            id => unreachable!(),
-        }
-    }
-}
-impl ComparatorMode {
-    fn get_id(self) -> u32 {
-        self as u32
-    }
-    fn from_id(id: u32) -> Self {
-        match id {
-            0 => ComparatorMode::Compare,
-            1 => ComparatorMode::Subtract,
             id => unreachable!(),
         }
     }
@@ -3557,14 +3484,56 @@ impl BlockFacing {
         }
     }
 }
-impl TrapdoorHalf {
+impl LeverFace {
     fn get_id(self) -> u32 {
         self as u32
     }
     fn from_id(id: u32) -> Self {
         match id {
-            0 => TrapdoorHalf::Top,
-            1 => TrapdoorHalf::Bottom,
+            0 => LeverFace::Floor,
+            1 => LeverFace::Wall,
+            2 => LeverFace::Ceiling,
+            id => unreachable!(),
+        }
+    }
+}
+impl HopperFacing {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => HopperFacing::Down,
+            1 => HopperFacing::North,
+            2 => HopperFacing::South,
+            3 => HopperFacing::West,
+            4 => HopperFacing::East,
+            id => unreachable!(),
+        }
+    }
+}
+impl SlabType {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => SlabType::Top,
+            1 => SlabType::Bottom,
+            2 => SlabType::Double,
+            id => unreachable!(),
+        }
+    }
+}
+impl BlockAxis {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => BlockAxis::X,
+            1 => BlockAxis::Y,
+            2 => BlockAxis::Z,
             id => unreachable!(),
         }
     }
@@ -3598,6 +3567,43 @@ impl Instrument {
             20 => Instrument::WitherSkeleton,
             21 => Instrument::Piglin,
             22 => Instrument::CustomHead,
+            id => unreachable!(),
+        }
+    }
+}
+impl RedstoneWireSide {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => RedstoneWireSide::Up,
+            1 => RedstoneWireSide::Side,
+            2 => RedstoneWireSide::None,
+            id => unreachable!(),
+        }
+    }
+}
+impl TrapdoorHalf {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => TrapdoorHalf::Top,
+            1 => TrapdoorHalf::Bottom,
+            id => unreachable!(),
+        }
+    }
+}
+impl ComparatorMode {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => ComparatorMode::Compare,
+            1 => ComparatorMode::Subtract,
             id => unreachable!(),
         }
     }

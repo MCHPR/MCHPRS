@@ -157,7 +157,7 @@ impl Block {
             _ => unreachable!(),
         }
     }
-    
+
     pub fn get_sign_rotation(self) -> Option<u8> {
         Some(match self {
             Block::OakSign { rotation, .. }
@@ -168,7 +168,7 @@ impl Block {
             | Block::DarkOakSign { rotation, .. }
             | Block::CrimsonSign { rotation, .. }
             | Block::WarpedSign { rotation, .. } => rotation,
-            _ => return None
+            _ => return None,
         })
     }
 
@@ -182,8 +182,33 @@ impl Block {
             | Block::DarkOakWallSign { facing, .. }
             | Block::CrimsonWallSign { facing, .. }
             | Block::WarpedWallSign { facing, .. } => facing,
-            _ => return None
+            _ => return None,
         })
+    }
+
+    pub(crate) fn is_solid_dynamic(self) -> bool {
+        match self {
+            Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => {
+                ty == SlabType::Double
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub(crate) fn is_transparent_dynamic(self) -> bool {
+        match self {
+            Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => {
+                ty != SlabType::Double
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    pub(crate) fn is_cube_dynamic(self) -> bool {
+        match self {
+            Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => ty == SlabType::Top,
+            _ => unreachable!(),
+        }
     }
 }
 
