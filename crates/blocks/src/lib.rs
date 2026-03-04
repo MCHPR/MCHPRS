@@ -1,5 +1,6 @@
 pub mod block_entities;
 pub mod blocks;
+mod generated;
 pub mod items;
 
 pub use mchprs_proc_macros::BlockProperty;
@@ -161,68 +162,13 @@ impl BlockFace {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum BlockColorVariant {
-    White = 0,
-    Orange = 1,
-    Magenta = 2,
-    LightBlue = 3,
-    Yellow = 4,
-    Lime = 5,
-    Pink = 6,
-    Gray = 7,
-    LightGray = 8,
-    Cyan = 9,
-    Purple = 10,
-    Blue = 11,
-    Brown = 12,
-    Green = 13,
-    Red = 14,
-    Black = 15,
-}
-
-impl BlockColorVariant {
-    pub fn get_id(self) -> u32 {
-        self as u32
-    }
-
-    pub fn from_id(id: u32) -> BlockColorVariant {
-        use BlockColorVariant::*;
-        match id {
-            0 => White,
-            1 => Orange,
-            2 => Magenta,
-            3 => LightBlue,
-            4 => Yellow,
-            5 => Lime,
-            6 => Pink,
-            7 => Gray,
-            8 => LightGray,
-            9 => Cyan,
-            10 => Purple,
-            11 => Blue,
-            12 => Brown,
-            13 => Green,
-            14 => Red,
-            15 => Black,
-            _ => panic!("invalid BlockColorVariant with id {}", id),
-        }
-    }
-}
-
-impl BlockProperty for BlockColorVariant {
-    // Don't encode: the color is encoded in the block name
-    fn encode(self, _props: &mut HashMap<&'static str, String>, _name: &'static str) {}
-    fn decode(&mut self, _props: &HashMap<&str, &str>, _name: &str) {}
-}
-
 #[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
 pub enum BlockDirection {
     North,
     South,
-    East,
     #[default]
     West,
+    East,
 }
 
 impl BlockDirection {
@@ -256,25 +202,6 @@ impl BlockDirection {
         }
     }
 
-    pub fn from_id(id: u32) -> BlockDirection {
-        match id {
-            0 => BlockDirection::North,
-            1 => BlockDirection::South,
-            2 => BlockDirection::West,
-            3 => BlockDirection::East,
-            _ => panic!("invalid BlockDirection with id {}", id),
-        }
-    }
-
-    pub fn get_id(self) -> u32 {
-        match self {
-            BlockDirection::North => 0,
-            BlockDirection::South => 1,
-            BlockDirection::West => 2,
-            BlockDirection::East => 3,
-        }
-    }
-
     pub fn rotate(self) -> BlockDirection {
         use BlockDirection::*;
         match self {
@@ -295,7 +222,7 @@ impl BlockDirection {
         }
     }
 
-    pub fn from_rotation(rotation: u32) -> Option<BlockDirection> {
+    pub fn from_rotation(rotation: u8) -> Option<BlockDirection> {
         match rotation {
             0 => Some(BlockDirection::South),
             4 => Some(BlockDirection::West),
@@ -303,31 +230,6 @@ impl BlockDirection {
             12 => Some(BlockDirection::East),
             _ => None,
         }
-    }
-}
-
-impl FromStr for BlockDirection {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "north" => BlockDirection::North,
-            "south" => BlockDirection::South,
-            "east" => BlockDirection::East,
-            "west" => BlockDirection::West,
-            _ => return Err(()),
-        })
-    }
-}
-
-impl std::fmt::Display for BlockDirection {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            BlockDirection::North => "north",
-            BlockDirection::South => "south",
-            BlockDirection::East => "east",
-            BlockDirection::West => "west",
-        })
     }
 }
 
@@ -343,29 +245,6 @@ pub enum BlockFacing {
 }
 
 impl BlockFacing {
-    pub fn from_id(id: u32) -> BlockFacing {
-        match id {
-            0 => BlockFacing::North,
-            1 => BlockFacing::East,
-            2 => BlockFacing::South,
-            3 => BlockFacing::West,
-            4 => BlockFacing::Up,
-            5 => BlockFacing::Down,
-            _ => panic!("invalid BlockFacing with id {}", id),
-        }
-    }
-
-    pub fn get_id(self) -> u32 {
-        match self {
-            BlockFacing::North => 0,
-            BlockFacing::East => 1,
-            BlockFacing::South => 2,
-            BlockFacing::West => 3,
-            BlockFacing::Up => 4,
-            BlockFacing::Down => 5,
-        }
-    }
-
     pub fn offset_pos(self, mut pos: BlockPos, n: i32) -> BlockPos {
         match self {
             BlockFacing::North => pos.z -= n,
@@ -399,58 +278,4 @@ impl BlockFacing {
             other => other,
         }
     }
-}
-
-impl std::fmt::Display for BlockFacing {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            BlockFacing::North => "north",
-            BlockFacing::South => "south",
-            BlockFacing::East => "east",
-            BlockFacing::West => "west",
-            BlockFacing::Up => "up",
-            BlockFacing::Down => "down",
-        })
-    }
-}
-
-impl FromStr for BlockFacing {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "north" => BlockFacing::North,
-            "south" => BlockFacing::South,
-            "east" => BlockFacing::East,
-            "west" => BlockFacing::West,
-            "up" => BlockFacing::Up,
-            "down" => BlockFacing::Down,
-            _ => return Err(()),
-        })
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct SignType(pub u32);
-
-impl SignType {
-    pub fn from_item_type(sign_type: u32) -> Self {
-        Self(match sign_type {
-            0 => 0, // Oak
-            1 => 1, // Spruce
-            2 => 2, // Birch
-            3 => 4, // Jungle
-            4 => 3, // Acacia
-            5 => 5, // Dark Oak
-            6 => 6, // Crimson
-            7 => 7, // Warped
-            _ => sign_type,
-        })
-    }
-}
-
-impl BlockProperty for SignType {
-    // Don't encode
-    fn encode(self, _props: &mut HashMap<&'static str, String>, _name: &'static str) {}
-    fn decode(&mut self, _props: &HashMap<&str, &str>, _name: &str) {}
 }

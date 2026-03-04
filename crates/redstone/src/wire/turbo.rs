@@ -9,14 +9,14 @@ use rustc_hash::FxHashMap;
 
 fn unwrap_wire(block: Block) -> RedstoneWire {
     match block {
-        Block::RedstoneWire { wire } => wire,
+        Block::RedstoneWire(wire) => wire,
         _ => panic!("expected wire"),
     }
 }
 
 fn wire_mut(block: &mut Block) -> &mut RedstoneWire {
     match block {
-        Block::RedstoneWire { wire } => wire,
+        Block::RedstoneWire(wire) => wire,
         _ => panic!("expected wire"),
     }
 }
@@ -389,14 +389,14 @@ impl RedstoneWireTurbo {
         }
         if i != j {
             wire.power = j;
-            world.set_block(pos, Block::RedstoneWire { wire });
+            world.set_block(pos, Block::RedstoneWire(wire));
         }
         wire
     }
 
     fn get_max_current_strength(&self, upd: NodeId, strength: u8) -> u8 {
         let node = &self.nodes[upd.index];
-        if let Block::RedstoneWire { wire } = node.state {
+        if let Block::RedstoneWire(wire) = node.state {
             wire.power.max(strength)
         } else {
             strength

@@ -17,12 +17,12 @@ pub use task_monitor::TaskMonitor;
 
 fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     Some(match block {
-        Block::RedstoneComparator { comparator } => &mut comparator.powered,
+        Block::Comparator(comparator) => &mut comparator.powered,
         Block::RedstoneTorch { lit } => lit,
         Block::RedstoneWallTorch { lit, .. } => lit,
-        Block::RedstoneRepeater { repeater } => &mut repeater.powered,
-        Block::Lever { lever } => &mut lever.powered,
-        Block::StoneButton { button } => &mut button.powered,
+        Block::Repeater(repeater) => &mut repeater.powered,
+        Block::Lever { powered, .. } => powered,
+        Block::StoneButton { powered, .. } => powered,
         Block::StonePressurePlate { powered } => powered,
         Block::RedstoneLamp { lit } => lit,
         Block::IronTrapdoor { powered, .. } => powered,

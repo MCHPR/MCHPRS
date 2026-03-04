@@ -1,5 +1,5 @@
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, ComparatorMode, RedstoneComparator};
+use mchprs_blocks::blocks::{Block, Comparator, ComparatorMode};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::{TickPriority, World};
 use tracing::warn;
@@ -9,16 +9,16 @@ fn get_power_on_side(world: &impl World, pos: BlockPos, side: BlockDirection) ->
     let side_block = world.get_block(side_pos);
     if super::is_diode(side_block) {
         super::get_weak_power(side_block, world, side_pos, side.block_face(), false)
-    } else if let Block::RedstoneWire { wire } = side_block {
+    } else if let Block::RedstoneWire(wire) = side_block {
         wire.power
-    } else if let Block::RedstoneBlock {} = side_block {
+    } else if let Block::RedstoneBlock = side_block {
         15
     } else {
         0
     }
 }
 
-fn get_power_on_sides(comp: RedstoneComparator, world: &impl World, pos: BlockPos) -> u8 {
+fn get_power_on_sides(comp: Comparator, world: &impl World, pos: BlockPos) -> u8 {
     std::cmp::max(
         get_power_on_side(world, pos, comp.facing.rotate()),
         get_power_on_side(world, pos, comp.facing.rotate_ccw()),
@@ -54,7 +54,7 @@ pub fn get_override(block: Block, world: &impl World, pos: BlockPos) -> u8 {
                 None => 0,
             }
         }
-        Block::Cauldron { level } => level,
+        Block::WaterCauldron { level } => level,
         Block::Composter { level } => level,
         Block::Cake { bites } => 14 - 2 * bites,
         Block::EndPortalFrame { eye: true, .. } => 15,
@@ -79,7 +79,7 @@ pub fn get_far_input(world: &impl World, pos: BlockPos, facing: BlockDirection) 
     }
 }
 
-fn calculate_input_strength(comp: RedstoneComparator, world: &impl World, pos: BlockPos) -> u8 {
+fn calculate_input_strength(comp: Comparator, world: &impl World, pos: BlockPos) -> u8 {
     let base_input_strength = super::diode_get_input_strength(world, pos, comp.facing);
     let input_pos = pos.offset(comp.facing.block_face());
     let input_block = world.get_block(input_pos);
@@ -98,7 +98,7 @@ fn calculate_input_strength(comp: RedstoneComparator, world: &impl World, pos: B
     }
 }
 
-pub fn should_be_powered(comp: RedstoneComparator, world: &impl World, pos: BlockPos) -> bool {
+pub fn should_be_powered(comp: Comparator, world: &impl World, pos: BlockPos) -> bool {
     let input_strength = calculate_input_strength(comp, world, pos);
     if input_strength == 0 {
         false
@@ -112,11 +112,7 @@ pub fn should_be_powered(comp: RedstoneComparator, world: &impl World, pos: Bloc
     }
 }
 
-fn calculate_output_strength(
-    comp: RedstoneComparator,
-    world: &mut impl World,
-    pos: BlockPos,
-) -> u8 {
+fn calculate_output_strength(comp: Comparator, world: &mut impl World, pos: BlockPos) -> u8 {
     let input_strength = calculate_input_strength(comp, world, pos);
     if comp.mode == ComparatorMode::Subtract {
         input_strength.saturating_sub(get_power_on_sides(comp, world, pos))
@@ -130,7 +126,7 @@ fn calculate_output_strength(
 // This is exactly the same as it is in the RedstoneRepeater struct.
 // Sometime in the future, this needs to be reused. LLVM might optimize
 // it way, but te human brane wil not!
-fn on_state_change(comp: RedstoneComparator, world: &mut impl World, pos: BlockPos) {
+fn on_state_change(comp: Comparator, world: &mut impl World, pos: BlockPos) {
     let front_pos = pos.offset(comp.facing.opposite().block_face());
     let front_block = world.get_block(front_pos);
     super::update(front_block, world, front_pos);
@@ -141,7 +137,7 @@ fn on_state_change(comp: RedstoneComparator, world: &mut impl World, pos: BlockP
     }
 }
 
-pub fn update(comp: RedstoneComparator, world: &mut impl World, pos: BlockPos) {
+pub fn update(comp: Comparator, world: &mut impl World, pos: BlockPos) {
     if world.pending_tick_at(pos) {
         return;
     }
@@ -163,7 +159,7 @@ pub fn update(comp: RedstoneComparator, world: &mut impl World, pos: BlockPos) {
     }
 }
 
-pub fn tick(mut comp: RedstoneComparator, world: &mut impl World, pos: BlockPos) {
+pub fn tick(mut comp: Comparator, world: &mut impl World, pos: BlockPos) {
     let new_strength = calculate_output_strength(comp, world, pos);
     let old_strength = if let Some(BlockEntity::Comparator {
         output_strength: old_output_strength,
@@ -184,10 +180,10 @@ pub fn tick(mut comp: RedstoneComparator, world: &mut impl World, pos: BlockPos)
         let powered = comp.powered;
         if powered && !should_be_powered {
             comp.powered = false;
-            world.set_block(pos, Block::RedstoneComparator { comparator: comp });
+            world.set_block(pos, Block::Comparator(comp));
         } else if !powered && should_be_powered {
             comp.powered = true;
-            world.set_block(pos, Block::RedstoneComparator { comparator: comp });
+            world.set_block(pos, Block::Comparator(comp));
         }
         on_state_change(comp, world, pos);
     }

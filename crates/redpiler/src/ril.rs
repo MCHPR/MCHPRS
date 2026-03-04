@@ -393,12 +393,6 @@ impl<'a> Lexer<'a> {
             "bit" => Token::Instrument(Instrument::Bit),
             "banjo" => Token::Instrument(Instrument::Banjo),
             "pling" => Token::Instrument(Instrument::Pling),
-            "zombie" => Token::Instrument(Instrument::Zombie),
-            "skeleton" => Token::Instrument(Instrument::Skeleton),
-            "creeper" => Token::Instrument(Instrument::Creeper),
-            "dragon" => Token::Instrument(Instrument::Dragon),
-            "wither_skeleton" => Token::Instrument(Instrument::WitherSkeleton),
-            "piglin" => Token::Instrument(Instrument::Piglin),
             // Bool
             "false" => Token::Bool(false),
             "true" => Token::Bool(true),

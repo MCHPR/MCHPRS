@@ -2,9 +2,9 @@ use crate::config::CONFIG;
 use crate::player::Player;
 use crate::plot::{PlotWorld, PLOT_BLOCK_HEIGHT};
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::*;
 use mchprs_blocks::items::{Item, ItemStack};
-use mchprs_blocks::{BlockFace, BlockPos, SignType};
+use mchprs_blocks::{blocks::*, BlockDirection, BlockFacing};
+use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_network::packets::clientbound::{COpenSignEditor, ClientBoundPacket};
 use mchprs_redstone as redstone;
 use mchprs_utils::nbt_unwrap_val;
@@ -22,13 +22,17 @@ pub fn on_use(
     }
 
     match block {
-        Block::SeaPickle { pickles } => {
+        Block::SeaPickle {
+            pickles,
+            waterlogged,
+        } => {
             if let Some(Item::SeaPickle {}) = item_in_hand {
                 if pickles < 4 {
                     world.set_block(
                         pos,
                         Block::SeaPickle {
                             pickles: pickles + 1,
+                            waterlogged,
                         },
                     );
                 }
@@ -57,114 +61,155 @@ pub fn on_use(
     }
 }
 
+fn get_sign_placement(
+    context: &UseOnBlockContext<'_>,
+    standard: fn(u8) -> Block,
+    wall: fn(BlockDirection) -> Block,
+) -> Block {
+    let rotation = (((180.0 + context.player.yaw) * 16.0 / 360.0) + 0.5).floor() as u8 & 15;
+
+    match context.block_face {
+        BlockFace::Bottom => Block::Air {},
+        BlockFace::Top => standard(rotation),
+        _ => wall(context.block_face.unwrap_direction()),
+    }
+}
+
 pub fn get_state_for_placement(
     world: &impl World,
     pos: BlockPos,
     item: Item,
     context: &UseOnBlockContext<'_>,
 ) -> Block {
+    let simple_block = item.get_simple_placement();
+    macro_rules! sign_placement {
+        ($standard_block:ident, $wall_block:ident) => {
+            get_sign_placement(
+                context,
+                |rotation| Block::$standard_block {
+                    waterlogged: false,
+                    rotation,
+                },
+                |facing| Block::$wall_block {
+                    waterlogged: false,
+                    facing,
+                },
+            )
+        };
+    }
     let block = match item {
-        Item::Stone {} => Block::Stone {},
-        Item::Glass {} => Block::Glass {},
-        Item::Glowstone {} => Block::Glowstone {},
-        Item::Sandstone {} => Block::Sandstone {},
-        Item::SeaPickle {} => Block::SeaPickle { pickles: 1 },
-        Item::Wool { color } => Block::Wool { color },
-        Item::Furnace {} => Block::Furnace {},
-        Item::StonePressurePlate {} => Block::StonePressurePlate { powered: false },
-        Item::Lever {} => {
-            let lever_face = match context.block_face {
+        Item::OakSign => sign_placement!(OakSign, OakWallSign),
+        Item::SpruceSign => sign_placement!(SpruceSign, SpruceWallSign),
+        Item::BirchSign => sign_placement!(BirchSign, BirchWallSign),
+        Item::AcaciaSign => sign_placement!(AcaciaSign, AcaciaWallSign),
+        Item::JungleSign => sign_placement!(JungleSign, JungleWallSign),
+        Item::DarkOakSign => sign_placement!(DarkOakSign, DarkOakWallSign),
+        Item::CrimsonSign => sign_placement!(CrimsonSign, CrimsonWallSign),
+        Item::WarpedSign => sign_placement!(WarpedSign, WarpedWallSign),
+        Item::SeaPickle => Block::SeaPickle {
+            pickles: 1,
+            waterlogged: false,
+        },
+        Item::Furnace => Block::Furnace {
+            facing: context.player.get_direction().opposite(),
+            lit: false,
+        },
+        Item::StonePressurePlate => Block::StonePressurePlate { powered: false },
+        Item::Lever => {
+            let face = match context.block_face {
                 BlockFace::Top => LeverFace::Floor,
                 BlockFace::Bottom => LeverFace::Ceiling,
                 _ => LeverFace::Wall,
             };
-            let facing = if lever_face == LeverFace::Wall {
+            let facing = if face == LeverFace::Wall {
                 context.block_face.unwrap_direction()
             } else {
                 context.player.get_direction()
             };
             Block::Lever {
-                lever: Lever::new(lever_face, facing, false),
+                face,
+                facing,
+                powered: false,
             }
         }
-        Item::RedstoneTorch {} => match context.block_face {
+        Item::RedstoneTorch => match context.block_face {
             BlockFace::Top | BlockFace::Bottom => Block::RedstoneTorch { lit: true },
             face => Block::RedstoneWallTorch {
                 lit: true,
                 facing: face.unwrap_direction(),
             },
         },
-        Item::TripwireHook {} => match context.block_face {
+        Item::TripwireHook => match context.block_face {
             BlockFace::Bottom | BlockFace::Top => Block::Air {},
             direction => Block::TripwireHook {
-                direction: direction.unwrap_direction(),
+                facing: direction.unwrap_direction(),
+                powered: false,
+                attached: false,
             },
         },
-        Item::StoneButton {} => {
-            let button_face = match context.block_face {
-                BlockFace::Top => ButtonFace::Floor,
-                BlockFace::Bottom => ButtonFace::Ceiling,
-                _ => ButtonFace::Wall,
+        Item::StoneButton => {
+            let face = match context.block_face {
+                BlockFace::Top => LeverFace::Floor,
+                BlockFace::Bottom => LeverFace::Ceiling,
+                _ => LeverFace::Wall,
             };
-            let facing = if button_face == ButtonFace::Wall {
+            let facing = if face == LeverFace::Wall {
                 context.block_face.unwrap_direction()
             } else {
                 context.player.get_direction()
             };
             Block::StoneButton {
-                button: StoneButton::new(button_face, facing, false),
+                face,
+                facing,
+                powered: false,
             }
         }
-        Item::RedstoneLamp {} => Block::RedstoneLamp {
+        Item::RedstoneLamp => Block::RedstoneLamp {
             lit: redstone::redstone_lamp_should_be_lit(world, pos),
         },
-        Item::RedstoneBlock {} => Block::RedstoneBlock {},
-        Item::Hopper {} => Block::Hopper {},
-        Item::Terracotta {} => Block::Terracotta {},
-        Item::ColoredTerracotta { color } => Block::ColoredTerracotta { color },
-        Item::Concrete { color } => Block::Concrete { color },
-        Item::Repeater {} => Block::RedstoneRepeater {
-            repeater: redstone::repeater::get_state_for_placement(
-                world,
-                pos,
-                context.player.get_direction().opposite(),
-            ),
+        // TODO: Hopper facing
+        Item::Hopper => Block::Hopper {
+            enabled: false,
+            facing: HopperFacing::Down,
         },
-        Item::Comparator {} => Block::RedstoneComparator {
-            comparator: RedstoneComparator::new(
-                context.player.get_direction().opposite(),
-                ComparatorMode::Compare,
-                false,
-            ),
+        Item::Repeater => Block::Repeater(redstone::repeater::get_state_for_placement(
+            world,
+            pos,
+            context.player.get_direction().opposite(),
+        )),
+        Item::Comparator => Block::Comparator(Comparator::new(
+            context.player.get_direction().opposite(),
+            ComparatorMode::Compare,
+            false,
+        )),
+        Item::Redstone => Block::RedstoneWire(redstone::wire::get_state_for_placement(world, pos)),
+        // TODO: Barrel facing
+        Item::Barrel => Block::Barrel {
+            facing: BlockFacing::Up,
+            open: false,
         },
-        Item::Sign { sign_type } => match context.block_face {
-            BlockFace::Bottom => Block::Air {},
-            BlockFace::Top => Block::Sign {
-                sign_type: SignType::from_item_type(sign_type),
-                rotation: (((180.0 + context.player.yaw) * 16.0 / 360.0) + 0.5).floor() as u32 & 15,
-            },
-            _ => Block::WallSign {
-                sign_type: SignType::from_item_type(sign_type),
-                facing: context.block_face.unwrap_direction(),
-            },
+        Item::Target => Block::Target { power: 0 },
+        Item::SmoothStoneSlab => Block::SmoothStoneSlab {
+            ty: SlabType::Top,
+            waterlogged: false,
         },
-        Item::Redstone {} => Block::RedstoneWire {
-            wire: redstone::wire::get_state_for_placement(world, pos),
+        Item::QuartzSlab => Block::QuartzSlab {
+            ty: SlabType::Top,
+            waterlogged: false,
         },
-        Item::Barrel {} => Block::Barrel {},
-        Item::Target {} => Block::Target {},
-        Item::StainedGlass { color } => Block::StainedGlass { color },
-        Item::SmoothStoneSlab {} => Block::SmoothStoneSlab {},
-        Item::QuartzSlab {} => Block::QuartzSlab {},
-        Item::IronTrapdoor {} => match context.block_face {
+        Item::IronTrapdoor => match context.block_face {
             BlockFace::Bottom => Block::IronTrapdoor {
                 facing: context.player.get_direction().opposite(),
                 half: TrapdoorHalf::Top,
                 powered: false,
+                open: false,
+                waterlogged: false,
             },
             BlockFace::Top => Block::IronTrapdoor {
                 facing: context.player.get_direction().opposite(),
                 half: TrapdoorHalf::Bottom,
+                open: false,
+                waterlogged: false,
                 powered: false,
             },
             _ => Block::IronTrapdoor {
@@ -174,6 +219,8 @@ pub fn get_state_for_placement(
                 } else {
                     TrapdoorHalf::Bottom
                 },
+                open: false,
+                waterlogged: false,
                 powered: false,
             },
         },
@@ -182,23 +229,15 @@ pub fn get_state_for_placement(
             note: 0,
             powered: false,
         },
-        Item::Clay {} => Block::Clay {},
-        Item::GoldBlock {} => Block::GoldBlock {},
-        Item::PackedIce {} => Block::PackedIce {},
-        Item::BoneBlock {} => Block::BoneBlock {},
-        Item::IronBlock {} => Block::IronBlock {},
-        Item::SoulSand {} => Block::SoulSand {},
-        Item::Pumpkin {} => Block::Pumpkin {},
-        Item::EmeraldBlock {} => Block::EmeraldBlock {},
-        Item::HayBlock {} => Block::HayBlock {},
-        Item::Sand {} => Block::Sand {},
-        Item::StoneBricks {} => Block::StoneBricks {},
+        Item::BoneBlock => Block::BoneBlock { axis: BlockAxis::Y },
+        Item::HayBlock => Block::HayBlock { axis: BlockAxis::Y },
         Item::EndPortalFrame {} => Block::EndPortalFrame {
             eye: false,
             facing: context.player.get_direction().opposite(),
         },
         _ => Block::Air {},
     };
+    let block = simple_block.unwrap_or(block);
     if is_valid_position(block, world, pos) {
         block
     } else {
@@ -251,11 +290,11 @@ pub fn destroy(block: Block, world: &mut impl World, pos: BlockPos) {
             change_surrounding_blocks(world, pos);
             redstone::update_wire_neighbors(world, pos);
         }
-        Block::Lever { lever } => {
+        Block::Lever { face, facing, .. } => {
             world.set_block(pos, Block::Air {});
             // This is a horrible idea, don't do this.
             // One day this will be fixed, but for now... too bad!
-            match lever.face {
+            match face {
                 LeverFace::Ceiling => {
                     change_surrounding_blocks(world, pos.offset(BlockFace::Top));
                     redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Top));
@@ -265,13 +304,10 @@ pub fn destroy(block: Block, world: &mut impl World, pos: BlockPos) {
                     redstone::update_surrounding_blocks(world, pos.offset(BlockFace::Bottom));
                 }
                 LeverFace::Wall => {
-                    change_surrounding_blocks(
-                        world,
-                        pos.offset(lever.facing.opposite().block_face()),
-                    );
+                    change_surrounding_blocks(world, pos.offset(facing.opposite().block_face()));
                     redstone::update_surrounding_blocks(
                         world,
-                        pos.offset(lever.facing.opposite().block_face()),
+                        pos.offset(facing.opposite().block_face()),
                     );
                 }
             }
@@ -289,54 +325,59 @@ pub fn is_valid_position(block: Block, world: &impl World, pos: BlockPos) -> boo
         return true;
     }
 
-    match block {
-        Block::RedstoneWire { .. }
-        | Block::RedstoneComparator { .. }
-        | Block::RedstoneRepeater { .. }
-        | Block::Sign { .. }
-        | Block::RedstoneTorch { .. } => {
-            let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
-            bottom_block.is_cube()
+    let check_bottom = matches!(
+        block,
+        Block::RedstoneWire(_)
+            | Block::Comparator(_)
+            | Block::Repeater(_)
+            | Block::RedstoneTorch { .. }
+            | Block::Lever {
+                face: LeverFace::Floor,
+                ..
+            }
+            | Block::StoneButton {
+                face: LeverFace::Floor,
+                ..
+            }
+    ) || block.is_sign();
+
+    let check_top = matches!(
+        block,
+        Block::Lever {
+            face: LeverFace::Ceiling,
+            ..
+        } | Block::StoneButton {
+            face: LeverFace::Ceiling,
+            ..
         }
-        Block::RedstoneWallTorch { facing, .. } | Block::WallSign { facing, .. } => {
-            let parent_block = world.get_block(pos.offset(facing.opposite().block_face()));
-            parent_block.is_cube()
-        }
-        Block::TripwireHook { direction, .. } => {
-            let parent_block = world.get_block(pos.offset(direction.opposite().block_face()));
-            parent_block.is_cube()
-        }
-        Block::Lever { lever } => match lever.face {
-            LeverFace::Floor => {
-                let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
-                bottom_block.is_cube()
-            }
-            LeverFace::Ceiling => {
-                let top_block = world.get_block(pos.offset(BlockFace::Top));
-                top_block.is_cube()
-            }
-            LeverFace::Wall => {
-                let parent_block =
-                    world.get_block(pos.offset(lever.facing.opposite().block_face()));
-                parent_block.is_cube()
-            }
-        },
-        Block::StoneButton { button } => match button.face {
-            ButtonFace::Floor => {
-                let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
-                bottom_block.is_cube()
-            }
-            ButtonFace::Ceiling => {
-                let top_block = world.get_block(pos.offset(BlockFace::Top));
-                top_block.is_cube()
-            }
-            ButtonFace::Wall => {
-                let parent_block =
-                    world.get_block(pos.offset(button.facing.opposite().block_face()));
-                parent_block.is_cube()
-            }
-        },
-        _ => true,
+    );
+
+    let check_parent = block.get_wall_sign_facing().or(match block {
+        Block::TripwireHook { facing, .. } => Some(facing),
+        Block::StoneButton {
+            face: LeverFace::Wall,
+            facing,
+            ..
+        } => Some(facing),
+        Block::Lever {
+            face: LeverFace::Wall,
+            facing,
+            ..
+        } => Some(facing),
+        _ => None,
+    });
+
+    if check_bottom {
+        let bottom_block = world.get_block(pos.offset(BlockFace::Bottom));
+        bottom_block.is_cube()
+    } else if check_top {
+        let top_block = world.get_block(pos.offset(BlockFace::Top));
+        top_block.is_cube()
+    } else if let Some(facing) = check_parent {
+        let parent_block = world.get_block(pos.offset(facing.opposite().block_face()));
+        parent_block.is_cube()
+    } else {
+        true
     }
 }
 
@@ -345,9 +386,9 @@ pub fn change(block: Block, world: &mut impl World, pos: BlockPos, direction: Bl
         destroy(block, world, pos);
         return;
     }
-    if let Block::RedstoneWire { wire } = block {
+    if let Block::RedstoneWire(wire) = block {
         let new_state = redstone::wire::on_neighbor_changed(wire, world, pos, direction);
-        if world.set_block(pos, Block::RedstoneWire { wire: new_state }) {
+        if world.set_block(pos, Block::RedstoneWire(new_state)) {
             redstone::update_wire_neighbors(world, pos);
         }
     }
@@ -423,25 +464,21 @@ pub fn use_item_on_block(
     if can_place && (0..PLOT_BLOCK_HEIGHT).contains(&block_pos.y) {
         let block = get_state_for_placement(world, block_pos, item.item_type, &ctx);
 
-        match block {
-            Block::Sign { .. } | Block::WallSign { .. } => {
-                if !item
-                    .nbt
-                    .as_ref()
-                    .is_some_and(|blob| blob.content.contains_key("BlockEntityTag"))
-                {
-                    let open_sign_editor = COpenSignEditor {
-                        pos_x: block_pos.x,
-                        pos_y: block_pos.y,
-                        pos_z: block_pos.z,
-                        // TODO: editing back text
-                        is_front_text: true,
-                    }
-                    .encode();
-                    ctx.player.client.send_packet(&open_sign_editor);
-                }
+        if (block.is_sign() || block.is_wall_sign())
+            && !item
+                .nbt
+                .as_ref()
+                .is_some_and(|blob| blob.content.contains_key("BlockEntityTag"))
+        {
+            let open_sign_editor = COpenSignEditor {
+                pos_x: block_pos.x,
+                pos_y: block_pos.y,
+                pos_z: block_pos.z,
+                // TODO: editing back text
+                is_front_text: true,
             }
-            _ => {}
+            .encode();
+            ctx.player.client.send_packet(&open_sign_editor);
         }
 
         place_in_world(block, world, block_pos, &item.nbt);

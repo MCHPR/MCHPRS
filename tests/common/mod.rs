@@ -1,7 +1,5 @@
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{
-    Block, ComparatorMode, Lever, LeverFace, RedstoneComparator, RedstoneRepeater,
-};
+use mchprs_blocks::blocks::{Block, Comparator, ComparatorMode, LeverFace, Repeater};
 use mchprs_blocks::{BlockDirection, BlockPos};
 use mchprs_redpiler::{BackendVariant, Compiler, CompilerOptions};
 use mchprs_redstone::wire::make_cross;
@@ -224,12 +222,12 @@ impl BackendRunner {
 
 fn is_block_powered(block: Block) -> Option<bool> {
     Some(match block {
-        Block::RedstoneComparator { comparator } => comparator.powered,
+        Block::Comparator(comparator) => comparator.powered,
         Block::RedstoneTorch { lit } => lit,
         Block::RedstoneWallTorch { lit, .. } => lit,
-        Block::RedstoneRepeater { repeater } => repeater.powered,
-        Block::Lever { lever } => lever.powered,
-        Block::StoneButton { button } => button.powered,
+        Block::Repeater(repeater) => repeater.powered,
+        Block::Lever { powered, .. } => powered,
+        Block::StoneButton { powered, .. } => powered,
         Block::StonePressurePlate { powered } => powered,
         Block::RedstoneLamp { lit } => lit,
         Block::IronTrapdoor { powered, .. } => powered,
@@ -266,6 +264,8 @@ pub fn trapdoor() -> Block {
         facing: Default::default(),
         half: Default::default(),
         powered: false,
+        open: false,
+        waterlogged: false,
     }
 }
 
@@ -275,10 +275,9 @@ pub fn make_lever(world: &mut TestWorld, lever_pos: BlockPos) {
         world,
         lever_pos,
         Block::Lever {
-            lever: Lever {
-                face: LeverFace::Floor,
-                ..Default::default()
-            },
+            face: LeverFace::Floor,
+            facing: BlockDirection::West,
+            powered: false,
         },
     );
 }
@@ -293,25 +292,17 @@ pub fn make_repeater(
     place_on_block(
         world,
         repeater_pos,
-        Block::RedstoneRepeater {
-            repeater: RedstoneRepeater {
-                delay,
-                facing: direction,
-                ..Default::default()
-            },
-        },
+        Block::Repeater(Repeater {
+            delay,
+            facing: direction,
+            ..Default::default()
+        }),
     );
 }
 
 /// Creates a wire at `wire_pos` with a block of sandstone below it
 pub fn make_wire(world: &mut TestWorld, wire_pos: BlockPos) {
-    place_on_block(
-        world,
-        wire_pos,
-        Block::RedstoneWire {
-            wire: make_cross(0),
-        },
-    );
+    place_on_block(world, wire_pos, Block::RedstoneWire(make_cross(0)));
 }
 
 /// Creates a comparator at `comp_pos` with a block of sandstone below it
@@ -324,12 +315,10 @@ pub fn make_comparator(
     place_on_block(
         world,
         comp_pos,
-        Block::RedstoneComparator {
-            comparator: RedstoneComparator {
-                mode,
-                facing,
-                ..Default::default()
-            },
-        },
+        Block::Comparator(Comparator {
+            mode,
+            facing,
+            ..Default::default()
+        }),
     );
 }

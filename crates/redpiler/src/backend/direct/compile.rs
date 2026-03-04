@@ -26,7 +26,7 @@ fn compile_node(
     node_idx: NodeIdx,
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
-    noteblock_info: &mut Vec<(BlockPos, Instrument, u32)>,
+    noteblock_info: &mut Vec<(BlockPos, Instrument, u8)>,
     forward_links: &mut Vec<ForwardLink>,
     stats: &mut FinalGraphStats,
 ) -> Node {

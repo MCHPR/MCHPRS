@@ -77,7 +77,7 @@ pub fn on_neighbor_updated(mut wire: RedstoneWire, world: &mut impl World, pos: 
 
     if wire.power != new_power {
         wire.power = new_power;
-        world.set_block(pos, Block::RedstoneWire { wire });
+        world.set_block(pos, Block::RedstoneWire(wire));
         RedstoneWireTurbo::update_surrounding_neighbors(world, pos);
     }
 }
@@ -103,7 +103,7 @@ pub fn on_neighbor_updated(mut wire: RedstoneWire, world: &mut impl World, pos: 
 fn can_connect_to(block: Block, side: BlockDirection) -> bool {
     match block {
         Block::RedstoneWire { .. }
-        | Block::RedstoneComparator { .. }
+        | Block::Comparator(_)
         | Block::RedstoneTorch { .. }
         | Block::RedstoneBlock { .. }
         | Block::RedstoneWallTorch { .. }
@@ -112,10 +112,10 @@ fn can_connect_to(block: Block, side: BlockDirection) -> bool {
         | Block::StoneButton { .. }
         | Block::Target { .. }
         | Block::Lever { .. } => true,
-        Block::RedstoneRepeater { repeater } => {
+        Block::Repeater(repeater) => {
             repeater.facing == side || repeater.facing == side.opposite()
         }
-        Block::Observer { facing } => facing == side.block_facing(),
+        Block::Observer { facing, .. } => facing == side.block_facing(),
         _ => false,
     }
 }
@@ -208,7 +208,7 @@ pub fn is_cross(wire: RedstoneWire) -> bool {
 
 fn max_wire_power(wire_power: u8, world: &impl World, pos: BlockPos) -> u8 {
     let block = world.get_block(pos);
-    if let Block::RedstoneWire { wire } = block {
+    if let Block::RedstoneWire(wire) = block {
         wire_power.max(wire.power)
     } else {
         wire_power

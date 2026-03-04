@@ -16,3 +16,7 @@ proc-macro = true
 [dependencies]
 syn = { workspace = true }
 quote = { workspace = true }
+rustc-hash = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+nom = { workspace = true }

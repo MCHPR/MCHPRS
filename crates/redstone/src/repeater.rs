@@ -1,4 +1,4 @@
-use mchprs_blocks::blocks::{Block, RedstoneRepeater};
+use mchprs_blocks::blocks::{Block, Repeater};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::{TickPriority, World};
 
@@ -6,8 +6,8 @@ pub fn get_state_for_placement(
     world: &impl World,
     pos: BlockPos,
     facing: BlockDirection,
-) -> RedstoneRepeater {
-    RedstoneRepeater {
+) -> Repeater {
+    Repeater {
         delay: 1,
         facing,
         locked: should_be_locked(facing, world, pos),
@@ -31,7 +31,7 @@ fn get_power_on_side(world: &impl World, pos: BlockPos, side: BlockDirection) ->
     }
 }
 
-fn on_state_change(rep: RedstoneRepeater, world: &mut impl World, pos: BlockPos) {
+fn on_state_change(rep: Repeater, world: &mut impl World, pos: BlockPos) {
     let front_pos = pos.offset(rep.facing.opposite().block_face());
     let front_block = world.get_block(front_pos);
     super::update(front_block, world, front_pos);
@@ -43,7 +43,7 @@ fn on_state_change(rep: RedstoneRepeater, world: &mut impl World, pos: BlockPos)
 }
 
 fn schedule_tick(
-    rep: RedstoneRepeater,
+    rep: Repeater,
     world: &mut impl World,
     pos: BlockPos,
     should_be_powered: bool,
@@ -59,18 +59,18 @@ fn schedule_tick(
     world.schedule_tick(pos, rep.delay as u32, priority);
 }
 
-fn should_be_powered(rep: RedstoneRepeater, world: &impl World, pos: BlockPos) -> bool {
+fn should_be_powered(rep: Repeater, world: &impl World, pos: BlockPos) -> bool {
     super::diode_get_input_strength(world, pos, rep.facing) > 0
 }
 
-pub fn on_neighbor_updated(mut rep: RedstoneRepeater, world: &mut impl World, pos: BlockPos) {
+pub fn on_neighbor_updated(mut rep: Repeater, world: &mut impl World, pos: BlockPos) {
     let should_be_locked = should_be_locked(rep.facing, world, pos);
     if !rep.locked && should_be_locked {
         rep.locked = true;
-        world.set_block(pos, Block::RedstoneRepeater { repeater: rep });
+        world.set_block(pos, Block::Repeater(rep));
     } else if rep.locked && !should_be_locked {
         rep.locked = false;
-        world.set_block(pos, Block::RedstoneRepeater { repeater: rep });
+        world.set_block(pos, Block::Repeater(rep));
     }
 
     if !rep.locked && !world.pending_tick_at(pos) {
@@ -81,7 +81,7 @@ pub fn on_neighbor_updated(mut rep: RedstoneRepeater, world: &mut impl World, po
     }
 }
 
-pub fn tick(mut rep: RedstoneRepeater, world: &mut impl World, pos: BlockPos) {
+pub fn tick(mut rep: Repeater, world: &mut impl World, pos: BlockPos) {
     if rep.locked {
         return;
     }
@@ -89,14 +89,14 @@ pub fn tick(mut rep: RedstoneRepeater, world: &mut impl World, pos: BlockPos) {
     let should_be_powered = should_be_powered(rep, world, pos);
     if rep.powered && !should_be_powered {
         rep.powered = false;
-        world.set_block(pos, Block::RedstoneRepeater { repeater: rep });
+        world.set_block(pos, Block::Repeater(rep));
         on_state_change(rep, world, pos);
     } else if !rep.powered {
         if !should_be_powered {
             world.schedule_tick(pos, rep.delay as u32, TickPriority::Higher);
         }
         rep.powered = true;
-        world.set_block(pos, Block::RedstoneRepeater { repeater: rep });
+        world.set_block(pos, Block::Repeater(rep));
         on_state_change(rep, world, pos);
     }
 }

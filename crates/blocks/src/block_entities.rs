@@ -110,7 +110,7 @@ impl BlockEntity {
                     .or_else(|| item_compound.get("id"))?,
                 Value::String
             );
-            let item_type = Item::from_name(namespaced_name.split(':').next_back()?);
+            let item_type = Item::from_name(namespaced_name);
 
             let mut blob = nbt::Blob::new();
             for (k, v) in item_compound {
@@ -135,7 +135,7 @@ impl BlockEntity {
             inventory.push(InventoryEntry {
                 slot,
                 count,
-                id: item_type.unwrap_or(Item::Redstone {}).get_id(),
+                id: item_type.unwrap_or(Item::Redstone).get_id(),
                 nbt: tag,
             });
 

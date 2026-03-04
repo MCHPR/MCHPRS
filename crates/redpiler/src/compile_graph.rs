@@ -25,7 +25,7 @@ pub enum NodeType {
     Constant,
     NoteBlock {
         instrument: Instrument,
-        note: u32,
+        note: u8,
     },
 }
 
