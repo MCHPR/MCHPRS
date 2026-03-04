@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/proc_macros", "crates/redpiler_graph", "crates/world_exporter"]
+members = ["crates/block_data_gen","crates/proc_macros", "crates/redpiler_graph", "crates/world_exporter"]
 
 [package]
 name = "mchprs"
@@ -85,3 +85,8 @@ tracing-appender = "0.2"
 paste = "1.0"
 chrono = "0.4"
 clap = { version = "4.5", features = ["derive"] }
+nom = "8.0"
+serde_yaml_ng = "0.10"
+proc-macro2 = "1.0"
+convert_case = "0.11"
+indexmap = { version = "2.13", features = ["serde"] }

@@ -7,7 +7,7 @@ use super::Pass;
 use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
 use crate::passes::AnalysisInfos;
 use crate::{CompilerInput, CompilerOptions};
-use mchprs_blocks::blocks::{Block, ButtonFace, LeverFace};
+use mchprs_blocks::blocks::{Block, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_redstone::{self, comparator, wire};
 use mchprs_world::World;
@@ -116,7 +116,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     );
                 }
 
-                if let Block::RedstoneWire { wire } = block {
+                if let Block::RedstoneWire(wire) = block {
                     if !search_wire {
                         continue;
                     }
@@ -146,7 +146,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 start_node,
                 CompileLink::new(link_ty, distance),
             );
-        } else if let Block::RedstoneWire { wire } = block {
+        } else if let Block::RedstoneWire(wire) = block {
             match side {
                 BlockFace::Top => self.search_wire(start_node, pos, link_ty, distance),
                 BlockFace::Bottom => {}
@@ -303,7 +303,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     true,
                 );
             }
-            Block::RedstoneComparator { comparator } => {
+            Block::Comparator(comparator) => {
                 let facing = comparator.facing;
 
                 self.search_comparator_side(id, pos, facing.rotate());
@@ -318,7 +318,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
                     self.search_diode_inputs(id, pos, facing);
                 }
             }
-            Block::RedstoneRepeater { repeater } => {
+            Block::Repeater(repeater) => {
                 let facing = repeater.facing;
 
                 self.search_diode_inputs(id, pos, facing);
@@ -373,8 +373,8 @@ fn provides_weak_power(block: Block, side: BlockFace) -> bool {
         Block::Lever { .. } => true,
         Block::StoneButton { .. } => true,
         Block::StonePressurePlate { .. } => true,
-        Block::RedstoneRepeater { repeater } => repeater.facing.block_face() == side,
-        Block::RedstoneComparator { comparator } => comparator.facing.block_face() == side,
+        Block::Repeater(repeater) => repeater.facing.block_face() == side,
+        Block::Comparator(comparator) => comparator.facing.block_face() == side,
         _ => false,
     }
 }
@@ -386,18 +386,18 @@ fn provides_strong_power(block: Block, side: BlockFace) -> bool {
         Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
         Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
         Block::StonePressurePlate { .. } if side == BlockFace::Top => true,
-        Block::Lever { lever } => match side {
-            BlockFace::Top => lever.face == LeverFace::Floor,
-            BlockFace::Bottom => lever.face == LeverFace::Ceiling,
-            _ => lever.face == LeverFace::Wall && lever.facing == side.unwrap_direction(),
+        Block::Lever { face, facing, .. } => match side {
+            BlockFace::Top => face == LeverFace::Floor,
+            BlockFace::Bottom => face == LeverFace::Ceiling,
+            _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
         },
-        Block::StoneButton { button } => match side {
-            BlockFace::Top => button.face == ButtonFace::Floor,
-            BlockFace::Bottom => button.face == ButtonFace::Ceiling,
-            _ => button.face == ButtonFace::Wall && button.facing == side.unwrap_direction(),
+        Block::StoneButton { face, facing, .. } => match side {
+            BlockFace::Top => face == LeverFace::Floor,
+            BlockFace::Bottom => face == LeverFace::Ceiling,
+            _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
         },
-        Block::RedstoneRepeater { repeater } => repeater.facing.block_face() == side,
-        Block::RedstoneComparator { comparator } => comparator.facing.block_face() == side,
+        Block::Repeater(repeater) => repeater.facing.block_face() == side,
+        Block::Comparator(comparator) => comparator.facing.block_face() == side,
         _ => false,
     }
 }

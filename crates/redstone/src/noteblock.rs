@@ -10,7 +10,7 @@ pub fn get_noteblock_instrument(world: &impl World, pos: BlockPos) -> Instrument
     Instrument::from_block_below(world.get_block(pos.offset(BlockFace::Bottom)))
 }
 
-pub fn play_note(world: &mut impl World, pos: BlockPos, instrument: Instrument, note: u32) {
+pub fn play_note(world: &mut impl World, pos: BlockPos, instrument: Instrument, note: u8) {
     let sound_category = 2; // Sound Caregory ID for Records
     let volume = 3.0;
     // The note is mapped to [0, 31] to avoid ultra high pitches in case of invalid values.

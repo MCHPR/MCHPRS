@@ -78,7 +78,7 @@ fn for_pos<W: World>(
     let id = world.get_block_raw(pos);
     let block = Block::from_id(id);
 
-    if matches!(block, Block::Sign { .. } | Block::WallSign { .. }) {
+    if block.is_sign() || block.is_wall_sign() {
         second_pass.insert(pos);
         return;
     }
@@ -94,7 +94,7 @@ fn for_pos<W: World>(
     let is_output = matches!(
         ty,
         NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. }
-    ) || matches!(block, Block::RedstoneWire { wire } if wire_dot_out && wire::is_dot(wire));
+    ) || matches!(block, Block::RedstoneWire(wire) if wire_dot_out && wire::is_dot(wire));
 
     if ignore_wires && ty == NodeType::Wire && !(is_input | is_output) {
         return;
@@ -118,7 +118,7 @@ fn identify_block<W: World>(
     world: &W,
 ) -> Option<(NodeType, NodeState)> {
     let (ty, state) = match block {
-        Block::RedstoneRepeater { repeater } => (
+        Block::Repeater(repeater) => (
             NodeType::Repeater {
                 delay: repeater.delay,
                 facing_diode: mchprs_redstone::is_diode(
@@ -127,7 +127,7 @@ fn identify_block<W: World>(
             },
             NodeState::repeater(repeater.powered, repeater.locked),
         ),
-        Block::RedstoneComparator { comparator } => (
+        Block::Comparator(comparator) => (
             NodeType::Comparator {
                 mode: comparator.mode,
                 far_input: comparator::get_far_input(world, pos, comparator.facing),
@@ -149,15 +149,15 @@ fn identify_block<W: World>(
         Block::RedstoneTorch { lit, .. } | Block::RedstoneWallTorch { lit, .. } => {
             (NodeType::Torch, NodeState::simple(lit))
         }
-        Block::RedstoneWire { wire } => (NodeType::Wire, NodeState::ss(wire.power)),
-        Block::StoneButton { button } => (NodeType::Button, NodeState::simple(button.powered)),
+        Block::RedstoneWire(wire) => (NodeType::Wire, NodeState::ss(wire.power)),
+        Block::StoneButton { powered, .. } => (NodeType::Button, NodeState::simple(powered)),
         Block::RedstoneLamp { lit } => (NodeType::Lamp, NodeState::simple(lit)),
-        Block::Lever { lever } => (NodeType::Lever, NodeState::simple(lever.powered)),
+        Block::Lever { powered, .. } => (NodeType::Lever, NodeState::simple(powered)),
         Block::StonePressurePlate { powered } => {
             (NodeType::PressurePlate, NodeState::simple(powered))
         }
         Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
-        Block::RedstoneBlock {} => (NodeType::Constant, NodeState::ss(15)),
+        Block::RedstoneBlock => (NodeType::Constant, NodeState::ss(15)),
         Block::NoteBlock {
             instrument: _,
             note,
@@ -191,8 +191,8 @@ fn apply_annotations<W: World>(
         return;
     }
 
-    let targets = match block {
-        Block::Sign { rotation, .. } => {
+    let targets = match (block.get_sign_rotation(), block.get_wall_sign_facing()) {
+        (Some(rotation), None) => {
             if let Some(facing) = BlockDirection::from_rotation(rotation) {
                 let behind = pos.offset(facing.opposite().block_face());
                 vec![behind]
@@ -201,7 +201,7 @@ fn apply_annotations<W: World>(
                 return;
             }
         }
-        Block::WallSign { facing, .. } => {
+        (None, Some(facing)) => {
             let behind = pos.offset(facing.opposite().block_face());
             vec![
                 behind,

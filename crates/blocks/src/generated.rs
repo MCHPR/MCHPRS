@@ -1,0 +1,4566 @@
+#![allow(
+    unused_parens,
+    unused_assignments,
+    non_contiguous_range_endpoints,
+    unused_variables
+)]
+use crate::{blocks::*, *};
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Block {
+    Air,
+    Stone,
+    Glass,
+    Glowstone,
+    RedstoneWire(RedstoneWire),
+    OakWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    SpruceWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    BirchWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    AcaciaWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    JungleWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    DarkOakWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    CrimsonWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    WarpedWallSign {
+        facing: BlockDirection,
+        waterlogged: bool,
+    },
+    OakSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    SpruceSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    BirchSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    AcaciaSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    JungleSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    DarkOakSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    CrimsonSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    WarpedSign {
+        rotation: u8,
+        waterlogged: bool,
+    },
+    Lever {
+        face: LeverFace,
+        facing: BlockDirection,
+        powered: bool,
+    },
+    StoneButton {
+        face: LeverFace,
+        facing: BlockDirection,
+        powered: bool,
+    },
+    RedstoneTorch {
+        lit: bool,
+    },
+    RedstoneWallTorch {
+        facing: BlockDirection,
+        lit: bool,
+    },
+    Repeater(Repeater),
+    RedstoneLamp {
+        lit: bool,
+    },
+    TripwireHook {
+        attached: bool,
+        facing: BlockDirection,
+        powered: bool,
+    },
+    Comparator(Comparator),
+    RedstoneBlock,
+    Observer {
+        facing: BlockFacing,
+        powered: bool,
+    },
+    SeaPickle {
+        pickles: u8,
+        waterlogged: bool,
+    },
+    Target {
+        power: u8,
+    },
+    StonePressurePlate {
+        powered: bool,
+    },
+    Cake {
+        bites: u8,
+    },
+    Barrel {
+        facing: BlockFacing,
+        open: bool,
+    },
+    Hopper {
+        enabled: bool,
+        facing: HopperFacing,
+    },
+    Sandstone,
+    CoalBlock,
+    Furnace {
+        facing: BlockDirection,
+        lit: bool,
+    },
+    QuartzBlock,
+    SmoothQuartz,
+    SmoothStoneSlab {
+        ty: SlabType,
+        waterlogged: bool,
+    },
+    QuartzSlab {
+        ty: SlabType,
+        waterlogged: bool,
+    },
+    Cauldron,
+    WaterCauldron {
+        level: u8,
+    },
+    Composter {
+        level: u8,
+    },
+    WhiteConcrete,
+    OrangeConcrete,
+    MagentaConcrete,
+    LightBlueConcrete,
+    YellowConcrete,
+    LimeConcrete,
+    PinkConcrete,
+    GrayConcrete,
+    LightGrayConcrete,
+    CyanConcrete,
+    PurpleConcrete,
+    BlueConcrete,
+    BrownConcrete,
+    GreenConcrete,
+    RedConcrete,
+    BlackConcrete,
+    WhiteStainedGlass,
+    OrangeStainedGlass,
+    MagentaStainedGlass,
+    LightBlueStainedGlass,
+    YellowStainedGlass,
+    LimeStainedGlass,
+    PinkStainedGlass,
+    GrayStainedGlass,
+    LightGrayStainedGlass,
+    CyanStainedGlass,
+    PurpleStainedGlass,
+    BlueStainedGlass,
+    BrownStainedGlass,
+    GreenStainedGlass,
+    RedStainedGlass,
+    BlackStainedGlass,
+    Terracotta,
+    WhiteTerracotta,
+    OrangeTerracotta,
+    MagentaTerracotta,
+    LightBlueTerracotta,
+    YellowTerracotta,
+    LimeTerracotta,
+    PinkTerracotta,
+    GrayTerracotta,
+    LightGrayTerracotta,
+    CyanTerracotta,
+    PurpleTerracotta,
+    BlueTerracotta,
+    BrownTerracotta,
+    GreenTerracotta,
+    RedTerracotta,
+    BlackTerracotta,
+    WhiteWool,
+    OrangeWool,
+    MagentaWool,
+    LightBlueWool,
+    YellowWool,
+    LimeWool,
+    PinkWool,
+    GrayWool,
+    LightGrayWool,
+    CyanWool,
+    PurpleWool,
+    BlueWool,
+    BrownWool,
+    GreenWool,
+    RedWool,
+    BlackWool,
+    IronTrapdoor {
+        facing: BlockDirection,
+        half: TrapdoorHalf,
+        open: bool,
+        powered: bool,
+        waterlogged: bool,
+    },
+    NoteBlock {
+        instrument: Instrument,
+        note: u8,
+        powered: bool,
+    },
+    Clay,
+    GoldBlock,
+    PackedIce,
+    BoneBlock {
+        axis: BlockAxis,
+    },
+    IronBlock,
+    SoulSand,
+    Pumpkin,
+    EmeraldBlock,
+    HayBlock {
+        axis: BlockAxis,
+    },
+    Sand,
+    StoneBricks,
+    EndPortalFrame {
+        eye: bool,
+        facing: BlockDirection,
+    },
+}
+impl Block {
+    pub fn get_name(self) -> &'static str {
+        match self {
+            Block::Air => "minecraft:air",
+            Block::Stone => "minecraft:stone",
+            Block::Glass => "minecraft:glass",
+            Block::Glowstone => "minecraft:glowstone",
+            Block::RedstoneWire(_) => "minecraft:redstone_wire",
+            Block::OakWallSign { .. } => "minecraft:oak_wall_sign",
+            Block::SpruceWallSign { .. } => "minecraft:spruce_wall_sign",
+            Block::BirchWallSign { .. } => "minecraft:birch_wall_sign",
+            Block::AcaciaWallSign { .. } => "minecraft:acacia_wall_sign",
+            Block::JungleWallSign { .. } => "minecraft:jungle_wall_sign",
+            Block::DarkOakWallSign { .. } => "minecraft:dark_oak_wall_sign",
+            Block::CrimsonWallSign { .. } => "minecraft:crimson_wall_sign",
+            Block::WarpedWallSign { .. } => "minecraft:warped_wall_sign",
+            Block::OakSign { .. } => "minecraft:oak_sign",
+            Block::SpruceSign { .. } => "minecraft:spruce_sign",
+            Block::BirchSign { .. } => "minecraft:birch_sign",
+            Block::AcaciaSign { .. } => "minecraft:acacia_sign",
+            Block::JungleSign { .. } => "minecraft:jungle_sign",
+            Block::DarkOakSign { .. } => "minecraft:dark_oak_sign",
+            Block::CrimsonSign { .. } => "minecraft:crimson_sign",
+            Block::WarpedSign { .. } => "minecraft:warped_sign",
+            Block::Lever { .. } => "minecraft:lever",
+            Block::StoneButton { .. } => "minecraft:stone_button",
+            Block::RedstoneTorch { .. } => "minecraft:redstone_torch",
+            Block::RedstoneWallTorch { .. } => "minecraft:redstone_wall_torch",
+            Block::Repeater(_) => "minecraft:repeater",
+            Block::RedstoneLamp { .. } => "minecraft:redstone_lamp",
+            Block::TripwireHook { .. } => "minecraft:tripwire_hook",
+            Block::Comparator(_) => "minecraft:comparator",
+            Block::RedstoneBlock => "minecraft:redstone_block",
+            Block::Observer { .. } => "minecraft:observer",
+            Block::SeaPickle { .. } => "minecraft:sea_pickle",
+            Block::Target { .. } => "minecraft:target",
+            Block::StonePressurePlate { .. } => "minecraft:stone_pressure_plate",
+            Block::Cake { .. } => "minecraft:cake",
+            Block::Barrel { .. } => "minecraft:barrel",
+            Block::Hopper { .. } => "minecraft:hopper",
+            Block::Sandstone => "minecraft:sandstone",
+            Block::CoalBlock => "minecraft:coal_block",
+            Block::Furnace { .. } => "minecraft:furnace",
+            Block::QuartzBlock => "minecraft:quartz_block",
+            Block::SmoothQuartz => "minecraft:smooth_quartz",
+            Block::SmoothStoneSlab { .. } => "minecraft:smooth_stone_slab",
+            Block::QuartzSlab { .. } => "minecraft:quartz_slab",
+            Block::Cauldron => "minecraft:cauldron",
+            Block::WaterCauldron { .. } => "minecraft:water_cauldron",
+            Block::Composter { .. } => "minecraft:composter",
+            Block::WhiteConcrete => "minecraft:white_concrete",
+            Block::OrangeConcrete => "minecraft:orange_concrete",
+            Block::MagentaConcrete => "minecraft:magenta_concrete",
+            Block::LightBlueConcrete => "minecraft:light_blue_concrete",
+            Block::YellowConcrete => "minecraft:yellow_concrete",
+            Block::LimeConcrete => "minecraft:lime_concrete",
+            Block::PinkConcrete => "minecraft:pink_concrete",
+            Block::GrayConcrete => "minecraft:gray_concrete",
+            Block::LightGrayConcrete => "minecraft:light_gray_concrete",
+            Block::CyanConcrete => "minecraft:cyan_concrete",
+            Block::PurpleConcrete => "minecraft:purple_concrete",
+            Block::BlueConcrete => "minecraft:blue_concrete",
+            Block::BrownConcrete => "minecraft:brown_concrete",
+            Block::GreenConcrete => "minecraft:green_concrete",
+            Block::RedConcrete => "minecraft:red_concrete",
+            Block::BlackConcrete => "minecraft:black_concrete",
+            Block::WhiteStainedGlass => "minecraft:white_stained_glass",
+            Block::OrangeStainedGlass => "minecraft:orange_stained_glass",
+            Block::MagentaStainedGlass => "minecraft:magenta_stained_glass",
+            Block::LightBlueStainedGlass => "minecraft:light_blue_stained_glass",
+            Block::YellowStainedGlass => "minecraft:yellow_stained_glass",
+            Block::LimeStainedGlass => "minecraft:lime_stained_glass",
+            Block::PinkStainedGlass => "minecraft:pink_stained_glass",
+            Block::GrayStainedGlass => "minecraft:gray_stained_glass",
+            Block::LightGrayStainedGlass => "minecraft:light_gray_stained_glass",
+            Block::CyanStainedGlass => "minecraft:cyan_stained_glass",
+            Block::PurpleStainedGlass => "minecraft:purple_stained_glass",
+            Block::BlueStainedGlass => "minecraft:blue_stained_glass",
+            Block::BrownStainedGlass => "minecraft:brown_stained_glass",
+            Block::GreenStainedGlass => "minecraft:green_stained_glass",
+            Block::RedStainedGlass => "minecraft:red_stained_glass",
+            Block::BlackStainedGlass => "minecraft:black_stained_glass",
+            Block::Terracotta => "minecraft:terracotta",
+            Block::WhiteTerracotta => "minecraft:white_terracotta",
+            Block::OrangeTerracotta => "minecraft:orange_terracotta",
+            Block::MagentaTerracotta => "minecraft:magenta_terracotta",
+            Block::LightBlueTerracotta => "minecraft:light_blue_terracotta",
+            Block::YellowTerracotta => "minecraft:yellow_terracotta",
+            Block::LimeTerracotta => "minecraft:lime_terracotta",
+            Block::PinkTerracotta => "minecraft:pink_terracotta",
+            Block::GrayTerracotta => "minecraft:gray_terracotta",
+            Block::LightGrayTerracotta => "minecraft:light_gray_terracotta",
+            Block::CyanTerracotta => "minecraft:cyan_terracotta",
+            Block::PurpleTerracotta => "minecraft:purple_terracotta",
+            Block::BlueTerracotta => "minecraft:blue_terracotta",
+            Block::BrownTerracotta => "minecraft:brown_terracotta",
+            Block::GreenTerracotta => "minecraft:green_terracotta",
+            Block::RedTerracotta => "minecraft:red_terracotta",
+            Block::BlackTerracotta => "minecraft:black_terracotta",
+            Block::WhiteWool => "minecraft:white_wool",
+            Block::OrangeWool => "minecraft:orange_wool",
+            Block::MagentaWool => "minecraft:magenta_wool",
+            Block::LightBlueWool => "minecraft:light_blue_wool",
+            Block::YellowWool => "minecraft:yellow_wool",
+            Block::LimeWool => "minecraft:lime_wool",
+            Block::PinkWool => "minecraft:pink_wool",
+            Block::GrayWool => "minecraft:gray_wool",
+            Block::LightGrayWool => "minecraft:light_gray_wool",
+            Block::CyanWool => "minecraft:cyan_wool",
+            Block::PurpleWool => "minecraft:purple_wool",
+            Block::BlueWool => "minecraft:blue_wool",
+            Block::BrownWool => "minecraft:brown_wool",
+            Block::GreenWool => "minecraft:green_wool",
+            Block::RedWool => "minecraft:red_wool",
+            Block::BlackWool => "minecraft:black_wool",
+            Block::IronTrapdoor { .. } => "minecraft:iron_trapdoor",
+            Block::NoteBlock { .. } => "minecraft:note_block",
+            Block::Clay => "minecraft:clay",
+            Block::GoldBlock => "minecraft:gold_block",
+            Block::PackedIce => "minecraft:packed_ice",
+            Block::BoneBlock { .. } => "minecraft:bone_block",
+            Block::IronBlock => "minecraft:iron_block",
+            Block::SoulSand => "minecraft:soul_sand",
+            Block::Pumpkin => "minecraft:pumpkin",
+            Block::EmeraldBlock => "minecraft:emerald_block",
+            Block::HayBlock { .. } => "minecraft:hay_block",
+            Block::Sand => "minecraft:sand",
+            Block::StoneBricks => "minecraft:stone_bricks",
+            Block::EndPortalFrame { .. } => "minecraft:end_portal_frame",
+        }
+    }
+    pub fn from_name(name: &str) -> Option<Block> {
+        Some(match name {
+            "minecraft:air" => Block::Air,
+            "minecraft:stone" => Block::Stone,
+            "minecraft:glass" => Block::Glass,
+            "minecraft:glowstone" => Block::Glowstone,
+            "minecraft:redstone_wire" => Block::RedstoneWire(RedstoneWire {
+                east: RedstoneWireSide::None,
+                north: RedstoneWireSide::None,
+                power: 0,
+                south: RedstoneWireSide::None,
+                west: RedstoneWireSide::None,
+            }),
+            "minecraft:oak_wall_sign" => Block::OakWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:spruce_wall_sign" => Block::SpruceWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:birch_wall_sign" => Block::BirchWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:acacia_wall_sign" => Block::AcaciaWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:jungle_wall_sign" => Block::JungleWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:dark_oak_wall_sign" => Block::DarkOakWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:crimson_wall_sign" => Block::CrimsonWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:warped_wall_sign" => Block::WarpedWallSign {
+                facing: BlockDirection::North,
+                waterlogged: false,
+            },
+            "minecraft:oak_sign" => Block::OakSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:spruce_sign" => Block::SpruceSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:birch_sign" => Block::BirchSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:acacia_sign" => Block::AcaciaSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:jungle_sign" => Block::JungleSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:dark_oak_sign" => Block::DarkOakSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:crimson_sign" => Block::CrimsonSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:warped_sign" => Block::WarpedSign {
+                rotation: 0,
+                waterlogged: false,
+            },
+            "minecraft:lever" => Block::Lever {
+                face: LeverFace::Wall,
+                facing: BlockDirection::North,
+                powered: false,
+            },
+            "minecraft:stone_button" => Block::StoneButton {
+                face: LeverFace::Wall,
+                facing: BlockDirection::North,
+                powered: false,
+            },
+            "minecraft:redstone_torch" => Block::RedstoneTorch { lit: true },
+            "minecraft:redstone_wall_torch" => Block::RedstoneWallTorch {
+                facing: BlockDirection::North,
+                lit: true,
+            },
+            "minecraft:repeater" => Block::Repeater(Repeater {
+                delay: 1,
+                facing: BlockDirection::North,
+                locked: false,
+                powered: false,
+            }),
+            "minecraft:redstone_lamp" => Block::RedstoneLamp { lit: false },
+            "minecraft:tripwire_hook" => Block::TripwireHook {
+                attached: false,
+                facing: BlockDirection::North,
+                powered: false,
+            },
+            "minecraft:comparator" => Block::Comparator(Comparator {
+                facing: BlockDirection::North,
+                mode: ComparatorMode::Compare,
+                powered: false,
+            }),
+            "minecraft:redstone_block" => Block::RedstoneBlock,
+            "minecraft:observer" => Block::Observer {
+                facing: BlockFacing::South,
+                powered: false,
+            },
+            "minecraft:sea_pickle" => Block::SeaPickle {
+                pickles: 1,
+                waterlogged: true,
+            },
+            "minecraft:target" => Block::Target { power: 0 },
+            "minecraft:stone_pressure_plate" => Block::StonePressurePlate { powered: false },
+            "minecraft:cake" => Block::Cake { bites: 0 },
+            "minecraft:barrel" => Block::Barrel {
+                facing: BlockFacing::North,
+                open: false,
+            },
+            "minecraft:hopper" => Block::Hopper {
+                enabled: true,
+                facing: HopperFacing::Down,
+            },
+            "minecraft:sandstone" => Block::Sandstone,
+            "minecraft:coal_block" => Block::CoalBlock,
+            "minecraft:furnace" => Block::Furnace {
+                facing: BlockDirection::North,
+                lit: false,
+            },
+            "minecraft:quartz_block" => Block::QuartzBlock,
+            "minecraft:smooth_quartz" => Block::SmoothQuartz,
+            "minecraft:smooth_stone_slab" => Block::SmoothStoneSlab {
+                ty: SlabType::Bottom,
+                waterlogged: false,
+            },
+            "minecraft:quartz_slab" => Block::QuartzSlab {
+                ty: SlabType::Bottom,
+                waterlogged: false,
+            },
+            "minecraft:cauldron" => Block::Cauldron,
+            "minecraft:water_cauldron" => Block::WaterCauldron { level: 1 },
+            "minecraft:composter" => Block::Composter { level: 0 },
+            "minecraft:white_concrete" => Block::WhiteConcrete,
+            "minecraft:orange_concrete" => Block::OrangeConcrete,
+            "minecraft:magenta_concrete" => Block::MagentaConcrete,
+            "minecraft:light_blue_concrete" => Block::LightBlueConcrete,
+            "minecraft:yellow_concrete" => Block::YellowConcrete,
+            "minecraft:lime_concrete" => Block::LimeConcrete,
+            "minecraft:pink_concrete" => Block::PinkConcrete,
+            "minecraft:gray_concrete" => Block::GrayConcrete,
+            "minecraft:light_gray_concrete" => Block::LightGrayConcrete,
+            "minecraft:cyan_concrete" => Block::CyanConcrete,
+            "minecraft:purple_concrete" => Block::PurpleConcrete,
+            "minecraft:blue_concrete" => Block::BlueConcrete,
+            "minecraft:brown_concrete" => Block::BrownConcrete,
+            "minecraft:green_concrete" => Block::GreenConcrete,
+            "minecraft:red_concrete" => Block::RedConcrete,
+            "minecraft:black_concrete" => Block::BlackConcrete,
+            "minecraft:white_stained_glass" => Block::WhiteStainedGlass,
+            "minecraft:orange_stained_glass" => Block::OrangeStainedGlass,
+            "minecraft:magenta_stained_glass" => Block::MagentaStainedGlass,
+            "minecraft:light_blue_stained_glass" => Block::LightBlueStainedGlass,
+            "minecraft:yellow_stained_glass" => Block::YellowStainedGlass,
+            "minecraft:lime_stained_glass" => Block::LimeStainedGlass,
+            "minecraft:pink_stained_glass" => Block::PinkStainedGlass,
+            "minecraft:gray_stained_glass" => Block::GrayStainedGlass,
+            "minecraft:light_gray_stained_glass" => Block::LightGrayStainedGlass,
+            "minecraft:cyan_stained_glass" => Block::CyanStainedGlass,
+            "minecraft:purple_stained_glass" => Block::PurpleStainedGlass,
+            "minecraft:blue_stained_glass" => Block::BlueStainedGlass,
+            "minecraft:brown_stained_glass" => Block::BrownStainedGlass,
+            "minecraft:green_stained_glass" => Block::GreenStainedGlass,
+            "minecraft:red_stained_glass" => Block::RedStainedGlass,
+            "minecraft:black_stained_glass" => Block::BlackStainedGlass,
+            "minecraft:terracotta" => Block::Terracotta,
+            "minecraft:white_terracotta" => Block::WhiteTerracotta,
+            "minecraft:orange_terracotta" => Block::OrangeTerracotta,
+            "minecraft:magenta_terracotta" => Block::MagentaTerracotta,
+            "minecraft:light_blue_terracotta" => Block::LightBlueTerracotta,
+            "minecraft:yellow_terracotta" => Block::YellowTerracotta,
+            "minecraft:lime_terracotta" => Block::LimeTerracotta,
+            "minecraft:pink_terracotta" => Block::PinkTerracotta,
+            "minecraft:gray_terracotta" => Block::GrayTerracotta,
+            "minecraft:light_gray_terracotta" => Block::LightGrayTerracotta,
+            "minecraft:cyan_terracotta" => Block::CyanTerracotta,
+            "minecraft:purple_terracotta" => Block::PurpleTerracotta,
+            "minecraft:blue_terracotta" => Block::BlueTerracotta,
+            "minecraft:brown_terracotta" => Block::BrownTerracotta,
+            "minecraft:green_terracotta" => Block::GreenTerracotta,
+            "minecraft:red_terracotta" => Block::RedTerracotta,
+            "minecraft:black_terracotta" => Block::BlackTerracotta,
+            "minecraft:white_wool" => Block::WhiteWool,
+            "minecraft:orange_wool" => Block::OrangeWool,
+            "minecraft:magenta_wool" => Block::MagentaWool,
+            "minecraft:light_blue_wool" => Block::LightBlueWool,
+            "minecraft:yellow_wool" => Block::YellowWool,
+            "minecraft:lime_wool" => Block::LimeWool,
+            "minecraft:pink_wool" => Block::PinkWool,
+            "minecraft:gray_wool" => Block::GrayWool,
+            "minecraft:light_gray_wool" => Block::LightGrayWool,
+            "minecraft:cyan_wool" => Block::CyanWool,
+            "minecraft:purple_wool" => Block::PurpleWool,
+            "minecraft:blue_wool" => Block::BlueWool,
+            "minecraft:brown_wool" => Block::BrownWool,
+            "minecraft:green_wool" => Block::GreenWool,
+            "minecraft:red_wool" => Block::RedWool,
+            "minecraft:black_wool" => Block::BlackWool,
+            "minecraft:iron_trapdoor" => Block::IronTrapdoor {
+                facing: BlockDirection::North,
+                half: TrapdoorHalf::Bottom,
+                open: false,
+                powered: false,
+                waterlogged: false,
+            },
+            "minecraft:note_block" => Block::NoteBlock {
+                instrument: Instrument::Harp,
+                note: 0,
+                powered: false,
+            },
+            "minecraft:clay" => Block::Clay,
+            "minecraft:gold_block" => Block::GoldBlock,
+            "minecraft:packed_ice" => Block::PackedIce,
+            "minecraft:bone_block" => Block::BoneBlock { axis: BlockAxis::Y },
+            "minecraft:iron_block" => Block::IronBlock,
+            "minecraft:soul_sand" => Block::SoulSand,
+            "minecraft:pumpkin" => Block::Pumpkin,
+            "minecraft:emerald_block" => Block::EmeraldBlock,
+            "minecraft:hay_block" => Block::HayBlock { axis: BlockAxis::Y },
+            "minecraft:sand" => Block::Sand,
+            "minecraft:stone_bricks" => Block::StoneBricks,
+            "minecraft:end_portal_frame" => Block::EndPortalFrame {
+                eye: false,
+                facing: BlockDirection::North,
+            },
+            _ => return None,
+        })
+    }
+    pub fn is_solid(self) -> bool {
+        match self {
+            Block::Stone => true,
+            Block::RedstoneLamp { .. } => true,
+            Block::Target { .. } => true,
+            Block::Barrel { .. } => true,
+            Block::Sandstone => true,
+            Block::CoalBlock => true,
+            Block::Furnace { .. } => true,
+            Block::QuartzBlock => true,
+            Block::SmoothQuartz => true,
+            Block::WhiteConcrete => true,
+            Block::OrangeConcrete => true,
+            Block::MagentaConcrete => true,
+            Block::LightBlueConcrete => true,
+            Block::YellowConcrete => true,
+            Block::LimeConcrete => true,
+            Block::PinkConcrete => true,
+            Block::GrayConcrete => true,
+            Block::LightGrayConcrete => true,
+            Block::CyanConcrete => true,
+            Block::PurpleConcrete => true,
+            Block::BlueConcrete => true,
+            Block::BrownConcrete => true,
+            Block::GreenConcrete => true,
+            Block::RedConcrete => true,
+            Block::BlackConcrete => true,
+            Block::Terracotta => true,
+            Block::WhiteTerracotta => true,
+            Block::OrangeTerracotta => true,
+            Block::MagentaTerracotta => true,
+            Block::LightBlueTerracotta => true,
+            Block::YellowTerracotta => true,
+            Block::LimeTerracotta => true,
+            Block::PinkTerracotta => true,
+            Block::GrayTerracotta => true,
+            Block::LightGrayTerracotta => true,
+            Block::CyanTerracotta => true,
+            Block::PurpleTerracotta => true,
+            Block::BlueTerracotta => true,
+            Block::BrownTerracotta => true,
+            Block::GreenTerracotta => true,
+            Block::RedTerracotta => true,
+            Block::BlackTerracotta => true,
+            Block::WhiteWool => true,
+            Block::OrangeWool => true,
+            Block::MagentaWool => true,
+            Block::LightBlueWool => true,
+            Block::YellowWool => true,
+            Block::LimeWool => true,
+            Block::PinkWool => true,
+            Block::GrayWool => true,
+            Block::LightGrayWool => true,
+            Block::CyanWool => true,
+            Block::PurpleWool => true,
+            Block::BlueWool => true,
+            Block::BrownWool => true,
+            Block::GreenWool => true,
+            Block::RedWool => true,
+            Block::BlackWool => true,
+            Block::IronTrapdoor { .. } => true,
+            Block::NoteBlock { .. } => true,
+            Block::Clay => true,
+            Block::GoldBlock => true,
+            Block::PackedIce => true,
+            Block::BoneBlock { .. } => true,
+            Block::IronBlock => true,
+            Block::SoulSand => true,
+            Block::Pumpkin => true,
+            Block::EmeraldBlock => true,
+            Block::HayBlock { .. } => true,
+            Block::Sand => true,
+            Block::StoneBricks => true,
+            Block::EndPortalFrame { .. } => true,
+            _ => false,
+        }
+    }
+    pub fn is_cube(self) -> bool {
+        match self {
+            Block::Stone => true,
+            Block::Glass => true,
+            Block::Glowstone => true,
+            Block::RedstoneLamp { .. } => true,
+            Block::RedstoneBlock => true,
+            Block::Target { .. } => true,
+            Block::Barrel { .. } => true,
+            Block::Hopper { .. } => true,
+            Block::Sandstone => true,
+            Block::CoalBlock => true,
+            Block::Furnace { .. } => true,
+            Block::QuartzBlock => true,
+            Block::SmoothQuartz => true,
+            Block::Composter { .. } => true,
+            Block::WhiteConcrete => true,
+            Block::OrangeConcrete => true,
+            Block::MagentaConcrete => true,
+            Block::LightBlueConcrete => true,
+            Block::YellowConcrete => true,
+            Block::LimeConcrete => true,
+            Block::PinkConcrete => true,
+            Block::GrayConcrete => true,
+            Block::LightGrayConcrete => true,
+            Block::CyanConcrete => true,
+            Block::PurpleConcrete => true,
+            Block::BlueConcrete => true,
+            Block::BrownConcrete => true,
+            Block::GreenConcrete => true,
+            Block::RedConcrete => true,
+            Block::BlackConcrete => true,
+            Block::WhiteStainedGlass => true,
+            Block::OrangeStainedGlass => true,
+            Block::MagentaStainedGlass => true,
+            Block::LightBlueStainedGlass => true,
+            Block::YellowStainedGlass => true,
+            Block::LimeStainedGlass => true,
+            Block::PinkStainedGlass => true,
+            Block::GrayStainedGlass => true,
+            Block::LightGrayStainedGlass => true,
+            Block::CyanStainedGlass => true,
+            Block::PurpleStainedGlass => true,
+            Block::BlueStainedGlass => true,
+            Block::BrownStainedGlass => true,
+            Block::GreenStainedGlass => true,
+            Block::RedStainedGlass => true,
+            Block::BlackStainedGlass => true,
+            Block::Terracotta => true,
+            Block::WhiteTerracotta => true,
+            Block::OrangeTerracotta => true,
+            Block::MagentaTerracotta => true,
+            Block::LightBlueTerracotta => true,
+            Block::YellowTerracotta => true,
+            Block::LimeTerracotta => true,
+            Block::PinkTerracotta => true,
+            Block::GrayTerracotta => true,
+            Block::LightGrayTerracotta => true,
+            Block::CyanTerracotta => true,
+            Block::PurpleTerracotta => true,
+            Block::BlueTerracotta => true,
+            Block::BrownTerracotta => true,
+            Block::GreenTerracotta => true,
+            Block::RedTerracotta => true,
+            Block::BlackTerracotta => true,
+            Block::WhiteWool => true,
+            Block::OrangeWool => true,
+            Block::MagentaWool => true,
+            Block::LightBlueWool => true,
+            Block::YellowWool => true,
+            Block::LimeWool => true,
+            Block::PinkWool => true,
+            Block::GrayWool => true,
+            Block::LightGrayWool => true,
+            Block::CyanWool => true,
+            Block::PurpleWool => true,
+            Block::BlueWool => true,
+            Block::BrownWool => true,
+            Block::GreenWool => true,
+            Block::RedWool => true,
+            Block::BlackWool => true,
+            Block::IronTrapdoor { .. } => true,
+            Block::NoteBlock { .. } => true,
+            Block::Clay => true,
+            Block::GoldBlock => true,
+            Block::PackedIce => true,
+            Block::BoneBlock { .. } => true,
+            Block::IronBlock => true,
+            Block::SoulSand => true,
+            Block::Pumpkin => true,
+            Block::EmeraldBlock => true,
+            Block::HayBlock { .. } => true,
+            Block::Sand => true,
+            Block::StoneBricks => true,
+            Block::EndPortalFrame { .. } => true,
+            _ => false,
+        }
+    }
+    pub fn is_transparent(self) -> bool {
+        match self {
+            Block::Glass => true,
+            Block::Glowstone => true,
+            Block::RedstoneBlock => true,
+            Block::Hopper { .. } => true,
+            Block::Cauldron => true,
+            Block::WaterCauldron { .. } => true,
+            Block::Composter { .. } => true,
+            Block::WhiteStainedGlass => true,
+            Block::OrangeStainedGlass => true,
+            Block::MagentaStainedGlass => true,
+            Block::LightBlueStainedGlass => true,
+            Block::YellowStainedGlass => true,
+            Block::LimeStainedGlass => true,
+            Block::PinkStainedGlass => true,
+            Block::GrayStainedGlass => true,
+            Block::LightGrayStainedGlass => true,
+            Block::CyanStainedGlass => true,
+            Block::PurpleStainedGlass => true,
+            Block::BlueStainedGlass => true,
+            Block::BrownStainedGlass => true,
+            Block::GreenStainedGlass => true,
+            Block::RedStainedGlass => true,
+            Block::BlackStainedGlass => true,
+            _ => false,
+        }
+    }
+    pub fn set_properties(&mut self, props: HashMap<&str, &str>) {
+        match self {
+            Block::Air => {}
+            Block::Stone => {}
+            Block::Glass => {}
+            Block::Glowstone => {}
+            Block::RedstoneWire(RedstoneWire {
+                east,
+                north,
+                power,
+                south,
+                west,
+            }) => {
+                <RedstoneWireSide as BlockProperty>::decode(east, &props, "east");
+                <RedstoneWireSide as BlockProperty>::decode(north, &props, "north");
+                <u8 as BlockProperty>::decode(power, &props, "power");
+                <RedstoneWireSide as BlockProperty>::decode(south, &props, "south");
+                <RedstoneWireSide as BlockProperty>::decode(west, &props, "west");
+            }
+            Block::OakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::SpruceWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::BirchWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::AcaciaWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::JungleWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::DarkOakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::CrimsonWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::WarpedWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::OakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::SpruceSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::BirchSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::AcaciaSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::JungleSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::DarkOakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::CrimsonSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::WarpedSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(rotation, &props, "rotation");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::Lever {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockProperty>::decode(face, &props, "face");
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::StoneButton {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockProperty>::decode(face, &props, "face");
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::RedstoneTorch { lit } => {
+                <bool as BlockProperty>::decode(lit, &props, "lit");
+            }
+            Block::RedstoneWallTorch { facing, lit } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(lit, &props, "lit");
+            }
+            Block::Repeater(Repeater {
+                delay,
+                facing,
+                locked,
+                powered,
+            }) => {
+                <u8 as BlockProperty>::decode(delay, &props, "delay");
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(locked, &props, "locked");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::RedstoneLamp { lit } => {
+                <bool as BlockProperty>::decode(lit, &props, "lit");
+            }
+            Block::TripwireHook {
+                attached,
+                facing,
+                powered,
+            } => {
+                <bool as BlockProperty>::decode(attached, &props, "attached");
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::Comparator(Comparator {
+                facing,
+                mode,
+                powered,
+            }) => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <ComparatorMode as BlockProperty>::decode(mode, &props, "mode");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::RedstoneBlock => {}
+            Block::Observer { facing, powered } => {
+                <BlockFacing as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::SeaPickle {
+                pickles,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::decode(pickles, &props, "pickles");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::Target { power } => {
+                <u8 as BlockProperty>::decode(power, &props, "power");
+            }
+            Block::StonePressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::Cake { bites } => {
+                <u8 as BlockProperty>::decode(bites, &props, "bites");
+            }
+            Block::Barrel { facing, open } => {
+                <BlockFacing as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(open, &props, "open");
+            }
+            Block::Hopper { enabled, facing } => {
+                <bool as BlockProperty>::decode(enabled, &props, "enabled");
+                <HopperFacing as BlockProperty>::decode(facing, &props, "facing");
+            }
+            Block::Sandstone => {}
+            Block::CoalBlock => {}
+            Block::Furnace { facing, lit } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <bool as BlockProperty>::decode(lit, &props, "lit");
+            }
+            Block::QuartzBlock => {}
+            Block::SmoothQuartz => {}
+            Block::SmoothStoneSlab { ty, waterlogged } => {
+                <SlabType as BlockProperty>::decode(ty, &props, "type");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::QuartzSlab { ty, waterlogged } => {
+                <SlabType as BlockProperty>::decode(ty, &props, "type");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::Cauldron => {}
+            Block::WaterCauldron { level } => {
+                <u8 as BlockProperty>::decode(level, &props, "level");
+            }
+            Block::Composter { level } => {
+                <u8 as BlockProperty>::decode(level, &props, "level");
+            }
+            Block::WhiteConcrete => {}
+            Block::OrangeConcrete => {}
+            Block::MagentaConcrete => {}
+            Block::LightBlueConcrete => {}
+            Block::YellowConcrete => {}
+            Block::LimeConcrete => {}
+            Block::PinkConcrete => {}
+            Block::GrayConcrete => {}
+            Block::LightGrayConcrete => {}
+            Block::CyanConcrete => {}
+            Block::PurpleConcrete => {}
+            Block::BlueConcrete => {}
+            Block::BrownConcrete => {}
+            Block::GreenConcrete => {}
+            Block::RedConcrete => {}
+            Block::BlackConcrete => {}
+            Block::WhiteStainedGlass => {}
+            Block::OrangeStainedGlass => {}
+            Block::MagentaStainedGlass => {}
+            Block::LightBlueStainedGlass => {}
+            Block::YellowStainedGlass => {}
+            Block::LimeStainedGlass => {}
+            Block::PinkStainedGlass => {}
+            Block::GrayStainedGlass => {}
+            Block::LightGrayStainedGlass => {}
+            Block::CyanStainedGlass => {}
+            Block::PurpleStainedGlass => {}
+            Block::BlueStainedGlass => {}
+            Block::BrownStainedGlass => {}
+            Block::GreenStainedGlass => {}
+            Block::RedStainedGlass => {}
+            Block::BlackStainedGlass => {}
+            Block::Terracotta => {}
+            Block::WhiteTerracotta => {}
+            Block::OrangeTerracotta => {}
+            Block::MagentaTerracotta => {}
+            Block::LightBlueTerracotta => {}
+            Block::YellowTerracotta => {}
+            Block::LimeTerracotta => {}
+            Block::PinkTerracotta => {}
+            Block::GrayTerracotta => {}
+            Block::LightGrayTerracotta => {}
+            Block::CyanTerracotta => {}
+            Block::PurpleTerracotta => {}
+            Block::BlueTerracotta => {}
+            Block::BrownTerracotta => {}
+            Block::GreenTerracotta => {}
+            Block::RedTerracotta => {}
+            Block::BlackTerracotta => {}
+            Block::WhiteWool => {}
+            Block::OrangeWool => {}
+            Block::MagentaWool => {}
+            Block::LightBlueWool => {}
+            Block::YellowWool => {}
+            Block::LimeWool => {}
+            Block::PinkWool => {}
+            Block::GrayWool => {}
+            Block::LightGrayWool => {}
+            Block::CyanWool => {}
+            Block::PurpleWool => {}
+            Block::BlueWool => {}
+            Block::BrownWool => {}
+            Block::GreenWool => {}
+            Block::RedWool => {}
+            Block::BlackWool => {}
+            Block::IronTrapdoor {
+                facing,
+                half,
+                open,
+                powered,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+                <TrapdoorHalf as BlockProperty>::decode(half, &props, "half");
+                <bool as BlockProperty>::decode(open, &props, "open");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+                <bool as BlockProperty>::decode(waterlogged, &props, "waterlogged");
+            }
+            Block::NoteBlock {
+                instrument,
+                note,
+                powered,
+            } => {
+                <Instrument as BlockProperty>::decode(instrument, &props, "instrument");
+                <u8 as BlockProperty>::decode(note, &props, "note");
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::Clay => {}
+            Block::GoldBlock => {}
+            Block::PackedIce => {}
+            Block::BoneBlock { axis } => {
+                <BlockAxis as BlockProperty>::decode(axis, &props, "axis");
+            }
+            Block::IronBlock => {}
+            Block::SoulSand => {}
+            Block::Pumpkin => {}
+            Block::EmeraldBlock => {}
+            Block::HayBlock { axis } => {
+                <BlockAxis as BlockProperty>::decode(axis, &props, "axis");
+            }
+            Block::Sand => {}
+            Block::StoneBricks => {}
+            Block::EndPortalFrame { eye, facing } => {
+                <bool as BlockProperty>::decode(eye, &props, "eye");
+                <BlockDirection as BlockProperty>::decode(facing, &props, "facing");
+            }
+        }
+    }
+    pub fn properties(&self) -> HashMap<&'static str, String> {
+        let mut props = HashMap::new();
+        match self {
+            Block::Air => {}
+            Block::Stone => {}
+            Block::Glass => {}
+            Block::Glowstone => {}
+            Block::RedstoneWire(RedstoneWire {
+                east,
+                north,
+                power,
+                south,
+                west,
+            }) => {
+                <RedstoneWireSide as BlockProperty>::encode(*east, &mut props, "east");
+                <RedstoneWireSide as BlockProperty>::encode(*north, &mut props, "north");
+                <u8 as BlockProperty>::encode(*power, &mut props, "power");
+                <RedstoneWireSide as BlockProperty>::encode(*south, &mut props, "south");
+                <RedstoneWireSide as BlockProperty>::encode(*west, &mut props, "west");
+            }
+            Block::OakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::SpruceWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::BirchWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::AcaciaWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::JungleWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::DarkOakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::CrimsonWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::WarpedWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::OakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::SpruceSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::BirchSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::AcaciaSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::JungleSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::DarkOakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::CrimsonSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::WarpedSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*rotation, &mut props, "rotation");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::Lever {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockProperty>::encode(*face, &mut props, "face");
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::StoneButton {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockProperty>::encode(*face, &mut props, "face");
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::RedstoneTorch { lit } => {
+                <bool as BlockProperty>::encode(*lit, &mut props, "lit");
+            }
+            Block::RedstoneWallTorch { facing, lit } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*lit, &mut props, "lit");
+            }
+            Block::Repeater(Repeater {
+                delay,
+                facing,
+                locked,
+                powered,
+            }) => {
+                <u8 as BlockProperty>::encode(*delay, &mut props, "delay");
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*locked, &mut props, "locked");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::RedstoneLamp { lit } => {
+                <bool as BlockProperty>::encode(*lit, &mut props, "lit");
+            }
+            Block::TripwireHook {
+                attached,
+                facing,
+                powered,
+            } => {
+                <bool as BlockProperty>::encode(*attached, &mut props, "attached");
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::Comparator(Comparator {
+                facing,
+                mode,
+                powered,
+            }) => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <ComparatorMode as BlockProperty>::encode(*mode, &mut props, "mode");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::RedstoneBlock => {}
+            Block::Observer { facing, powered } => {
+                <BlockFacing as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::SeaPickle {
+                pickles,
+                waterlogged,
+            } => {
+                <u8 as BlockProperty>::encode(*pickles, &mut props, "pickles");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::Target { power } => {
+                <u8 as BlockProperty>::encode(*power, &mut props, "power");
+            }
+            Block::StonePressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::Cake { bites } => {
+                <u8 as BlockProperty>::encode(*bites, &mut props, "bites");
+            }
+            Block::Barrel { facing, open } => {
+                <BlockFacing as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*open, &mut props, "open");
+            }
+            Block::Hopper { enabled, facing } => {
+                <bool as BlockProperty>::encode(*enabled, &mut props, "enabled");
+                <HopperFacing as BlockProperty>::encode(*facing, &mut props, "facing");
+            }
+            Block::Sandstone => {}
+            Block::CoalBlock => {}
+            Block::Furnace { facing, lit } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <bool as BlockProperty>::encode(*lit, &mut props, "lit");
+            }
+            Block::QuartzBlock => {}
+            Block::SmoothQuartz => {}
+            Block::SmoothStoneSlab { ty, waterlogged } => {
+                <SlabType as BlockProperty>::encode(*ty, &mut props, "type");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::QuartzSlab { ty, waterlogged } => {
+                <SlabType as BlockProperty>::encode(*ty, &mut props, "type");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::Cauldron => {}
+            Block::WaterCauldron { level } => {
+                <u8 as BlockProperty>::encode(*level, &mut props, "level");
+            }
+            Block::Composter { level } => {
+                <u8 as BlockProperty>::encode(*level, &mut props, "level");
+            }
+            Block::WhiteConcrete => {}
+            Block::OrangeConcrete => {}
+            Block::MagentaConcrete => {}
+            Block::LightBlueConcrete => {}
+            Block::YellowConcrete => {}
+            Block::LimeConcrete => {}
+            Block::PinkConcrete => {}
+            Block::GrayConcrete => {}
+            Block::LightGrayConcrete => {}
+            Block::CyanConcrete => {}
+            Block::PurpleConcrete => {}
+            Block::BlueConcrete => {}
+            Block::BrownConcrete => {}
+            Block::GreenConcrete => {}
+            Block::RedConcrete => {}
+            Block::BlackConcrete => {}
+            Block::WhiteStainedGlass => {}
+            Block::OrangeStainedGlass => {}
+            Block::MagentaStainedGlass => {}
+            Block::LightBlueStainedGlass => {}
+            Block::YellowStainedGlass => {}
+            Block::LimeStainedGlass => {}
+            Block::PinkStainedGlass => {}
+            Block::GrayStainedGlass => {}
+            Block::LightGrayStainedGlass => {}
+            Block::CyanStainedGlass => {}
+            Block::PurpleStainedGlass => {}
+            Block::BlueStainedGlass => {}
+            Block::BrownStainedGlass => {}
+            Block::GreenStainedGlass => {}
+            Block::RedStainedGlass => {}
+            Block::BlackStainedGlass => {}
+            Block::Terracotta => {}
+            Block::WhiteTerracotta => {}
+            Block::OrangeTerracotta => {}
+            Block::MagentaTerracotta => {}
+            Block::LightBlueTerracotta => {}
+            Block::YellowTerracotta => {}
+            Block::LimeTerracotta => {}
+            Block::PinkTerracotta => {}
+            Block::GrayTerracotta => {}
+            Block::LightGrayTerracotta => {}
+            Block::CyanTerracotta => {}
+            Block::PurpleTerracotta => {}
+            Block::BlueTerracotta => {}
+            Block::BrownTerracotta => {}
+            Block::GreenTerracotta => {}
+            Block::RedTerracotta => {}
+            Block::BlackTerracotta => {}
+            Block::WhiteWool => {}
+            Block::OrangeWool => {}
+            Block::MagentaWool => {}
+            Block::LightBlueWool => {}
+            Block::YellowWool => {}
+            Block::LimeWool => {}
+            Block::PinkWool => {}
+            Block::GrayWool => {}
+            Block::LightGrayWool => {}
+            Block::CyanWool => {}
+            Block::PurpleWool => {}
+            Block::BlueWool => {}
+            Block::BrownWool => {}
+            Block::GreenWool => {}
+            Block::RedWool => {}
+            Block::BlackWool => {}
+            Block::IronTrapdoor {
+                facing,
+                half,
+                open,
+                powered,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+                <TrapdoorHalf as BlockProperty>::encode(*half, &mut props, "half");
+                <bool as BlockProperty>::encode(*open, &mut props, "open");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+                <bool as BlockProperty>::encode(*waterlogged, &mut props, "waterlogged");
+            }
+            Block::NoteBlock {
+                instrument,
+                note,
+                powered,
+            } => {
+                <Instrument as BlockProperty>::encode(*instrument, &mut props, "instrument");
+                <u8 as BlockProperty>::encode(*note, &mut props, "note");
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::Clay => {}
+            Block::GoldBlock => {}
+            Block::PackedIce => {}
+            Block::BoneBlock { axis } => {
+                <BlockAxis as BlockProperty>::encode(*axis, &mut props, "axis");
+            }
+            Block::IronBlock => {}
+            Block::SoulSand => {}
+            Block::Pumpkin => {}
+            Block::EmeraldBlock => {}
+            Block::HayBlock { axis } => {
+                <BlockAxis as BlockProperty>::encode(*axis, &mut props, "axis");
+            }
+            Block::Sand => {}
+            Block::StoneBricks => {}
+            Block::EndPortalFrame { eye, facing } => {
+                <bool as BlockProperty>::encode(*eye, &mut props, "eye");
+                <BlockDirection as BlockProperty>::encode(*facing, &mut props, "facing");
+            }
+        }
+        props
+    }
+    pub fn rotate(&mut self, amt: RotateAmt) {
+        match self {
+            Block::Air => {}
+            Block::Stone => {}
+            Block::Glass => {}
+            Block::Glowstone => {}
+            Block::RedstoneWire(RedstoneWire {
+                east,
+                north,
+                power,
+                south,
+                west,
+            }) => self.complex_rotate(amt),
+            Block::OakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::SpruceWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::BirchWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::AcaciaWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::JungleWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::DarkOakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::CrimsonWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::WarpedWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::OakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::SpruceSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::BirchSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::AcaciaSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::JungleSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::DarkOakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::CrimsonSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::WarpedSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(rotation, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::Lever {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockTransform>::rotate(face, amt);
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::StoneButton {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockTransform>::rotate(face, amt);
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::RedstoneTorch { lit } => {
+                <bool as BlockTransform>::rotate(lit, amt);
+            }
+            Block::RedstoneWallTorch { facing, lit } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(lit, amt);
+            }
+            Block::Repeater(Repeater {
+                delay,
+                facing,
+                locked,
+                powered,
+            }) => {
+                <u8 as BlockTransform>::rotate(delay, amt);
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(locked, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::RedstoneLamp { lit } => {
+                <bool as BlockTransform>::rotate(lit, amt);
+            }
+            Block::TripwireHook {
+                attached,
+                facing,
+                powered,
+            } => {
+                <bool as BlockTransform>::rotate(attached, amt);
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::Comparator(Comparator {
+                facing,
+                mode,
+                powered,
+            }) => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <ComparatorMode as BlockTransform>::rotate(mode, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::RedstoneBlock => {}
+            Block::Observer { facing, powered } => {
+                <BlockFacing as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::SeaPickle {
+                pickles,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::rotate(pickles, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::Target { power } => {
+                <u8 as BlockTransform>::rotate(power, amt);
+            }
+            Block::StonePressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::Cake { bites } => {
+                <u8 as BlockTransform>::rotate(bites, amt);
+            }
+            Block::Barrel { facing, open } => {
+                <BlockFacing as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(open, amt);
+            }
+            Block::Hopper { enabled, facing } => {
+                <bool as BlockTransform>::rotate(enabled, amt);
+                <HopperFacing as BlockTransform>::rotate(facing, amt);
+            }
+            Block::Sandstone => {}
+            Block::CoalBlock => {}
+            Block::Furnace { facing, lit } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <bool as BlockTransform>::rotate(lit, amt);
+            }
+            Block::QuartzBlock => {}
+            Block::SmoothQuartz => {}
+            Block::SmoothStoneSlab { ty, waterlogged } => {
+                <SlabType as BlockTransform>::rotate(ty, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::QuartzSlab { ty, waterlogged } => {
+                <SlabType as BlockTransform>::rotate(ty, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::Cauldron => {}
+            Block::WaterCauldron { level } => {
+                <u8 as BlockTransform>::rotate(level, amt);
+            }
+            Block::Composter { level } => {
+                <u8 as BlockTransform>::rotate(level, amt);
+            }
+            Block::WhiteConcrete => {}
+            Block::OrangeConcrete => {}
+            Block::MagentaConcrete => {}
+            Block::LightBlueConcrete => {}
+            Block::YellowConcrete => {}
+            Block::LimeConcrete => {}
+            Block::PinkConcrete => {}
+            Block::GrayConcrete => {}
+            Block::LightGrayConcrete => {}
+            Block::CyanConcrete => {}
+            Block::PurpleConcrete => {}
+            Block::BlueConcrete => {}
+            Block::BrownConcrete => {}
+            Block::GreenConcrete => {}
+            Block::RedConcrete => {}
+            Block::BlackConcrete => {}
+            Block::WhiteStainedGlass => {}
+            Block::OrangeStainedGlass => {}
+            Block::MagentaStainedGlass => {}
+            Block::LightBlueStainedGlass => {}
+            Block::YellowStainedGlass => {}
+            Block::LimeStainedGlass => {}
+            Block::PinkStainedGlass => {}
+            Block::GrayStainedGlass => {}
+            Block::LightGrayStainedGlass => {}
+            Block::CyanStainedGlass => {}
+            Block::PurpleStainedGlass => {}
+            Block::BlueStainedGlass => {}
+            Block::BrownStainedGlass => {}
+            Block::GreenStainedGlass => {}
+            Block::RedStainedGlass => {}
+            Block::BlackStainedGlass => {}
+            Block::Terracotta => {}
+            Block::WhiteTerracotta => {}
+            Block::OrangeTerracotta => {}
+            Block::MagentaTerracotta => {}
+            Block::LightBlueTerracotta => {}
+            Block::YellowTerracotta => {}
+            Block::LimeTerracotta => {}
+            Block::PinkTerracotta => {}
+            Block::GrayTerracotta => {}
+            Block::LightGrayTerracotta => {}
+            Block::CyanTerracotta => {}
+            Block::PurpleTerracotta => {}
+            Block::BlueTerracotta => {}
+            Block::BrownTerracotta => {}
+            Block::GreenTerracotta => {}
+            Block::RedTerracotta => {}
+            Block::BlackTerracotta => {}
+            Block::WhiteWool => {}
+            Block::OrangeWool => {}
+            Block::MagentaWool => {}
+            Block::LightBlueWool => {}
+            Block::YellowWool => {}
+            Block::LimeWool => {}
+            Block::PinkWool => {}
+            Block::GrayWool => {}
+            Block::LightGrayWool => {}
+            Block::CyanWool => {}
+            Block::PurpleWool => {}
+            Block::BlueWool => {}
+            Block::BrownWool => {}
+            Block::GreenWool => {}
+            Block::RedWool => {}
+            Block::BlackWool => {}
+            Block::IronTrapdoor {
+                facing,
+                half,
+                open,
+                powered,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+                <TrapdoorHalf as BlockTransform>::rotate(half, amt);
+                <bool as BlockTransform>::rotate(open, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+                <bool as BlockTransform>::rotate(waterlogged, amt);
+            }
+            Block::NoteBlock {
+                instrument,
+                note,
+                powered,
+            } => {
+                <Instrument as BlockTransform>::rotate(instrument, amt);
+                <u8 as BlockTransform>::rotate(note, amt);
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::Clay => {}
+            Block::GoldBlock => {}
+            Block::PackedIce => {}
+            Block::BoneBlock { axis } => {
+                <BlockAxis as BlockTransform>::rotate(axis, amt);
+            }
+            Block::IronBlock => {}
+            Block::SoulSand => {}
+            Block::Pumpkin => {}
+            Block::EmeraldBlock => {}
+            Block::HayBlock { axis } => {
+                <BlockAxis as BlockTransform>::rotate(axis, amt);
+            }
+            Block::Sand => {}
+            Block::StoneBricks => {}
+            Block::EndPortalFrame { eye, facing } => {
+                <bool as BlockTransform>::rotate(eye, amt);
+                <BlockDirection as BlockTransform>::rotate(facing, amt);
+            }
+        }
+    }
+    pub fn flip(&mut self, dir: FlipDirection) {
+        match self {
+            Block::Air => {}
+            Block::Stone => {}
+            Block::Glass => {}
+            Block::Glowstone => {}
+            Block::RedstoneWire(RedstoneWire {
+                east,
+                north,
+                power,
+                south,
+                west,
+            }) => self.complex_flip(dir),
+            Block::OakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::SpruceWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::BirchWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::AcaciaWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::JungleWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::DarkOakWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::CrimsonWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::WarpedWallSign {
+                facing,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::OakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::SpruceSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::BirchSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::AcaciaSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::JungleSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::DarkOakSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::CrimsonSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::WarpedSign {
+                rotation,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(rotation, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::Lever {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockTransform>::flip(face, dir);
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::StoneButton {
+                face,
+                facing,
+                powered,
+            } => {
+                <LeverFace as BlockTransform>::flip(face, dir);
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::RedstoneTorch { lit } => {
+                <bool as BlockTransform>::flip(lit, dir);
+            }
+            Block::RedstoneWallTorch { facing, lit } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(lit, dir);
+            }
+            Block::Repeater(Repeater {
+                delay,
+                facing,
+                locked,
+                powered,
+            }) => {
+                <u8 as BlockTransform>::flip(delay, dir);
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(locked, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::RedstoneLamp { lit } => {
+                <bool as BlockTransform>::flip(lit, dir);
+            }
+            Block::TripwireHook {
+                attached,
+                facing,
+                powered,
+            } => {
+                <bool as BlockTransform>::flip(attached, dir);
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::Comparator(Comparator {
+                facing,
+                mode,
+                powered,
+            }) => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <ComparatorMode as BlockTransform>::flip(mode, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::RedstoneBlock => {}
+            Block::Observer { facing, powered } => {
+                <BlockFacing as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::SeaPickle {
+                pickles,
+                waterlogged,
+            } => {
+                <u8 as BlockTransform>::flip(pickles, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::Target { power } => {
+                <u8 as BlockTransform>::flip(power, dir);
+            }
+            Block::StonePressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::Cake { bites } => {
+                <u8 as BlockTransform>::flip(bites, dir);
+            }
+            Block::Barrel { facing, open } => {
+                <BlockFacing as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(open, dir);
+            }
+            Block::Hopper { enabled, facing } => {
+                <bool as BlockTransform>::flip(enabled, dir);
+                <HopperFacing as BlockTransform>::flip(facing, dir);
+            }
+            Block::Sandstone => {}
+            Block::CoalBlock => {}
+            Block::Furnace { facing, lit } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <bool as BlockTransform>::flip(lit, dir);
+            }
+            Block::QuartzBlock => {}
+            Block::SmoothQuartz => {}
+            Block::SmoothStoneSlab { ty, waterlogged } => {
+                <SlabType as BlockTransform>::flip(ty, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::QuartzSlab { ty, waterlogged } => {
+                <SlabType as BlockTransform>::flip(ty, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::Cauldron => {}
+            Block::WaterCauldron { level } => {
+                <u8 as BlockTransform>::flip(level, dir);
+            }
+            Block::Composter { level } => {
+                <u8 as BlockTransform>::flip(level, dir);
+            }
+            Block::WhiteConcrete => {}
+            Block::OrangeConcrete => {}
+            Block::MagentaConcrete => {}
+            Block::LightBlueConcrete => {}
+            Block::YellowConcrete => {}
+            Block::LimeConcrete => {}
+            Block::PinkConcrete => {}
+            Block::GrayConcrete => {}
+            Block::LightGrayConcrete => {}
+            Block::CyanConcrete => {}
+            Block::PurpleConcrete => {}
+            Block::BlueConcrete => {}
+            Block::BrownConcrete => {}
+            Block::GreenConcrete => {}
+            Block::RedConcrete => {}
+            Block::BlackConcrete => {}
+            Block::WhiteStainedGlass => {}
+            Block::OrangeStainedGlass => {}
+            Block::MagentaStainedGlass => {}
+            Block::LightBlueStainedGlass => {}
+            Block::YellowStainedGlass => {}
+            Block::LimeStainedGlass => {}
+            Block::PinkStainedGlass => {}
+            Block::GrayStainedGlass => {}
+            Block::LightGrayStainedGlass => {}
+            Block::CyanStainedGlass => {}
+            Block::PurpleStainedGlass => {}
+            Block::BlueStainedGlass => {}
+            Block::BrownStainedGlass => {}
+            Block::GreenStainedGlass => {}
+            Block::RedStainedGlass => {}
+            Block::BlackStainedGlass => {}
+            Block::Terracotta => {}
+            Block::WhiteTerracotta => {}
+            Block::OrangeTerracotta => {}
+            Block::MagentaTerracotta => {}
+            Block::LightBlueTerracotta => {}
+            Block::YellowTerracotta => {}
+            Block::LimeTerracotta => {}
+            Block::PinkTerracotta => {}
+            Block::GrayTerracotta => {}
+            Block::LightGrayTerracotta => {}
+            Block::CyanTerracotta => {}
+            Block::PurpleTerracotta => {}
+            Block::BlueTerracotta => {}
+            Block::BrownTerracotta => {}
+            Block::GreenTerracotta => {}
+            Block::RedTerracotta => {}
+            Block::BlackTerracotta => {}
+            Block::WhiteWool => {}
+            Block::OrangeWool => {}
+            Block::MagentaWool => {}
+            Block::LightBlueWool => {}
+            Block::YellowWool => {}
+            Block::LimeWool => {}
+            Block::PinkWool => {}
+            Block::GrayWool => {}
+            Block::LightGrayWool => {}
+            Block::CyanWool => {}
+            Block::PurpleWool => {}
+            Block::BlueWool => {}
+            Block::BrownWool => {}
+            Block::GreenWool => {}
+            Block::RedWool => {}
+            Block::BlackWool => {}
+            Block::IronTrapdoor {
+                facing,
+                half,
+                open,
+                powered,
+                waterlogged,
+            } => {
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+                <TrapdoorHalf as BlockTransform>::flip(half, dir);
+                <bool as BlockTransform>::flip(open, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+                <bool as BlockTransform>::flip(waterlogged, dir);
+            }
+            Block::NoteBlock {
+                instrument,
+                note,
+                powered,
+            } => {
+                <Instrument as BlockTransform>::flip(instrument, dir);
+                <u8 as BlockTransform>::flip(note, dir);
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::Clay => {}
+            Block::GoldBlock => {}
+            Block::PackedIce => {}
+            Block::BoneBlock { axis } => {
+                <BlockAxis as BlockTransform>::flip(axis, dir);
+            }
+            Block::IronBlock => {}
+            Block::SoulSand => {}
+            Block::Pumpkin => {}
+            Block::EmeraldBlock => {}
+            Block::HayBlock { axis } => {
+                <BlockAxis as BlockTransform>::flip(axis, dir);
+            }
+            Block::Sand => {}
+            Block::StoneBricks => {}
+            Block::EndPortalFrame { eye, facing } => {
+                <bool as BlockTransform>::flip(eye, dir);
+                <BlockDirection as BlockTransform>::flip(facing, dir);
+            }
+        }
+    }
+    pub fn get_id(self) -> u32 {
+        match self {
+            Block::Air => 0,
+            Block::Stone => 1,
+            Block::Glass => 519,
+            Block::Glowstone => 5863,
+            Block::RedstoneWire(RedstoneWire {
+                east,
+                north,
+                power,
+                south,
+                west,
+            }) => {
+                2978 + (east.get_id()) * 432
+                    + (north.get_id()) * 144
+                    + (power as u32 - 0) * 9
+                    + (south.get_id()) * 3
+                    + (west.get_id())
+            }
+            Block::OakWallSign {
+                facing,
+                waterlogged,
+            } => 4762 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::SpruceWallSign {
+                facing,
+                waterlogged,
+            } => 4770 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::BirchWallSign {
+                facing,
+                waterlogged,
+            } => 4778 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::AcaciaWallSign {
+                facing,
+                waterlogged,
+            } => 4786 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::JungleWallSign {
+                facing,
+                waterlogged,
+            } => 4802 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::DarkOakWallSign {
+                facing,
+                waterlogged,
+            } => 4810 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::CrimsonWallSign {
+                facing,
+                waterlogged,
+            } => 19340 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::WarpedWallSign {
+                facing,
+                waterlogged,
+            } => 19348 + (facing.get_id()) * 2 + (!waterlogged as u32),
+            Block::OakSign {
+                rotation,
+                waterlogged,
+            } => 4302 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::SpruceSign {
+                rotation,
+                waterlogged,
+            } => 4334 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::BirchSign {
+                rotation,
+                waterlogged,
+            } => 4366 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::AcaciaSign {
+                rotation,
+                waterlogged,
+            } => 4398 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::JungleSign {
+                rotation,
+                waterlogged,
+            } => 4462 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::DarkOakSign {
+                rotation,
+                waterlogged,
+            } => 4494 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::CrimsonSign {
+                rotation,
+                waterlogged,
+            } => 19276 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::WarpedSign {
+                rotation,
+                waterlogged,
+            } => 19308 + (rotation as u32 - 0) * 2 + (!waterlogged as u32),
+            Block::Lever {
+                face,
+                facing,
+                powered,
+            } => 5626 + (face.get_id()) * 8 + (facing.get_id()) * 2 + (!powered as u32),
+            Block::StoneButton {
+                face,
+                facing,
+                powered,
+            } => 5748 + (face.get_id()) * 8 + (facing.get_id()) * 2 + (!powered as u32),
+            Block::RedstoneTorch { lit } => 5738 + (!lit as u32),
+            Block::RedstoneWallTorch { facing, lit } => {
+                5740 + (facing.get_id()) * 2 + (!lit as u32)
+            }
+            Block::Repeater(Repeater {
+                delay,
+                facing,
+                locked,
+                powered,
+            }) => {
+                5881 + (delay as u32 - 1) * 16
+                    + (facing.get_id()) * 4
+                    + (!locked as u32) * 2
+                    + (!powered as u32)
+            }
+            Block::RedstoneLamp { lit } => 7417 + (!lit as u32),
+            Block::TripwireHook {
+                attached,
+                facing,
+                powered,
+            } => 7521 + (!attached as u32) * 8 + (facing.get_id()) * 2 + (!powered as u32),
+            Block::Comparator(Comparator {
+                facing,
+                mode,
+                powered,
+            }) => 9175 + (facing.get_id()) * 4 + (mode.get_id()) * 2 + (!powered as u32),
+            Block::RedstoneBlock => 9223,
+            Block::Observer { facing, powered } => {
+                12550 + (facing.get_id()) * 2 + (!powered as u32)
+            }
+            Block::SeaPickle {
+                pickles,
+                waterlogged,
+            } => 12933 + (pickles as u32 - 1) * 2 + (!waterlogged as u32),
+            Block::Target { power } => 19381 + (power as u32 - 0),
+            Block::StonePressurePlate { powered } => 5650 + (!powered as u32),
+            Block::Cake { bites } => 5874 + (bites as u32 - 0),
+            Block::Barrel { facing, open } => 18408 + (facing.get_id()) * 2 + (!open as u32),
+            Block::Hopper { enabled, facing } => 9225 + (!enabled as u32) * 5 + (facing.get_id()),
+            Block::Sandstone => 535,
+            Block::CoalBlock => 10745,
+            Block::Furnace { facing, lit } => 4294 + (facing.get_id()) * 2 + (!lit as u32),
+            Block::QuartzBlock => 9235,
+            Block::SmoothQuartz => 11308,
+            Block::SmoothStoneSlab { ty, waterlogged } => {
+                11228 + (ty.get_id()) * 2 + (!waterlogged as u32)
+            }
+            Block::QuartzSlab { ty, waterlogged } => {
+                11282 + (ty.get_id()) * 2 + (!waterlogged as u32)
+            }
+            Block::Cauldron => 7398,
+            Block::WaterCauldron { level } => 7399 + (level as u32 - 1),
+            Block::Composter { level } => 19372 + (level as u32 - 0),
+            Block::WhiteConcrete => 12728,
+            Block::OrangeConcrete => 12729,
+            Block::MagentaConcrete => 12730,
+            Block::LightBlueConcrete => 12731,
+            Block::YellowConcrete => 12732,
+            Block::LimeConcrete => 12733,
+            Block::PinkConcrete => 12734,
+            Block::GrayConcrete => 12735,
+            Block::LightGrayConcrete => 12736,
+            Block::CyanConcrete => 12737,
+            Block::PurpleConcrete => 12738,
+            Block::BlueConcrete => 12739,
+            Block::BrownConcrete => 12740,
+            Block::GreenConcrete => 12741,
+            Block::RedConcrete => 12742,
+            Block::BlackConcrete => 12743,
+            Block::WhiteStainedGlass => 5945,
+            Block::OrangeStainedGlass => 5946,
+            Block::MagentaStainedGlass => 5947,
+            Block::LightBlueStainedGlass => 5948,
+            Block::YellowStainedGlass => 5949,
+            Block::LimeStainedGlass => 5950,
+            Block::PinkStainedGlass => 5951,
+            Block::GrayStainedGlass => 5952,
+            Block::LightGrayStainedGlass => 5953,
+            Block::CyanStainedGlass => 5954,
+            Block::PurpleStainedGlass => 5955,
+            Block::BlueStainedGlass => 5956,
+            Block::BrownStainedGlass => 5957,
+            Block::GreenStainedGlass => 5958,
+            Block::RedStainedGlass => 5959,
+            Block::BlackStainedGlass => 5960,
+            Block::Terracotta => 10744,
+            Block::WhiteTerracotta => 9356,
+            Block::OrangeTerracotta => 9357,
+            Block::MagentaTerracotta => 9358,
+            Block::LightBlueTerracotta => 9359,
+            Block::YellowTerracotta => 9360,
+            Block::LimeTerracotta => 9361,
+            Block::PinkTerracotta => 9362,
+            Block::GrayTerracotta => 9363,
+            Block::LightGrayTerracotta => 9364,
+            Block::CyanTerracotta => 9365,
+            Block::PurpleTerracotta => 9366,
+            Block::BlueTerracotta => 9367,
+            Block::BrownTerracotta => 9368,
+            Block::GreenTerracotta => 9369,
+            Block::RedTerracotta => 9370,
+            Block::BlackTerracotta => 9371,
+            Block::WhiteWool => 2047,
+            Block::OrangeWool => 2048,
+            Block::MagentaWool => 2049,
+            Block::LightBlueWool => 2050,
+            Block::YellowWool => 2051,
+            Block::LimeWool => 2052,
+            Block::PinkWool => 2053,
+            Block::GrayWool => 2054,
+            Block::LightGrayWool => 2055,
+            Block::CyanWool => 2056,
+            Block::PurpleWool => 2057,
+            Block::BlueWool => 2058,
+            Block::BrownWool => 2059,
+            Block::GreenWool => 2060,
+            Block::RedWool => 2061,
+            Block::BlackWool => 2062,
+            Block::IronTrapdoor {
+                facing,
+                half,
+                open,
+                powered,
+                waterlogged,
+            } => {
+                10399
+                    + (facing.get_id()) * 16
+                    + (half.get_id()) * 8
+                    + (!open as u32) * 4
+                    + (!powered as u32) * 2
+                    + (!waterlogged as u32)
+            }
+            Block::NoteBlock {
+                instrument,
+                note,
+                powered,
+            } => 538 + (instrument.get_id()) * 50 + (note as u32 - 0) * 2 + (!powered as u32),
+            Block::Clay => 5798,
+            Block::GoldBlock => 2091,
+            Block::PackedIce => 10746,
+            Block::BoneBlock { axis } => 12546 + (axis.get_id()),
+            Block::IronBlock => 2092,
+            Block::SoulSand => 5850,
+            Block::Pumpkin => 6811,
+            Block::EmeraldBlock => 7665,
+            Block::HayBlock { axis } => 10725 + (axis.get_id()),
+            Block::Sand => 112,
+            Block::StoneBricks => 6537,
+            Block::EndPortalFrame { eye, facing } => 7407 + (!eye as u32) * 4 + (facing.get_id()),
+        }
+    }
+    pub fn from_id(mut id: u32) -> Block {
+        match id {
+            0..1 => {
+                id -= 0;
+                Block::Air
+            }
+            1..2 => {
+                id -= 1;
+                Block::Stone
+            }
+            519..520 => {
+                id -= 519;
+                Block::Glass
+            }
+            5863..5864 => {
+                id -= 5863;
+                Block::Glowstone
+            }
+            2978..4274 => {
+                id -= 2978;
+                Block::RedstoneWire(RedstoneWire {
+                    east: RedstoneWireSide::from_id(((id / 432) % 3)),
+                    north: RedstoneWireSide::from_id(((id / 144) % 3)),
+                    power: ((id / 9) % 16) as u8 + 0,
+                    south: RedstoneWireSide::from_id(((id / 3) % 3)),
+                    west: RedstoneWireSide::from_id(((id) % 3)),
+                })
+            }
+            4762..4770 => {
+                id -= 4762;
+                Block::OakWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4770..4778 => {
+                id -= 4770;
+                Block::SpruceWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4778..4786 => {
+                id -= 4778;
+                Block::BirchWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4786..4794 => {
+                id -= 4786;
+                Block::AcaciaWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4802..4810 => {
+                id -= 4802;
+                Block::JungleWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4810..4818 => {
+                id -= 4810;
+                Block::DarkOakWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            19340..19348 => {
+                id -= 19340;
+                Block::CrimsonWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            19348..19356 => {
+                id -= 19348;
+                Block::WarpedWallSign {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4302..4334 => {
+                id -= 4302;
+                Block::OakSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4334..4366 => {
+                id -= 4334;
+                Block::SpruceSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4366..4398 => {
+                id -= 4366;
+                Block::BirchSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4398..4430 => {
+                id -= 4398;
+                Block::AcaciaSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4462..4494 => {
+                id -= 4462;
+                Block::JungleSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            4494..4526 => {
+                id -= 4494;
+                Block::DarkOakSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            19276..19308 => {
+                id -= 19276;
+                Block::CrimsonSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            19308..19340 => {
+                id -= 19308;
+                Block::WarpedSign {
+                    rotation: ((id / 2) % 16) as u8 + 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            5626..5650 => {
+                id -= 5626;
+                Block::Lever {
+                    face: LeverFace::from_id(((id / 8) % 3)),
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5748..5772 => {
+                id -= 5748;
+                Block::StoneButton {
+                    face: LeverFace::from_id(((id / 8) % 3)),
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5738..5740 => {
+                id -= 5738;
+                Block::RedstoneTorch {
+                    lit: (((id) % 2) & 1) == 0,
+                }
+            }
+            5740..5748 => {
+                id -= 5740;
+                Block::RedstoneWallTorch {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    lit: (((id) % 2) & 1) == 0,
+                }
+            }
+            5881..5945 => {
+                id -= 5881;
+                Block::Repeater(Repeater {
+                    delay: ((id / 16) % 4) as u8 + 1,
+                    facing: BlockDirection::from_id(((id / 4) % 4)),
+                    locked: (((id / 2) % 2) & 1) == 0,
+                    powered: (((id) % 2) & 1) == 0,
+                })
+            }
+            7417..7419 => {
+                id -= 7417;
+                Block::RedstoneLamp {
+                    lit: (((id) % 2) & 1) == 0,
+                }
+            }
+            7521..7537 => {
+                id -= 7521;
+                Block::TripwireHook {
+                    attached: (((id / 8) % 2) & 1) == 0,
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            9175..9191 => {
+                id -= 9175;
+                Block::Comparator(Comparator {
+                    facing: BlockDirection::from_id(((id / 4) % 4)),
+                    mode: ComparatorMode::from_id(((id / 2) % 2)),
+                    powered: (((id) % 2) & 1) == 0,
+                })
+            }
+            9223..9224 => {
+                id -= 9223;
+                Block::RedstoneBlock
+            }
+            12550..12562 => {
+                id -= 12550;
+                Block::Observer {
+                    facing: BlockFacing::from_id(((id / 2) % 6)),
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            12933..12941 => {
+                id -= 12933;
+                Block::SeaPickle {
+                    pickles: ((id / 2) % 4) as u8 + 1,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            19381..19397 => {
+                id -= 19381;
+                Block::Target {
+                    power: ((id) % 16) as u8 + 0,
+                }
+            }
+            5650..5652 => {
+                id -= 5650;
+                Block::StonePressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5874..5881 => {
+                id -= 5874;
+                Block::Cake {
+                    bites: ((id) % 7) as u8 + 0,
+                }
+            }
+            18408..18420 => {
+                id -= 18408;
+                Block::Barrel {
+                    facing: BlockFacing::from_id(((id / 2) % 6)),
+                    open: (((id) % 2) & 1) == 0,
+                }
+            }
+            9225..9235 => {
+                id -= 9225;
+                Block::Hopper {
+                    enabled: (((id / 5) % 2) & 1) == 0,
+                    facing: HopperFacing::from_id(((id) % 5)),
+                }
+            }
+            535..536 => {
+                id -= 535;
+                Block::Sandstone
+            }
+            10745..10746 => {
+                id -= 10745;
+                Block::CoalBlock
+            }
+            4294..4302 => {
+                id -= 4294;
+                Block::Furnace {
+                    facing: BlockDirection::from_id(((id / 2) % 4)),
+                    lit: (((id) % 2) & 1) == 0,
+                }
+            }
+            9235..9236 => {
+                id -= 9235;
+                Block::QuartzBlock
+            }
+            11308..11309 => {
+                id -= 11308;
+                Block::SmoothQuartz
+            }
+            11228..11234 => {
+                id -= 11228;
+                Block::SmoothStoneSlab {
+                    ty: SlabType::from_id(((id / 2) % 3)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            11282..11288 => {
+                id -= 11282;
+                Block::QuartzSlab {
+                    ty: SlabType::from_id(((id / 2) % 3)),
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            7398..7399 => {
+                id -= 7398;
+                Block::Cauldron
+            }
+            7399..7402 => {
+                id -= 7399;
+                Block::WaterCauldron {
+                    level: ((id) % 3) as u8 + 1,
+                }
+            }
+            19372..19381 => {
+                id -= 19372;
+                Block::Composter {
+                    level: ((id) % 9) as u8 + 0,
+                }
+            }
+            12728..12729 => {
+                id -= 12728;
+                Block::WhiteConcrete
+            }
+            12729..12730 => {
+                id -= 12729;
+                Block::OrangeConcrete
+            }
+            12730..12731 => {
+                id -= 12730;
+                Block::MagentaConcrete
+            }
+            12731..12732 => {
+                id -= 12731;
+                Block::LightBlueConcrete
+            }
+            12732..12733 => {
+                id -= 12732;
+                Block::YellowConcrete
+            }
+            12733..12734 => {
+                id -= 12733;
+                Block::LimeConcrete
+            }
+            12734..12735 => {
+                id -= 12734;
+                Block::PinkConcrete
+            }
+            12735..12736 => {
+                id -= 12735;
+                Block::GrayConcrete
+            }
+            12736..12737 => {
+                id -= 12736;
+                Block::LightGrayConcrete
+            }
+            12737..12738 => {
+                id -= 12737;
+                Block::CyanConcrete
+            }
+            12738..12739 => {
+                id -= 12738;
+                Block::PurpleConcrete
+            }
+            12739..12740 => {
+                id -= 12739;
+                Block::BlueConcrete
+            }
+            12740..12741 => {
+                id -= 12740;
+                Block::BrownConcrete
+            }
+            12741..12742 => {
+                id -= 12741;
+                Block::GreenConcrete
+            }
+            12742..12743 => {
+                id -= 12742;
+                Block::RedConcrete
+            }
+            12743..12744 => {
+                id -= 12743;
+                Block::BlackConcrete
+            }
+            5945..5946 => {
+                id -= 5945;
+                Block::WhiteStainedGlass
+            }
+            5946..5947 => {
+                id -= 5946;
+                Block::OrangeStainedGlass
+            }
+            5947..5948 => {
+                id -= 5947;
+                Block::MagentaStainedGlass
+            }
+            5948..5949 => {
+                id -= 5948;
+                Block::LightBlueStainedGlass
+            }
+            5949..5950 => {
+                id -= 5949;
+                Block::YellowStainedGlass
+            }
+            5950..5951 => {
+                id -= 5950;
+                Block::LimeStainedGlass
+            }
+            5951..5952 => {
+                id -= 5951;
+                Block::PinkStainedGlass
+            }
+            5952..5953 => {
+                id -= 5952;
+                Block::GrayStainedGlass
+            }
+            5953..5954 => {
+                id -= 5953;
+                Block::LightGrayStainedGlass
+            }
+            5954..5955 => {
+                id -= 5954;
+                Block::CyanStainedGlass
+            }
+            5955..5956 => {
+                id -= 5955;
+                Block::PurpleStainedGlass
+            }
+            5956..5957 => {
+                id -= 5956;
+                Block::BlueStainedGlass
+            }
+            5957..5958 => {
+                id -= 5957;
+                Block::BrownStainedGlass
+            }
+            5958..5959 => {
+                id -= 5958;
+                Block::GreenStainedGlass
+            }
+            5959..5960 => {
+                id -= 5959;
+                Block::RedStainedGlass
+            }
+            5960..5961 => {
+                id -= 5960;
+                Block::BlackStainedGlass
+            }
+            10744..10745 => {
+                id -= 10744;
+                Block::Terracotta
+            }
+            9356..9357 => {
+                id -= 9356;
+                Block::WhiteTerracotta
+            }
+            9357..9358 => {
+                id -= 9357;
+                Block::OrangeTerracotta
+            }
+            9358..9359 => {
+                id -= 9358;
+                Block::MagentaTerracotta
+            }
+            9359..9360 => {
+                id -= 9359;
+                Block::LightBlueTerracotta
+            }
+            9360..9361 => {
+                id -= 9360;
+                Block::YellowTerracotta
+            }
+            9361..9362 => {
+                id -= 9361;
+                Block::LimeTerracotta
+            }
+            9362..9363 => {
+                id -= 9362;
+                Block::PinkTerracotta
+            }
+            9363..9364 => {
+                id -= 9363;
+                Block::GrayTerracotta
+            }
+            9364..9365 => {
+                id -= 9364;
+                Block::LightGrayTerracotta
+            }
+            9365..9366 => {
+                id -= 9365;
+                Block::CyanTerracotta
+            }
+            9366..9367 => {
+                id -= 9366;
+                Block::PurpleTerracotta
+            }
+            9367..9368 => {
+                id -= 9367;
+                Block::BlueTerracotta
+            }
+            9368..9369 => {
+                id -= 9368;
+                Block::BrownTerracotta
+            }
+            9369..9370 => {
+                id -= 9369;
+                Block::GreenTerracotta
+            }
+            9370..9371 => {
+                id -= 9370;
+                Block::RedTerracotta
+            }
+            9371..9372 => {
+                id -= 9371;
+                Block::BlackTerracotta
+            }
+            2047..2048 => {
+                id -= 2047;
+                Block::WhiteWool
+            }
+            2048..2049 => {
+                id -= 2048;
+                Block::OrangeWool
+            }
+            2049..2050 => {
+                id -= 2049;
+                Block::MagentaWool
+            }
+            2050..2051 => {
+                id -= 2050;
+                Block::LightBlueWool
+            }
+            2051..2052 => {
+                id -= 2051;
+                Block::YellowWool
+            }
+            2052..2053 => {
+                id -= 2052;
+                Block::LimeWool
+            }
+            2053..2054 => {
+                id -= 2053;
+                Block::PinkWool
+            }
+            2054..2055 => {
+                id -= 2054;
+                Block::GrayWool
+            }
+            2055..2056 => {
+                id -= 2055;
+                Block::LightGrayWool
+            }
+            2056..2057 => {
+                id -= 2056;
+                Block::CyanWool
+            }
+            2057..2058 => {
+                id -= 2057;
+                Block::PurpleWool
+            }
+            2058..2059 => {
+                id -= 2058;
+                Block::BlueWool
+            }
+            2059..2060 => {
+                id -= 2059;
+                Block::BrownWool
+            }
+            2060..2061 => {
+                id -= 2060;
+                Block::GreenWool
+            }
+            2061..2062 => {
+                id -= 2061;
+                Block::RedWool
+            }
+            2062..2063 => {
+                id -= 2062;
+                Block::BlackWool
+            }
+            10399..10463 => {
+                id -= 10399;
+                Block::IronTrapdoor {
+                    facing: BlockDirection::from_id(((id / 16) % 4)),
+                    half: TrapdoorHalf::from_id(((id / 8) % 2)),
+                    open: (((id / 4) % 2) & 1) == 0,
+                    powered: (((id / 2) % 2) & 1) == 0,
+                    waterlogged: (((id) % 2) & 1) == 0,
+                }
+            }
+            538..1688 => {
+                id -= 538;
+                Block::NoteBlock {
+                    instrument: Instrument::from_id(((id / 50) % 23)),
+                    note: ((id / 2) % 25) as u8 + 0,
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5798..5799 => {
+                id -= 5798;
+                Block::Clay
+            }
+            2091..2092 => {
+                id -= 2091;
+                Block::GoldBlock
+            }
+            10746..10747 => {
+                id -= 10746;
+                Block::PackedIce
+            }
+            12546..12549 => {
+                id -= 12546;
+                Block::BoneBlock {
+                    axis: BlockAxis::from_id(((id) % 3)),
+                }
+            }
+            2092..2093 => {
+                id -= 2092;
+                Block::IronBlock
+            }
+            5850..5851 => {
+                id -= 5850;
+                Block::SoulSand
+            }
+            6811..6812 => {
+                id -= 6811;
+                Block::Pumpkin
+            }
+            7665..7666 => {
+                id -= 7665;
+                Block::EmeraldBlock
+            }
+            10725..10728 => {
+                id -= 10725;
+                Block::HayBlock {
+                    axis: BlockAxis::from_id(((id) % 3)),
+                }
+            }
+            112..113 => {
+                id -= 112;
+                Block::Sand
+            }
+            6537..6538 => {
+                id -= 6537;
+                Block::StoneBricks
+            }
+            7407..7415 => {
+                id -= 7407;
+                Block::EndPortalFrame {
+                    eye: (((id / 4) % 2) & 1) == 0,
+                    facing: BlockDirection::from_id(((id) % 4)),
+                }
+            }
+            _ => Block::Air,
+        }
+    }
+    pub fn is_wool(self) -> bool {
+        match self {
+            Block::WhiteWool => true,
+            Block::OrangeWool => true,
+            Block::MagentaWool => true,
+            Block::LightBlueWool => true,
+            Block::YellowWool => true,
+            Block::LimeWool => true,
+            Block::PinkWool => true,
+            Block::GrayWool => true,
+            Block::LightGrayWool => true,
+            Block::CyanWool => true,
+            Block::PurpleWool => true,
+            Block::BlueWool => true,
+            Block::BrownWool => true,
+            Block::GreenWool => true,
+            Block::RedWool => true,
+            Block::BlackWool => true,
+            _ => false,
+        }
+    }
+    pub fn is_wood(self) -> bool {
+        match self {
+            Block::OakWallSign { .. } => true,
+            Block::SpruceWallSign { .. } => true,
+            Block::BirchWallSign { .. } => true,
+            Block::AcaciaWallSign { .. } => true,
+            Block::JungleWallSign { .. } => true,
+            Block::DarkOakWallSign { .. } => true,
+            Block::CrimsonWallSign { .. } => true,
+            Block::WarpedWallSign { .. } => true,
+            Block::OakSign { .. } => true,
+            Block::SpruceSign { .. } => true,
+            Block::BirchSign { .. } => true,
+            Block::AcaciaSign { .. } => true,
+            Block::JungleSign { .. } => true,
+            Block::DarkOakSign { .. } => true,
+            Block::CrimsonSign { .. } => true,
+            Block::WarpedSign { .. } => true,
+            Block::Barrel { .. } => true,
+            Block::Composter { .. } => true,
+            Block::NoteBlock { .. } => true,
+            _ => false,
+        }
+    }
+    pub fn is_stone(self) -> bool {
+        match self {
+            Block::Stone => true,
+            Block::Sandstone => true,
+            Block::CoalBlock => true,
+            Block::WhiteConcrete => true,
+            Block::OrangeConcrete => true,
+            Block::MagentaConcrete => true,
+            Block::LightBlueConcrete => true,
+            Block::YellowConcrete => true,
+            Block::LimeConcrete => true,
+            Block::PinkConcrete => true,
+            Block::GrayConcrete => true,
+            Block::LightGrayConcrete => true,
+            Block::CyanConcrete => true,
+            Block::PurpleConcrete => true,
+            Block::BlueConcrete => true,
+            Block::BrownConcrete => true,
+            Block::GreenConcrete => true,
+            Block::RedConcrete => true,
+            Block::BlackConcrete => true,
+            Block::Terracotta => true,
+            Block::WhiteTerracotta => true,
+            Block::OrangeTerracotta => true,
+            Block::MagentaTerracotta => true,
+            Block::LightBlueTerracotta => true,
+            Block::YellowTerracotta => true,
+            Block::LimeTerracotta => true,
+            Block::PinkTerracotta => true,
+            Block::GrayTerracotta => true,
+            Block::LightGrayTerracotta => true,
+            Block::CyanTerracotta => true,
+            Block::PurpleTerracotta => true,
+            Block::BlueTerracotta => true,
+            Block::BrownTerracotta => true,
+            Block::GreenTerracotta => true,
+            Block::RedTerracotta => true,
+            Block::BlackTerracotta => true,
+            _ => false,
+        }
+    }
+    pub fn is_glass(self) -> bool {
+        match self {
+            Block::Glass => true,
+            Block::WhiteStainedGlass => true,
+            Block::OrangeStainedGlass => true,
+            Block::MagentaStainedGlass => true,
+            Block::LightBlueStainedGlass => true,
+            Block::YellowStainedGlass => true,
+            Block::LimeStainedGlass => true,
+            Block::PinkStainedGlass => true,
+            Block::GrayStainedGlass => true,
+            Block::LightGrayStainedGlass => true,
+            Block::CyanStainedGlass => true,
+            Block::PurpleStainedGlass => true,
+            Block::BlueStainedGlass => true,
+            Block::BrownStainedGlass => true,
+            Block::GreenStainedGlass => true,
+            Block::RedStainedGlass => true,
+            Block::BlackStainedGlass => true,
+            _ => false,
+        }
+    }
+}
+impl FromStr for SlabType {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "top" => SlabType::Top,
+            "bottom" => SlabType::Bottom,
+            "double" => SlabType::Double,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for BlockDirection {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "north" => BlockDirection::North,
+            "south" => BlockDirection::South,
+            "west" => BlockDirection::West,
+            "east" => BlockDirection::East,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for LeverFace {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "floor" => LeverFace::Floor,
+            "wall" => LeverFace::Wall,
+            "ceiling" => LeverFace::Ceiling,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for BlockAxis {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "x" => BlockAxis::X,
+            "y" => BlockAxis::Y,
+            "z" => BlockAxis::Z,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for RedstoneWireSide {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "up" => RedstoneWireSide::Up,
+            "side" => RedstoneWireSide::Side,
+            "none" => RedstoneWireSide::None,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for HopperFacing {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "down" => HopperFacing::Down,
+            "north" => HopperFacing::North,
+            "south" => HopperFacing::South,
+            "west" => HopperFacing::West,
+            "east" => HopperFacing::East,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for ComparatorMode {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "compare" => ComparatorMode::Compare,
+            "subtract" => ComparatorMode::Subtract,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for BlockFacing {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "north" => BlockFacing::North,
+            "east" => BlockFacing::East,
+            "south" => BlockFacing::South,
+            "west" => BlockFacing::West,
+            "up" => BlockFacing::Up,
+            "down" => BlockFacing::Down,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for TrapdoorHalf {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "top" => TrapdoorHalf::Top,
+            "bottom" => TrapdoorHalf::Bottom,
+            _ => return Err(()),
+        })
+    }
+}
+impl FromStr for Instrument {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "harp" => Instrument::Harp,
+            "basedrum" => Instrument::Basedrum,
+            "snare" => Instrument::Snare,
+            "hat" => Instrument::Hat,
+            "bass" => Instrument::Bass,
+            "flute" => Instrument::Flute,
+            "bell" => Instrument::Bell,
+            "guitar" => Instrument::Guitar,
+            "chime" => Instrument::Chime,
+            "xylophone" => Instrument::Xylophone,
+            "iron_xylophone" => Instrument::IronXylophone,
+            "cow_bell" => Instrument::CowBell,
+            "didgeridoo" => Instrument::Didgeridoo,
+            "bit" => Instrument::Bit,
+            "banjo" => Instrument::Banjo,
+            "pling" => Instrument::Pling,
+            "zombie" => Instrument::Zombie,
+            "skeleton" => Instrument::Skeleton,
+            "creeper" => Instrument::Creeper,
+            "dragon" => Instrument::Dragon,
+            "wither_skeleton" => Instrument::WitherSkeleton,
+            "piglin" => Instrument::Piglin,
+            "custom_head" => Instrument::CustomHead,
+            _ => return Err(()),
+        })
+    }
+}
+impl std::fmt::Display for SlabType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            SlabType::Top => "top",
+            SlabType::Bottom => "bottom",
+            SlabType::Double => "double",
+        })
+    }
+}
+impl std::fmt::Display for BlockDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            BlockDirection::North => "north",
+            BlockDirection::South => "south",
+            BlockDirection::West => "west",
+            BlockDirection::East => "east",
+        })
+    }
+}
+impl std::fmt::Display for LeverFace {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            LeverFace::Floor => "floor",
+            LeverFace::Wall => "wall",
+            LeverFace::Ceiling => "ceiling",
+        })
+    }
+}
+impl std::fmt::Display for BlockAxis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            BlockAxis::X => "x",
+            BlockAxis::Y => "y",
+            BlockAxis::Z => "z",
+        })
+    }
+}
+impl std::fmt::Display for RedstoneWireSide {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            RedstoneWireSide::Up => "up",
+            RedstoneWireSide::Side => "side",
+            RedstoneWireSide::None => "none",
+        })
+    }
+}
+impl std::fmt::Display for HopperFacing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            HopperFacing::Down => "down",
+            HopperFacing::North => "north",
+            HopperFacing::South => "south",
+            HopperFacing::West => "west",
+            HopperFacing::East => "east",
+        })
+    }
+}
+impl std::fmt::Display for ComparatorMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ComparatorMode::Compare => "compare",
+            ComparatorMode::Subtract => "subtract",
+        })
+    }
+}
+impl std::fmt::Display for BlockFacing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            BlockFacing::North => "north",
+            BlockFacing::East => "east",
+            BlockFacing::South => "south",
+            BlockFacing::West => "west",
+            BlockFacing::Up => "up",
+            BlockFacing::Down => "down",
+        })
+    }
+}
+impl std::fmt::Display for TrapdoorHalf {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            TrapdoorHalf::Top => "top",
+            TrapdoorHalf::Bottom => "bottom",
+        })
+    }
+}
+impl std::fmt::Display for Instrument {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Instrument::Harp => "harp",
+            Instrument::Basedrum => "basedrum",
+            Instrument::Snare => "snare",
+            Instrument::Hat => "hat",
+            Instrument::Bass => "bass",
+            Instrument::Flute => "flute",
+            Instrument::Bell => "bell",
+            Instrument::Guitar => "guitar",
+            Instrument::Chime => "chime",
+            Instrument::Xylophone => "xylophone",
+            Instrument::IronXylophone => "iron_xylophone",
+            Instrument::CowBell => "cow_bell",
+            Instrument::Didgeridoo => "didgeridoo",
+            Instrument::Bit => "bit",
+            Instrument::Banjo => "banjo",
+            Instrument::Pling => "pling",
+            Instrument::Zombie => "zombie",
+            Instrument::Skeleton => "skeleton",
+            Instrument::Creeper => "creeper",
+            Instrument::Dragon => "dragon",
+            Instrument::WitherSkeleton => "wither_skeleton",
+            Instrument::Piglin => "piglin",
+            Instrument::CustomHead => "custom_head",
+        })
+    }
+}
+impl SlabType {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => SlabType::Top,
+            1 => SlabType::Bottom,
+            2 => SlabType::Double,
+            id => unreachable!(),
+        }
+    }
+}
+impl BlockDirection {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => BlockDirection::North,
+            1 => BlockDirection::South,
+            2 => BlockDirection::West,
+            3 => BlockDirection::East,
+            id => unreachable!(),
+        }
+    }
+}
+impl LeverFace {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => LeverFace::Floor,
+            1 => LeverFace::Wall,
+            2 => LeverFace::Ceiling,
+            id => unreachable!(),
+        }
+    }
+}
+impl BlockAxis {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => BlockAxis::X,
+            1 => BlockAxis::Y,
+            2 => BlockAxis::Z,
+            id => unreachable!(),
+        }
+    }
+}
+impl RedstoneWireSide {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => RedstoneWireSide::Up,
+            1 => RedstoneWireSide::Side,
+            2 => RedstoneWireSide::None,
+            id => unreachable!(),
+        }
+    }
+}
+impl HopperFacing {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => HopperFacing::Down,
+            1 => HopperFacing::North,
+            2 => HopperFacing::South,
+            3 => HopperFacing::West,
+            4 => HopperFacing::East,
+            id => unreachable!(),
+        }
+    }
+}
+impl ComparatorMode {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => ComparatorMode::Compare,
+            1 => ComparatorMode::Subtract,
+            id => unreachable!(),
+        }
+    }
+}
+impl BlockFacing {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => BlockFacing::North,
+            1 => BlockFacing::East,
+            2 => BlockFacing::South,
+            3 => BlockFacing::West,
+            4 => BlockFacing::Up,
+            5 => BlockFacing::Down,
+            id => unreachable!(),
+        }
+    }
+}
+impl TrapdoorHalf {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => TrapdoorHalf::Top,
+            1 => TrapdoorHalf::Bottom,
+            id => unreachable!(),
+        }
+    }
+}
+impl Instrument {
+    fn get_id(self) -> u32 {
+        self as u32
+    }
+    fn from_id(id: u32) -> Self {
+        match id {
+            0 => Instrument::Harp,
+            1 => Instrument::Basedrum,
+            2 => Instrument::Snare,
+            3 => Instrument::Hat,
+            4 => Instrument::Bass,
+            5 => Instrument::Flute,
+            6 => Instrument::Bell,
+            7 => Instrument::Guitar,
+            8 => Instrument::Chime,
+            9 => Instrument::Xylophone,
+            10 => Instrument::IronXylophone,
+            11 => Instrument::CowBell,
+            12 => Instrument::Didgeridoo,
+            13 => Instrument::Bit,
+            14 => Instrument::Banjo,
+            15 => Instrument::Pling,
+            16 => Instrument::Zombie,
+            17 => Instrument::Skeleton,
+            18 => Instrument::Creeper,
+            19 => Instrument::Dragon,
+            20 => Instrument::WitherSkeleton,
+            21 => Instrument::Piglin,
+            22 => Instrument::CustomHead,
+            id => unreachable!(),
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Item {
+    Stone,
+    Glass,
+    Glowstone,
+    OakSign,
+    SpruceSign,
+    BirchSign,
+    AcaciaSign,
+    JungleSign,
+    DarkOakSign,
+    CrimsonSign,
+    WarpedSign,
+    Lever,
+    StoneButton,
+    RedstoneTorch,
+    Repeater,
+    RedstoneLamp,
+    TripwireHook,
+    Comparator,
+    RedstoneBlock,
+    Observer,
+    SeaPickle,
+    Target,
+    StonePressurePlate,
+    Cake,
+    Barrel,
+    Hopper,
+    Sandstone,
+    CoalBlock,
+    Furnace,
+    QuartzBlock,
+    SmoothQuartz,
+    SmoothStoneSlab,
+    QuartzSlab,
+    Cauldron,
+    Composter,
+    WhiteConcrete,
+    OrangeConcrete,
+    MagentaConcrete,
+    LightBlueConcrete,
+    YellowConcrete,
+    LimeConcrete,
+    PinkConcrete,
+    GrayConcrete,
+    LightGrayConcrete,
+    CyanConcrete,
+    PurpleConcrete,
+    BlueConcrete,
+    BrownConcrete,
+    GreenConcrete,
+    RedConcrete,
+    BlackConcrete,
+    WhiteStainedGlass,
+    OrangeStainedGlass,
+    MagentaStainedGlass,
+    LightBlueStainedGlass,
+    YellowStainedGlass,
+    LimeStainedGlass,
+    PinkStainedGlass,
+    GrayStainedGlass,
+    LightGrayStainedGlass,
+    CyanStainedGlass,
+    PurpleStainedGlass,
+    BlueStainedGlass,
+    BrownStainedGlass,
+    GreenStainedGlass,
+    RedStainedGlass,
+    BlackStainedGlass,
+    Terracotta,
+    WhiteTerracotta,
+    OrangeTerracotta,
+    MagentaTerracotta,
+    LightBlueTerracotta,
+    YellowTerracotta,
+    LimeTerracotta,
+    PinkTerracotta,
+    GrayTerracotta,
+    LightGrayTerracotta,
+    CyanTerracotta,
+    PurpleTerracotta,
+    BlueTerracotta,
+    BrownTerracotta,
+    GreenTerracotta,
+    RedTerracotta,
+    BlackTerracotta,
+    WhiteWool,
+    OrangeWool,
+    MagentaWool,
+    LightBlueWool,
+    YellowWool,
+    LimeWool,
+    PinkWool,
+    GrayWool,
+    LightGrayWool,
+    CyanWool,
+    PurpleWool,
+    BlueWool,
+    BrownWool,
+    GreenWool,
+    RedWool,
+    BlackWool,
+    IronTrapdoor,
+    NoteBlock,
+    Clay,
+    GoldBlock,
+    PackedIce,
+    BoneBlock,
+    IronBlock,
+    SoulSand,
+    Pumpkin,
+    EmeraldBlock,
+    HayBlock,
+    Sand,
+    StoneBricks,
+    EndPortalFrame,
+    WoodenAxe,
+    Snowball,
+    TotemOfUndying,
+    MilkBucket,
+    Redstone,
+    EnderEye,
+    Unknown(u32),
+}
+impl Item {
+    pub fn get_id(self) -> u32 {
+        match self {
+            Item::Stone => 1,
+            Item::Glass => 187,
+            Item::Glowstone => 331,
+            Item::OakSign => 883,
+            Item::SpruceSign => 884,
+            Item::BirchSign => 885,
+            Item::AcaciaSign => 887,
+            Item::JungleSign => 886,
+            Item::DarkOakSign => 889,
+            Item::CrimsonSign => 892,
+            Item::WarpedSign => 893,
+            Item::Lever => 671,
+            Item::StoneButton => 681,
+            Item::RedstoneTorch => 657,
+            Item::Repeater => 659,
+            Item::RedstoneLamp => 679,
+            Item::TripwireHook => 676,
+            Item::Comparator => 660,
+            Item::RedstoneBlock => 658,
+            Item::Observer => 665,
+            Item::SeaPickle => 200,
+            Item::Target => 670,
+            Item::StonePressurePlate => 694,
+            Item::Cake => 960,
+            Item::Barrel => 1193,
+            Item::Hopper => 666,
+            Item::Sandstone => 190,
+            Item::CoalBlock => 81,
+            Item::Furnace => 301,
+            Item::QuartzBlock => 422,
+            Item::SmoothQuartz => 280,
+            Item::SmoothStoneSlab => 264,
+            Item::QuartzSlab => 273,
+            Item::Cauldron => 1002,
+            Item::Composter => 1192,
+            Item::WhiteConcrete => 554,
+            Item::OrangeConcrete => 555,
+            Item::MagentaConcrete => 556,
+            Item::LightBlueConcrete => 557,
+            Item::YellowConcrete => 558,
+            Item::LimeConcrete => 559,
+            Item::PinkConcrete => 560,
+            Item::GrayConcrete => 561,
+            Item::LightGrayConcrete => 562,
+            Item::CyanConcrete => 563,
+            Item::PurpleConcrete => 564,
+            Item::BlueConcrete => 565,
+            Item::BrownConcrete => 566,
+            Item::GreenConcrete => 567,
+            Item::RedConcrete => 568,
+            Item::BlackConcrete => 569,
+            Item::WhiteStainedGlass => 470,
+            Item::OrangeStainedGlass => 471,
+            Item::MagentaStainedGlass => 472,
+            Item::LightBlueStainedGlass => 473,
+            Item::YellowStainedGlass => 474,
+            Item::LimeStainedGlass => 475,
+            Item::PinkStainedGlass => 476,
+            Item::GrayStainedGlass => 477,
+            Item::LightGrayStainedGlass => 478,
+            Item::CyanStainedGlass => 479,
+            Item::PurpleStainedGlass => 480,
+            Item::BlueStainedGlass => 481,
+            Item::BrownStainedGlass => 482,
+            Item::GreenStainedGlass => 483,
+            Item::RedStainedGlass => 484,
+            Item::BlackStainedGlass => 485,
+            Item::Terracotta => 461,
+            Item::WhiteTerracotta => 426,
+            Item::OrangeTerracotta => 427,
+            Item::MagentaTerracotta => 428,
+            Item::LightBlueTerracotta => 429,
+            Item::YellowTerracotta => 430,
+            Item::LimeTerracotta => 431,
+            Item::PinkTerracotta => 432,
+            Item::GrayTerracotta => 433,
+            Item::LightGrayTerracotta => 434,
+            Item::CyanTerracotta => 435,
+            Item::PurpleTerracotta => 436,
+            Item::BlueTerracotta => 437,
+            Item::BrownTerracotta => 438,
+            Item::GreenTerracotta => 439,
+            Item::RedTerracotta => 440,
+            Item::BlackTerracotta => 441,
+            Item::WhiteWool => 201,
+            Item::OrangeWool => 202,
+            Item::MagentaWool => 203,
+            Item::LightBlueWool => 204,
+            Item::YellowWool => 205,
+            Item::LimeWool => 206,
+            Item::PinkWool => 207,
+            Item::GrayWool => 208,
+            Item::LightGrayWool => 209,
+            Item::CyanWool => 210,
+            Item::PurpleWool => 211,
+            Item::BlueWool => 212,
+            Item::BrownWool => 213,
+            Item::GreenWool => 214,
+            Item::RedWool => 215,
+            Item::BlackWool => 216,
+            Item::IronTrapdoor => 729,
+            Item::NoteBlock => 680,
+            Item::Clay => 308,
+            Item::GoldBlock => 89,
+            Item::PackedIce => 462,
+            Item::BoneBlock => 519,
+            Item::IronBlock => 87,
+            Item::SoulSand => 325,
+            Item::Pumpkin => 321,
+            Item::EmeraldBlock => 381,
+            Item::HayBlock => 444,
+            Item::Sand => 57,
+            Item::StoneBricks => 339,
+            Item::EndPortalFrame => 375,
+            Item::WoodenAxe => 817,
+            Item::Snowball => 909,
+            Item::TotemOfUndying => 1156,
+            Item::MilkBucket => 911,
+            Item::Redstone => 656,
+            Item::EnderEye => 1003,
+            Item::Unknown(id) => id,
+        }
+    }
+    pub fn from_id(id: u32) -> Item {
+        match id {
+            1 => Item::Stone,
+            187 => Item::Glass,
+            331 => Item::Glowstone,
+            883 => Item::OakSign,
+            884 => Item::SpruceSign,
+            885 => Item::BirchSign,
+            887 => Item::AcaciaSign,
+            886 => Item::JungleSign,
+            889 => Item::DarkOakSign,
+            892 => Item::CrimsonSign,
+            893 => Item::WarpedSign,
+            671 => Item::Lever,
+            681 => Item::StoneButton,
+            657 => Item::RedstoneTorch,
+            659 => Item::Repeater,
+            679 => Item::RedstoneLamp,
+            676 => Item::TripwireHook,
+            660 => Item::Comparator,
+            658 => Item::RedstoneBlock,
+            665 => Item::Observer,
+            200 => Item::SeaPickle,
+            670 => Item::Target,
+            694 => Item::StonePressurePlate,
+            960 => Item::Cake,
+            1193 => Item::Barrel,
+            666 => Item::Hopper,
+            190 => Item::Sandstone,
+            81 => Item::CoalBlock,
+            301 => Item::Furnace,
+            422 => Item::QuartzBlock,
+            280 => Item::SmoothQuartz,
+            264 => Item::SmoothStoneSlab,
+            273 => Item::QuartzSlab,
+            1002 => Item::Cauldron,
+            1192 => Item::Composter,
+            554 => Item::WhiteConcrete,
+            555 => Item::OrangeConcrete,
+            556 => Item::MagentaConcrete,
+            557 => Item::LightBlueConcrete,
+            558 => Item::YellowConcrete,
+            559 => Item::LimeConcrete,
+            560 => Item::PinkConcrete,
+            561 => Item::GrayConcrete,
+            562 => Item::LightGrayConcrete,
+            563 => Item::CyanConcrete,
+            564 => Item::PurpleConcrete,
+            565 => Item::BlueConcrete,
+            566 => Item::BrownConcrete,
+            567 => Item::GreenConcrete,
+            568 => Item::RedConcrete,
+            569 => Item::BlackConcrete,
+            470 => Item::WhiteStainedGlass,
+            471 => Item::OrangeStainedGlass,
+            472 => Item::MagentaStainedGlass,
+            473 => Item::LightBlueStainedGlass,
+            474 => Item::YellowStainedGlass,
+            475 => Item::LimeStainedGlass,
+            476 => Item::PinkStainedGlass,
+            477 => Item::GrayStainedGlass,
+            478 => Item::LightGrayStainedGlass,
+            479 => Item::CyanStainedGlass,
+            480 => Item::PurpleStainedGlass,
+            481 => Item::BlueStainedGlass,
+            482 => Item::BrownStainedGlass,
+            483 => Item::GreenStainedGlass,
+            484 => Item::RedStainedGlass,
+            485 => Item::BlackStainedGlass,
+            461 => Item::Terracotta,
+            426 => Item::WhiteTerracotta,
+            427 => Item::OrangeTerracotta,
+            428 => Item::MagentaTerracotta,
+            429 => Item::LightBlueTerracotta,
+            430 => Item::YellowTerracotta,
+            431 => Item::LimeTerracotta,
+            432 => Item::PinkTerracotta,
+            433 => Item::GrayTerracotta,
+            434 => Item::LightGrayTerracotta,
+            435 => Item::CyanTerracotta,
+            436 => Item::PurpleTerracotta,
+            437 => Item::BlueTerracotta,
+            438 => Item::BrownTerracotta,
+            439 => Item::GreenTerracotta,
+            440 => Item::RedTerracotta,
+            441 => Item::BlackTerracotta,
+            201 => Item::WhiteWool,
+            202 => Item::OrangeWool,
+            203 => Item::MagentaWool,
+            204 => Item::LightBlueWool,
+            205 => Item::YellowWool,
+            206 => Item::LimeWool,
+            207 => Item::PinkWool,
+            208 => Item::GrayWool,
+            209 => Item::LightGrayWool,
+            210 => Item::CyanWool,
+            211 => Item::PurpleWool,
+            212 => Item::BlueWool,
+            213 => Item::BrownWool,
+            214 => Item::GreenWool,
+            215 => Item::RedWool,
+            216 => Item::BlackWool,
+            729 => Item::IronTrapdoor,
+            680 => Item::NoteBlock,
+            308 => Item::Clay,
+            89 => Item::GoldBlock,
+            462 => Item::PackedIce,
+            519 => Item::BoneBlock,
+            87 => Item::IronBlock,
+            325 => Item::SoulSand,
+            321 => Item::Pumpkin,
+            381 => Item::EmeraldBlock,
+            444 => Item::HayBlock,
+            57 => Item::Sand,
+            339 => Item::StoneBricks,
+            375 => Item::EndPortalFrame,
+            817 => Item::WoodenAxe,
+            909 => Item::Snowball,
+            1156 => Item::TotemOfUndying,
+            911 => Item::MilkBucket,
+            656 => Item::Redstone,
+            1003 => Item::EnderEye,
+            _ => Item::Unknown(id),
+        }
+    }
+    pub fn get_name(self) -> &'static str {
+        match self {
+            Item::Stone => "minecraft:stone",
+            Item::Glass => "minecraft:glass",
+            Item::Glowstone => "minecraft:glowstone",
+            Item::OakSign => "minecraft:oak_sign",
+            Item::SpruceSign => "minecraft:spruce_sign",
+            Item::BirchSign => "minecraft:birch_sign",
+            Item::AcaciaSign => "minecraft:acacia_sign",
+            Item::JungleSign => "minecraft:jungle_sign",
+            Item::DarkOakSign => "minecraft:dark_oak_sign",
+            Item::CrimsonSign => "minecraft:crimson_sign",
+            Item::WarpedSign => "minecraft:warped_sign",
+            Item::Lever => "minecraft:lever",
+            Item::StoneButton => "minecraft:stone_button",
+            Item::RedstoneTorch => "minecraft:redstone_torch",
+            Item::Repeater => "minecraft:repeater",
+            Item::RedstoneLamp => "minecraft:redstone_lamp",
+            Item::TripwireHook => "minecraft:tripwire_hook",
+            Item::Comparator => "minecraft:comparator",
+            Item::RedstoneBlock => "minecraft:redstone_block",
+            Item::Observer => "minecraft:observer",
+            Item::SeaPickle => "minecraft:sea_pickle",
+            Item::Target => "minecraft:target",
+            Item::StonePressurePlate => "minecraft:stone_pressure_plate",
+            Item::Cake => "minecraft:cake",
+            Item::Barrel => "minecraft:barrel",
+            Item::Hopper => "minecraft:hopper",
+            Item::Sandstone => "minecraft:sandstone",
+            Item::CoalBlock => "minecraft:coal_block",
+            Item::Furnace => "minecraft:furnace",
+            Item::QuartzBlock => "minecraft:quartz_block",
+            Item::SmoothQuartz => "minecraft:smooth_quartz",
+            Item::SmoothStoneSlab => "minecraft:smooth_stone_slab",
+            Item::QuartzSlab => "minecraft:quartz_slab",
+            Item::Cauldron => "minecraft:cauldron",
+            Item::Composter => "minecraft:composter",
+            Item::WhiteConcrete => "minecraft:white_concrete",
+            Item::OrangeConcrete => "minecraft:orange_concrete",
+            Item::MagentaConcrete => "minecraft:magenta_concrete",
+            Item::LightBlueConcrete => "minecraft:light_blue_concrete",
+            Item::YellowConcrete => "minecraft:yellow_concrete",
+            Item::LimeConcrete => "minecraft:lime_concrete",
+            Item::PinkConcrete => "minecraft:pink_concrete",
+            Item::GrayConcrete => "minecraft:gray_concrete",
+            Item::LightGrayConcrete => "minecraft:light_gray_concrete",
+            Item::CyanConcrete => "minecraft:cyan_concrete",
+            Item::PurpleConcrete => "minecraft:purple_concrete",
+            Item::BlueConcrete => "minecraft:blue_concrete",
+            Item::BrownConcrete => "minecraft:brown_concrete",
+            Item::GreenConcrete => "minecraft:green_concrete",
+            Item::RedConcrete => "minecraft:red_concrete",
+            Item::BlackConcrete => "minecraft:black_concrete",
+            Item::WhiteStainedGlass => "minecraft:white_stained_glass",
+            Item::OrangeStainedGlass => "minecraft:orange_stained_glass",
+            Item::MagentaStainedGlass => "minecraft:magenta_stained_glass",
+            Item::LightBlueStainedGlass => "minecraft:light_blue_stained_glass",
+            Item::YellowStainedGlass => "minecraft:yellow_stained_glass",
+            Item::LimeStainedGlass => "minecraft:lime_stained_glass",
+            Item::PinkStainedGlass => "minecraft:pink_stained_glass",
+            Item::GrayStainedGlass => "minecraft:gray_stained_glass",
+            Item::LightGrayStainedGlass => "minecraft:light_gray_stained_glass",
+            Item::CyanStainedGlass => "minecraft:cyan_stained_glass",
+            Item::PurpleStainedGlass => "minecraft:purple_stained_glass",
+            Item::BlueStainedGlass => "minecraft:blue_stained_glass",
+            Item::BrownStainedGlass => "minecraft:brown_stained_glass",
+            Item::GreenStainedGlass => "minecraft:green_stained_glass",
+            Item::RedStainedGlass => "minecraft:red_stained_glass",
+            Item::BlackStainedGlass => "minecraft:black_stained_glass",
+            Item::Terracotta => "minecraft:terracotta",
+            Item::WhiteTerracotta => "minecraft:white_terracotta",
+            Item::OrangeTerracotta => "minecraft:orange_terracotta",
+            Item::MagentaTerracotta => "minecraft:magenta_terracotta",
+            Item::LightBlueTerracotta => "minecraft:light_blue_terracotta",
+            Item::YellowTerracotta => "minecraft:yellow_terracotta",
+            Item::LimeTerracotta => "minecraft:lime_terracotta",
+            Item::PinkTerracotta => "minecraft:pink_terracotta",
+            Item::GrayTerracotta => "minecraft:gray_terracotta",
+            Item::LightGrayTerracotta => "minecraft:light_gray_terracotta",
+            Item::CyanTerracotta => "minecraft:cyan_terracotta",
+            Item::PurpleTerracotta => "minecraft:purple_terracotta",
+            Item::BlueTerracotta => "minecraft:blue_terracotta",
+            Item::BrownTerracotta => "minecraft:brown_terracotta",
+            Item::GreenTerracotta => "minecraft:green_terracotta",
+            Item::RedTerracotta => "minecraft:red_terracotta",
+            Item::BlackTerracotta => "minecraft:black_terracotta",
+            Item::WhiteWool => "minecraft:white_wool",
+            Item::OrangeWool => "minecraft:orange_wool",
+            Item::MagentaWool => "minecraft:magenta_wool",
+            Item::LightBlueWool => "minecraft:light_blue_wool",
+            Item::YellowWool => "minecraft:yellow_wool",
+            Item::LimeWool => "minecraft:lime_wool",
+            Item::PinkWool => "minecraft:pink_wool",
+            Item::GrayWool => "minecraft:gray_wool",
+            Item::LightGrayWool => "minecraft:light_gray_wool",
+            Item::CyanWool => "minecraft:cyan_wool",
+            Item::PurpleWool => "minecraft:purple_wool",
+            Item::BlueWool => "minecraft:blue_wool",
+            Item::BrownWool => "minecraft:brown_wool",
+            Item::GreenWool => "minecraft:green_wool",
+            Item::RedWool => "minecraft:red_wool",
+            Item::BlackWool => "minecraft:black_wool",
+            Item::IronTrapdoor => "minecraft:iron_trapdoor",
+            Item::NoteBlock => "minecraft:note_block",
+            Item::Clay => "minecraft:clay",
+            Item::GoldBlock => "minecraft:gold_block",
+            Item::PackedIce => "minecraft:packed_ice",
+            Item::BoneBlock => "minecraft:bone_block",
+            Item::IronBlock => "minecraft:iron_block",
+            Item::SoulSand => "minecraft:soul_sand",
+            Item::Pumpkin => "minecraft:pumpkin",
+            Item::EmeraldBlock => "minecraft:emerald_block",
+            Item::HayBlock => "minecraft:hay_block",
+            Item::Sand => "minecraft:sand",
+            Item::StoneBricks => "minecraft:stone_bricks",
+            Item::EndPortalFrame => "minecraft:end_portal_frame",
+            Item::WoodenAxe => "minecraft:wooden_axe",
+            Item::Snowball => "minecraft:snowball",
+            Item::TotemOfUndying => "minecraft:totem_of_undying",
+            Item::MilkBucket => "minecraft:milk_bucket",
+            Item::Redstone => "minecraft:redstone",
+            Item::EnderEye => "minecraft:ender_eye",
+            Item::Unknown(_) => "minecraft:redstone",
+        }
+    }
+    pub fn from_name(name: &str) -> Option<Item> {
+        Some(match name {
+            "minecraft:stone" => Item::Stone,
+            "minecraft:glass" => Item::Glass,
+            "minecraft:glowstone" => Item::Glowstone,
+            "minecraft:oak_sign" => Item::OakSign,
+            "minecraft:spruce_sign" => Item::SpruceSign,
+            "minecraft:birch_sign" => Item::BirchSign,
+            "minecraft:acacia_sign" => Item::AcaciaSign,
+            "minecraft:jungle_sign" => Item::JungleSign,
+            "minecraft:dark_oak_sign" => Item::DarkOakSign,
+            "minecraft:crimson_sign" => Item::CrimsonSign,
+            "minecraft:warped_sign" => Item::WarpedSign,
+            "minecraft:lever" => Item::Lever,
+            "minecraft:stone_button" => Item::StoneButton,
+            "minecraft:redstone_torch" => Item::RedstoneTorch,
+            "minecraft:repeater" => Item::Repeater,
+            "minecraft:redstone_lamp" => Item::RedstoneLamp,
+            "minecraft:tripwire_hook" => Item::TripwireHook,
+            "minecraft:comparator" => Item::Comparator,
+            "minecraft:redstone_block" => Item::RedstoneBlock,
+            "minecraft:observer" => Item::Observer,
+            "minecraft:sea_pickle" => Item::SeaPickle,
+            "minecraft:target" => Item::Target,
+            "minecraft:stone_pressure_plate" => Item::StonePressurePlate,
+            "minecraft:cake" => Item::Cake,
+            "minecraft:barrel" => Item::Barrel,
+            "minecraft:hopper" => Item::Hopper,
+            "minecraft:sandstone" => Item::Sandstone,
+            "minecraft:coal_block" => Item::CoalBlock,
+            "minecraft:furnace" => Item::Furnace,
+            "minecraft:quartz_block" => Item::QuartzBlock,
+            "minecraft:smooth_quartz" => Item::SmoothQuartz,
+            "minecraft:smooth_stone_slab" => Item::SmoothStoneSlab,
+            "minecraft:quartz_slab" => Item::QuartzSlab,
+            "minecraft:cauldron" => Item::Cauldron,
+            "minecraft:composter" => Item::Composter,
+            "minecraft:white_concrete" => Item::WhiteConcrete,
+            "minecraft:orange_concrete" => Item::OrangeConcrete,
+            "minecraft:magenta_concrete" => Item::MagentaConcrete,
+            "minecraft:light_blue_concrete" => Item::LightBlueConcrete,
+            "minecraft:yellow_concrete" => Item::YellowConcrete,
+            "minecraft:lime_concrete" => Item::LimeConcrete,
+            "minecraft:pink_concrete" => Item::PinkConcrete,
+            "minecraft:gray_concrete" => Item::GrayConcrete,
+            "minecraft:light_gray_concrete" => Item::LightGrayConcrete,
+            "minecraft:cyan_concrete" => Item::CyanConcrete,
+            "minecraft:purple_concrete" => Item::PurpleConcrete,
+            "minecraft:blue_concrete" => Item::BlueConcrete,
+            "minecraft:brown_concrete" => Item::BrownConcrete,
+            "minecraft:green_concrete" => Item::GreenConcrete,
+            "minecraft:red_concrete" => Item::RedConcrete,
+            "minecraft:black_concrete" => Item::BlackConcrete,
+            "minecraft:white_stained_glass" => Item::WhiteStainedGlass,
+            "minecraft:orange_stained_glass" => Item::OrangeStainedGlass,
+            "minecraft:magenta_stained_glass" => Item::MagentaStainedGlass,
+            "minecraft:light_blue_stained_glass" => Item::LightBlueStainedGlass,
+            "minecraft:yellow_stained_glass" => Item::YellowStainedGlass,
+            "minecraft:lime_stained_glass" => Item::LimeStainedGlass,
+            "minecraft:pink_stained_glass" => Item::PinkStainedGlass,
+            "minecraft:gray_stained_glass" => Item::GrayStainedGlass,
+            "minecraft:light_gray_stained_glass" => Item::LightGrayStainedGlass,
+            "minecraft:cyan_stained_glass" => Item::CyanStainedGlass,
+            "minecraft:purple_stained_glass" => Item::PurpleStainedGlass,
+            "minecraft:blue_stained_glass" => Item::BlueStainedGlass,
+            "minecraft:brown_stained_glass" => Item::BrownStainedGlass,
+            "minecraft:green_stained_glass" => Item::GreenStainedGlass,
+            "minecraft:red_stained_glass" => Item::RedStainedGlass,
+            "minecraft:black_stained_glass" => Item::BlackStainedGlass,
+            "minecraft:terracotta" => Item::Terracotta,
+            "minecraft:white_terracotta" => Item::WhiteTerracotta,
+            "minecraft:orange_terracotta" => Item::OrangeTerracotta,
+            "minecraft:magenta_terracotta" => Item::MagentaTerracotta,
+            "minecraft:light_blue_terracotta" => Item::LightBlueTerracotta,
+            "minecraft:yellow_terracotta" => Item::YellowTerracotta,
+            "minecraft:lime_terracotta" => Item::LimeTerracotta,
+            "minecraft:pink_terracotta" => Item::PinkTerracotta,
+            "minecraft:gray_terracotta" => Item::GrayTerracotta,
+            "minecraft:light_gray_terracotta" => Item::LightGrayTerracotta,
+            "minecraft:cyan_terracotta" => Item::CyanTerracotta,
+            "minecraft:purple_terracotta" => Item::PurpleTerracotta,
+            "minecraft:blue_terracotta" => Item::BlueTerracotta,
+            "minecraft:brown_terracotta" => Item::BrownTerracotta,
+            "minecraft:green_terracotta" => Item::GreenTerracotta,
+            "minecraft:red_terracotta" => Item::RedTerracotta,
+            "minecraft:black_terracotta" => Item::BlackTerracotta,
+            "minecraft:white_wool" => Item::WhiteWool,
+            "minecraft:orange_wool" => Item::OrangeWool,
+            "minecraft:magenta_wool" => Item::MagentaWool,
+            "minecraft:light_blue_wool" => Item::LightBlueWool,
+            "minecraft:yellow_wool" => Item::YellowWool,
+            "minecraft:lime_wool" => Item::LimeWool,
+            "minecraft:pink_wool" => Item::PinkWool,
+            "minecraft:gray_wool" => Item::GrayWool,
+            "minecraft:light_gray_wool" => Item::LightGrayWool,
+            "minecraft:cyan_wool" => Item::CyanWool,
+            "minecraft:purple_wool" => Item::PurpleWool,
+            "minecraft:blue_wool" => Item::BlueWool,
+            "minecraft:brown_wool" => Item::BrownWool,
+            "minecraft:green_wool" => Item::GreenWool,
+            "minecraft:red_wool" => Item::RedWool,
+            "minecraft:black_wool" => Item::BlackWool,
+            "minecraft:iron_trapdoor" => Item::IronTrapdoor,
+            "minecraft:note_block" => Item::NoteBlock,
+            "minecraft:clay" => Item::Clay,
+            "minecraft:gold_block" => Item::GoldBlock,
+            "minecraft:packed_ice" => Item::PackedIce,
+            "minecraft:bone_block" => Item::BoneBlock,
+            "minecraft:iron_block" => Item::IronBlock,
+            "minecraft:soul_sand" => Item::SoulSand,
+            "minecraft:pumpkin" => Item::Pumpkin,
+            "minecraft:emerald_block" => Item::EmeraldBlock,
+            "minecraft:hay_block" => Item::HayBlock,
+            "minecraft:sand" => Item::Sand,
+            "minecraft:stone_bricks" => Item::StoneBricks,
+            "minecraft:end_portal_frame" => Item::EndPortalFrame,
+            "minecraft:wooden_axe" => Item::WoodenAxe,
+            "minecraft:snowball" => Item::Snowball,
+            "minecraft:totem_of_undying" => Item::TotemOfUndying,
+            "minecraft:milk_bucket" => Item::MilkBucket,
+            "minecraft:redstone" => Item::Redstone,
+            "minecraft:ender_eye" => Item::EnderEye,
+            _ => return None,
+        })
+    }
+    pub fn get_simple_placement(self) -> Option<Block> {
+        match self {
+            Item::Stone => Some(Block::Stone),
+            Item::Glass => Some(Block::Glass),
+            Item::Glowstone => Some(Block::Glowstone),
+            Item::RedstoneBlock => Some(Block::RedstoneBlock),
+            Item::Sandstone => Some(Block::Sandstone),
+            Item::CoalBlock => Some(Block::CoalBlock),
+            Item::QuartzBlock => Some(Block::QuartzBlock),
+            Item::SmoothQuartz => Some(Block::SmoothQuartz),
+            Item::WhiteConcrete => Some(Block::WhiteConcrete),
+            Item::OrangeConcrete => Some(Block::OrangeConcrete),
+            Item::MagentaConcrete => Some(Block::MagentaConcrete),
+            Item::LightBlueConcrete => Some(Block::LightBlueConcrete),
+            Item::YellowConcrete => Some(Block::YellowConcrete),
+            Item::LimeConcrete => Some(Block::LimeConcrete),
+            Item::PinkConcrete => Some(Block::PinkConcrete),
+            Item::GrayConcrete => Some(Block::GrayConcrete),
+            Item::LightGrayConcrete => Some(Block::LightGrayConcrete),
+            Item::CyanConcrete => Some(Block::CyanConcrete),
+            Item::PurpleConcrete => Some(Block::PurpleConcrete),
+            Item::BlueConcrete => Some(Block::BlueConcrete),
+            Item::BrownConcrete => Some(Block::BrownConcrete),
+            Item::GreenConcrete => Some(Block::GreenConcrete),
+            Item::RedConcrete => Some(Block::RedConcrete),
+            Item::BlackConcrete => Some(Block::BlackConcrete),
+            Item::WhiteStainedGlass => Some(Block::WhiteStainedGlass),
+            Item::OrangeStainedGlass => Some(Block::OrangeStainedGlass),
+            Item::MagentaStainedGlass => Some(Block::MagentaStainedGlass),
+            Item::LightBlueStainedGlass => Some(Block::LightBlueStainedGlass),
+            Item::YellowStainedGlass => Some(Block::YellowStainedGlass),
+            Item::LimeStainedGlass => Some(Block::LimeStainedGlass),
+            Item::PinkStainedGlass => Some(Block::PinkStainedGlass),
+            Item::GrayStainedGlass => Some(Block::GrayStainedGlass),
+            Item::LightGrayStainedGlass => Some(Block::LightGrayStainedGlass),
+            Item::CyanStainedGlass => Some(Block::CyanStainedGlass),
+            Item::PurpleStainedGlass => Some(Block::PurpleStainedGlass),
+            Item::BlueStainedGlass => Some(Block::BlueStainedGlass),
+            Item::BrownStainedGlass => Some(Block::BrownStainedGlass),
+            Item::GreenStainedGlass => Some(Block::GreenStainedGlass),
+            Item::RedStainedGlass => Some(Block::RedStainedGlass),
+            Item::BlackStainedGlass => Some(Block::BlackStainedGlass),
+            Item::Terracotta => Some(Block::Terracotta),
+            Item::WhiteTerracotta => Some(Block::WhiteTerracotta),
+            Item::OrangeTerracotta => Some(Block::OrangeTerracotta),
+            Item::MagentaTerracotta => Some(Block::MagentaTerracotta),
+            Item::LightBlueTerracotta => Some(Block::LightBlueTerracotta),
+            Item::YellowTerracotta => Some(Block::YellowTerracotta),
+            Item::LimeTerracotta => Some(Block::LimeTerracotta),
+            Item::PinkTerracotta => Some(Block::PinkTerracotta),
+            Item::GrayTerracotta => Some(Block::GrayTerracotta),
+            Item::LightGrayTerracotta => Some(Block::LightGrayTerracotta),
+            Item::CyanTerracotta => Some(Block::CyanTerracotta),
+            Item::PurpleTerracotta => Some(Block::PurpleTerracotta),
+            Item::BlueTerracotta => Some(Block::BlueTerracotta),
+            Item::BrownTerracotta => Some(Block::BrownTerracotta),
+            Item::GreenTerracotta => Some(Block::GreenTerracotta),
+            Item::RedTerracotta => Some(Block::RedTerracotta),
+            Item::BlackTerracotta => Some(Block::BlackTerracotta),
+            Item::WhiteWool => Some(Block::WhiteWool),
+            Item::OrangeWool => Some(Block::OrangeWool),
+            Item::MagentaWool => Some(Block::MagentaWool),
+            Item::LightBlueWool => Some(Block::LightBlueWool),
+            Item::YellowWool => Some(Block::YellowWool),
+            Item::LimeWool => Some(Block::LimeWool),
+            Item::PinkWool => Some(Block::PinkWool),
+            Item::GrayWool => Some(Block::GrayWool),
+            Item::LightGrayWool => Some(Block::LightGrayWool),
+            Item::CyanWool => Some(Block::CyanWool),
+            Item::PurpleWool => Some(Block::PurpleWool),
+            Item::BlueWool => Some(Block::BlueWool),
+            Item::BrownWool => Some(Block::BrownWool),
+            Item::GreenWool => Some(Block::GreenWool),
+            Item::RedWool => Some(Block::RedWool),
+            Item::BlackWool => Some(Block::BlackWool),
+            Item::Clay => Some(Block::Clay),
+            Item::GoldBlock => Some(Block::GoldBlock),
+            Item::PackedIce => Some(Block::PackedIce),
+            Item::IronBlock => Some(Block::IronBlock),
+            Item::SoulSand => Some(Block::SoulSand),
+            Item::EmeraldBlock => Some(Block::EmeraldBlock),
+            Item::Sand => Some(Block::Sand),
+            Item::StoneBricks => Some(Block::StoneBricks),
+            _ => None,
+        }
+    }
+    pub fn is_block(self) -> bool {
+        match self {
+            Item::Stone => true,
+            Item::Glass => true,
+            Item::Glowstone => true,
+            Item::OakSign => true,
+            Item::SpruceSign => true,
+            Item::BirchSign => true,
+            Item::AcaciaSign => true,
+            Item::JungleSign => true,
+            Item::DarkOakSign => true,
+            Item::CrimsonSign => true,
+            Item::WarpedSign => true,
+            Item::Lever => true,
+            Item::StoneButton => true,
+            Item::RedstoneTorch => true,
+            Item::Repeater => true,
+            Item::RedstoneLamp => true,
+            Item::TripwireHook => true,
+            Item::Comparator => true,
+            Item::RedstoneBlock => true,
+            Item::Observer => true,
+            Item::SeaPickle => true,
+            Item::Target => true,
+            Item::StonePressurePlate => true,
+            Item::Cake => true,
+            Item::Barrel => true,
+            Item::Hopper => true,
+            Item::Sandstone => true,
+            Item::CoalBlock => true,
+            Item::Furnace => true,
+            Item::QuartzBlock => true,
+            Item::SmoothQuartz => true,
+            Item::SmoothStoneSlab => true,
+            Item::QuartzSlab => true,
+            Item::Cauldron => true,
+            Item::Composter => true,
+            Item::WhiteConcrete => true,
+            Item::OrangeConcrete => true,
+            Item::MagentaConcrete => true,
+            Item::LightBlueConcrete => true,
+            Item::YellowConcrete => true,
+            Item::LimeConcrete => true,
+            Item::PinkConcrete => true,
+            Item::GrayConcrete => true,
+            Item::LightGrayConcrete => true,
+            Item::CyanConcrete => true,
+            Item::PurpleConcrete => true,
+            Item::BlueConcrete => true,
+            Item::BrownConcrete => true,
+            Item::GreenConcrete => true,
+            Item::RedConcrete => true,
+            Item::BlackConcrete => true,
+            Item::WhiteStainedGlass => true,
+            Item::OrangeStainedGlass => true,
+            Item::MagentaStainedGlass => true,
+            Item::LightBlueStainedGlass => true,
+            Item::YellowStainedGlass => true,
+            Item::LimeStainedGlass => true,
+            Item::PinkStainedGlass => true,
+            Item::GrayStainedGlass => true,
+            Item::LightGrayStainedGlass => true,
+            Item::CyanStainedGlass => true,
+            Item::PurpleStainedGlass => true,
+            Item::BlueStainedGlass => true,
+            Item::BrownStainedGlass => true,
+            Item::GreenStainedGlass => true,
+            Item::RedStainedGlass => true,
+            Item::BlackStainedGlass => true,
+            Item::Terracotta => true,
+            Item::WhiteTerracotta => true,
+            Item::OrangeTerracotta => true,
+            Item::MagentaTerracotta => true,
+            Item::LightBlueTerracotta => true,
+            Item::YellowTerracotta => true,
+            Item::LimeTerracotta => true,
+            Item::PinkTerracotta => true,
+            Item::GrayTerracotta => true,
+            Item::LightGrayTerracotta => true,
+            Item::CyanTerracotta => true,
+            Item::PurpleTerracotta => true,
+            Item::BlueTerracotta => true,
+            Item::BrownTerracotta => true,
+            Item::GreenTerracotta => true,
+            Item::RedTerracotta => true,
+            Item::BlackTerracotta => true,
+            Item::WhiteWool => true,
+            Item::OrangeWool => true,
+            Item::MagentaWool => true,
+            Item::LightBlueWool => true,
+            Item::YellowWool => true,
+            Item::LimeWool => true,
+            Item::PinkWool => true,
+            Item::GrayWool => true,
+            Item::LightGrayWool => true,
+            Item::CyanWool => true,
+            Item::PurpleWool => true,
+            Item::BlueWool => true,
+            Item::BrownWool => true,
+            Item::GreenWool => true,
+            Item::RedWool => true,
+            Item::BlackWool => true,
+            Item::IronTrapdoor => true,
+            Item::NoteBlock => true,
+            Item::Clay => true,
+            Item::GoldBlock => true,
+            Item::PackedIce => true,
+            Item::BoneBlock => true,
+            Item::IronBlock => true,
+            Item::SoulSand => true,
+            Item::Pumpkin => true,
+            Item::EmeraldBlock => true,
+            Item::HayBlock => true,
+            Item::Sand => true,
+            Item::StoneBricks => true,
+            Item::EndPortalFrame => true,
+            Item::WoodenAxe => false,
+            Item::Snowball => false,
+            Item::TotemOfUndying => false,
+            Item::MilkBucket => false,
+            Item::Redstone => true,
+            Item::EnderEye => false,
+            Item::Unknown(_) => false,
+        }
+    }
+    pub fn max_stack_size(self) -> u32 {
+        match self {
+            Item::Stone => 64,
+            Item::Glass => 64,
+            Item::Glowstone => 64,
+            Item::OakSign => 64,
+            Item::SpruceSign => 64,
+            Item::BirchSign => 64,
+            Item::AcaciaSign => 64,
+            Item::JungleSign => 64,
+            Item::DarkOakSign => 64,
+            Item::CrimsonSign => 64,
+            Item::WarpedSign => 64,
+            Item::Lever => 64,
+            Item::StoneButton => 64,
+            Item::RedstoneTorch => 64,
+            Item::Repeater => 64,
+            Item::RedstoneLamp => 64,
+            Item::TripwireHook => 64,
+            Item::Comparator => 64,
+            Item::RedstoneBlock => 64,
+            Item::Observer => 64,
+            Item::SeaPickle => 64,
+            Item::Target => 64,
+            Item::StonePressurePlate => 64,
+            Item::Cake => 64,
+            Item::Barrel => 64,
+            Item::Hopper => 64,
+            Item::Sandstone => 64,
+            Item::CoalBlock => 64,
+            Item::Furnace => 64,
+            Item::QuartzBlock => 64,
+            Item::SmoothQuartz => 64,
+            Item::SmoothStoneSlab => 64,
+            Item::QuartzSlab => 64,
+            Item::Cauldron => 64,
+            Item::Composter => 64,
+            Item::WhiteConcrete => 64,
+            Item::OrangeConcrete => 64,
+            Item::MagentaConcrete => 64,
+            Item::LightBlueConcrete => 64,
+            Item::YellowConcrete => 64,
+            Item::LimeConcrete => 64,
+            Item::PinkConcrete => 64,
+            Item::GrayConcrete => 64,
+            Item::LightGrayConcrete => 64,
+            Item::CyanConcrete => 64,
+            Item::PurpleConcrete => 64,
+            Item::BlueConcrete => 64,
+            Item::BrownConcrete => 64,
+            Item::GreenConcrete => 64,
+            Item::RedConcrete => 64,
+            Item::BlackConcrete => 64,
+            Item::WhiteStainedGlass => 64,
+            Item::OrangeStainedGlass => 64,
+            Item::MagentaStainedGlass => 64,
+            Item::LightBlueStainedGlass => 64,
+            Item::YellowStainedGlass => 64,
+            Item::LimeStainedGlass => 64,
+            Item::PinkStainedGlass => 64,
+            Item::GrayStainedGlass => 64,
+            Item::LightGrayStainedGlass => 64,
+            Item::CyanStainedGlass => 64,
+            Item::PurpleStainedGlass => 64,
+            Item::BlueStainedGlass => 64,
+            Item::BrownStainedGlass => 64,
+            Item::GreenStainedGlass => 64,
+            Item::RedStainedGlass => 64,
+            Item::BlackStainedGlass => 64,
+            Item::Terracotta => 64,
+            Item::WhiteTerracotta => 64,
+            Item::OrangeTerracotta => 64,
+            Item::MagentaTerracotta => 64,
+            Item::LightBlueTerracotta => 64,
+            Item::YellowTerracotta => 64,
+            Item::LimeTerracotta => 64,
+            Item::PinkTerracotta => 64,
+            Item::GrayTerracotta => 64,
+            Item::LightGrayTerracotta => 64,
+            Item::CyanTerracotta => 64,
+            Item::PurpleTerracotta => 64,
+            Item::BlueTerracotta => 64,
+            Item::BrownTerracotta => 64,
+            Item::GreenTerracotta => 64,
+            Item::RedTerracotta => 64,
+            Item::BlackTerracotta => 64,
+            Item::WhiteWool => 64,
+            Item::OrangeWool => 64,
+            Item::MagentaWool => 64,
+            Item::LightBlueWool => 64,
+            Item::YellowWool => 64,
+            Item::LimeWool => 64,
+            Item::PinkWool => 64,
+            Item::GrayWool => 64,
+            Item::LightGrayWool => 64,
+            Item::CyanWool => 64,
+            Item::PurpleWool => 64,
+            Item::BlueWool => 64,
+            Item::BrownWool => 64,
+            Item::GreenWool => 64,
+            Item::RedWool => 64,
+            Item::BlackWool => 64,
+            Item::IronTrapdoor => 64,
+            Item::NoteBlock => 64,
+            Item::Clay => 64,
+            Item::GoldBlock => 64,
+            Item::PackedIce => 64,
+            Item::BoneBlock => 64,
+            Item::IronBlock => 64,
+            Item::SoulSand => 64,
+            Item::Pumpkin => 64,
+            Item::EmeraldBlock => 64,
+            Item::HayBlock => 64,
+            Item::Sand => 64,
+            Item::StoneBricks => 64,
+            Item::EndPortalFrame => 64,
+            Item::WoodenAxe => 1,
+            Item::Snowball => 16,
+            Item::TotemOfUndying => 1,
+            Item::MilkBucket => 1,
+            Item::Redstone => 64,
+            Item::EnderEye => 64,
+            Item::Unknown(_) => 64,
+        }
+    }
+}

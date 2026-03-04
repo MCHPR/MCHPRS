@@ -517,7 +517,7 @@ impl Plot {
 
         if let Some(item) = &item_in_hand {
             let has_permission = self.players[player].has_permission("worldedit.selection.pos");
-            if item.item_type == (Item::WEWand {}) && has_permission {
+            if item.item_type == (Item::WoodenAxe) && has_permission {
                 let same = self.players[player].second_position == Some(block_pos);
                 if !same {
                     self.players[player].worldedit_set_second_position(block_pos);
@@ -609,7 +609,7 @@ impl Plot {
             .clone();
         if let Some(item) = item_in_hand {
             let has_permission = self.players[player].has_permission("worldedit.selection.pos");
-            if item.item_type == (Item::WEWand {}) && has_permission {
+            if item.item_type == (Item::WoodenAxe) && has_permission {
                 self.send_block_change(block_pos, block.get_id());
                 if let Some(pos) = self.players[player].first_position {
                     if pos == block_pos {
@@ -1083,9 +1083,9 @@ impl Plot {
                         || (block_x + 1) % PLOT_BLOCK_WIDTH == 0
                         || (block_z + 1) % PLOT_BLOCK_WIDTH == 0
                     {
-                        Block::StoneBricks {}
+                        Block::StoneBricks
                     } else {
-                        Block::Sandstone {}
+                        Block::Sandstone
                     };
                     chunk.set_block(rx as u32, ry as u32, rz as u32, block.get_id());
                 }

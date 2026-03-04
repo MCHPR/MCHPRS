@@ -1,17 +1,16 @@
 use super::{Block, BlockDirection, BlockProperty, BlockTransform, FlipDirection};
-use std::str::FromStr;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, BlockProperty, BlockTransform)]
-pub struct RedstoneRepeater {
+pub struct Repeater {
     pub delay: u8,
     pub facing: BlockDirection,
     pub locked: bool,
     pub powered: bool,
 }
 
-impl Default for RedstoneRepeater {
+impl Default for Repeater {
     fn default() -> Self {
-        RedstoneRepeater {
+        Repeater {
             delay: 1,
             facing: Default::default(),
             locked: false,
@@ -20,14 +19,9 @@ impl Default for RedstoneRepeater {
     }
 }
 
-impl RedstoneRepeater {
-    pub(super) fn new(
-        delay: u8,
-        facing: BlockDirection,
-        locked: bool,
-        powered: bool,
-    ) -> RedstoneRepeater {
-        RedstoneRepeater {
+impl Repeater {
+    pub(super) fn new(delay: u8, facing: BlockDirection, locked: bool, powered: bool) -> Repeater {
+        Repeater {
             delay,
             facing,
             locked,
@@ -44,21 +38,6 @@ pub enum ComparatorMode {
 }
 
 impl ComparatorMode {
-    pub(super) fn from_id(id: u32) -> ComparatorMode {
-        match id {
-            0 => ComparatorMode::Compare,
-            1 => ComparatorMode::Subtract,
-            _ => panic!("Invalid ComparatorMode"),
-        }
-    }
-
-    pub(super) fn get_id(self) -> u32 {
-        match self {
-            ComparatorMode::Compare => 0,
-            ComparatorMode::Subtract => 1,
-        }
-    }
-
     pub fn toggle(self) -> ComparatorMode {
         match self {
             ComparatorMode::Subtract => ComparatorMode::Compare,
@@ -67,37 +46,16 @@ impl ComparatorMode {
     }
 }
 
-impl FromStr for ComparatorMode {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "subtract" => ComparatorMode::Subtract,
-            "compare" => ComparatorMode::Compare,
-            _ => return Err(()),
-        })
-    }
-}
-
-impl std::fmt::Display for ComparatorMode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            ComparatorMode::Subtract => "subtract",
-            ComparatorMode::Compare => "compare",
-        })
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty, BlockTransform)]
-pub struct RedstoneComparator {
+pub struct Comparator {
     pub facing: BlockDirection,
     pub mode: ComparatorMode,
     pub powered: bool,
 }
 
-impl RedstoneComparator {
-    pub fn new(facing: BlockDirection, mode: ComparatorMode, powered: bool) -> RedstoneComparator {
-        RedstoneComparator {
+impl Comparator {
+    pub fn new(facing: BlockDirection, mode: ComparatorMode, powered: bool) -> Comparator {
+        Comparator {
             facing,
             mode,
             powered,
@@ -111,48 +69,6 @@ pub enum LeverFace {
     #[default]
     Wall,
     Ceiling,
-}
-
-impl LeverFace {
-    pub(super) fn from_id(id: u32) -> LeverFace {
-        match id {
-            0 => LeverFace::Floor,
-            1 => LeverFace::Wall,
-            2 => LeverFace::Ceiling,
-            _ => panic!("Invalid LeverFace"),
-        }
-    }
-
-    pub(super) fn get_id(self) -> u32 {
-        match self {
-            LeverFace::Floor => 0,
-            LeverFace::Wall => 1,
-            LeverFace::Ceiling => 2,
-        }
-    }
-}
-
-impl FromStr for LeverFace {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "floor" => LeverFace::Floor,
-            "ceiling" => LeverFace::Ceiling,
-            "wall" => LeverFace::Wall,
-            _ => return Err(()),
-        })
-    }
-}
-
-impl std::fmt::Display for LeverFace {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            LeverFace::Floor => "floor",
-            LeverFace::Ceiling => "ceiling",
-            LeverFace::Wall => "wall",
-        })
-    }
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty, BlockTransform)]
@@ -172,73 +88,6 @@ impl Lever {
     }
 }
 
-#[derive(Copy, Clone, Default, Debug, PartialEq, Eq)]
-pub enum ButtonFace {
-    Floor,
-    #[default]
-    Wall,
-    Ceiling,
-}
-
-impl ButtonFace {
-    pub(super) fn from_id(id: u32) -> ButtonFace {
-        match id {
-            0 => ButtonFace::Floor,
-            1 => ButtonFace::Wall,
-            2 => ButtonFace::Ceiling,
-            _ => panic!("Invalid ButtonFace"),
-        }
-    }
-
-    pub(super) fn get_id(self) -> u32 {
-        match self {
-            ButtonFace::Floor => 0,
-            ButtonFace::Wall => 1,
-            ButtonFace::Ceiling => 2,
-        }
-    }
-}
-
-impl FromStr for ButtonFace {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "floor" => ButtonFace::Floor,
-            "ceiling" => ButtonFace::Ceiling,
-            "wall" => ButtonFace::Wall,
-            _ => return Err(()),
-        })
-    }
-}
-
-impl std::fmt::Display for ButtonFace {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            ButtonFace::Floor => "floor",
-            ButtonFace::Ceiling => "ceiling",
-            ButtonFace::Wall => "wall",
-        })
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, BlockProperty, BlockTransform)]
-pub struct StoneButton {
-    pub face: ButtonFace,
-    pub facing: BlockDirection,
-    pub powered: bool,
-}
-
-impl StoneButton {
-    pub fn new(face: ButtonFace, facing: BlockDirection, powered: bool) -> StoneButton {
-        StoneButton {
-            face,
-            facing,
-            powered,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
 pub enum RedstoneWireSide {
     Up,
@@ -250,48 +99,6 @@ pub enum RedstoneWireSide {
 impl RedstoneWireSide {
     pub fn is_none(self) -> bool {
         matches!(self, RedstoneWireSide::None)
-    }
-}
-
-impl FromStr for RedstoneWireSide {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "up" => RedstoneWireSide::Up,
-            "side" => RedstoneWireSide::Side,
-            "none" => RedstoneWireSide::None,
-            _ => return Err(()),
-        })
-    }
-}
-
-impl std::fmt::Display for RedstoneWireSide {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            RedstoneWireSide::Up => "up",
-            RedstoneWireSide::Side => "side",
-            RedstoneWireSide::None => "none",
-        })
-    }
-}
-
-impl RedstoneWireSide {
-    pub fn from_id(id: u32) -> RedstoneWireSide {
-        match id {
-            0 => RedstoneWireSide::Up,
-            1 => RedstoneWireSide::Side,
-            2 => RedstoneWireSide::None,
-            _ => panic!("Invalid RedstoneWireSide"),
-        }
-    }
-
-    pub fn get_id(self) -> u32 {
-        match self {
-            RedstoneWireSide::Up => 0,
-            RedstoneWireSide::Side => 1,
-            RedstoneWireSide::None => 2,
-        }
     }
 }
 
@@ -356,42 +163,6 @@ pub enum TrapdoorHalf {
     Bottom,
 }
 
-impl TrapdoorHalf {
-    pub fn get_id(self) -> u32 {
-        self as u32
-    }
-
-    pub fn from_id(id: u32) -> TrapdoorHalf {
-        use TrapdoorHalf::*;
-        match id {
-            0 => Top,
-            1 => Bottom,
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl std::fmt::Display for TrapdoorHalf {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            TrapdoorHalf::Top => "top",
-            TrapdoorHalf::Bottom => "bottom",
-        })
-    }
-}
-
-impl FromStr for TrapdoorHalf {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "top" => TrapdoorHalf::Top,
-            "bottom" => TrapdoorHalf::Bottom,
-            _ => return Err(()),
-        })
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Instrument {
     Harp,
@@ -416,70 +187,30 @@ pub enum Instrument {
     Dragon,
     WitherSkeleton,
     Piglin,
+    CustomHead,
 }
 
 impl Instrument {
-    pub fn get_id(self) -> u32 {
-        self as u32
-    }
-
-    pub fn from_id(id: u32) -> Self {
-        match id {
-            0 => Instrument::Harp,
-            1 => Instrument::Basedrum,
-            2 => Instrument::Snare,
-            3 => Instrument::Hat,
-            4 => Instrument::Bass,
-            5 => Instrument::Flute,
-            6 => Instrument::Bell,
-            7 => Instrument::Guitar,
-            8 => Instrument::Chime,
-            9 => Instrument::Xylophone,
-            10 => Instrument::IronXylophone,
-            11 => Instrument::CowBell,
-            12 => Instrument::Didgeridoo,
-            13 => Instrument::Bit,
-            14 => Instrument::Banjo,
-            15 => Instrument::Pling,
-            16 => Instrument::Zombie,
-            17 => Instrument::Skeleton,
-            18 => Instrument::Creeper,
-            19 => Instrument::Dragon,
-            20 => Instrument::WitherSkeleton,
-            21 => Instrument::Piglin,
-            _ => unreachable!(),
-        }
-    }
-
     pub fn from_block_below(block: Block) -> Instrument {
         match block {
             // All stone materials
-            Block::Stone {}
-            | Block::CoalBlock {}
-            | Block::Quartz {}
-            | Block::Sandstone {}
-            | Block::Concrete { .. }
-            | Block::Terracotta {}
-            | Block::ColoredTerracotta { .. } => Instrument::Basedrum,
+            _ if block.is_stone() => Instrument::Basedrum,
             // All sand/aggregate materials: ConcretePowder
             Block::Sand {} => Instrument::Snare,
             // All glass materials: GlassPane
-            Block::Glass {} | Block::StainedGlass { .. } => Instrument::Hat,
+            _ if block.is_glass() => Instrument::Hat,
             // All wood materials: Log, Plank
-            Block::Sign { .. }
-            | Block::NoteBlock { .. }
-            | Block::Barrel {}
-            | Block::Composter { .. } => Instrument::Bass,
+            _ if block.is_wood() => Instrument::Bass,
             Block::Clay {} => Instrument::Flute,
-            Block::GoldBlock {} => Instrument::Bell,
-            Block::Wool { .. } => Instrument::Guitar,
-            Block::PackedIce {} => Instrument::Chime,
-            Block::BoneBlock {} => Instrument::Xylophone,
-            Block::IronBlock {} => Instrument::IronXylophone,
-            Block::SoulSand {} => Instrument::CowBell,
-            Block::Pumpkin {} => Instrument::Didgeridoo,
-            Block::EmeraldBlock {} => Instrument::Bit,
-            Block::HayBlock {} => Instrument::Banjo,
+            Block::GoldBlock => Instrument::Bell,
+            _ if block.is_wool() => Instrument::Guitar,
+            Block::PackedIce => Instrument::Chime,
+            Block::BoneBlock { .. } => Instrument::Xylophone,
+            Block::IronBlock => Instrument::IronXylophone,
+            Block::SoulSand => Instrument::CowBell,
+            Block::Pumpkin => Instrument::Didgeridoo,
+            Block::EmeraldBlock => Instrument::Bit,
+            Block::HayBlock { .. } => Instrument::Banjo,
             Block::Glowstone { .. } => Instrument::Pling,
             _ => Instrument::Harp,
         }
@@ -509,67 +240,71 @@ impl Instrument {
             Instrument::Dragon => 958,
             Instrument::WitherSkeleton => 959,
             Instrument::Piglin => 960,
+            _ => 0,
         }
     }
 }
 
-impl std::fmt::Display for Instrument {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Instrument::Harp => "harp",
-            Instrument::Basedrum => "basedrum",
-            Instrument::Snare => "snare",
-            Instrument::Hat => "hat",
-            Instrument::Bass => "bass",
-            Instrument::Flute => "flute",
-            Instrument::Bell => "bell",
-            Instrument::Guitar => "guitar",
-            Instrument::Chime => "chime",
-            Instrument::Xylophone => "xylophone",
-            Instrument::IronXylophone => "iron_xylophone",
-            Instrument::CowBell => "cow_bell",
-            Instrument::Didgeridoo => "didgeridoo",
-            Instrument::Bit => "bit",
-            Instrument::Banjo => "banjo",
-            Instrument::Pling => "pling",
-            Instrument::Zombie => "zombie",
-            Instrument::Skeleton => "skeleton",
-            Instrument::Creeper => "creeper",
-            Instrument::Dragon => "dragon",
-            Instrument::WitherSkeleton => "wither_skeleton",
-            Instrument::Piglin => "piglin",
-        })
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum HopperFacing {
+    #[default]
+    Down,
+    North,
+    South,
+    West,
+    East,
+}
+
+impl BlockTransform for HopperFacing {
+    fn flip(&mut self, dir: FlipDirection) {
+        match dir {
+            FlipDirection::FlipX => match self {
+                Self::East => *self = Self::West,
+                Self::West => *self = Self::East,
+                _ => {}
+            },
+            FlipDirection::FlipZ => match self {
+                Self::North => *self = Self::South,
+                Self::South => *self = Self::North,
+                _ => {}
+            },
+        }
+    }
+
+    fn rotate90(&mut self) {
+        *self = match *self {
+            Self::North => Self::East,
+            Self::East => Self::South,
+            Self::South => Self::West,
+            Self::West => Self::North,
+            x => x,
+        }
     }
 }
 
-impl FromStr for Instrument {
-    type Err = ();
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum SlabType {
+    Top,
+    #[default]
+    Bottom,
+    Double,
+}
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "harp" => Instrument::Harp,
-            "basedrum" => Instrument::Basedrum,
-            "snare" => Instrument::Snare,
-            "hat" => Instrument::Hat,
-            "bass" => Instrument::Bass,
-            "flute" => Instrument::Flute,
-            "bell" => Instrument::Bell,
-            "guitar" => Instrument::Guitar,
-            "chime" => Instrument::Chime,
-            "xylophone" => Instrument::Xylophone,
-            "iron_xylophone" => Instrument::IronXylophone,
-            "cow_bell" => Instrument::CowBell,
-            "didgeridoo" => Instrument::Didgeridoo,
-            "bit" => Instrument::Bit,
-            "banjo" => Instrument::Banjo,
-            "pling" => Instrument::Pling,
-            "zombie" => Instrument::Zombie,
-            "skeleton" => Instrument::Skeleton,
-            "creeper" => Instrument::Creeper,
-            "dragon" => Instrument::Dragon,
-            "wither_skeleton" => Instrument::WitherSkeleton,
-            "piglin" => Instrument::Piglin,
-            _ => return Err(()),
-        })
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BlockAxis {
+    X,
+    #[default]
+    Y,
+    Z,
+}
+
+impl BlockTransform for BlockAxis {
+    fn rotate90(&mut self) {
+        *self = match *self {
+            Self::X => Self::Z,
+            Self::Z => Self::X,
+            x => x,
+        }
     }
+    fn flip(&mut self, _dir: FlipDirection) {}
 }

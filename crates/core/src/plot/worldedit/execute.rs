@@ -4,9 +4,9 @@ use crate::player::PacketSender;
 use crate::plot::PLOT_BLOCK_HEIGHT;
 use crate::utils::{self, HyphenatedUUID};
 use mchprs_blocks::block_entities::InventoryEntry;
-use mchprs_blocks::blocks::{Block, FlipDirection, RotateAmt};
+use mchprs_blocks::blocks::{Block, FlipDirection, HopperFacing, RotateAmt};
 use mchprs_blocks::items::{Item, ItemStack};
-use mchprs_blocks::{BlockFace, BlockFacing, BlockPos};
+use mchprs_blocks::{BlockDirection, BlockFace, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_text::{ColorCode, TextComponentBuilder};
 use once_cell::sync::Lazy;
@@ -17,7 +17,7 @@ use tracing::error;
 pub(super) fn execute_wand(ctx: CommandExecuteContext<'_>) {
     let item = ItemStack {
         count: 1,
-        item_type: Item::WEWand {},
+        item_type: Item::WoodenAxe,
         nbt: None,
     };
     ctx.player.inventory[(ctx.player.selected_slot + 36) as usize] = Some(item);
@@ -1026,9 +1026,18 @@ pub(super) fn execute_replace_container(ctx: CommandExecuteContext<'_>) {
     let to = ctx.arguments[1].unwrap_container_type();
 
     let new_block = match to {
-        ContainerType::Furnace => Block::Furnace {},
-        ContainerType::Barrel => Block::Barrel {},
-        ContainerType::Hopper => Block::Hopper {},
+        ContainerType::Furnace => Block::Furnace {
+            facing: BlockDirection::North,
+            lit: false,
+        },
+        ContainerType::Barrel => Block::Barrel {
+            open: false,
+            facing: BlockFacing::Up,
+        },
+        ContainerType::Hopper => Block::Hopper {
+            enabled: false,
+            facing: HopperFacing::Down,
+        },
     };
     let slots = to.num_slots() as u32;
 
@@ -1041,7 +1050,7 @@ pub(super) fn execute_replace_container(ctx: CommandExecuteContext<'_>) {
 
                 if !matches!(
                     block,
-                    Block::Furnace {} | Block::Barrel {} | Block::Hopper {}
+                    Block::Furnace { .. } | Block::Barrel { .. } | Block::Hopper { .. }
                 ) {
                     continue;
                 }
