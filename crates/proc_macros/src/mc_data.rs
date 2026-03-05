@@ -1,16 +1,16 @@
 use nom::{
-    bytes::complete::{tag, take_till, take_until},
+    bytes::complete::{take_till, take_until},
     character::complete::char,
     multi::separated_list1,
     sequence::{delimited, separated_pair},
     IResult, Parser,
 };
-use proc_macro::{Literal, TokenStream};
+use proc_macro::TokenStream;
 use quote::quote;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf, sync::LazyLock};
-use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, Error, LitStr, Token};
+use syn::{Error, LitStr};
 
 #[derive(Deserialize)]
 struct BlockData {

@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, DeriveInput, LitStr, Token};
+use syn::{parse::Parse, parse_macro_input, DeriveInput, LitStr, Token};
 
 mod block_attribs;
 mod mc_data;
