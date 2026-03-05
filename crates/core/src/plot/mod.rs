@@ -111,7 +111,7 @@ impl PlotWorld {
     fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> Option<usize> {
         let chunk_x = (block_x - (self.x * PLOT_BLOCK_WIDTH)) >> 4;
         let chunk_z = (block_z - (self.z * PLOT_BLOCK_WIDTH)) >> 4;
-        if chunk_x >= PLOT_WIDTH || chunk_z >= PLOT_WIDTH {
+        if chunk_x < 0 || chunk_x >= PLOT_WIDTH || chunk_z < 0 || chunk_z >= PLOT_WIDTH {
             return None;
         }
         Some(((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize)
