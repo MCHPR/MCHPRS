@@ -10,6 +10,7 @@ use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::{PacketEncoder, PlayerProperty, SlotData};
 use mchprs_network::{PlayerConn, PlayerPacketSender};
+use mchprs_proc_macros::protocol_id;
 use mchprs_text::{ColorCode, TextComponent, TextComponentBuilder};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -547,7 +548,7 @@ impl Player {
         CSpawnEntity {
             entity_id: self.entity_id as i32,
             entity_uuid: self.uuid,
-            entity_type: 124, // minecraft::player
+            entity_type: protocol_id!("minecraft:entity_type", "minecraft:player"),
             pitch: self.pitch,
             yaw: self.yaw,
             // TODO: probably not the same

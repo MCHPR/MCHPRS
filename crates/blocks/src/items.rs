@@ -1,6 +1,6 @@
 use crate::block_entities::ContainerType;
-use mchprs_utils::map;
 pub use crate::generated::Item;
+use mchprs_utils::map;
 
 #[derive(Clone, Debug)]
 pub struct ItemStack {

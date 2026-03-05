@@ -42,12 +42,7 @@ fn on_state_change(rep: Repeater, world: &mut impl World, pos: BlockPos) {
     }
 }
 
-fn schedule_tick(
-    rep: Repeater,
-    world: &mut impl World,
-    pos: BlockPos,
-    should_be_powered: bool,
-) {
+fn schedule_tick(rep: Repeater, world: &mut impl World, pos: BlockPos, should_be_powered: bool) {
     let front_block = world.get_block(pos.offset(rep.facing.opposite().block_face()));
     let priority = if super::is_diode(front_block) {
         TickPriority::Highest

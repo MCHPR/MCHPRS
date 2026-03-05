@@ -112,9 +112,7 @@ fn can_connect_to(block: Block, side: BlockDirection) -> bool {
         | Block::StoneButton { .. }
         | Block::Target { .. }
         | Block::Lever { .. } => true,
-        Block::Repeater(repeater) => {
-            repeater.facing == side || repeater.facing == side.opposite()
-        }
+        Block::Repeater(repeater) => repeater.facing == side || repeater.facing == side.opposite(),
         Block::Observer { facing, .. } => facing == side.block_facing(),
         _ => false,
     }

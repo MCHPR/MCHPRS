@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, DeriveInput, LitStr, Token};
 
 mod block_attribs;
 mod mc_data;
@@ -26,9 +26,35 @@ pub fn derive_block_transform(input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn block_id(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as syn::LitStr);
+    let input = parse_macro_input!(input as LitStr);
 
     match mc_data::get_block_id(input) {
+        Ok(ts) => ts,
+        Err(err) => err.to_compile_error().into(),
+    }
+}
+
+struct GetProtocolIdInput {
+    registry: LitStr,
+    _comma: Token![,],
+    entry: LitStr,
+}
+
+impl Parse for GetProtocolIdInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            registry: input.parse()?,
+            _comma: input.parse()?,
+            entry: input.parse()?,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn protocol_id(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as GetProtocolIdInput);
+
+    match mc_data::get_protocol_id(input.registry, input.entry) {
         Ok(ts) => ts,
         Err(err) => err.to_compile_error().into(),
     }

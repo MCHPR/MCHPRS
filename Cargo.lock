@@ -1230,6 +1230,7 @@ dependencies = [
  "byteorder",
  "flate2",
  "hematite-nbt",
+ "mchprs_proc_macros",
  "mchprs_text",
  "serde",
  "tracing",
