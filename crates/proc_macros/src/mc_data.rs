@@ -5,12 +5,12 @@ use nom::{
     sequence::{delimited, separated_pair},
     IResult, Parser,
 };
-use proc_macro::TokenStream;
+use proc_macro::{Literal, TokenStream};
 use quote::quote;
 use rustc_hash::FxHashMap;
 use serde::Deserialize;
 use std::{collections::HashMap, path::PathBuf, sync::LazyLock};
-use syn::{Error, LitStr};
+use syn::{parse::Parse, parse_macro_input, punctuated::Punctuated, Error, LitStr, Token};
 
 #[derive(Deserialize)]
 struct BlockData {
@@ -31,6 +31,21 @@ fn mc_data_path(name: &str) -> PathBuf {
 
 static BLOCKS: LazyLock<FxHashMap<String, BlockData>> = LazyLock::new(|| {
     let path = std::fs::read_to_string(mc_data_path("blocks.json")).unwrap();
+    serde_json::from_str(&path).unwrap()
+});
+
+#[derive(Deserialize)]
+struct RegistryEntry {
+    protocol_id: i32,
+}
+
+#[derive(Deserialize)]
+struct Registry {
+    entries: FxHashMap<String, RegistryEntry>,
+}
+
+static REGISTRY: LazyLock<FxHashMap<String, Registry>> = LazyLock::new(|| {
+    let path = std::fs::read_to_string(mc_data_path("registries.json")).unwrap();
     serde_json::from_str(&path).unwrap()
 });
 
@@ -105,4 +120,17 @@ pub fn get_block_id(str: LitStr) -> Result<TokenStream, Error> {
         str,
         "could not find matching block state",
     ))
+}
+
+pub fn get_protocol_id(registry: LitStr, entry: LitStr) -> Result<TokenStream, Error> {
+    let registry = REGISTRY
+        .get(&registry.value())
+        .ok_or_else(|| Error::new_spanned(registry, "invalid registry indentifier"))?;
+    let entry = registry
+        .entries
+        .get(&entry.value())
+        .ok_or_else(|| Error::new_spanned(entry, "invalid entry identifier"))?;
+
+    let lit = entry.protocol_id;
+    Ok(TokenStream::from(quote! { #lit }))
 }

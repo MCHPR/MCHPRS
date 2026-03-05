@@ -1,3 +1,5 @@
+use mchprs_proc_macros::protocol_id;
+
 use super::{Block, BlockDirection, BlockProperty, BlockTransform, FlipDirection};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, BlockProperty, BlockTransform)]
@@ -20,7 +22,7 @@ impl Default for Repeater {
 }
 
 impl Repeater {
-    pub(super) fn new(delay: u8, facing: BlockDirection, locked: bool, powered: bool) -> Repeater {
+    pub fn new(delay: u8, facing: BlockDirection, locked: bool, powered: bool) -> Repeater {
         Repeater {
             delay,
             facing,
@@ -217,29 +219,36 @@ impl Instrument {
     }
 
     pub fn to_sound_id(&self) -> i32 {
+        macro_rules! sound_id {
+            ($name:literal) => {
+                protocol_id!("minecraft:sound_event", $name)
+            };
+        }
         match self {
-            Instrument::Harp => 945,
-            Instrument::Basedrum => 939,
-            Instrument::Snare => 948,
-            Instrument::Hat => 946,
-            Instrument::Bass => 940,
-            Instrument::Flute => 943,
-            Instrument::Bell => 941,
-            Instrument::Guitar => 944,
-            Instrument::Chime => 942,
-            Instrument::Xylophone => 949,
-            Instrument::IronXylophone => 950,
-            Instrument::CowBell => 951,
-            Instrument::Didgeridoo => 952,
-            Instrument::Bit => 953,
-            Instrument::Banjo => 954,
-            Instrument::Pling => 947,
-            Instrument::Zombie => 955,
-            Instrument::Skeleton => 956,
-            Instrument::Creeper => 957,
-            Instrument::Dragon => 958,
-            Instrument::WitherSkeleton => 959,
-            Instrument::Piglin => 960,
+            Instrument::Harp => sound_id!("minecraft:block.note_block.harp"),
+            Instrument::Basedrum => sound_id!("minecraft:block.note_block.basedrum"),
+            Instrument::Snare => sound_id!("minecraft:block.note_block.snare"),
+            Instrument::Hat => sound_id!("minecraft:block.note_block.hat"),
+            Instrument::Bass => sound_id!("minecraft:block.note_block.bass"),
+            Instrument::Flute => sound_id!("minecraft:block.note_block.flute"),
+            Instrument::Bell => sound_id!("minecraft:block.note_block.bell"),
+            Instrument::Guitar => sound_id!("minecraft:block.note_block.guitar"),
+            Instrument::Chime => sound_id!("minecraft:block.note_block.chime"),
+            Instrument::Xylophone => sound_id!("minecraft:block.note_block.xylophone"),
+            Instrument::IronXylophone => sound_id!("minecraft:block.note_block.iron_xylophone"),
+            Instrument::CowBell => sound_id!("minecraft:block.note_block.cow_bell"),
+            Instrument::Didgeridoo => sound_id!("minecraft:block.note_block.didgeridoo"),
+            Instrument::Bit => sound_id!("minecraft:block.note_block.bit"),
+            Instrument::Banjo => sound_id!("minecraft:block.note_block.banjo"),
+            Instrument::Pling => sound_id!("minecraft:block.note_block.pling"),
+            Instrument::Zombie => sound_id!("minecraft:block.note_block.imitate.zombie"),
+            Instrument::Skeleton => sound_id!("minecraft:block.note_block.imitate.skeleton"),
+            Instrument::Creeper => sound_id!("minecraft:block.note_block.imitate.creeper"),
+            Instrument::Dragon => sound_id!("minecraft:block.note_block.imitate.ender_dragon"),
+            Instrument::WitherSkeleton => {
+                sound_id!("minecraft:block.note_block.imitate.wither_skeleton")
+            }
+            Instrument::Piglin => sound_id!("minecraft:block.note_block.imitate.piglin"),
             _ => 0,
         }
     }
