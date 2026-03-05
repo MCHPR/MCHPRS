@@ -231,9 +231,9 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
         let offset_z = pos.z - cb.offset_z;
         let first_pos = BlockPos::new(offset_x, offset_y, offset_z);
         let second_pos = BlockPos::new(
-            offset_x + cb.size_x as i32,
-            offset_y + cb.size_y as i32,
-            offset_z + cb.size_z as i32,
+            offset_x + cb.size_x as i32 - 1,
+            offset_y + cb.size_y as i32 - 1,
+            offset_z + cb.size_z as i32 - 1,
         );
         capture_undo(ctx.plot, ctx.player, first_pos, second_pos);
         paste_clipboard(ctx.plot, cb, pos, ctx.has_flag('a'));
