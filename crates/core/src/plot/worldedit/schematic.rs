@@ -229,7 +229,7 @@ pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result
                 let entry = blocks.get_entry((y_offset + z_offset + x) as usize);
                 let block = Block::from_id(entry);
 
-                let name = format!("minecraft:{}", block.get_name());
+                let name = block.get_name();
                 let props = block.properties();
                 let full_name = if !props.is_empty() {
                     let props_strs: Vec<String> = props
@@ -238,7 +238,7 @@ pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result
                         .collect();
                     format!("{}[{}]", name, props_strs.join(","))
                 } else {
-                    name
+                    name.to_owned()
                 };
                 let mut idx = if let Some(idx) = pallette.iter().position(|s| *s == full_name) {
                     idx
