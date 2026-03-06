@@ -839,12 +839,12 @@ impl FromStr for WorldEditPattern {
                         .unwrap(),
                 )
             } else {
-                let block_name = pattern_match
-                    .get(5)
-                    .unwrap()
-                    .as_str()
-                    .trim_start_matches("minecraft:");
-                Block::from_name(block_name)
+                let mut block_name = pattern_match.get(5).unwrap().as_str().to_string();
+                if !block_name.contains(':') {
+                    block_name.insert_str(0, "minecraft:");
+                }
+
+                Block::from_name(&block_name)
                     .ok_or_else(|| PatternParseError::UnknownBlock(part.to_owned()))?
             };
 

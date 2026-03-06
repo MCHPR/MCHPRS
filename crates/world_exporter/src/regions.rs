@@ -29,7 +29,7 @@ fn encode_section(section: &ChunkSection) -> HashMap<String, nbt::Value> {
     let mut palette = Vec::new();
     for block in buffer.palette() {
         let block = Block::from_id(*block);
-        let name = format!("minecraft:{}", block.get_name());
+        let name = block.get_name();
         let props = block.properties();
         let props = props
             .iter()
