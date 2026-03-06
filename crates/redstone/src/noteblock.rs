@@ -3,7 +3,7 @@ use mchprs_blocks::{BlockFace, BlockPos};
 use mchprs_world::World;
 
 pub fn is_noteblock_unblocked(world: &impl World, pos: BlockPos) -> bool {
-    matches!(world.get_block(pos.offset(BlockFace::Top)), Block::Air {})
+    matches!(world.get_block(pos.offset(BlockFace::Top)), Block::Air)
 }
 
 pub fn get_noteblock_instrument(world: &impl World, pos: BlockPos) -> Instrument {

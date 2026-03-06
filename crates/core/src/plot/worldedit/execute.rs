@@ -870,7 +870,7 @@ pub(super) fn execute_up(ctx: CommandExecuteContext<'_>) {
     let block_pos = pos.block_pos();
 
     let platform_pos = block_pos.offset(BlockFace::Bottom);
-    if matches!(ctx.plot.get_block(platform_pos), Block::Air {}) {
+    if matches!(ctx.plot.get_block(platform_pos), Block::Air) {
         ctx.plot.set_block(platform_pos, Block::Glass {});
     }
 
@@ -894,9 +894,9 @@ pub(super) fn execute_ascend(ctx: CommandExecuteContext<'_>) {
         let floor_pos = player_pos + BlockPos::new(0, y - 1, 0);
         let pos = player_pos + BlockPos::new(0, y, 0);
         let high_pos = player_pos + BlockPos::new(0, y + 1, 0);
-        if ctx.plot.get_block(floor_pos) != (Block::Air {})
-            && ctx.plot.get_block(pos) == (Block::Air {})
-            && ctx.plot.get_block(high_pos) == (Block::Air {})
+        if ctx.plot.get_block(floor_pos) != Block::Air
+            && ctx.plot.get_block(pos) == Block::Air
+            && ctx.plot.get_block(high_pos) == Block::Air
         {
             player_y = pos.y;
             levels -= 1;
@@ -930,9 +930,9 @@ pub(super) fn execute_descend(ctx: CommandExecuteContext<'_>) {
         let floor_pos = player_pos + BlockPos::new(0, y - 1, 0);
         let pos = player_pos + BlockPos::new(0, y, 0);
         let high_pos = player_pos + BlockPos::new(0, y + 1, 0);
-        if ctx.plot.get_block(floor_pos) != (Block::Air {})
-            && ctx.plot.get_block(pos) == (Block::Air {})
-            && ctx.plot.get_block(high_pos) == (Block::Air {})
+        if ctx.plot.get_block(floor_pos) != Block::Air
+            && ctx.plot.get_block(pos) == Block::Air
+            && ctx.plot.get_block(high_pos) == Block::Air
         {
             player_y = pos.y;
             levels -= 1;

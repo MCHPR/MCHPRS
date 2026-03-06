@@ -93,7 +93,6 @@ pub fn get_block_id(str: LitStr) -> Result<TokenStream, Error> {
     let (_, block_info) = parse_block(&full_name)
         .map_err(|_| Error::new_spanned(&str, "failed to parse block name"))?;
 
-    dbg!(&block_info.name);
     let block = BLOCKS
         .get(block_info.name)
         .ok_or_else(|| Error::new_spanned(&str, "could not find block with name"))?;

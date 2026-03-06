@@ -31,7 +31,11 @@ fn parse_block(str: &str) -> Option<Block> {
     static RE: Lazy<Regex> =
         Lazy::new(|| Regex::new(r"(?:minecraft:)?([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap());
     let captures = RE.captures(str)?;
-    let mut block = Block::from_name(captures.get(1)?.as_str()).unwrap_or(Block::Air {});
+    let mut block_name = captures.get(1)?.as_str().to_owned();
+    if !block_name.contains(':') {
+        block_name.insert_str(0, "minecraft:");
+    }
+    let mut block = Block::from_name(&block_name).unwrap_or(Block::Air);
     if let Some(properties_match) = captures.get(2) {
         let properties = properties_match
             .as_str()

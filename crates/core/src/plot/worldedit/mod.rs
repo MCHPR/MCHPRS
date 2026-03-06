@@ -965,7 +965,7 @@ pub fn ray_trace_block(
         let block_pos = pos.block_pos();
         let block = world.get_block(block_pos);
 
-        if !matches!(block, Block::Air {}) {
+        if !matches!(block, Block::Air) {
             return Some(block_pos);
         }
 
