@@ -214,6 +214,11 @@ prop_types:
     - compare
     - subtract
 
+# Items defined here are those that could not have been defined by the block `item` or
+# `simple_item` attributes. This is either because the item has a non-standard stack
+# size, does not have the same name as its block, or does not correspond to a block at
+# all.
+
 # Items can have the following attributes
 # max_stack:##: the maximum number of this item that fits in one inventory slot
 # block: this item can be placed
