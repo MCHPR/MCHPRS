@@ -315,7 +315,6 @@ fn generate_is_attr(
 
 fn generate_from_name(blocks: &[ProcessedBlock]) -> TokenStream {
     let match_arms = blocks.iter().map(|block| {
-        // dbg!(block);
         let name = &block.name;
         let pascal_name = ident(&block.pascal_name);
         let init = block.props.iter().map(|prop| {
@@ -911,7 +910,6 @@ fn main() {
         .into_iter()
         .map(|(name, attrs)| process_block(name, attrs, &blocks_json, &prop_types))
         .collect::<Vec<_>>();
-    // dbg!(&processed_blocks);
 
     let mut items = Vec::new();
     for block in &processed_blocks {

@@ -69,7 +69,7 @@ fn get_sign_placement(
     let rotation = (((180.0 + context.player.yaw) * 16.0 / 360.0) + 0.5).floor() as u8 & 15;
 
     match context.block_face {
-        BlockFace::Bottom => Block::Air {},
+        BlockFace::Bottom => Block::Air,
         BlockFace::Top => standard(rotation),
         _ => wall(context.block_face.unwrap_direction()),
     }
@@ -140,7 +140,7 @@ pub fn get_state_for_placement(
             },
         },
         Item::TripwireHook => match context.block_face {
-            BlockFace::Bottom | BlockFace::Top => Block::Air {},
+            BlockFace::Bottom | BlockFace::Top => Block::Air,
             direction => Block::TripwireHook {
                 facing: direction.unwrap_direction(),
                 powered: false,
@@ -235,13 +235,13 @@ pub fn get_state_for_placement(
             eye: false,
             facing: context.player.get_direction().opposite(),
         },
-        _ => Block::Air {},
+        _ => Block::Air,
     };
     let block = simple_block.unwrap_or(block);
     if is_valid_position(block, world, pos) {
         block
     } else {
-        Block::Air {}
+        Block::Air
     }
 }
 
@@ -286,12 +286,12 @@ pub fn destroy(block: Block, world: &mut impl World, pos: BlockPos) {
 
     match block {
         Block::RedstoneWire { .. } => {
-            world.set_block(pos, Block::Air {});
+            world.set_block(pos, Block::Air);
             change_surrounding_blocks(world, pos);
             redstone::update_wire_neighbors(world, pos);
         }
         Block::Lever { face, facing, .. } => {
-            world.set_block(pos, Block::Air {});
+            world.set_block(pos, Block::Air);
             // This is a horrible idea, don't do this.
             // One day this will be fixed, but for now... too bad!
             match face {
@@ -313,7 +313,7 @@ pub fn destroy(block: Block, world: &mut impl World, pos: BlockPos) {
             }
         }
         _ => {
-            world.set_block(pos, Block::Air {});
+            world.set_block(pos, Block::Air);
             change_surrounding_blocks(world, pos);
             redstone::update_surrounding_blocks(world, pos);
         }
