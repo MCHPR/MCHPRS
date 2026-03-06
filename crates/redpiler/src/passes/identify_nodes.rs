@@ -117,6 +117,9 @@ fn identify_block<W: World>(
     pos: BlockPos,
     world: &W,
 ) -> Option<(NodeType, NodeState)> {
+    if let Some(powered) = block.clone().get_pressure_plate_powered() {
+        return Some((NodeType::PressurePlate, NodeState::simple(*powered)));
+    }
     let (ty, state) = match block {
         Block::Repeater(repeater) => (
             NodeType::Repeater {
@@ -153,9 +156,6 @@ fn identify_block<W: World>(
         Block::StoneButton { powered, .. } => (NodeType::Button, NodeState::simple(powered)),
         Block::RedstoneLamp { lit } => (NodeType::Lamp, NodeState::simple(lit)),
         Block::Lever { powered, .. } => (NodeType::Lever, NodeState::simple(powered)),
-        Block::StonePressurePlate { powered } => {
-            (NodeType::PressurePlate, NodeState::simple(powered))
-        }
         Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
         Block::RedstoneBlock => (NodeType::Constant, NodeState::ss(15)),
         Block::NoteBlock {

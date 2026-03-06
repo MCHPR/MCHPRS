@@ -26,11 +26,18 @@ fn get_weak_power(
     side: BlockFace,
     dust_power: bool,
 ) -> u8 {
+    if block
+        .clone()
+        .get_pressure_plate_powered()
+        .is_some_and(|powered| *powered)
+    {
+        return 15;
+    }
+
     match block {
         Block::RedstoneTorch { lit: true } if side != BlockFace::Top => 15,
         Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
         Block::RedstoneBlock {} => 15,
-        Block::StonePressurePlate { powered: true } => 15,
         Block::Lever { powered, .. } if powered => 15,
         Block::StoneButton { powered, .. } if powered => 15,
         Block::Repeater(repeater) if repeater.facing.block_face() == side && repeater.powered => 15,
@@ -69,6 +76,15 @@ fn get_strong_power(
     side: BlockFace,
     dust_power: bool,
 ) -> u8 {
+    if block
+        .clone()
+        .get_pressure_plate_powered()
+        .is_some_and(|powered| *powered)
+        && side == BlockFace::Top
+    {
+        return 15;
+    }
+
     match block {
         Block::RedstoneTorch { lit: true } if side == BlockFace::Bottom => 15,
         Block::RedstoneWallTorch { lit: true, .. } if side == BlockFace::Bottom => 15,
@@ -94,7 +110,6 @@ fn get_strong_power(
                 _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
             } && powered,
         ),
-        Block::StonePressurePlate { powered: true } if side == BlockFace::Top => 15,
         Block::RedstoneWire { .. } => get_weak_power(block, world, pos, side, dust_power),
         Block::Repeater(_) => get_weak_power(block, world, pos, side, dust_power),
         Block::Comparator(_) => get_weak_power(block, world, pos, side, dust_power),

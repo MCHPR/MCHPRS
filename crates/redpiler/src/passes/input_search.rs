@@ -366,13 +366,15 @@ fn is_wire(block: Block) -> bool {
 /// Returns `true` if the given block provides either weak or strong power to the given side.
 /// Note that `side` is the side of the block receiving power, not the side of the block providing power.
 fn provides_weak_power(block: Block, side: BlockFace) -> bool {
+    if block.clone().get_pressure_plate_powered().is_some() {
+        return true;
+    }
     match block {
         Block::RedstoneTorch { .. } => side != BlockFace::Top,
         Block::RedstoneWallTorch { facing, .. } => facing.block_face() != side,
         Block::RedstoneBlock {} => true,
         Block::Lever { .. } => true,
         Block::StoneButton { .. } => true,
-        Block::StonePressurePlate { .. } => true,
         Block::Repeater(repeater) => repeater.facing.block_face() == side,
         Block::Comparator(comparator) => comparator.facing.block_face() == side,
         _ => false,
@@ -382,10 +384,12 @@ fn provides_weak_power(block: Block, side: BlockFace) -> bool {
 /// Returns `true` if the given block provides strong power to the given side.
 /// Note that `side` is the side of the block receiving power, not the side of the block providing power.
 fn provides_strong_power(block: Block, side: BlockFace) -> bool {
+    if block.clone().get_pressure_plate_powered().is_some() && side == BlockFace::Top {
+        return true;
+    }
     match block {
         Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
         Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
-        Block::StonePressurePlate { .. } if side == BlockFace::Top => true,
         Block::Lever { face, facing, .. } => match side {
             BlockFace::Top => face == LeverFace::Floor,
             BlockFace::Bottom => face == LeverFace::Ceiling,

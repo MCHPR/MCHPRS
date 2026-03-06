@@ -210,6 +210,25 @@ impl Block {
             _ => unreachable!(),
         }
     }
+
+    pub fn get_pressure_plate_powered(&mut self) -> Option<&mut bool> {
+        match self {
+            Block::OakPressurePlate { powered }
+            | Block::SprucePressurePlate { powered }
+            | Block::BirchPressurePlate { powered }
+            | Block::JunglePressurePlate { powered }
+            | Block::AcaciaPressurePlate { powered }
+            | Block::DarkOakPressurePlate { powered }
+            | Block::MangrovePressurePlate { powered }
+            | Block::CherryPressurePlate { powered }
+            | Block::BambooPressurePlate { powered }
+            | Block::CrimsonPressurePlate { powered }
+            | Block::WarpedPressurePlate { powered }
+            | Block::StonePressurePlate { powered }
+            | Block::PolishedBlackstonePressurePlate { powered } => Some(powered),
+            _ => None,
+        }
+    }
 }
 
 #[test]

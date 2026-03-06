@@ -221,6 +221,9 @@ impl BackendRunner {
 }
 
 fn is_block_powered(block: Block) -> Option<bool> {
+    if let Some(powered) = block.clone().get_pressure_plate_powered() {
+        return Some(*powered);
+    }
     Some(match block {
         Block::Comparator(comparator) => comparator.powered,
         Block::RedstoneTorch { lit } => lit,
@@ -228,7 +231,6 @@ fn is_block_powered(block: Block) -> Option<bool> {
         Block::Repeater(repeater) => repeater.powered,
         Block::Lever { powered, .. } => powered,
         Block::StoneButton { powered, .. } => powered,
-        Block::StonePressurePlate { powered } => powered,
         Block::RedstoneLamp { lit } => lit,
         Block::IronTrapdoor { powered, .. } => powered,
         Block::NoteBlock { powered, .. } => powered,

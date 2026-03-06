@@ -338,37 +338,36 @@ impl Plot {
         let old_block = old.block_pos();
         let new_block = new.block_pos();
 
-        if let Block::StonePressurePlate { powered: true } = self.world.get_block(old_block) {
+        if let Some(true) = self.world.get_block(old_block).get_pressure_plate_powered() {
             if !self.are_players_on_block(old_block) {
                 self.set_pressure_plate(old_block, false);
             }
         }
 
-        if let Block::StonePressurePlate { powered: false } = self.world.get_block(new_block) {
+        if let Some(false) = self.world.get_block(new_block).get_pressure_plate_powered() {
             if self.players[player_idx].on_ground {
                 self.set_pressure_plate(new_block, true);
             }
         }
     }
 
-    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
+    fn set_pressure_plate(&mut self, pos: BlockPos, new_powered: bool) {
         if self.redpiler.is_active() {
-            self.redpiler.set_pressure_plate(pos, powered);
+            self.redpiler.set_pressure_plate(pos, new_powered);
             return;
         }
 
-        let block = self.world.get_block(pos);
-        match block {
-            Block::StonePressurePlate { .. } => {
-                self.world
-                    .set_block(pos, Block::StonePressurePlate { powered });
-                mchprs_redstone::update_surrounding_blocks(&mut self.world, pos);
-                mchprs_redstone::update_surrounding_blocks(
-                    &mut self.world,
-                    pos.offset(BlockFace::Bottom),
-                );
-            }
-            _ => warn!("Block at {} is not a pressure plate", pos),
+        let mut block = self.world.get_block(pos);
+        if let Some(powered) = block.get_pressure_plate_powered() {
+            *powered = new_powered;
+            self.world.set_block(pos, block);
+            mchprs_redstone::update_surrounding_blocks(&mut self.world, pos);
+            mchprs_redstone::update_surrounding_blocks(
+                &mut self.world,
+                pos.offset(BlockFace::Bottom),
+            );
+        } else {
+            warn!("Block at {} is not a pressure plate", pos);
         }
     }
 

@@ -118,6 +118,42 @@ pub enum Block {
     Target {
         power: u8,
     },
+    OakPressurePlate {
+        powered: bool,
+    },
+    SprucePressurePlate {
+        powered: bool,
+    },
+    BirchPressurePlate {
+        powered: bool,
+    },
+    JunglePressurePlate {
+        powered: bool,
+    },
+    AcaciaPressurePlate {
+        powered: bool,
+    },
+    DarkOakPressurePlate {
+        powered: bool,
+    },
+    MangrovePressurePlate {
+        powered: bool,
+    },
+    CherryPressurePlate {
+        powered: bool,
+    },
+    BambooPressurePlate {
+        powered: bool,
+    },
+    CrimsonPressurePlate {
+        powered: bool,
+    },
+    WarpedPressurePlate {
+        powered: bool,
+    },
+    PolishedBlackstonePressurePlate {
+        powered: bool,
+    },
     StonePressurePlate {
         powered: bool,
     },
@@ -288,6 +324,20 @@ impl Block {
             Block::Observer { .. } => "minecraft:observer",
             Block::SeaPickle { .. } => "minecraft:sea_pickle",
             Block::Target { .. } => "minecraft:target",
+            Block::OakPressurePlate { .. } => "minecraft:oak_pressure_plate",
+            Block::SprucePressurePlate { .. } => "minecraft:spruce_pressure_plate",
+            Block::BirchPressurePlate { .. } => "minecraft:birch_pressure_plate",
+            Block::JunglePressurePlate { .. } => "minecraft:jungle_pressure_plate",
+            Block::AcaciaPressurePlate { .. } => "minecraft:acacia_pressure_plate",
+            Block::DarkOakPressurePlate { .. } => "minecraft:dark_oak_pressure_plate",
+            Block::MangrovePressurePlate { .. } => "minecraft:mangrove_pressure_plate",
+            Block::CherryPressurePlate { .. } => "minecraft:cherry_pressure_plate",
+            Block::BambooPressurePlate { .. } => "minecraft:bamboo_pressure_plate",
+            Block::CrimsonPressurePlate { .. } => "minecraft:crimson_pressure_plate",
+            Block::WarpedPressurePlate { .. } => "minecraft:warped_pressure_plate",
+            Block::PolishedBlackstonePressurePlate { .. } => {
+                "minecraft:polished_blackstone_pressure_plate"
+            }
             Block::StonePressurePlate { .. } => "minecraft:stone_pressure_plate",
             Block::Cake { .. } => "minecraft:cake",
             Block::Barrel { .. } => "minecraft:barrel",
@@ -502,6 +552,20 @@ impl Block {
                 waterlogged: true,
             },
             "minecraft:target" => Block::Target { power: 0 },
+            "minecraft:oak_pressure_plate" => Block::OakPressurePlate { powered: false },
+            "minecraft:spruce_pressure_plate" => Block::SprucePressurePlate { powered: false },
+            "minecraft:birch_pressure_plate" => Block::BirchPressurePlate { powered: false },
+            "minecraft:jungle_pressure_plate" => Block::JunglePressurePlate { powered: false },
+            "minecraft:acacia_pressure_plate" => Block::AcaciaPressurePlate { powered: false },
+            "minecraft:dark_oak_pressure_plate" => Block::DarkOakPressurePlate { powered: false },
+            "minecraft:mangrove_pressure_plate" => Block::MangrovePressurePlate { powered: false },
+            "minecraft:cherry_pressure_plate" => Block::CherryPressurePlate { powered: false },
+            "minecraft:bamboo_pressure_plate" => Block::BambooPressurePlate { powered: false },
+            "minecraft:crimson_pressure_plate" => Block::CrimsonPressurePlate { powered: false },
+            "minecraft:warped_pressure_plate" => Block::WarpedPressurePlate { powered: false },
+            "minecraft:polished_blackstone_pressure_plate" => {
+                Block::PolishedBlackstonePressurePlate { powered: false }
+            }
             "minecraft:stone_pressure_plate" => Block::StonePressurePlate { powered: false },
             "minecraft:cake" => Block::Cake { bites: 0 },
             "minecraft:barrel" => Block::Barrel {
@@ -1038,6 +1102,42 @@ impl Block {
             Block::Target { power } => {
                 <u8 as BlockProperty>::decode(power, &props, "power");
             }
+            Block::OakPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::SprucePressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::BirchPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::JunglePressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::AcaciaPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::DarkOakPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::MangrovePressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::CherryPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::BambooPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::CrimsonPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::WarpedPressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
+            Block::PolishedBlackstonePressurePlate { powered } => {
+                <bool as BlockProperty>::decode(powered, &props, "powered");
+            }
             Block::StonePressurePlate { powered } => {
                 <bool as BlockProperty>::decode(powered, &props, "powered");
             }
@@ -1387,6 +1487,42 @@ impl Block {
             Block::Target { power } => {
                 <u8 as BlockProperty>::encode(*power, &mut props, "power");
             }
+            Block::OakPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::SprucePressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::BirchPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::JunglePressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::AcaciaPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::DarkOakPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::MangrovePressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::CherryPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::BambooPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::CrimsonPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::WarpedPressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
+            Block::PolishedBlackstonePressurePlate { powered } => {
+                <bool as BlockProperty>::encode(*powered, &mut props, "powered");
+            }
             Block::StonePressurePlate { powered } => {
                 <bool as BlockProperty>::encode(*powered, &mut props, "powered");
             }
@@ -1730,6 +1866,42 @@ impl Block {
             Block::Target { power } => {
                 <u8 as BlockTransform>::rotate(power, amt);
             }
+            Block::OakPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::SprucePressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::BirchPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::JunglePressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::AcaciaPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::DarkOakPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::MangrovePressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::CherryPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::BambooPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::CrimsonPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::WarpedPressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
+            Block::PolishedBlackstonePressurePlate { powered } => {
+                <bool as BlockTransform>::rotate(powered, amt);
+            }
             Block::StonePressurePlate { powered } => {
                 <bool as BlockTransform>::rotate(powered, amt);
             }
@@ -2072,6 +2244,42 @@ impl Block {
             Block::Target { power } => {
                 <u8 as BlockTransform>::flip(power, dir);
             }
+            Block::OakPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::SprucePressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::BirchPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::JunglePressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::AcaciaPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::DarkOakPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::MangrovePressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::CherryPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::BambooPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::CrimsonPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::WarpedPressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
+            Block::PolishedBlackstonePressurePlate { powered } => {
+                <bool as BlockTransform>::flip(powered, dir);
+            }
             Block::StonePressurePlate { powered } => {
                 <bool as BlockTransform>::flip(powered, dir);
             }
@@ -2345,6 +2553,18 @@ impl Block {
                 waterlogged,
             } => 12933 + (pickles as u32 - 1) * 2 + (!waterlogged as u32),
             Block::Target { power } => 19381 + (power as u32 - 0),
+            Block::OakPressurePlate { powered } => 5716 + (!powered as u32),
+            Block::SprucePressurePlate { powered } => 5718 + (!powered as u32),
+            Block::BirchPressurePlate { powered } => 5720 + (!powered as u32),
+            Block::JunglePressurePlate { powered } => 5722 + (!powered as u32),
+            Block::AcaciaPressurePlate { powered } => 5724 + (!powered as u32),
+            Block::DarkOakPressurePlate { powered } => 5728 + (!powered as u32),
+            Block::MangrovePressurePlate { powered } => 5730 + (!powered as u32),
+            Block::CherryPressurePlate { powered } => 5726 + (!powered as u32),
+            Block::BambooPressurePlate { powered } => 5732 + (!powered as u32),
+            Block::CrimsonPressurePlate { powered } => 18680 + (!powered as u32),
+            Block::WarpedPressurePlate { powered } => 18682 + (!powered as u32),
+            Block::PolishedBlackstonePressurePlate { powered } => 20372 + (!powered as u32),
             Block::StonePressurePlate { powered } => 5650 + (!powered as u32),
             Block::Cake { bites } => 5874 + (bites as u32 - 0),
             Block::Barrel { facing, open } => 18408 + (facing.get_id()) * 2 + (!open as u32),
@@ -2683,6 +2903,78 @@ impl Block {
                 id -= 19381;
                 Block::Target {
                     power: ((id) % 16) as u8 + 0,
+                }
+            }
+            5716..5718 => {
+                id -= 5716;
+                Block::OakPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5718..5720 => {
+                id -= 5718;
+                Block::SprucePressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5720..5722 => {
+                id -= 5720;
+                Block::BirchPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5722..5724 => {
+                id -= 5722;
+                Block::JunglePressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5724..5726 => {
+                id -= 5724;
+                Block::AcaciaPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5728..5730 => {
+                id -= 5728;
+                Block::DarkOakPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5730..5732 => {
+                id -= 5730;
+                Block::MangrovePressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5726..5728 => {
+                id -= 5726;
+                Block::CherryPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            5732..5734 => {
+                id -= 5732;
+                Block::BambooPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            18680..18682 => {
+                id -= 18680;
+                Block::CrimsonPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            18682..18684 => {
+                id -= 18682;
+                Block::WarpedPressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
+                }
+            }
+            20372..20374 => {
+                id -= 20372;
+                Block::PolishedBlackstonePressurePlate {
+                    powered: (((id) % 2) & 1) == 0,
                 }
             }
             5650..5652 => {
@@ -3139,6 +3431,17 @@ impl Block {
             Block::DarkOakSign { .. } => true,
             Block::CrimsonSign { .. } => true,
             Block::WarpedSign { .. } => true,
+            Block::OakPressurePlate { .. } => true,
+            Block::SprucePressurePlate { .. } => true,
+            Block::BirchPressurePlate { .. } => true,
+            Block::JunglePressurePlate { .. } => true,
+            Block::AcaciaPressurePlate { .. } => true,
+            Block::DarkOakPressurePlate { .. } => true,
+            Block::MangrovePressurePlate { .. } => true,
+            Block::CherryPressurePlate { .. } => true,
+            Block::BambooPressurePlate { .. } => true,
+            Block::CrimsonPressurePlate { .. } => true,
+            Block::WarpedPressurePlate { .. } => true,
             Block::Barrel { .. } => true,
             Block::Composter { .. } => true,
             Block::NoteBlock { .. } => true,
@@ -3635,6 +3938,18 @@ pub enum Item {
     Observer,
     SeaPickle,
     Target,
+    OakPressurePlate,
+    SprucePressurePlate,
+    BirchPressurePlate,
+    JunglePressurePlate,
+    AcaciaPressurePlate,
+    DarkOakPressurePlate,
+    MangrovePressurePlate,
+    CherryPressurePlate,
+    BambooPressurePlate,
+    CrimsonPressurePlate,
+    WarpedPressurePlate,
+    PolishedBlackstonePressurePlate,
     StonePressurePlate,
     Cake,
     Barrel,
@@ -3760,6 +4075,18 @@ impl Item {
             Item::Observer => 665,
             Item::SeaPickle => 200,
             Item::Target => 670,
+            Item::OakPressurePlate => 698,
+            Item::SprucePressurePlate => 699,
+            Item::BirchPressurePlate => 700,
+            Item::JunglePressurePlate => 701,
+            Item::AcaciaPressurePlate => 702,
+            Item::DarkOakPressurePlate => 704,
+            Item::MangrovePressurePlate => 705,
+            Item::CherryPressurePlate => 703,
+            Item::BambooPressurePlate => 706,
+            Item::CrimsonPressurePlate => 707,
+            Item::WarpedPressurePlate => 708,
+            Item::PolishedBlackstonePressurePlate => 695,
             Item::StonePressurePlate => 694,
             Item::Cake => 960,
             Item::Barrel => 1193,
@@ -3885,6 +4212,18 @@ impl Item {
             665 => Item::Observer,
             200 => Item::SeaPickle,
             670 => Item::Target,
+            698 => Item::OakPressurePlate,
+            699 => Item::SprucePressurePlate,
+            700 => Item::BirchPressurePlate,
+            701 => Item::JunglePressurePlate,
+            702 => Item::AcaciaPressurePlate,
+            704 => Item::DarkOakPressurePlate,
+            705 => Item::MangrovePressurePlate,
+            703 => Item::CherryPressurePlate,
+            706 => Item::BambooPressurePlate,
+            707 => Item::CrimsonPressurePlate,
+            708 => Item::WarpedPressurePlate,
+            695 => Item::PolishedBlackstonePressurePlate,
             694 => Item::StonePressurePlate,
             960 => Item::Cake,
             1193 => Item::Barrel,
@@ -4010,6 +4349,18 @@ impl Item {
             Item::Observer => "minecraft:observer",
             Item::SeaPickle => "minecraft:sea_pickle",
             Item::Target => "minecraft:target",
+            Item::OakPressurePlate => "minecraft:oak_pressure_plate",
+            Item::SprucePressurePlate => "minecraft:spruce_pressure_plate",
+            Item::BirchPressurePlate => "minecraft:birch_pressure_plate",
+            Item::JunglePressurePlate => "minecraft:jungle_pressure_plate",
+            Item::AcaciaPressurePlate => "minecraft:acacia_pressure_plate",
+            Item::DarkOakPressurePlate => "minecraft:dark_oak_pressure_plate",
+            Item::MangrovePressurePlate => "minecraft:mangrove_pressure_plate",
+            Item::CherryPressurePlate => "minecraft:cherry_pressure_plate",
+            Item::BambooPressurePlate => "minecraft:bamboo_pressure_plate",
+            Item::CrimsonPressurePlate => "minecraft:crimson_pressure_plate",
+            Item::WarpedPressurePlate => "minecraft:warped_pressure_plate",
+            Item::PolishedBlackstonePressurePlate => "minecraft:polished_blackstone_pressure_plate",
             Item::StonePressurePlate => "minecraft:stone_pressure_plate",
             Item::Cake => "minecraft:cake",
             Item::Barrel => "minecraft:barrel",
@@ -4135,6 +4486,18 @@ impl Item {
             "minecraft:observer" => Item::Observer,
             "minecraft:sea_pickle" => Item::SeaPickle,
             "minecraft:target" => Item::Target,
+            "minecraft:oak_pressure_plate" => Item::OakPressurePlate,
+            "minecraft:spruce_pressure_plate" => Item::SprucePressurePlate,
+            "minecraft:birch_pressure_plate" => Item::BirchPressurePlate,
+            "minecraft:jungle_pressure_plate" => Item::JunglePressurePlate,
+            "minecraft:acacia_pressure_plate" => Item::AcaciaPressurePlate,
+            "minecraft:dark_oak_pressure_plate" => Item::DarkOakPressurePlate,
+            "minecraft:mangrove_pressure_plate" => Item::MangrovePressurePlate,
+            "minecraft:cherry_pressure_plate" => Item::CherryPressurePlate,
+            "minecraft:bamboo_pressure_plate" => Item::BambooPressurePlate,
+            "minecraft:crimson_pressure_plate" => Item::CrimsonPressurePlate,
+            "minecraft:warped_pressure_plate" => Item::WarpedPressurePlate,
+            "minecraft:polished_blackstone_pressure_plate" => Item::PolishedBlackstonePressurePlate,
             "minecraft:stone_pressure_plate" => Item::StonePressurePlate,
             "minecraft:cake" => Item::Cake,
             "minecraft:barrel" => Item::Barrel,
@@ -4346,6 +4709,18 @@ impl Item {
             Item::Observer => true,
             Item::SeaPickle => true,
             Item::Target => true,
+            Item::OakPressurePlate => true,
+            Item::SprucePressurePlate => true,
+            Item::BirchPressurePlate => true,
+            Item::JunglePressurePlate => true,
+            Item::AcaciaPressurePlate => true,
+            Item::DarkOakPressurePlate => true,
+            Item::MangrovePressurePlate => true,
+            Item::CherryPressurePlate => true,
+            Item::BambooPressurePlate => true,
+            Item::CrimsonPressurePlate => true,
+            Item::WarpedPressurePlate => true,
+            Item::PolishedBlackstonePressurePlate => true,
             Item::StonePressurePlate => true,
             Item::Cake => true,
             Item::Barrel => true,
@@ -4471,6 +4846,18 @@ impl Item {
             Item::Observer => 64,
             Item::SeaPickle => 64,
             Item::Target => 64,
+            Item::OakPressurePlate => 64,
+            Item::SprucePressurePlate => 64,
+            Item::BirchPressurePlate => 64,
+            Item::JunglePressurePlate => 64,
+            Item::AcaciaPressurePlate => 64,
+            Item::DarkOakPressurePlate => 64,
+            Item::MangrovePressurePlate => 64,
+            Item::CherryPressurePlate => 64,
+            Item::BambooPressurePlate => 64,
+            Item::CrimsonPressurePlate => 64,
+            Item::WarpedPressurePlate => 64,
+            Item::PolishedBlackstonePressurePlate => 64,
             Item::StonePressurePlate => 64,
             Item::Cake => 64,
             Item::Barrel => 64,

@@ -23,11 +23,10 @@ fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
         Block::Repeater(repeater) => &mut repeater.powered,
         Block::Lever { powered, .. } => powered,
         Block::StoneButton { powered, .. } => powered,
-        Block::StonePressurePlate { powered } => powered,
         Block::RedstoneLamp { lit } => lit,
         Block::IronTrapdoor { powered, .. } => powered,
         Block::NoteBlock { powered, .. } => powered,
-        _ => return None,
+        _ => return block.get_pressure_plate_powered(),
     })
 }
 

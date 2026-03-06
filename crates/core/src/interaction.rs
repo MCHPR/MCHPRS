@@ -114,7 +114,21 @@ pub fn get_state_for_placement(
             facing: context.player.get_direction().opposite(),
             lit: false,
         },
+        Item::OakPressurePlate => Block::OakPressurePlate { powered: false },
+        Item::SprucePressurePlate => Block::SprucePressurePlate { powered: false },
+        Item::BirchPressurePlate => Block::BirchPressurePlate { powered: false },
+        Item::JunglePressurePlate => Block::JunglePressurePlate { powered: false },
+        Item::AcaciaPressurePlate => Block::AcaciaPressurePlate { powered: false },
+        Item::DarkOakPressurePlate => Block::DarkOakPressurePlate { powered: false },
+        Item::MangrovePressurePlate => Block::MangrovePressurePlate { powered: false },
+        Item::CherryPressurePlate => Block::CherryPressurePlate { powered: false },
+        Item::BambooPressurePlate => Block::BambooPressurePlate { powered: false },
+        Item::CrimsonPressurePlate => Block::CrimsonPressurePlate { powered: false },
+        Item::WarpedPressurePlate => Block::WarpedPressurePlate { powered: false },
         Item::StonePressurePlate => Block::StonePressurePlate { powered: false },
+        Item::PolishedBlackstonePressurePlate => {
+            Block::PolishedBlackstonePressurePlate { powered: false }
+        }
         Item::Lever => {
             let face = match context.block_face {
                 BlockFace::Top => LeverFace::Floor,

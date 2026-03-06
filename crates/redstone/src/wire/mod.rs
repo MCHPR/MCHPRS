@@ -101,13 +101,16 @@ pub fn on_neighbor_updated(mut wire: RedstoneWire, world: &mut impl World, pos: 
 // }
 
 fn can_connect_to(block: Block, side: BlockDirection) -> bool {
+    if block.clone().get_pressure_plate_powered().is_some() {
+        return true;
+    }
+
     match block {
         Block::RedstoneWire { .. }
         | Block::Comparator(_)
         | Block::RedstoneTorch { .. }
         | Block::RedstoneBlock { .. }
         | Block::RedstoneWallTorch { .. }
-        | Block::StonePressurePlate { .. }
         | Block::TripwireHook { .. }
         | Block::StoneButton { .. }
         | Block::Target { .. }
