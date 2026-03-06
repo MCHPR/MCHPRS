@@ -224,14 +224,14 @@ pub fn get_state_for_placement(
                 powered: false,
             },
         },
-        Item::NoteBlock {} => Block::NoteBlock {
+        Item::NoteBlock => Block::NoteBlock {
             instrument: Instrument::Harp,
             note: 0,
             powered: false,
         },
         Item::BoneBlock => Block::BoneBlock { axis: BlockAxis::Y },
         Item::HayBlock => Block::HayBlock { axis: BlockAxis::Y },
-        Item::EndPortalFrame {} => Block::EndPortalFrame {
+        Item::EndPortalFrame => Block::EndPortalFrame {
             eye: false,
             facing: context.player.get_direction().opposite(),
         },
