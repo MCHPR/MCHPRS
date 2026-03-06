@@ -435,7 +435,7 @@ mod test {
     // mock World implementation for tests in this module,
     // we don't need most of the methods
     impl World for TestWorld {
-        fn get_block_raw(&self, pos: BlockPos) -> u32 {
+        fn get_block_raw(&self, _pos: BlockPos) -> u32 {
             unimplemented!()
         }
 
@@ -451,15 +451,15 @@ mod test {
             )
         }
 
-        fn delete_block_entity(&mut self, pos: BlockPos) {
+        fn delete_block_entity(&mut self, _pos: BlockPos) {
             unimplemented!()
         }
 
-        fn get_block_entity(&self, pos: BlockPos) -> Option<&BlockEntity> {
+        fn get_block_entity(&self, _pos: BlockPos) -> Option<&BlockEntity> {
             unimplemented!()
         }
 
-        fn set_block_entity(&mut self, pos: BlockPos, block_entity: BlockEntity) {
+        fn set_block_entity(&mut self, _pos: BlockPos, _block_entity: BlockEntity) {
             unimplemented!()
         }
 
@@ -471,11 +471,11 @@ mod test {
             self.0.iter_mut().find(|c| c.x == x && c.z == z)
         }
 
-        fn schedule_tick(&mut self, pos: BlockPos, delay: u32, priority: TickPriority) {
+        fn schedule_tick(&mut self, _pos: BlockPos, _delay: u32, _priority: TickPriority) {
             unimplemented!()
         }
 
-        fn pending_tick_at(&mut self, pos: BlockPos) -> bool {
+        fn pending_tick_at(&mut self, _pos: BlockPos) -> bool {
             unimplemented!()
         }
     }
