@@ -1,0 +1,11 @@
+
+circuit @test_input {
+  %lever = lever false
+  %lamp = lamp false, [%lever:10, %lever:12]
+}
+
+circuit @test_result : test @test_input -> "--passes=DedupLinks" {
+  %lever = lever false
+  %lamp = lamp false, [%lever:10]
+}
+
