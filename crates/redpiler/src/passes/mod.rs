@@ -60,6 +60,31 @@ impl AnalysisInfos {
     }
 }
 
+// struct PassRegistry {
+//     passes: Vec<Box<dyn Pass<W>>>,
+// }
+
+// struct PassPipelineBuilder<W: World> {
+//     passes: Vec<Box<dyn Pass<W>>>,
+// }
+
+// impl<W: World> PassPipelineBuilder<W> {
+//     fn add_pass<P: Pass<W> + 'static>(&mut self, pass: P) {
+        
+//         self.passes.push(Box::new(pass));
+//     }
+
+//     fn build(self) -> PassManager<W> {
+//         PassManager {
+//             passes: self.passes,
+//         }
+//     }
+// }
+
+// pub struct PassManager<W: World> {
+//     passes: Vec<Box<dyn Pass<W>>>,
+// }
+
 pub struct PassManager<'p, W: World> {
     passes: &'p [&'p dyn Pass<W>],
 }
@@ -84,7 +109,7 @@ impl<'p, W: World> PassManager<'p, W> {
 
         for &pass in self.passes {
             if !pass.should_run(options) {
-                trace!("Skipping pass: {}", pass.name());
+                trace!("Skipping pass: {}", pass.debug_name());
                 monitor.inc_progress();
                 continue;
             }
@@ -93,7 +118,7 @@ impl<'p, W: World> PassManager<'p, W> {
                 return graph;
             }
 
-            trace!("Running pass: {}", pass.name());
+            trace!("Running pass: {}", pass.debug_name());
             monitor.set_message(pass.status_message().to_string());
             let start = Instant::now();
 
@@ -105,7 +130,7 @@ impl<'p, W: World> PassManager<'p, W> {
             monitor.inc_progress();
 
             if options.print_after_all {
-                debug!("Printing circuit after pass: {}", pass.name());
+                debug!("Printing circuit after pass: {}", pass.debug_name());
                 graph.dump();
             }
         }
@@ -130,7 +155,7 @@ pub trait Pass<W: World> {
 
     /// This name should only be use for debugging purposes,
     /// it is not a valid identifier of the pass.
-    fn name(&self) -> &'static str {
+    fn debug_name(&self) -> &'static str {
         std::any::type_name::<Self>()
     }
 

@@ -2022,6 +2022,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "rilc"
+version = "0.4.1"
+dependencies = [
+ "clap",
+ "mchprs_redpiler",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

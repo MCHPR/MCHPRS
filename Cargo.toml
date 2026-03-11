@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/block_data_gen","crates/proc_macros", "crates/redpiler_graph", "crates/world_exporter"]
+members = ["crates/block_data_gen","crates/proc_macros", "crates/redpiler_graph", "crates/rilc", "crates/world_exporter"]
 
 [package]
 name = "mchprs"
