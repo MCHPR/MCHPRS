@@ -1,4 +1,5 @@
-use mchprs_core::server::MinecraftServer;
+use clap::Parser;
+use mchprs_core::server::{get_version_string, MinecraftServer};
 use std::fs;
 use std::path::Path;
 use tracing::debug;
@@ -6,7 +7,20 @@ use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::writer::MakeWriterExt;
 use tracing_subscriber::EnvFilter;
 
+#[derive(Parser)]
+struct Cli {
+    /// Print version
+    #[arg(short, long)]
+    version: bool,
+}
+
 fn main() {
+    let cli = Cli::parse();
+    if cli.version {
+        println!("{}", get_version_string());
+        return;
+    }
+
     // Setup logging
     let logfile = tracing_appender::rolling::daily("./logs", "mchprs.log");
     let env_filter = EnvFilter::builder()

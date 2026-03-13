@@ -2,7 +2,7 @@ use super::{database, worldedit, Plot, PlotWorld};
 use crate::player::{Gamemode, PacketSender, PlayerPos};
 use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
-use crate::server::Message;
+use crate::server::{get_version_string, Message};
 use mchprs_blocks::items::ItemStack;
 use mchprs_network::packets::clientbound::{
     CCommands, CCommandsNode as Node, CDeclareCommandsNodeParser as Parser, ClientBoundPacket,
@@ -520,6 +520,9 @@ impl Plot {
                 self.players[player]
                     .send_system_message("The world send rate was successfully set.");
             }
+            "version" => {
+                self.players[player].send_system_message(&get_version_string());
+            }
             _ => self.players[player].send_error_message("Command not found!"),
         }
         false
@@ -548,7 +551,7 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
             Node {
                 flags: CommandFlags::ROOT.bits() as i8,
                 children: vec![
-                    1, 4, 5, 6, 8, 10, 11, 13, 18, 30, 34, 41, 43, 44, 45, 49, 51,
+                    1, 4, 5, 6, 8, 10, 11, 13, 18, 30, 34, 41, 43, 44, 45, 49, 51, 52,
                 ],
                 redirect_node: None,
                 name: None,
@@ -1014,6 +1017,15 @@ pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
                 children: vec![],
                 redirect_node: Some(49),
                 name: Some("wsr"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 52: /version
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("version"),
                 parser: None,
                 suggestions_type: None,
             },

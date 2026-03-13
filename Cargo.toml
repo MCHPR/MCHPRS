@@ -20,7 +20,7 @@ edition = "2021"
 homepage = "https://github.com/MCHPR/MCHPRS"
 keywords = ["minecraft", "server", "redstone"]
 readme = "README.md"
-version = "0.4.1"
+version = "0.5.2-dev"
 license = "MIT"
 repository = "https://github.com/MCHPR/MCHPRS"
 
@@ -39,6 +39,7 @@ mchprs_core = { path = "./crates/core" }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 tracing-appender = { workspace = true }
 tracing = { workspace = true }
+clap = { workspace = true }
 
 [dev-dependencies]
 mchprs_world = { path = "./crates/world" }

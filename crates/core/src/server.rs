@@ -842,3 +842,12 @@ impl ServerBoundPacketHandler for MinecraftServer {
         self.complete_player_login(client_idx);
     }
 }
+
+pub fn get_version_string() -> String {
+    format!(
+        "{} v{}\n{}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        env!("GIT_HASH")
+    )
+}
