@@ -15,7 +15,7 @@ use mchprs_utils::map;
 use mchprs_world::storage::PalettedBitBuffer;
 use mchprs_world::{for_each_block_mut_optimized, World};
 use once_cell::sync::Lazy;
-use rand::Rng;
+use rand::RngExt;
 use regex::Regex;
 use rustc_hash::FxHashMap;
 use std::collections::HashMap;
