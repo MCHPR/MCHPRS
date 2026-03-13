@@ -16,7 +16,7 @@ repository.workspace = true
 [workspace.package]
 authors = ["StackDoubleFlow <ojaslandge@gmail.com>"]
 description = "A multithreaded minecraft server built for redstone."
-edition = "2021"
+edition = "2024"
 homepage = "https://github.com/MCHPR/MCHPRS"
 keywords = ["minecraft", "server", "redstone"]
 readme = "README.md"
