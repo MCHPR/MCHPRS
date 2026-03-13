@@ -7,33 +7,41 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use tracing::warn;
 
+const MONITOR_SCHEDULE: Duration = Duration::from_millis(500);
+
 #[derive(Default)]
 struct AtomicTps {
-    tps: AtomicU32,
-    unlimited: AtomicBool,
+    tps_bits: AtomicU32,
 }
 
 impl AtomicTps {
     fn from_tps(tps: Tps) -> Self {
-        match tps {
-            Tps::Limited(tps) => AtomicTps {
-                tps: AtomicU32::new(tps),
-                unlimited: AtomicBool::new(false),
-            },
-            Tps::Unlimited => AtomicTps {
-                tps: AtomicU32::new(0),
-                unlimited: AtomicBool::new(true),
-            },
+        AtomicTps {
+            tps_bits: AtomicU32::new(Self::tps_to_bits(tps)),
         }
     }
 
     fn update(&self, tps: Tps) {
+        self.tps_bits
+            .store(Self::tps_to_bits(tps), Ordering::Relaxed);
+    }
+
+    fn tps_to_bits(tps: Tps) -> u32 {
         match tps {
-            Tps::Limited(tps) => {
-                self.tps.store(tps, Ordering::Relaxed);
-                self.unlimited.store(false, Ordering::Relaxed);
+            Tps::Limited(tps) if tps.is_nan() => {
+                panic!("Tps should never be NaN under any circumstance")
             }
-            Tps::Unlimited => self.unlimited.store(true, Ordering::Relaxed),
+            Tps::Limited(tps) => tps.to_bits(),
+            Tps::Unlimited => f32::NAN.to_bits(),
+        }
+    }
+
+    fn get(&self) -> Tps {
+        let tps = f32::from_bits(self.tps_bits.load(Ordering::Relaxed));
+        if tps.is_nan() {
+            Tps::Unlimited
+        } else {
+            Tps::Limited(tps)
         }
     }
 }
@@ -148,13 +156,13 @@ impl TimingsMonitor {
 
     fn run_thread(data: Arc<MonitorData>) -> JoinHandle<()> {
         thread::spawn(move || {
-            let mut last_tps = data.tps.tps.load(Ordering::Relaxed);
+            let mut last_tps = data.tps.get();
             let mut last_ticks_count = data.ticks_passed.load(Ordering::Relaxed);
             let mut was_ticking_before = data.ticking.load(Ordering::Relaxed);
 
             let mut behind_for = 0;
             loop {
-                thread::sleep(Duration::from_millis(500));
+                thread::sleep(MONITOR_SCHEDULE);
                 if !data.running.load(Ordering::Relaxed) {
                     return;
                 }
@@ -166,7 +174,7 @@ impl TimingsMonitor {
                 let ticks_passed = (ticks_count - last_ticks_count) as u32;
                 last_ticks_count = ticks_count;
 
-                let tps = data.tps.tps.load(Ordering::Relaxed);
+                let tps = data.tps.get();
                 let ticking = data.ticking.load(Ordering::Relaxed);
                 if !(ticking && was_ticking_before)
                     || tps != last_tps
@@ -179,8 +187,14 @@ impl TimingsMonitor {
                 }
 
                 // 5% threshold
-                if data.tps.unlimited.load(Ordering::Relaxed) || ticks_passed < (tps / 2) * 95 / 100
-                {
+                let is_behind = match tps {
+                    Tps::Unlimited => false,
+                    Tps::Limited(tps_val) => {
+                        (ticks_passed as f32) < tps_val * MONITOR_SCHEDULE.as_secs_f32() * 0.95
+                    }
+                };
+
+                if is_behind {
                     behind_for += 1;
                 } else {
                     behind_for = 0;
@@ -190,8 +204,8 @@ impl TimingsMonitor {
                 if behind_for >= 3 {
                     data.too_slow.store(true, Ordering::Relaxed);
                     // warn!(
-                    //     "running behind by {} ticks",
-                    //     ((tps / 2) * 95 / 100) - ticks_passed
+                    //     "running behind by {:.1} ticks",
+                    //     (tps * MONITOR_SCHEDULE.as_secs_f32() * 0.95) - (ticks_passed as f32)
                     // );
                 }
 
