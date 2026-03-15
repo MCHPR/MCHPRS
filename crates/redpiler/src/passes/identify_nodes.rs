@@ -19,6 +19,7 @@ use mchprs_redstone::{self, comparator, noteblock, wire};
 use mchprs_world::{for_each_block_optimized, World};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
+use smallvec::smallvec;
 use tracing::warn;
 
 pub struct IdentifyNodes;
@@ -53,6 +54,11 @@ impl<W: World> Pass<W> for IdentifyNodes {
 
         for pos in second_pass {
             apply_annotations(graph, options, &first_pass, plot, pos);
+        }
+
+        for tick in input.pending_ticks {
+            let id = first_pass[&tick.pos];
+            graph[id].add_pending_tick(tick);
         }
     }
 
@@ -102,7 +108,7 @@ fn for_pos<W: World>(
 
     let node_idx = graph.add_node(CompileNode {
         ty,
-        block: Some((pos, id)),
+        block: smallvec![(pos, id)],
         state,
 
         is_input,

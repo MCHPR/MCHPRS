@@ -1,8 +1,10 @@
 mod analysis;
 mod clamp_weights;
 mod coalesce;
+mod coalesce2;
 mod constant_coalesce;
 mod constant_fold;
+mod constant_fold2;
 mod dedup_links;
 mod export_graph;
 mod identify_nodes;
@@ -29,12 +31,12 @@ pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
         &input_search::InputSearch,
         &clamp_weights::ClampWeights,
         &dedup_links::DedupLinks,
-        &constant_fold::ConstantFold,
         &analysis::ss_range_analysis::SSRangeAnalysis,
         &unreachable_output::UnreachableOutput,
-        &constant_coalesce::ConstantCoalesce,
-        &coalesce::Coalesce,
+        &constant_fold2::ConstantFold2,
+        &coalesce2::Coalesce2,
         &prune_orphans::PruneOrphans,
+        &dedup_links::DedupLinks,
         &export_graph::ExportGraph,
     ])
 }
@@ -57,6 +59,13 @@ impl AnalysisInfos {
         self.analysis_infos
             .get(&type_id)
             .and_then(|ai| (ai.as_ref() as &dyn Any).downcast_ref())
+    }
+
+    pub fn get_analysis_mut<A: AnalysisInfo>(&mut self) -> Option<&mut A> {
+        let type_id = TypeId::of::<A>();
+        self.analysis_infos
+            .get_mut(&type_id)
+            .and_then(|ai| (ai.as_mut() as &mut dyn Any).downcast_mut())
     }
 }
 
