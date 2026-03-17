@@ -5,8 +5,8 @@
 
 use super::Pass;
 use crate::compile_graph::{CompileGraph, NodeIdx};
-use crate::passes::analysis::ss_range_analysis::SSRangeInfo;
-use crate::passes::AnalysisInfos;
+use crate::passes::analysis::ss_range_analysis::{SSRangeAnalysis, SSRangeInfo};
+use crate::passes::{AnalysisInfos, AnalysisUsage};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::visit::NodeIndexable;
@@ -40,6 +40,10 @@ impl<W: World> Pass<W> for UnreachableOutput {
                 }
             }
         }
+    }
+
+    fn analysis_usage(&self, au: &mut AnalysisUsage) {
+        au.set_required::<SSRangeAnalysis, W>();
     }
 
     fn status_message(&self) -> &'static str {

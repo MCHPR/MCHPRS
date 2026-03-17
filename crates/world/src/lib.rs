@@ -21,7 +21,7 @@ pub struct TickEntry {
     pub pos: BlockPos,
 }
 
-pub trait World {
+pub trait World: 'static {
     /// Returns the block located at `pos`
     fn get_block(&self, pos: BlockPos) -> Block {
         Block::from_id(self.get_block_raw(pos))

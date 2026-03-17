@@ -8,12 +8,13 @@ use backend::{BackendDispatcher, JITBackend};
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::{for_each_block_mut_optimized, TickEntry, World};
-use passes::make_default_pass_manager;
 use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, error, trace, warn};
 
 pub use task_monitor::TaskMonitor;
+
+use crate::passes::PassRegistry;
 
 fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     Some(match block {
@@ -101,7 +102,7 @@ impl CompilerOptions {
 #[derive(Default)]
 pub struct Compiler {
     is_active: bool,
-    jit: Option<BackendDispatcher>,
+    backend: Option<BackendDispatcher>,
     options: CompilerOptions,
 }
 
@@ -117,10 +118,10 @@ impl Compiler {
         }
     }
 
-    /// Use just-in-time compilation with a `JITBackend` such as the `DirectBackend`.
+    /// Switches the currently active backend to the one specified by `backend`.
     /// Requires recompilation to take effect.
-    pub fn use_jit(&mut self, jit: BackendDispatcher) {
-        self.jit = Some(jit);
+    pub fn use_backend(&mut self, backend: BackendDispatcher) {
+        self.backend = Some(backend);
     }
 
     pub fn compile<W: World>(
@@ -135,38 +136,39 @@ impl Compiler {
         let start = Instant::now();
 
         let input = CompilerInput { world, bounds };
-        let pass_manager = make_default_pass_manager::<W>();
-        let graph = pass_manager.run_passes(&options, &input, monitor.clone());
+        let registry = PassRegistry::default();
+        let pass_pipeline = passes::build_pass_pipeline::<W>(&registry, &options);
+        let graph = pass_pipeline.run_passes(&options, &input, monitor.clone());
 
         if monitor.cancelled() {
             return;
         }
 
-        let replace_jit = match self.jit {
+        let replace_backend = match self.backend {
             Some(BackendDispatcher::DirectBackend(_)) => {
                 options.backend_variant != BackendVariant::Direct
             }
             None => true,
         };
-        if replace_jit {
-            debug!("Switching jit backend to {:?}", options.backend_variant);
-            let jit = match options.backend_variant {
+        if replace_backend {
+            debug!("Switching backend to {:?}", options.backend_variant);
+            let backend = match options.backend_variant {
                 BackendVariant::Direct => BackendDispatcher::DirectBackend(Default::default()),
             };
-            self.use_jit(jit);
+            self.use_backend(backend);
         }
 
-        if let Some(jit) = &mut self.jit {
+        if let Some(backend) = &mut self.backend {
             trace!("Compiling backend");
             monitor.set_message("Compiling backend".to_string());
             let start = Instant::now();
 
-            jit.compile(graph, ticks, &options, monitor.clone());
+            backend.compile(graph, ticks, &options, monitor.clone());
 
             monitor.inc_progress();
             trace!("Backend compiled in {:?}", start.elapsed());
         } else {
-            error!("Cannot compile without JIT variant selected");
+            error!("Cannot compile without backend variant selected");
         }
 
         self.options = options;
@@ -177,8 +179,8 @@ impl Compiler {
     pub fn reset<W: World>(&mut self, world: &mut W, bounds: (BlockPos, BlockPos)) {
         if self.is_active {
             self.is_active = false;
-            if let Some(jit) = &mut self.jit {
-                jit.reset(world, self.options.io_only)
+            if let Some(backend) = &mut self.backend {
+                backend.reset(world, self.options.io_only)
             }
         }
 
@@ -197,10 +199,10 @@ impl Compiler {
             self.is_active,
             "tried to get redpiler backend when inactive"
         );
-        if let Some(jit) = &mut self.jit {
-            jit
+        if let Some(backend) = &mut self.backend {
+            backend
         } else {
-            panic!("redpiler is active but is missing jit backend");
+            panic!("redpiler is active but is missing backend");
         }
     }
 
@@ -226,7 +228,7 @@ impl Compiler {
     }
 
     pub fn inspect(&mut self, pos: BlockPos) {
-        if let Some(backend) = &mut self.jit {
+        if let Some(backend) = &mut self.backend {
             backend.inspect(pos);
         } else {
             debug!("cannot inspect when backend is not running");

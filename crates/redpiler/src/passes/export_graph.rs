@@ -1,6 +1,6 @@
 use super::Pass;
 use crate::compile_graph::{CompileGraph, LinkType as CLinkType, NodeIdx, NodeType as CNodeType};
-use crate::passes::AnalysisInfos;
+use crate::passes::{AnalysisInfos, AnalysisUsage};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode as CComparatorMode;
@@ -114,11 +114,11 @@ impl<W: World> Pass<W> for ExportGraph {
         fs::write("redpiler_graph.bc", serialize(nodes.as_slice()).unwrap()).unwrap();
     }
 
-    fn should_run(&self, options: &CompilerOptions) -> bool {
-        options.export
-    }
-
     fn status_message(&self) -> &'static str {
         "Exporting graph"
+    }
+
+    fn analysis_usage(&self, au: &mut AnalysisUsage) {
+        au.set_preserves_all();
     }
 }

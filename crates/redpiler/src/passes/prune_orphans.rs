@@ -37,10 +37,6 @@ impl<W: World> Pass<W> for PruneOrphans {
         graph.retain_nodes(|_, idx| visited.contains(&idx));
     }
 
-    fn should_run(&self, options: &CompilerOptions) -> bool {
-        options.io_only && options.optimize
-    }
-
     fn status_message(&self) -> &'static str {
         "Pruning orphans"
     }

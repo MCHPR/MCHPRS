@@ -28,11 +28,6 @@ impl<W: World> Pass<W> for InputSearch {
         state.search();
     }
 
-    fn should_run(&self, _: &CompilerOptions) -> bool {
-        // Mandatory
-        true
-    }
-
     fn status_message(&self) -> &'static str {
         "Searching for links"
     }

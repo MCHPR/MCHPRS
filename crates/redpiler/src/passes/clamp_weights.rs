@@ -17,11 +17,6 @@ impl<W: World> Pass<W> for ClampWeights {
         graph.retain_edges(|g, edge| g[edge].ss < 15);
     }
 
-    fn should_run(&self, _: &CompilerOptions) -> bool {
-        // Mandatory
-        true
-    }
-
     fn status_message(&self) -> &'static str {
         "Clamping weights"
     }

@@ -56,11 +56,6 @@ impl<W: World> Pass<W> for IdentifyNodes {
         }
     }
 
-    fn should_run(&self, _: &CompilerOptions) -> bool {
-        // Mandatory
-        true
-    }
-
     fn status_message(&self) -> &'static str {
         "Identifying nodes"
     }

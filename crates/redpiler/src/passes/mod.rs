@@ -11,6 +11,7 @@ mod prune_orphans;
 mod unreachable_output;
 
 use mchprs_world::World;
+use rustc_hash::FxHashSet;
 
 use crate::ril::DumpGraph;
 
@@ -23,20 +24,85 @@ use std::sync::Arc;
 use std::time::Instant;
 use tracing::{debug, trace};
 
-pub const fn make_default_pass_manager<'w, W: World>() -> PassManager<'w, W> {
-    PassManager::new(&[
-        &identify_nodes::IdentifyNodes,
-        &input_search::InputSearch,
-        &clamp_weights::ClampWeights,
-        &dedup_links::DedupLinks,
-        &constant_fold::ConstantFold,
-        &analysis::ss_range_analysis::SSRangeAnalysis,
-        &unreachable_output::UnreachableOutput,
-        &constant_coalesce::ConstantCoalesce,
-        &coalesce::Coalesce,
-        &prune_orphans::PruneOrphans,
-        &export_graph::ExportGraph,
-    ])
+use analysis::*;
+
+pub fn build_pass_pipeline<'p, W: World>(
+    registry: &'p PassRegistry<W>,
+    options: &CompilerOptions,
+) -> PassPipeline<'p, W> {
+    let mut builder = PassPipelineBuilder::new(&registry);
+
+    builder.add_pass::<identify_nodes::IdentifyNodes>();
+    builder.add_pass::<input_search::InputSearch>();
+    builder.add_pass::<clamp_weights::ClampWeights>();
+
+    if options.optimize {
+        builder.add_pass::<dedup_links::DedupLinks>();
+        builder.add_pass::<constant_fold::ConstantFold>();
+        builder.add_pass::<unreachable_output::UnreachableOutput>();
+        builder.add_pass::<constant_coalesce::ConstantCoalesce>();
+        builder.add_pass::<coalesce::Coalesce>();
+        if options.io_only {
+            builder.add_pass::<prune_orphans::PruneOrphans>();
+        }
+    }
+
+    if options.export {
+        builder.add_pass::<export_graph::ExportGraph>();
+    }
+
+    builder.build()
+}
+
+pub struct PassRegistry<W: World> {
+    passes: HashMap<TypeId, Box<dyn Pass<W>>>,
+}
+
+impl<W: World> Default for PassRegistry<W> {
+    fn default() -> Self {
+        let mut registry = Self::new();
+
+        // Frontend passes
+        registry.register_pass(identify_nodes::IdentifyNodes);
+        registry.register_pass(input_search::InputSearch);
+
+        // Analysis Passes
+        registry.register_pass(ss_range_analysis::SSRangeAnalysis);
+
+        // Optimization Passes
+        registry.register_pass(clamp_weights::ClampWeights);
+        registry.register_pass(dedup_links::DedupLinks);
+        registry.register_pass(constant_fold::ConstantFold);
+        registry.register_pass(unreachable_output::UnreachableOutput);
+        registry.register_pass(constant_coalesce::ConstantCoalesce);
+        registry.register_pass(coalesce::Coalesce);
+        registry.register_pass(prune_orphans::PruneOrphans);
+        registry.register_pass(export_graph::ExportGraph);
+
+        registry
+    }
+}
+
+impl<W: World> PassRegistry<W> {
+    pub fn new() -> Self {
+        Self {
+            passes: HashMap::new(),
+        }
+    }
+
+    pub fn register_pass<P: Pass<W>>(&mut self, pass: P) {
+        if let Some(pass) = self.passes.insert(pass.type_id(), Box::new(pass)) {
+            panic!("registered duplicate pass: {}", pass.debug_name())
+        }
+    }
+
+    pub fn get_pass<P: Pass<W>>(&self) -> &dyn Pass<W> {
+        self.get_pass_from_id(TypeId::of::<P>())
+    }
+
+    pub fn get_pass_from_id(&self, id: TypeId) -> &dyn Pass<W> {
+        &*self.passes[&id]
+    }
 }
 
 pub trait AnalysisInfo: Any {}
@@ -60,40 +126,57 @@ impl AnalysisInfos {
     }
 }
 
-// struct PassRegistry {
-//     passes: Vec<Box<dyn Pass<W>>>,
-// }
-
-// struct PassPipelineBuilder<W: World> {
-//     passes: Vec<Box<dyn Pass<W>>>,
-// }
-
-// impl<W: World> PassPipelineBuilder<W> {
-//     fn add_pass<P: Pass<W> + 'static>(&mut self, pass: P) {
-        
-//         self.passes.push(Box::new(pass));
-//     }
-
-//     fn build(self) -> PassManager<W> {
-//         PassManager {
-//             passes: self.passes,
-//         }
-//     }
-// }
-
-// pub struct PassManager<W: World> {
-//     passes: Vec<Box<dyn Pass<W>>>,
-// }
-
-pub struct PassManager<'p, W: World> {
-    passes: &'p [&'p dyn Pass<W>],
+pub struct PassPipelineBuilder<'p, W: World> {
+    registry: &'p PassRegistry<W>,
+    passes: Vec<&'p dyn Pass<W>>,
+    available_analysis: FxHashSet<TypeId>,
+    analysis_usage: AnalysisUsage,
 }
 
-impl<'p, W: World> PassManager<'p, W> {
-    pub const fn new(passes: &'p [&dyn Pass<W>]) -> Self {
-        Self { passes }
+impl<'p, W: World> PassPipelineBuilder<'p, W> {
+    pub fn new(registry: &'p PassRegistry<W>) -> Self {
+        Self {
+            registry,
+            passes: Vec::new(),
+            available_analysis: FxHashSet::default(),
+            analysis_usage: AnalysisUsage::default(),
+        }
     }
 
+    pub fn add_pass<P: Pass<W>>(&mut self) {
+        let pass = self.registry.get_pass::<P>();
+
+        let au = &mut self.analysis_usage;
+        au.reset();
+
+        pass.analysis_usage(au);
+        for type_id in &au.required {
+            if !self.available_analysis.contains(type_id) {
+                let analysis_pass = self.registry.get_pass_from_id(*type_id);
+                self.passes.push(analysis_pass);
+            }
+        }
+
+        self.passes.push(pass);
+
+        if !au.preserves_all {
+            self.available_analysis
+                .retain(|type_id| au.preserved.contains(type_id));
+        }
+    }
+
+    pub fn build(self) -> PassPipeline<'p, W> {
+        PassPipeline {
+            passes: self.passes,
+        }
+    }
+}
+
+pub struct PassPipeline<'p, W: World> {
+    passes: Vec<&'p dyn Pass<W>>,
+}
+
+impl<'p, W: World> PassPipeline<'p, W> {
     pub fn run_passes(
         &self,
         options: &CompilerOptions,
@@ -107,13 +190,7 @@ impl<'p, W: World> PassManager<'p, W> {
 
         let mut analysis_infos = AnalysisInfos::default();
 
-        for &pass in self.passes {
-            if !pass.should_run(options) {
-                trace!("Skipping pass: {}", pass.debug_name());
-                monitor.inc_progress();
-                continue;
-            }
-
+        for &pass in &self.passes {
             if monitor.cancelled() {
                 return graph;
             }
@@ -144,7 +221,34 @@ impl<'p, W: World> PassManager<'p, W> {
     }
 }
 
-pub trait Pass<W: World> {
+#[derive(Default)]
+struct AnalysisUsage {
+    preserves_all: bool,
+    required: Vec<TypeId>,
+    preserved: Vec<TypeId>,
+}
+
+impl AnalysisUsage {
+    fn reset(&mut self) {
+        self.preserves_all = false;
+        self.required.clear();
+        self.preserved.clear();
+    }
+
+    fn set_preserves_all(&mut self) {
+        self.preserves_all = true;
+    }
+
+    fn set_required<P: Pass<W>, W: World>(&mut self) {
+        self.required.push(TypeId::of::<P>());
+    }
+
+    fn set_preserved<P: Pass<W>, W: World>(&mut self) {
+        self.preserved.push(TypeId::of::<P>());
+    }
+}
+
+pub trait Pass<W: World>: 'static {
     fn run_pass(
         &self,
         graph: &mut CompileGraph,
@@ -159,10 +263,7 @@ pub trait Pass<W: World> {
         std::any::type_name::<Self>()
     }
 
-    fn should_run(&self, options: &CompilerOptions) -> bool {
-        // Run passes for optimized builds by default
-        options.optimize
-    }
+    fn analysis_usage(&self, _au: &mut AnalysisUsage) {}
 
     fn status_message(&self) -> &'static str;
 }

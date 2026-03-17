@@ -13,7 +13,7 @@
 //! comparator subtract by constant -> comparator loop
 
 use crate::compile_graph::{CompileGraph, LinkType, NodeState, NodeType};
-use crate::passes::{AnalysisInfo, AnalysisInfos, Pass};
+use crate::passes::{AnalysisInfo, AnalysisInfos, AnalysisUsage, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode;
@@ -162,6 +162,10 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
 
     fn status_message(&self) -> &'static str {
         "Analyzing signal strength ranges"
+    }
+
+    fn analysis_usage(&self, au: &mut AnalysisUsage) {
+        au.set_preserves_all();
     }
 }
 

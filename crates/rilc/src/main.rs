@@ -16,11 +16,11 @@ enum Command {
 
         #[arg(long)]
         update: bool,
-    }
+    },
 }
 
 fn main() {
     let cli = Cli::parse();
-    
+
     println!("Hello, world!");
 }
