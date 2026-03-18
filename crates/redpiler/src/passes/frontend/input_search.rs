@@ -352,7 +352,9 @@ impl<'a, W: World> InputSearchState<'a, W> {
                 continue;
             }
             let node = &self.graph[idx];
-            self.search_node(idx, node.block.unwrap());
+            if let Some(block) = node.block {
+                self.search_node(idx, block);
+            }
         }
     }
 }
