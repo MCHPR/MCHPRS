@@ -149,6 +149,7 @@ fn run_tests(path: PathBuf, update: bool) {
         eprintln!("warning: failed to find .ril_test_root");
     }
     search_path(path.clone(), &mut ril_paths);
+    println!("Found {} RIL test modules.", ril_paths.len());
 
     let mut num_passed = 0;
     let mut num_failed = 0;
@@ -169,11 +170,11 @@ fn run_tests(path: PathBuf, update: bool) {
                     line_col.col + 1,
                     err.message
                 );
+                num_failed += 1;
                 continue;
             }
         };
         let tests = module.get_tests();
-        println!("Found {} RIL test modules.", tests.len());
         let mut updated = false;
         for test in tests {
             let result = run_test(&test_root, &path, &module, test, update, &mut src);

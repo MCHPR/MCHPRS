@@ -5,7 +5,7 @@ use crate::CompilerOptions;
 use itertools::Itertools;
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use petgraph::stable_graph::EdgeReference;
-use petgraph::visit::{EdgeRef, IntoEdgesDirected};
+use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use rustc_hash::FxHashMap;
 use std::iter::Peekable;
@@ -543,6 +543,7 @@ impl<'a> Lexer<'a> {
             "backend_circuit" => TokenType::BackendCircuit,
             "test" => TokenType::Test,
             "test_args" => TokenType::TestArgs,
+            "schematic" => TokenType::Schematic,
             "none" => TokenType::None,
             "repeater" => TokenType::ComponentType(ComponentType::Repeater),
             "torch" => TokenType::ComponentType(ComponentType::Torch),
@@ -594,15 +595,6 @@ impl<'a> Lexer<'a> {
             if c == '\n' {
                 break;
             }
-        }
-    }
-
-    fn skip_whitespace(&mut self) {
-        while let Some((_, c)) = self.src_iter.peek() {
-            if !c.is_whitespace() {
-                break;
-            }
-            self.src_iter.next();
         }
     }
 }

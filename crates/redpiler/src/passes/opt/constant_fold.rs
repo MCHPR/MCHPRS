@@ -1,4 +1,4 @@
-use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
+use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeState, NodeType};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::ComparatorMode;
@@ -112,7 +112,7 @@ fn fold(graph: &mut CompileGraph) -> usize {
         };
 
         graph[idx].ty = NodeType::Constant;
-        graph[idx].state.output_strength = new_power;
+        graph[idx].state = NodeState::ss(new_power);
 
         let mut incoming = graph.neighbors_directed(idx, Direction::Incoming).detach();
         while let Some(edge) = incoming.next_edge(graph) {
