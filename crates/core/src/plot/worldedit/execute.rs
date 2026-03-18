@@ -8,9 +8,9 @@ use mchprs_blocks::blocks::{Block, FlipDirection, HopperFacing, RotateAmt};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
+use mchprs_schematic::{load_schematic, paste_clipboard, save_schematic, WorldEditClipboard};
 use mchprs_text::{ColorCode, TextComponentBuilder};
-use once_cell::sync::Lazy;
-use schematic::{load_schematic, save_schematic};
+use std::path::PathBuf;
 use std::time::Instant;
 use tracing::error;
 
@@ -253,8 +253,8 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
     }
 }
 
-static SCHEMATI_VALIDATE_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
+static SCHEMATI_VALIDATE_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
 
 pub(super) fn execute_load(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
@@ -270,7 +270,8 @@ pub(super) fn execute_load(ctx: CommandExecuteContext<'_>) {
         file_name.insert_str(0, &prefix);
     }
 
-    let clipboard = load_schematic(&file_name);
+    let path = PathBuf::from("./schems").join(file_name);
+    let clipboard = load_schematic(&path);
     match clipboard {
         Ok(cb) => {
             ctx.player.worldedit_clipboard = Some(cb);
@@ -310,8 +311,9 @@ pub(super) fn execute_save(ctx: CommandExecuteContext<'_>) {
         file_name.insert_str(0, &prefix);
     }
 
+    let path = PathBuf::from("./schems").join(file_name);
     let clipboard = ctx.player.worldedit_clipboard.as_ref().unwrap();
-    match save_schematic(&file_name, clipboard) {
+    match save_schematic(&path, clipboard) {
         Ok(_) => {
             ctx.player.send_worldedit_message(&format!(
                 "The schematic was saved sucessfuly. ({:?})",

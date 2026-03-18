@@ -56,4 +56,8 @@ impl<W: World> Pass<W> for DedupLinks {
     fn status_message(&self) -> &'static str {
         "Deduplicating links"
     }
+
+    fn driver_key(&self) -> &'static str {
+        "dedup-links"
+    }
 }

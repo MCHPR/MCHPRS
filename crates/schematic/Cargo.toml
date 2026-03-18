@@ -1,5 +1,5 @@
 [package]
-name = "mchprs_world"
+name = "mchprs_schematic"
 authors.workspace = true
 description.workspace = true
 edition.workspace = true
@@ -9,17 +9,14 @@ readme.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+include.workspace = true
 
 [dependencies]
+mchprs_world = { path = "../world", features = ["testing"] }
 mchprs_blocks = { path = "../blocks" }
-mchprs_network = { path = "../network", optional = true }
 serde = { workspace = true }
+itertools = { workspace = true }
+anyhow = { workspace = true }
 rustc-hash = { workspace = true }
+regex = { workspace = true }
 hematite-nbt = { workspace = true }
-
-[features]
-default = ["networking"]
-networking = ["dep:mchprs_network"]
-testing = []

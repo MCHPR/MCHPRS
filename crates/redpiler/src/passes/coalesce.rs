@@ -30,6 +30,10 @@ impl<W: World> Pass<W> for Coalesce {
     fn status_message(&self) -> &'static str {
         "Combining duplicate logic"
     }
+
+    fn driver_key(&self) -> &'static str {
+        "coalesce"
+    }
 }
 
 fn run_iteration(graph: &mut CompileGraph) -> usize {

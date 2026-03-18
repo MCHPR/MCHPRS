@@ -167,6 +167,10 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
     fn analysis_usage(&self, au: &mut AnalysisUsage) {
         au.set_preserves_all();
     }
+
+    fn driver_key(&self) -> &'static str {
+        "ss-range-analysis"
+    }
 }
 
 impl SSRangeAnalysis {

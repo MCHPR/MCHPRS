@@ -117,18 +117,6 @@ impl PlotWorld {
         Some(((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize)
     }
 
-    fn flush_block_changes(&mut self) {
-        for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
-            let encoded = packet.encode();
-            for player in &self.packet_senders {
-                player.send_packet(&encoded);
-            }
-        }
-        for chunk in &mut self.chunks {
-            chunk.reset_multi_blocks();
-        }
-    }
-
     pub fn get_corners(&self) -> (BlockPos, BlockPos) {
         const W: i32 = PLOT_BLOCK_WIDTH;
         let first_pos = BlockPos::new(self.x * W, 0, self.z * W);
@@ -261,6 +249,18 @@ impl World for PlotWorld {
 
         for player in &self.packet_senders {
             player.send_packet(&sound_effect_data);
+        }
+    }
+
+    fn flush_block_changes(&mut self) {
+        for packet in self.chunks.iter_mut().flat_map(|c| c.multi_blocks()) {
+            let encoded = packet.encode();
+            for player in &self.packet_senders {
+                player.send_packet(&encoded);
+            }
+        }
+        for chunk in &mut self.chunks {
+            chunk.reset_multi_blocks();
         }
     }
 }

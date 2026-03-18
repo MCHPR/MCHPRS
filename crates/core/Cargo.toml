@@ -22,6 +22,7 @@ mchprs_network = { path = "../network" }
 mchprs_text = { path = "../text" }
 mchprs_redpiler = { path = "../redpiler" }
 mchprs_redstone = { path = "../redstone" }
+mchprs_schematic = { path = "../schematic" }
 toml = { workspace = true }
 byteorder = { workspace = true }
 hematite-nbt = { workspace = true }
@@ -33,7 +34,6 @@ bus = { workspace = true }
 ctrlc = { workspace = true, features = ["termination"] }
 tracing = { workspace = true }
 rand = { workspace = true }
-regex = { workspace = true }
 backtrace = { workspace = true }
 rusqlite = { workspace = true, features=["bundled"] }
 anyhow = { workspace = true }
@@ -43,7 +43,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 reqwest = { workspace = true, features = ["json"] }
 itertools = { workspace = true }
 bincode = { workspace = true }
-once_cell = { workspace = true }
 rustc-hash = { workspace = true }
 hmac = { workspace = true }
 sha2 = { workspace = true }
+regex = { workspace = true }

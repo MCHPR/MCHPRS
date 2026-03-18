@@ -59,6 +59,10 @@ impl<W: World> Pass<W> for IdentifyNodes {
     fn status_message(&self) -> &'static str {
         "Identifying nodes"
     }
+
+    fn driver_key(&self) -> &'static str {
+        "identify-nodes"
+    }
 }
 
 fn for_pos<W: World>(
@@ -82,14 +86,9 @@ fn for_pos<W: World>(
         return;
     };
 
-    let is_input = matches!(
-        ty,
-        NodeType::Button | NodeType::Lever | NodeType::PressurePlate
-    );
-    let is_output = matches!(
-        ty,
-        NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. }
-    ) || matches!(block, Block::RedstoneWire(wire) if wire_dot_out && wire::is_dot(wire));
+    let is_input = ty.is_normally_input();
+    let is_output = ty.is_normally_output()
+        || matches!(block, Block::RedstoneWire(wire) if wire_dot_out && wire::is_dot(wire));
 
     if ignore_wires && ty == NodeType::Wire && !(is_input | is_output) {
         return;
@@ -98,6 +97,7 @@ fn for_pos<W: World>(
     let node_idx = graph.add_node(CompileNode {
         ty,
         block: Some((pos, id)),
+        name: None,
         state,
 
         is_input,

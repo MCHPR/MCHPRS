@@ -1,7 +1,6 @@
 //! [Worldedit](https://github.com/EngineHub/WorldEdit) and [RedstoneTools](https://github.com/paulikauro/RedstoneTools) implementation
 
 mod execute;
-mod schematic;
 
 use super::commands::CommandFlags;
 use super::{Plot, PlotWorld};
@@ -11,17 +10,17 @@ use mchprs_blocks::block_entities::{BlockEntity, ContainerType};
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::{CCommandsNode, CDeclareCommandsNodeParser};
+use mchprs_schematic::{create_clipboard, WorldEditClipboard};
 use mchprs_utils::map;
 use mchprs_world::storage::PalettedBitBuffer;
 use mchprs_world::{for_each_block_mut_optimized, World};
-use once_cell::sync::Lazy;
 use rand::RngExt;
 use regex::Regex;
-use rustc_hash::FxHashMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
 // Attempts to execute a worldedit command. Returns true of the command was handled.
 // The command is not handled if it is not found in the worldedit commands and alias lists.
@@ -446,7 +445,7 @@ impl Default for WorldeditCommand {
     }
 }
 
-static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
+static COMMANDS: LazyLock<HashMap<&'static str, WorldeditCommand>> = LazyLock::new(|| {
     map! {
         "up" => WorldeditCommand {
             execute_fn: execute_up,
@@ -746,7 +745,7 @@ static COMMANDS: Lazy<HashMap<&'static str, WorldeditCommand>> = Lazy::new(|| {
     }
 });
 
-static ALIASES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
+static ALIASES: LazyLock<HashMap<&'static str, &'static str>> = LazyLock::new(|| {
     map! {
         "u" => "up",
         "desc" => "descend",
@@ -773,18 +772,6 @@ static ALIASES: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|| {
 pub struct WorldEditPatternPart {
     pub weight: f32,
     pub block_id: u32,
-}
-
-#[derive(Clone, Debug)]
-pub struct WorldEditClipboard {
-    pub offset_x: i32,
-    pub offset_y: i32,
-    pub offset_z: i32,
-    pub size_x: u32,
-    pub size_y: u32,
-    pub size_z: u32,
-    pub data: PalettedBitBuffer,
-    pub block_entities: FxHashMap<BlockPos, BlockEntity>,
 }
 
 #[derive(Clone, Debug)]
@@ -822,7 +809,7 @@ impl FromStr for WorldEditPattern {
     fn from_str(pattern_str: &str) -> PatternParseResult<WorldEditPattern> {
         let mut pattern = WorldEditPattern { parts: Vec::new() };
         for part in pattern_str.split(',') {
-            static RE: Lazy<Regex> = Lazy::new(|| {
+            static RE: LazyLock<Regex> = LazyLock::new(|| {
                 Regex::new(r"^(([0-9]+(\.[0-9]+)?)%)?(=)?([0-9]+|(minecraft:)?[a-zA-Z_]+)(:([0-9]+)|\[(([a-zA-Z_]+=[a-zA-Z0-9]+,?)+?)\])?((\|([^|]*?)){1,4})?$").unwrap()
             });
 
@@ -984,49 +971,6 @@ fn worldedit_start_operation(player: &mut Player) -> WorldEditOperation {
     WorldEditOperation::new(first_pos, second_pos)
 }
 
-fn create_clipboard(
-    plot: &mut PlotWorld,
-    origin: BlockPos,
-    first_pos: BlockPos,
-    second_pos: BlockPos,
-) -> WorldEditClipboard {
-    let start_pos = first_pos.min(second_pos);
-    let end_pos = first_pos.max(second_pos);
-    let size_x = (end_pos.x - start_pos.x) as u32 + 1;
-    let size_y = (end_pos.y - start_pos.y) as u32 + 1;
-    let size_z = (end_pos.z - start_pos.z) as u32 + 1;
-    let offset = origin - start_pos;
-    let mut cb = WorldEditClipboard {
-        offset_x: offset.x,
-        offset_y: offset.y,
-        offset_z: offset.z,
-        size_x,
-        size_y,
-        size_z,
-        data: PalettedBitBuffer::new((size_x * size_y * size_z) as usize, 9),
-        block_entities: FxHashMap::default(),
-    };
-    let mut i = 0;
-    for y in start_pos.y..=end_pos.y {
-        for z in start_pos.z..=end_pos.z {
-            for x in start_pos.x..=end_pos.x {
-                let pos = BlockPos::new(x, y, z);
-                let id = plot.get_block_raw(pos);
-                let block = plot.get_block(BlockPos::new(x, y, z));
-                if block.has_block_entity() {
-                    if let Some(block_entity) = plot.get_block_entity(pos) {
-                        cb.block_entities
-                            .insert(pos - start_pos, block_entity.clone());
-                    }
-                }
-                cb.data.set_entry(i, id);
-                i += 1;
-            }
-        }
-    }
-    cb
-}
-
 fn clear_area(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
     let start_pos = first_pos.min(second_pos);
     let end_pos = first_pos.max(second_pos);
@@ -1047,47 +991,6 @@ fn clear_area(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
                 }
             }
         }
-    }
-}
-
-fn paste_clipboard(plot: &mut PlotWorld, cb: &WorldEditClipboard, pos: BlockPos, ignore_air: bool) {
-    let offset_x = pos.x - cb.offset_x;
-    let offset_y = pos.y - cb.offset_y;
-    let offset_z = pos.z - cb.offset_z;
-    let mut i = 0;
-    // This can be made better, but right now it's not D:
-    let x_range = offset_x..offset_x + cb.size_x as i32;
-    let y_range = offset_y..offset_y + cb.size_y as i32;
-    let z_range = offset_z..offset_z + cb.size_z as i32;
-
-    let entries = cb.data.entries();
-    // I have no clue if these clones are going to cost anything noticeable.
-    'top_loop: for y in y_range {
-        for z in z_range.clone() {
-            for x in x_range.clone() {
-                if i >= entries {
-                    break 'top_loop;
-                }
-                let entry = cb.data.get_entry(i);
-                i += 1;
-                if ignore_air && entry == 0 {
-                    continue;
-                }
-                plot.set_block_raw(BlockPos::new(x, y, z), entry);
-            }
-        }
-    }
-
-    // Send block changes before we send block entity data, otherwise it'll be ignored
-    plot.flush_block_changes();
-
-    for (pos, block_entity) in &cb.block_entities {
-        let new_pos = BlockPos {
-            x: pos.x + offset_x,
-            y: pos.y + offset_y,
-            z: pos.z + offset_z,
-        };
-        plot.set_block_entity(new_pos, block_entity.clone());
     }
 }
 

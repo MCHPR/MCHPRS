@@ -3,13 +3,13 @@ use common::*;
 
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockDirection;
-use mchprs_world::{TickPriority, World};
+use mchprs_world::{testing::TestWorld, TickPriority, World};
 
 test_all_backends!(lever_on_off);
 fn lever_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
 
-    let mut world = TestWorld::new(1);
+    let mut world = TestWorld::new(1, 1, 1);
     make_lever(&mut world, lever_pos);
 
     let mut runner = BackendRunner::new(world, backend);
@@ -27,7 +27,7 @@ fn trapdoor_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let trapdoor_pos = pos(1, 0, 0);
 
-    let mut world = TestWorld::new(1);
+    let mut world = TestWorld::new(1, 1, 1);
     make_lever(&mut world, lever_pos);
     world.set_block(trapdoor_pos, trapdoor());
 
@@ -46,7 +46,7 @@ fn lamp_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let lamp_pos = pos(1, 0, 0);
 
-    let mut world = TestWorld::new(1);
+    let mut world = TestWorld::new(1, 1, 1);
     make_lever(&mut world, lever_pos);
     world.set_block(lamp_pos, Block::RedstoneLamp { lit: false });
 
@@ -66,7 +66,7 @@ fn wall_torch_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let torch_pos = pos(1, 0, 0);
 
-    let mut world = TestWorld::new(1);
+    let mut world = TestWorld::new(1, 1, 1);
     make_lever(&mut world, lever_pos);
     world.set_block(
         torch_pos,
@@ -93,7 +93,7 @@ fn torch_on_off(backend: TestBackend) {
     let lever_pos = pos(0, 2, 0);
     let torch_pos = pos(2, 2, 0);
 
-    let mut world = TestWorld::new(1);
+    let mut world = TestWorld::new(1, 1, 1);
     make_lever(&mut world, lever_pos);
     make_wire(&mut world, pos(1, 1, 0));
     place_on_block(&mut world, torch_pos, Block::RedstoneTorch { lit: true });
@@ -116,7 +116,7 @@ fn repeater_on_off(backend: TestBackend) {
     let trapdoor_pos = pos(2, 1, 0);
 
     for delay in 1..=4 {
-        let mut world = TestWorld::new(1);
+        let mut world = TestWorld::new(1, 1, 1);
         make_lever(&mut world, lever_pos);
         make_repeater(&mut world, pos(1, 1, 0), delay as u8, BlockDirection::West);
         world.set_block(trapdoor_pos, trapdoor());
@@ -146,7 +146,7 @@ fn wire_barely_reaches(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let trapdoor_pos = pos(16, 1, 0);
 
-    let mut world = TestWorld::new(2);
+    let mut world = TestWorld::new(2, 1, 1);
     make_lever(&mut world, lever_pos);
     // 15 wire blocks between lever and trapdoor
     for x in 1..=15 {
@@ -167,7 +167,7 @@ fn wire_no_reach(backend: TestBackend) {
     let lever_pos = pos(0, 1, 0);
     let trapdoor_pos = pos(17, 1, 0);
 
-    let mut world = TestWorld::new(2);
+    let mut world = TestWorld::new(2, 1, 1);
     make_lever(&mut world, lever_pos);
     // 16 wire blocks between lever and trapdoor
     for x in 1..=16 {
@@ -189,7 +189,7 @@ fn ground_torch_does_not_power_block_below(backend: TestBackend) {
     let torch_pos = pos(0, 1, 0);
     let lamp_pos = pos(0, 0, 0);
 
-    let mut world = TestWorld::new(1);
+    let mut world = TestWorld::new(1, 1, 1);
     world.set_block(lamp_pos, Block::RedstoneLamp { lit: true });
     world.set_block(torch_pos, Block::RedstoneTorch { lit: true });
 

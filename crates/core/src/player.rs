@@ -1,6 +1,6 @@
 use crate::config::CONFIG;
 use crate::permissions::{self, PlayerPermissionsCache};
-use crate::plot::worldedit::{WorldEditClipboard, WorldEditUndo};
+use crate::plot::worldedit::WorldEditUndo;
 use crate::plot::PLOT_SCALE;
 use crate::utils::{self, HyphenatedUUID};
 use byteorder::{BigEndian, ReadBytesExt};
@@ -11,6 +11,7 @@ use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::{PacketEncoder, PlayerProperty, SlotData};
 use mchprs_network::{PlayerConn, PlayerPacketSender};
 use mchprs_proc_macros::protocol_id;
+use mchprs_schematic::WorldEditClipboard;
 use mchprs_text::{ColorCode, TextComponent, TextComponentBuilder};
 use serde::{Deserialize, Serialize};
 use std::fmt;

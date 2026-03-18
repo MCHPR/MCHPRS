@@ -7,4 +7,3 @@ edition = "2021"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 regex = { workspace = true }
-once_cell = { workspace = true }

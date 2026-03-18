@@ -13,4 +13,8 @@ include.workspace = true
 
 [dependencies]
 mchprs_redpiler = { path = "../redpiler" }
+mchprs_blocks = { path = "../blocks" }
+mchprs_world = { path = "../world", features = ["testing"] }
+mchprs_schematic = { path = "../schematic" }
+line-index = { workspace = true }
 clap = { workspace = true }

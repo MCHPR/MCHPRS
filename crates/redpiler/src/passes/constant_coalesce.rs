@@ -55,6 +55,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
                         let constant_idx = graph.add_node(CompileNode {
                             ty: NodeType::Constant,
                             block: None,
+                            name: None,
                             state: NodeState::ss(ss),
                             is_input: false,
                             is_output: false,
@@ -77,5 +78,9 @@ impl<W: World> Pass<W> for ConstantCoalesce {
 
     fn status_message(&self) -> &'static str {
         "Coalescing constants"
+    }
+
+    fn driver_key(&self) -> &'static str {
+        "constant-coalesce"
     }
 }

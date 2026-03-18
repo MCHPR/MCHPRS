@@ -31,6 +31,10 @@ impl<W: World> Pass<W> for InputSearch {
     fn status_message(&self) -> &'static str {
         "Searching for links"
     }
+
+    fn driver_key(&self) -> &'static str {
+        "input-search"
+    }
 }
 
 /// Querying blocks from the world may be expensive, so we save recently

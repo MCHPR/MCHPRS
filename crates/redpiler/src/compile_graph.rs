@@ -29,6 +29,22 @@ pub enum NodeType {
     },
 }
 
+impl NodeType {
+    pub fn is_normally_input(&self) -> bool {
+        matches!(
+            self,
+            NodeType::Button | NodeType::Lever | NodeType::PressurePlate
+        )
+    }
+
+    pub fn is_normally_output(&self) -> bool {
+        matches!(
+            self,
+            NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. }
+        )
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct NodeState {
     pub powered: bool,
@@ -76,6 +92,7 @@ pub struct Annotations {}
 pub struct CompileNode {
     pub ty: NodeType,
     pub block: Option<(BlockPos, u32)>,
+    pub name: Option<String>,
     pub state: NodeState,
 
     pub is_input: bool,
@@ -95,7 +112,7 @@ pub enum LinkType {
     Side,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct CompileLink {
     pub ty: LinkType,
     pub ss: u8,

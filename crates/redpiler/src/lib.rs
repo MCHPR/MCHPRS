@@ -1,8 +1,8 @@
-mod backend;
-mod compile_graph;
-mod passes;
-mod ril;
-mod task_monitor;
+pub mod backend;
+pub mod compile_graph;
+pub mod passes;
+pub mod ril;
+pub mod task_monitor;
 
 use backend::{BackendDispatcher, JITBackend};
 use mchprs_blocks::blocks::Block;
@@ -14,7 +14,7 @@ use tracing::{debug, error, trace, warn};
 
 pub use task_monitor::TaskMonitor;
 
-use crate::passes::PassRegistry;
+use crate::{compile_graph::CompileGraph, passes::PassRegistry};
 
 fn block_powered_mut(block: &mut Block) -> Option<&mut bool> {
     Some(match block {
@@ -51,6 +51,8 @@ pub struct CompilerOptions {
     pub print_before_backend: bool,
     /// The backend variant to be used after compilation
     pub backend_variant: BackendVariant,
+    /// A comma seperated list of passes to run. This can only be used by the rilc driver.
+    pub passes: Option<String>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
@@ -60,40 +62,49 @@ pub enum BackendVariant {
 }
 
 impl CompilerOptions {
+    fn parse_option(&mut self, option: &str) {
+        if option.starts_with("--") {
+            if let Some(passes_str) = option.strip_prefix("--passes=") {
+                self.passes = Some(passes_str.to_owned());
+                return;
+            }
+
+            match option {
+                "--optimize" => self.optimize = true,
+                "--export" => self.export = true,
+                "--io-only" => self.io_only = true,
+                "--update" => self.update = true,
+                "--export-dot" => self.export_dot_graph = true,
+                "--wire-dot-out" => self.wire_dot_out = true,
+                "--print-after-all" => self.print_after_all = true,
+                "--print-before-backend" => self.print_before_backend = true,
+                // FIXME: use actual error handling
+                _ => warn!("Unrecognized option: {}", option),
+            }
+        } else if let Some(str) = option.strip_prefix('-') {
+            for c in str.chars() {
+                let lower = c.to_lowercase().to_string();
+                match lower.as_str() {
+                    "o" => self.optimize = true,
+                    "e" => self.export = true,
+                    "i" => self.io_only = true,
+                    "u" => self.update = true,
+                    "d" => self.wire_dot_out = true,
+                    // FIXME: use actual error handling
+                    _ => warn!("Unrecognized option: -{}", c),
+                }
+            }
+        } else {
+            // FIXME: use actual error handling
+            warn!("Unrecognized option: {}", option);
+        }
+    }
+
     pub fn parse(str: &str) -> CompilerOptions {
         let mut co: CompilerOptions = Default::default();
         let options = str.split_whitespace();
         for option in options {
-            if option.starts_with("--") {
-                match option {
-                    "--optimize" => co.optimize = true,
-                    "--export" => co.export = true,
-                    "--io-only" => co.io_only = true,
-                    "--update" => co.update = true,
-                    "--export-dot" => co.export_dot_graph = true,
-                    "--wire-dot-out" => co.wire_dot_out = true,
-                    "--print-after-all" => co.print_after_all = true,
-                    "--print-before-backend" => co.print_before_backend = true,
-                    // FIXME: use actual error handling
-                    _ => warn!("Unrecognized option: {}", option),
-                }
-            } else if let Some(str) = option.strip_prefix('-') {
-                for c in str.chars() {
-                    let lower = c.to_lowercase().to_string();
-                    match lower.as_str() {
-                        "o" => co.optimize = true,
-                        "e" => co.export = true,
-                        "i" => co.io_only = true,
-                        "u" => co.update = true,
-                        "d" => co.wire_dot_out = true,
-                        // FIXME: use actual error handling
-                        _ => warn!("Unrecognized option: -{}", c),
-                    }
-                }
-            } else {
-                // FIXME: use actual error handling
-                warn!("Unrecognized option: {}", option);
-            }
+            co.parse_option(option);
         }
         co
     }
@@ -138,7 +149,8 @@ impl Compiler {
         let input = CompilerInput { world, bounds };
         let registry = PassRegistry::default();
         let pass_pipeline = passes::build_pass_pipeline::<W>(&registry, &options);
-        let graph = pass_pipeline.run_passes(&options, &input, monitor.clone());
+        let graph =
+            pass_pipeline.run_passes(&options, &input, CompileGraph::new(), monitor.clone());
 
         if monitor.cancelled() {
             return;
@@ -262,6 +274,7 @@ mod tests {
             print_after_all: false,
             print_before_backend: false,
             backend_variant: BackendVariant::default(),
+            passes: None,
         };
         let options = CompilerOptions::parse(input);
 

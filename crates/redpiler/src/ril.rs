@@ -12,13 +12,9 @@ use std::iter::Peekable;
 use std::str::{CharIndices, Chars};
 use std::{fmt, slice, vec};
 
-fn dump_node_name(
-    f: &mut fmt::Formatter<'_>,
-    naming: &FxHashMap<NodeIdx, String>,
-    node_idx: NodeIdx,
-) -> fmt::Result {
+fn dump_node_name(f: &mut impl fmt::Write, ctx: &FmtContext<'_>, node_idx: NodeIdx) -> fmt::Result {
     write!(f, "%")?;
-    if let Some(name) = naming.get(&node_idx) {
+    if let Some(name) = &ctx.graph[node_idx].name {
         write!(f, "{}", name)
     } else {
         write!(f, "{}", node_idx.index())
@@ -31,7 +27,7 @@ fn dump_edge(
     src: NodeIdx,
     weight: &CompileLink,
 ) -> fmt::Result {
-    dump_node_name(f, ctx.naming, src)?;
+    dump_node_name(f, ctx, src)?;
     write!(f, ":{}", weight.ss)
 }
 
@@ -56,7 +52,6 @@ fn dump_edges<'a>(
 struct FmtContext<'a> {
     graph: &'a CompileGraph,
     node_idx: NodeIdx,
-    naming: &'a FxHashMap<NodeIdx, String>,
 }
 
 impl<'a> FmtContext<'a> {
@@ -120,12 +115,12 @@ impl<'a> InputFormatter<'a> {
     }
 }
 
-fn dump_node(f: &mut fmt::Formatter<'_>, ctx: &FmtContext<'_>) -> fmt::Result {
+fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
     let node = ctx.node();
     let inputs = InputFormatter { ctx };
 
     write!(f, "  ")?;
-    dump_node_name(f, ctx.naming, ctx.node_idx)?;
+    dump_node_name(f, ctx, ctx.node_idx)?;
     write!(f, " = ")?;
 
     match node.ty {
@@ -202,18 +197,10 @@ fn dump_node(f: &mut fmt::Formatter<'_>, ctx: &FmtContext<'_>) -> fmt::Result {
     Ok(())
 }
 
-pub fn dump_graph(
-    f: &mut fmt::Formatter<'_>,
-    graph: &CompileGraph,
-    naming: &FxHashMap<NodeIdx, String>,
-) -> fmt::Result {
+pub fn dump_graph(f: &mut impl fmt::Write, graph: &CompileGraph) -> fmt::Result {
     writeln!(f, "circuit {{")?;
     for node_idx in graph.node_indices() {
-        let ctx = FmtContext {
-            graph,
-            node_idx,
-            naming,
-        };
+        let ctx = FmtContext { graph, node_idx };
         dump_node(f, &ctx)?;
         writeln!(f)?;
     }
@@ -226,7 +213,7 @@ struct GraphDumper<'a> {
 
 impl<'a> fmt::Display for GraphDumper<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        dump_graph(f, self.graph, &Default::default())
+        dump_graph(f, self.graph)
     }
 }
 
@@ -406,10 +393,10 @@ impl Token {
 }
 
 #[derive(Debug)]
-struct RILParserError {
+pub struct RILParserError {
     /// Byte position from source file
-    pos: usize,
-    message: String,
+    pub pos: usize,
+    pub message: String,
 }
 
 impl RILParserError {
@@ -468,6 +455,11 @@ impl<'a> Lexer<'a> {
                     lexer.tokens.push(Token::new(pos, ty));
                     continue;
                 }
+                '"' => {
+                    let str = lexer.read_string();
+                    lexer.tokens.push(Token::new(pos, TokenType::String(str)));
+                    continue;
+                }
                 _ if c.is_whitespace() => {
                     lexer.src_iter.next();
                     continue;
@@ -494,13 +486,27 @@ impl<'a> Lexer<'a> {
         Ok(lexer.tokens)
     }
 
-    fn read_value_ident(&mut self) -> String {
+    fn read_string(&mut self) -> String {
+        self.src_iter.next();
         let mut str = String::new();
-        while let Some((_, c)) = self.src_iter.peek() {
-            if !c.is_ascii_digit() && !c.is_ascii_alphabetic() {
+        while let Some(&(_, c)) = self.src_iter.peek() {
+            if c == '"' {
+                self.src_iter.next();
                 break;
             }
-            str.push(*c);
+            str.push(c);
+            self.src_iter.next();
+        }
+        str
+    }
+
+    fn read_value_ident(&mut self) -> String {
+        let mut str = String::new();
+        while let Some(&(_, c)) = self.src_iter.peek() {
+            if !c.is_ascii_digit() && !c.is_ascii_alphabetic() && c != '_' {
+                break;
+            }
+            str.push(c);
             self.src_iter.next();
         }
         str
@@ -524,11 +530,11 @@ impl<'a> Lexer<'a> {
     fn read_keyword(&mut self) -> RILParserResult<()> {
         let pos = self.src_iter.peek().unwrap().0;
         let mut word = String::new();
-        while let Some((_, c)) = self.src_iter.peek() {
-            if !c.is_ascii_alphabetic() {
+        while let Some(&(_, c)) = self.src_iter.peek() {
+            if !c.is_ascii_alphabetic() && c != '_' {
                 break;
             }
-            word.push(*c);
+            word.push(c);
             self.src_iter.next();
         }
 
@@ -601,10 +607,88 @@ impl<'a> Lexer<'a> {
     }
 }
 
+pub struct RILTest {
+    pub name: String,
+    pub schematic_path: Option<String>,
+    pub graph: CompileGraph,
+    pub options: CompilerOptions,
+}
+
 #[derive(Default)]
-struct RILModule {
+pub struct RILModule {
     globals: FxHashMap<String, ast::Global>,
     test_args: Option<ast::TestArgs>,
+}
+
+impl RILModule {
+    pub fn parse_from_string(src: &str) -> RILParserResult<Self> {
+        let tokens = Lexer::lex(src)?;
+        Parser::parse(tokens)
+    }
+
+    fn get_graph(&self, circuit: &ast::Circuit) -> CompileGraph {
+        let mut graph = CompileGraph::new();
+        let mut name_map = FxHashMap::default();
+        for component in &circuit.components {
+            let node_idx = graph.add_node(CompileNode {
+                ty: component.node_ty.clone(),
+                state: component.node_state.clone(),
+                name: Some(component.name.clone()),
+                block: None,
+                is_input: component.node_ty.is_normally_input(),
+                is_output: component.node_ty.is_normally_output(),
+                annotations: Default::default(),
+            });
+            name_map.insert(component.name.clone(), node_idx);
+        }
+        for component in &circuit.components {
+            let to = name_map[&component.name];
+            for input in &component.inputs {
+                let from = name_map[&input.value];
+                graph.add_edge(from, to, input.link);
+            }
+        }
+        graph
+    }
+
+    fn get_test(&self, name: &str, test: &ast::Test) -> RILTest {
+        let (graph, schematic_path) = match self.globals.get(&test.input) {
+            Some(ast::Global::Circuit(circuit)) => (self.get_graph(&circuit), None),
+            Some(ast::Global::Schematic(schematic)) => {
+                (CompileGraph::new(), Some(schematic.path.clone()))
+            }
+            Some(_) => panic!("invalid test input"),
+            None => panic!("could not find test input with name: {}", test.input),
+        };
+        let options = test
+            .test_args
+            .as_ref()
+            .or(self.test_args.as_ref().map(|args| &args.args))
+            .expect("could not determine test arguments")
+            .clone();
+        RILTest {
+            name: name.to_owned(),
+            graph,
+            schematic_path,
+            options,
+        }
+    }
+
+    pub fn get_tests(&self) -> Vec<RILTest> {
+        self.globals
+            .iter()
+            .filter_map(|(name, global)| match global {
+                ast::Global::Test(test) => Some(self.get_test(name, test)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn run_test(&self, name: &str) {
+        let Some(ast::Global::Test(test)) = self.globals.get(name) else {
+            panic!("could not find test with name: {}", name);
+        };
+    }
 }
 
 struct Parser {
@@ -878,26 +962,50 @@ impl Parser {
         Ok(())
     }
 
+    fn parse_input(
+        &mut self,
+        ty: LinkType,
+        value_token: Token,
+        inputs: &mut Vec<ast::Input>,
+    ) -> RILParserResult<()> {
+        let value = value_token.ty.unwrap_value();
+        self.expect_token(&[TokenType::Colon])?;
+        let (_, ss) = self.expect_int()?;
+        let link = CompileLink::new(ty, ss as u8);
+        inputs.push(ast::Input { link, value });
+        Ok(())
+    }
+
     fn parse_input_list(&mut self, ty: LinkType) -> RILParserResult<Vec<ast::Input>> {
         self.expect_token(&[TokenType::LeftBracket])?;
 
         let mut inputs = Vec::new();
+
+        let value_or_bracket = self.expect_token_with(
+            |token| matches!(token.ty, TokenType::Value(_) | TokenType::RightBracket),
+            &[
+                TokenType::Value(Default::default()),
+                TokenType::RightBracket,
+            ],
+        )?;
+
+        if value_or_bracket.ty == TokenType::RightBracket {
+            return Ok(inputs);
+        } else {
+            self.parse_input(ty, value_or_bracket, &mut inputs)?;
+        }
+
         loop {
-            let value_or_bracket = self.expect_token_with(
-                |token| matches!(token.ty, TokenType::Value(_) | TokenType::RightBracket),
-                &[
-                    TokenType::Value(Default::default()),
-                    TokenType::RightBracket,
-                ],
-            )?;
-            if value_or_bracket.ty == TokenType::RightBracket {
+            let comma_or_bracket =
+                self.expect_token(&[TokenType::Comma, TokenType::RightBracket])?;
+            if comma_or_bracket.ty == TokenType::RightBracket {
                 break;
             } else {
-                let value = value_or_bracket.ty.unwrap_value();
-                self.expect_token(&[TokenType::Colon])?;
-                let (_, ss) = self.expect_int()?;
-                let link = CompileLink::new(ty, ss as u8);
-                inputs.push(ast::Input { link, value })
+                let value_token = self.expect_token_with(
+                    |token| matches!(token.ty, TokenType::Value(_)),
+                    &[TokenType::Value(Default::default())],
+                )?;
+                self.parse_input(ty, value_token, &mut inputs)?;
             }
         }
 
@@ -990,8 +1098,8 @@ mod ast {
     }
 
     pub struct Schematic {
-        name: String,
-        path: String,
+        pub name: String,
+        pub path: String,
     }
 
     pub struct Circuit {

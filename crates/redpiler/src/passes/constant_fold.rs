@@ -30,6 +30,10 @@ impl<W: World> Pass<W> for ConstantFold {
     fn status_message(&self) -> &'static str {
         "Constant folding"
     }
+
+    fn driver_key(&self) -> &'static str {
+        "constant-fold"
+    }
 }
 
 fn fold(graph: &mut CompileGraph) -> usize {

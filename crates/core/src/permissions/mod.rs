@@ -1,12 +1,13 @@
+use std::sync::OnceLock;
+
 use crate::config::CONFIG;
 use crate::utils::HyphenatedUUID;
 use anyhow::{anyhow, Context, Result};
 use mysql::prelude::*;
 use mysql::{OptsBuilder, Pool, PooledConn, Row};
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 
-static POOL: OnceCell<Pool> = OnceCell::new();
+static POOL: OnceLock<Pool> = OnceLock::new();
 
 fn conn() -> Result<PooledConn> {
     Ok(POOL

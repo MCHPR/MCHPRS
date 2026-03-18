@@ -20,4 +20,8 @@ impl<W: World> Pass<W> for ClampWeights {
     fn status_message(&self) -> &'static str {
         "Clamping weights"
     }
+
+    fn driver_key(&self) -> &'static str {
+        "clamp-weights"
+    }
 }

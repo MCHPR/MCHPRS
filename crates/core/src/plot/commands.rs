@@ -12,9 +12,9 @@ use mchprs_network::PlayerPacketSender;
 use mchprs_redpiler::CompilerOptions;
 use mchprs_save_data::plot_data::{Tps, WorldSendRate};
 use mchprs_text::TextComponent;
-use once_cell::sync::Lazy;
 use std::ops::Add;
 use std::str::FromStr;
+use std::sync::LazyLock;
 use std::time::Instant;
 use tracing::{debug, info, warn};
 
@@ -544,7 +544,7 @@ bitflags! {
 // For more information, see https://wiki.vg/Command_Data
 /// The `DeclareCommands` packet that is sent when the player joins.
 /// This is used for command autocomplete.
-pub static DECLARE_COMMANDS: Lazy<PacketEncoder> = Lazy::new(|| {
+pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
     let mut packet = CCommands {
         nodes: vec![
             // 0: Root Node

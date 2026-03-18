@@ -40,4 +40,8 @@ impl<W: World> Pass<W> for PruneOrphans {
     fn status_message(&self) -> &'static str {
         "Pruning orphans"
     }
+
+    fn driver_key(&self) -> &'static str {
+        "prune-orphans"
+    }
 }

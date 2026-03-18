@@ -1,20 +1,120 @@
 //! This implements Sponge Schematic Specification ver. 2
 //! https://github.com/SpongePowered/Schematic-Specification/blob/master/versions/schematic-2.md
 
-use super::WorldEditClipboard;
-use crate::server::MC_DATA_VERSION;
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use mchprs_world::storage::PalettedBitBuffer;
-use once_cell::sync::Lazy;
+use mchprs_world::{World, MC_DATA_VERSION};
 use regex::Regex;
 use rustc_hash::FxHashMap;
 use serde::Serialize;
 use std::fs::{self, File};
-use std::path::PathBuf;
+use std::path::Path;
+use std::sync::LazyLock;
+
+#[derive(Clone, Debug)]
+pub struct WorldEditClipboard {
+    pub offset_x: i32,
+    pub offset_y: i32,
+    pub offset_z: i32,
+    pub size_x: u32,
+    pub size_y: u32,
+    pub size_z: u32,
+    pub data: PalettedBitBuffer,
+    pub block_entities: FxHashMap<BlockPos, BlockEntity>,
+}
+
+pub fn create_clipboard<W: World>(
+    world: &mut W,
+    origin: BlockPos,
+    first_pos: BlockPos,
+    second_pos: BlockPos,
+) -> WorldEditClipboard {
+    let start_pos = first_pos.min(second_pos);
+    let end_pos = first_pos.max(second_pos);
+    let size_x = (end_pos.x - start_pos.x) as u32 + 1;
+    let size_y = (end_pos.y - start_pos.y) as u32 + 1;
+    let size_z = (end_pos.z - start_pos.z) as u32 + 1;
+    let offset = origin - start_pos;
+    let mut cb = WorldEditClipboard {
+        offset_x: offset.x,
+        offset_y: offset.y,
+        offset_z: offset.z,
+        size_x,
+        size_y,
+        size_z,
+        data: PalettedBitBuffer::new((size_x * size_y * size_z) as usize, 9),
+        block_entities: FxHashMap::default(),
+    };
+    let mut i = 0;
+    for y in start_pos.y..=end_pos.y {
+        for z in start_pos.z..=end_pos.z {
+            for x in start_pos.x..=end_pos.x {
+                let pos = BlockPos::new(x, y, z);
+                let id = world.get_block_raw(pos);
+                let block = world.get_block(BlockPos::new(x, y, z));
+                if block.has_block_entity() {
+                    if let Some(block_entity) = world.get_block_entity(pos) {
+                        cb.block_entities
+                            .insert(pos - start_pos, block_entity.clone());
+                    }
+                }
+                cb.data.set_entry(i, id);
+                i += 1;
+            }
+        }
+    }
+    cb
+}
+
+pub fn paste_clipboard<W: World>(
+    world: &mut W,
+    cb: &WorldEditClipboard,
+    pos: BlockPos,
+    ignore_air: bool,
+) {
+    let offset_x = pos.x - cb.offset_x;
+    let offset_y = pos.y - cb.offset_y;
+    let offset_z = pos.z - cb.offset_z;
+    let mut i = 0;
+    // This can be made better, but right now it's not D:
+    let x_range = offset_x..offset_x + cb.size_x as i32;
+    let y_range = offset_y..offset_y + cb.size_y as i32;
+    let z_range = offset_z..offset_z + cb.size_z as i32;
+
+    let entries = cb.data.entries();
+    // I have no clue if these clones are going to cost anything noticeable.
+    'top_loop: for y in y_range {
+        for z in z_range.clone() {
+            for x in x_range.clone() {
+                if i >= entries {
+                    break 'top_loop;
+                }
+                let entry = cb.data.get_entry(i);
+                i += 1;
+                if ignore_air && entry == 0 {
+                    continue;
+                }
+                world.set_block_raw(BlockPos::new(x, y, z), entry);
+            }
+        }
+    }
+
+    // Send block changes before we send block entity data, otherwise it'll be ignored
+    world.flush_block_changes();
+
+    for (pos, block_entity) in &cb.block_entities {
+        let new_pos = BlockPos {
+            x: pos.x + offset_x,
+            y: pos.y + offset_y,
+            z: pos.z + offset_z,
+        };
+        world.set_block_entity(new_pos, block_entity.clone());
+    }
+}
 
 macro_rules! nbt_as {
     // I'm not sure if path is the right type here.
@@ -28,8 +128,8 @@ macro_rules! nbt_as {
 }
 
 fn parse_block(str: &str) -> Option<Block> {
-    static RE: Lazy<Regex> =
-        Lazy::new(|| Regex::new(r"(?:minecraft:)?([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap());
+    static RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?:minecraft:)?([a-z_]+)(?:\[([a-z=,0-9]+)\])?").unwrap());
     let captures = RE.captures(str)?;
     let mut block_name = captures.get(1)?.as_str().to_owned();
     if !block_name.contains(':') {
@@ -47,8 +147,8 @@ fn parse_block(str: &str) -> Option<Block> {
     Some(block)
 }
 
-pub fn load_schematic(file_name: &str) -> Result<WorldEditClipboard> {
-    let mut file = File::open("./schems/".to_owned() + file_name)?;
+pub fn load_schematic(path: &Path) -> Result<WorldEditClipboard> {
+    let mut file = File::open(path)?;
     let nbt = nbt::Blob::from_gzip_reader(&mut file)?;
 
     let root = if nbt.content.contains_key("Schematic") {
@@ -211,12 +311,10 @@ struct Schematic {
     data_version: i32,
 }
 
-pub fn save_schematic(file_name: &str, clipboard: &WorldEditClipboard) -> Result<()> {
-    let mut path = PathBuf::from("./schems");
-    path.push(file_name);
+pub fn save_schematic(path: &Path, clipboard: &WorldEditClipboard) -> Result<()> {
     fs::create_dir_all(path.parent().unwrap())?;
 
-    let mut file = File::create("./schems/".to_owned() + file_name)?;
+    let mut file = File::create(path)?;
     let size_x = clipboard.size_x;
     let size_y = clipboard.size_y;
     let size_z = clipboard.size_z;

@@ -121,4 +121,8 @@ impl<W: World> Pass<W> for ExportGraph {
     fn analysis_usage(&self, au: &mut AnalysisUsage) {
         au.set_preserves_all();
     }
+
+    fn driver_key(&self) -> &'static str {
+        "export-graph"
+    }
 }

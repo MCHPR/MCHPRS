@@ -11,7 +11,7 @@ mod prune_orphans;
 mod unreachable_output;
 
 use mchprs_world::World;
-use rustc_hash::FxHashSet;
+use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::ril::DumpGraph;
 
@@ -55,7 +55,8 @@ pub fn build_pass_pipeline<'p, W: World>(
 }
 
 pub struct PassRegistry<W: World> {
-    passes: HashMap<TypeId, Box<dyn Pass<W>>>,
+    passes: FxHashMap<TypeId, Box<dyn Pass<W>>>,
+    driver_name_map: FxHashMap<&'static str, TypeId>,
 }
 
 impl<W: World> Default for PassRegistry<W> {
@@ -86,11 +87,14 @@ impl<W: World> Default for PassRegistry<W> {
 impl<W: World> PassRegistry<W> {
     pub fn new() -> Self {
         Self {
-            passes: HashMap::new(),
+            passes: FxHashMap::default(),
+            driver_name_map: FxHashMap::default(),
         }
     }
 
     pub fn register_pass<P: Pass<W>>(&mut self, pass: P) {
+        self.driver_name_map
+            .insert(pass.driver_key(), pass.type_id());
         if let Some(pass) = self.passes.insert(pass.type_id(), Box::new(pass)) {
             panic!("registered duplicate pass: {}", pass.debug_name())
         }
@@ -102,6 +106,12 @@ impl<W: World> PassRegistry<W> {
 
     pub fn get_pass_from_id(&self, id: TypeId) -> &dyn Pass<W> {
         &*self.passes[&id]
+    }
+
+    pub fn get_pass_from_driver_key(&self, key: &str) -> Option<&dyn Pass<W>> {
+        self.driver_name_map
+            .get(key)
+            .map(|type_id| self.get_pass_from_id(*type_id))
     }
 }
 
@@ -143,9 +153,21 @@ impl<'p, W: World> PassPipelineBuilder<'p, W> {
         }
     }
 
+    /// Returns true if the pass was found
+    pub fn add_pass_by_driver_key(&mut self, driver_key: &str) -> bool {
+        let Some(pass) = self.registry.get_pass_from_driver_key(driver_key) else {
+            return false;
+        };
+        self.add_pass_by_instance(pass);
+        true
+    }
+
     pub fn add_pass<P: Pass<W>>(&mut self) {
         let pass = self.registry.get_pass::<P>();
+        self.add_pass_by_instance(pass);
+    }
 
+    pub fn add_pass_by_instance(&mut self, pass: &'p dyn Pass<W>) {
         let au = &mut self.analysis_usage;
         au.reset();
 
@@ -181,10 +203,9 @@ impl<'p, W: World> PassPipeline<'p, W> {
         &self,
         options: &CompilerOptions,
         input: &CompilerInput<'_, W>,
+        mut graph: CompileGraph,
         monitor: Arc<TaskMonitor>,
     ) -> CompileGraph {
-        let mut graph = CompileGraph::new();
-
         // Add one for the backend compile step
         monitor.set_max_progress(self.passes.len() + 1);
 
@@ -222,7 +243,7 @@ impl<'p, W: World> PassPipeline<'p, W> {
 }
 
 #[derive(Default)]
-struct AnalysisUsage {
+pub struct AnalysisUsage {
     preserves_all: bool,
     required: Vec<TypeId>,
     preserved: Vec<TypeId>,
@@ -235,15 +256,15 @@ impl AnalysisUsage {
         self.preserved.clear();
     }
 
-    fn set_preserves_all(&mut self) {
+    pub fn set_preserves_all(&mut self) {
         self.preserves_all = true;
     }
 
-    fn set_required<P: Pass<W>, W: World>(&mut self) {
+    pub fn set_required<P: Pass<W>, W: World>(&mut self) {
         self.required.push(TypeId::of::<P>());
     }
 
-    fn set_preserved<P: Pass<W>, W: World>(&mut self) {
+    pub fn set_preserved<P: Pass<W>, W: World>(&mut self) {
         self.preserved.push(TypeId::of::<P>());
     }
 }
@@ -266,4 +287,7 @@ pub trait Pass<W: World>: 'static {
     fn analysis_usage(&self, _au: &mut AnalysisUsage) {}
 
     fn status_message(&self) -> &'static str;
+
+    /// A kebab-case identifier for this pass. Used by rilc.
+    fn driver_key(&self) -> &'static str;
 }

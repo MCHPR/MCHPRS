@@ -1,10 +1,16 @@
 pub mod storage;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockPos;
 use serde::{Deserialize, Serialize};
 use storage::Chunk;
+
+pub const MC_VERSION: &str = "1.20.4";
+pub const MC_DATA_VERSION: i32 = 3700;
+pub const PROTOCOL_VERSION: i32 = 765;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TickPriority {
@@ -79,6 +85,8 @@ pub trait World: 'static {
         pitch: f32,
     ) {
     }
+
+    fn flush_block_changes(&mut self) {}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

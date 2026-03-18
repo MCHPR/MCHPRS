@@ -1,8 +1,8 @@
-use once_cell::sync::Lazy;
 use regex::Regex;
 use serde::Serialize;
+use std::sync::LazyLock;
 
-static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
+static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new("([a-zA-Z0-9§\\-:/]+\\.[a-zA-Z/0-9§\\-:_#]+(\\.[a-zA-Z/0-9.§\\-:#\\?\\+=_]+)?)")
         .unwrap()
 });

@@ -1218,6 +1218,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "line-index"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e27e0ed5a392a7f5ba0b3808a2afccff16c64933312c84b57618b49d1209bd2"
+dependencies = [
+ "nohash-hasher",
+ "text-size",
+]
+
+[[package]]
 name = "litemap"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1309,12 +1319,12 @@ dependencies = [
  "mchprs_redpiler",
  "mchprs_redstone",
  "mchprs_save_data",
+ "mchprs_schematic",
  "mchprs_text",
  "mchprs_utils",
  "mchprs_world",
  "md5",
  "mysql",
- "once_cell",
  "rand 0.10.0",
  "regex",
  "reqwest",
@@ -1396,10 +1406,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "mchprs_schematic"
+version = "0.5.2-dev"
+dependencies = [
+ "anyhow",
+ "hematite-nbt",
+ "itertools",
+ "mchprs_blocks",
+ "mchprs_world",
+ "regex",
+ "rustc-hash",
+ "serde",
+]
+
+[[package]]
 name = "mchprs_text"
 version = "0.1.0"
 dependencies = [
- "once_cell",
  "regex",
  "serde",
  "serde_json",
@@ -1562,6 +1585,12 @@ dependencies = [
  "cfg_aliases",
  "libc",
 ]
+
+[[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
 
 [[package]]
 name = "nom"
@@ -2026,7 +2055,11 @@ name = "rilc"
 version = "0.5.2-dev"
 dependencies = [
  "clap",
+ "line-index",
+ "mchprs_blocks",
  "mchprs_redpiler",
+ "mchprs_schematic",
+ "mchprs_world",
 ]
 
 [[package]]
@@ -2447,6 +2480,12 @@ checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
 ]
+
+[[package]]
+name = "text-size"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f18aa187839b2bdb1ad2fa35ead8c4c2976b64e4363c386d45ac0f7ee85c9233"
 
 [[package]]
 name = "thiserror"

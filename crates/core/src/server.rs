@@ -23,6 +23,7 @@ use mchprs_network::packets::{PacketEncoderExt, PlayerProperty, SlotData, COMPRE
 use mchprs_network::{NetworkServer, NetworkState, PlayerPacketSender};
 use mchprs_text::TextComponent;
 use mchprs_utils::map;
+use mchprs_world::{MC_VERSION, PROTOCOL_VERSION};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -33,10 +34,6 @@ use std::path::Path;
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 use tracing::{debug, error, info, warn};
-
-pub const MC_VERSION: &str = "1.20.4";
-pub const MC_DATA_VERSION: i32 = 3700;
-pub const PROTOCOL_VERSION: i32 = 765;
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
