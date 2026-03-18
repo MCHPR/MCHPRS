@@ -5,9 +5,8 @@
 //! For example, if two nodes are connected with two links of weights 13 and 15, the link with
 //! weight 15 is removed.
 
-use super::Pass;
 use crate::compile_graph::{CompileGraph, NodeIdx};
-use crate::passes::AnalysisInfos;
+use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};

@@ -9,8 +9,8 @@ use petgraph::visit::EdgeRef;
 use petgraph::Direction;
 use rustc_hash::FxHashMap;
 use std::iter::Peekable;
-use std::str::{CharIndices, Chars};
-use std::{fmt, slice, vec};
+use std::str::CharIndices;
+use std::{fmt, vec};
 
 fn dump_node_name(f: &mut impl fmt::Write, ctx: &FmtContext<'_>, node_idx: NodeIdx) -> fmt::Result {
     write!(f, "%")?;

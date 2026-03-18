@@ -3,10 +3,9 @@
 //! This pass uses the output of SSRangeAnalysis pass to find links that can be removed because the
 //! output ss of a node is never higher than the weight of the link.
 
-use super::Pass;
 use crate::compile_graph::{CompileGraph, NodeIdx};
 use crate::passes::analysis::ss_range_analysis::{SSRangeAnalysis, SSRangeInfo};
-use crate::passes::{AnalysisInfos, AnalysisUsage};
+use crate::passes::{AnalysisInfos, AnalysisUsage, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::visit::NodeIndexable;

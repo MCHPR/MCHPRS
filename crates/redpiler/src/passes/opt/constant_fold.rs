@@ -1,6 +1,5 @@
-use super::Pass;
 use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
-use crate::passes::AnalysisInfos;
+use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;

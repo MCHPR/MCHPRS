@@ -1,6 +1,5 @@
-use super::Pass;
 use crate::compile_graph::CompileGraph;
-use crate::passes::AnalysisInfos;
+use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 

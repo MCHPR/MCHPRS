@@ -1,14 +1,7 @@
 mod analysis;
-mod clamp_weights;
-mod coalesce;
-mod constant_coalesce;
-mod constant_fold;
-mod dedup_links;
-mod export_graph;
-mod identify_nodes;
-mod input_search;
-mod prune_orphans;
-mod unreachable_output;
+mod frontend;
+mod misc;
+mod opt;
 
 use mchprs_world::World;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -25,6 +18,9 @@ use std::time::Instant;
 use tracing::{debug, trace};
 
 use analysis::*;
+use frontend::*;
+use misc::*;
+use opt::*;
 
 pub fn build_pass_pipeline<'p, W: World>(
     registry: &'p PassRegistry<W>,
