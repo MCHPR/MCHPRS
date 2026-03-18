@@ -45,7 +45,7 @@ impl NodeType {
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct NodeState {
     pub powered: bool,
     pub repeater_locked: bool,
@@ -112,7 +112,7 @@ pub enum LinkType {
     Side,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompileLink {
     pub ty: LinkType,
     pub ss: u8,

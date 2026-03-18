@@ -5,7 +5,7 @@ use crate::CompilerOptions;
 use itertools::Itertools;
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use petgraph::stable_graph::EdgeReference;
-use petgraph::visit::EdgeRef;
+use petgraph::visit::{EdgeRef, IntoEdgesDirected};
 use petgraph::Direction;
 use rustc_hash::FxHashMap;
 use std::iter::Peekable;
@@ -197,8 +197,8 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
     Ok(())
 }
 
-pub fn dump_graph(f: &mut impl fmt::Write, graph: &CompileGraph) -> fmt::Result {
-    writeln!(f, "circuit {{")?;
+pub fn dump_graph(f: &mut impl fmt::Write, graph: &CompileGraph, name: &str) -> fmt::Result {
+    writeln!(f, "circuit @{} {{", name)?;
     for node_idx in graph.node_indices() {
         let ctx = FmtContext { graph, node_idx };
         dump_node(f, &ctx)?;
@@ -213,7 +213,7 @@ struct GraphDumper<'a> {
 
 impl<'a> fmt::Display for GraphDumper<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        dump_graph(f, self.graph)
+        dump_graph(f, self.graph, "redpiler_dump")
     }
 }
 
@@ -684,10 +684,65 @@ impl RILModule {
             .collect()
     }
 
-    fn run_test(&self, name: &str) {
+    pub fn compare_test_result(&self, name: &str, result: &CompileGraph) -> bool {
         let Some(ast::Global::Test(test)) = self.globals.get(name) else {
-            panic!("could not find test with name: {}", name);
+            panic!("could not find test: {}", name);
         };
+        let ast::TestResult::Circuit(circuit) = &test.result else {
+            todo!("non-circuit test result types")
+        };
+
+        let mut expected_map = FxHashMap::default();
+        for (idx, component) in circuit.components.iter().enumerate() {
+            expected_map.insert(&component.name, idx);
+        }
+
+        for node_idx in result.node_indices() {
+            if !result.contains_node(node_idx) {
+                continue;
+            }
+            let node = &result[node_idx];
+            let name = node
+                .name
+                .clone()
+                .unwrap_or_else(|| node_idx.index().to_string());
+            let Some(expected_idx) = expected_map.get(&name) else {
+                return false;
+            };
+            let expected = &circuit.components[*expected_idx];
+            if expected.node_ty != node.ty || expected.node_state != node.state {
+                return false;
+            }
+            // We do it this way instead of searching for matching edges because we need to be able to count duplicates.
+            let mut remaining_inputs = expected.inputs.clone();
+            for edge in result.edges_directed(node_idx, Direction::Incoming) {
+                let src = &result[edge.source()];
+                let src_name = src
+                    .name
+                    .clone()
+                    .unwrap_or_else(|| edge.source().index().to_string());
+                let Some(pos) = remaining_inputs
+                    .iter()
+                    .position(|input| &input.link == edge.weight() && input.value == src_name)
+                else {
+                    return false;
+                };
+                remaining_inputs.remove(pos);
+            }
+            expected_map.remove(&name);
+        }
+
+        expected_map.is_empty()
+    }
+
+    pub fn update_test(&self, src: &mut String, name: &str, new_result: &str) {
+        let Some(ast::Global::Test(test)) = self.globals.get(name) else {
+            panic!("could not find test: {}", name);
+        };
+        let ast::TestResult::Circuit(circuit) = &test.result else {
+            todo!("non-circuit test result types")
+        };
+        src.replace_range(circuit.src_begin..circuit.src_end, new_result);
     }
 }
 
@@ -1130,6 +1185,7 @@ mod ast {
         pub args: CompilerOptions,
     }
 
+    #[derive(Clone, PartialEq)]
     pub struct Input {
         pub link: CompileLink,
         pub value: String,
