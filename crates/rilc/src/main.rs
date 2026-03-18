@@ -130,17 +130,16 @@ fn run_test(
         if update {
             println!("{} {}", "[UPDATED]".blue(), full_name);
             module.update_test(test_src, &test.name, &result_ril);
-            return true;
         } else {
             println!("{} {}", "[FAIL]".red(), full_name);
             println!("Expected RIL:");
             println!("{}", result_ril);
         }
+        false
     } else {
         println!("{} {}", "[PASS]".green(), full_name);
+        true
     }
-
-    false
 }
 
 fn run_tests(path: PathBuf, update: bool) {
@@ -150,6 +149,9 @@ fn run_tests(path: PathBuf, update: bool) {
         eprintln!("warning: failed to find .ril_test_root");
     }
     search_path(path.clone(), &mut ril_paths);
+
+    let mut num_passed = 0;
+    let mut num_failed = 0;
     for path in ril_paths {
         let mut src = fs::read_to_string(&path).unwrap();
         let module = match RILModule::parse_from_string(&src) {
@@ -174,11 +176,25 @@ fn run_tests(path: PathBuf, update: bool) {
         println!("Found {} RIL test modules.", tests.len());
         let mut updated = false;
         for test in tests {
-            updated |= run_test(&test_root, &path, &module, test, update, &mut src);
+            let result = run_test(&test_root, &path, &module, test, update, &mut src);
+            if result {
+                num_passed += 1;
+            } else {
+                num_failed += 1;
+                if update {
+                    updated = true;
+                }
+            }
         }
         if updated {
             fs::write(&path, src).unwrap();
         }
+    }
+
+    if update {
+        println!("{} tests updated.", num_failed);
+    } else {
+        println!("{}/{} tests passed.", num_passed, num_passed + num_failed)
     }
 }
 
