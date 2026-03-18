@@ -1,3 +1,4 @@
+use anstream::println;
 use clap::{Parser, Subcommand};
 use line_index::{LineIndex, TextSize};
 use mchprs_blocks::BlockPos;
@@ -8,6 +9,7 @@ use mchprs_redpiler::{
 };
 use mchprs_schematic::{load_schematic, paste_clipboard};
 use mchprs_world::testing::TestWorld;
+use owo_colors::OwoColorize as _;
 use std::{
     ffi::OsStr,
     fs,
@@ -126,16 +128,16 @@ fn run_test(
         let mut result_ril = String::new();
         ril::dump_graph(&mut result_ril, &result_graph, &test.name).unwrap();
         if update {
-            println!("[UPDATED] {}", full_name);
+            println!("{} {}", "[UPDATED]".blue(), full_name);
             module.update_test(test_src, &test.name, &result_ril);
             return true;
         } else {
-            println!("[FAIL] {}", full_name);
+            println!("{} {}", "[FAIL]".red(), full_name);
             println!("Expected RIL:");
             println!("{}", result_ril);
         }
     } else {
-        println!("[PASS] {}", full_name);
+        println!("{} {}", "[PASS]".green(), full_name);
     }
 
     false

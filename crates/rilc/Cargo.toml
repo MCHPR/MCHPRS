@@ -18,3 +18,5 @@ mchprs_world = { path = "../world", features = ["testing"] }
 mchprs_schematic = { path = "../schematic" }
 line-index = { workspace = true }
 clap = { workspace = true }
+anstream = { workspace = true }
+owo-colors = { workspace = true }

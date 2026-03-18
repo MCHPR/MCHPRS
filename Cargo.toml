@@ -91,3 +91,5 @@ proc-macro2 = "1.0"
 convert_case = "0.11"
 indexmap = { version = "2.13", features = ["serde"] }
 line-index = "0.1"
+anstream = "1.0"
+owo-colors = "4.3"

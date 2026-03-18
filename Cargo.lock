@@ -1697,6 +1697,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
 
 [[package]]
+name = "owo-colors"
+version = "4.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d211803b9b6b570f68772237e415a029d5a50c65d382910b879fb19d3271f94d"
+
+[[package]]
 name = "parking_lot_core"
 version = "0.9.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2054,12 +2060,14 @@ dependencies = [
 name = "rilc"
 version = "0.5.2-dev"
 dependencies = [
+ "anstream",
  "clap",
  "line-index",
  "mchprs_blocks",
  "mchprs_redpiler",
  "mchprs_schematic",
  "mchprs_world",
+ "owo-colors",
 ]
 
 [[package]]
