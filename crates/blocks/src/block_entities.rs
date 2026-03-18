@@ -108,19 +108,10 @@ impl BlockEntity {
         let mut inventory = Vec::new();
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
-            let count = *nbt_unwrap_val!(
-                item_compound
-                    .get("Count")
-                    .or_else(|| item_compound.get("count"))?,
-                Value::Byte
-            );
-            let slot = *nbt_unwrap_val!(item_compound.get("Slot")?, Value::Byte);
-            let namespaced_name = nbt_unwrap_val!(
-                item_compound
-                    .get("Id")
-                    .or_else(|| item_compound.get("id"))?,
-                Value::String
-            );
+            let count = nbt_get_int(item_compound, "Count")? as i8;
+            let slot = nbt_get_int(item_compound, "Slot")? as i8;
+            let namespaced_name =
+                nbt_unwrap_val!(nbt_case_insensitive(item_compound, "Id")?, Value::String);
             let item_type = Item::from_name(namespaced_name);
 
             let mut blob = nbt::Blob::new();
@@ -266,5 +257,24 @@ impl BlockEntity {
                 })
             }),
         }
+    }
+}
+
+fn nbt_case_insensitive<'a>(
+    compound: &'a HashMap<String, nbt::Value>,
+    name: &str,
+) -> Option<&'a nbt::Value> {
+    // It's not really case insensitive, this is really just checking both cases of the first character.
+    compound
+        .get(name)
+        .or_else(|| compound.get(&name.to_lowercase()))
+}
+
+fn nbt_get_int(compound: &HashMap<String, nbt::Value>, name: &str) -> Option<i32> {
+    let value = nbt_case_insensitive(compound, name)?;
+    match value {
+        nbt::Value::Byte(val) => Some(*val as i32),
+        nbt::Value::Int(val) => Some(*val),
+        _ => None,
     }
 }
