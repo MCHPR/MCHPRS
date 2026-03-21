@@ -136,7 +136,6 @@ pub struct PassPipelineBuilder<'p, W: World> {
     registry: &'p PassRegistry<W>,
     passes: Vec<&'p dyn Pass<W>>,
     available_analysis: FxHashSet<TypeId>,
-    analysis_usage: AnalysisUsage,
 }
 
 impl<'p, W: World> PassPipelineBuilder<'p, W> {
@@ -145,7 +144,6 @@ impl<'p, W: World> PassPipelineBuilder<'p, W> {
             registry,
             passes: Vec::new(),
             available_analysis: FxHashSet::default(),
-            analysis_usage: AnalysisUsage::default(),
         }
     }
 
@@ -164,14 +162,13 @@ impl<'p, W: World> PassPipelineBuilder<'p, W> {
     }
 
     pub fn add_pass_by_instance(&mut self, pass: &'p dyn Pass<W>) {
-        let au = &mut self.analysis_usage;
-        au.reset();
+        let mut au = AnalysisUsage::default();
 
-        pass.analysis_usage(au);
+        pass.analysis_usage(&mut au);
         for type_id in &au.required {
             if !self.available_analysis.contains(type_id) {
                 let analysis_pass = self.registry.get_pass_from_id(*type_id);
-                self.passes.push(analysis_pass);
+                self.add_pass_by_instance(analysis_pass);
             }
         }
 
