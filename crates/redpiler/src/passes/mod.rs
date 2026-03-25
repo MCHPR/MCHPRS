@@ -178,6 +178,8 @@ impl<'p, W: World> PassPipelineBuilder<'p, W> {
             self.available_analysis
                 .retain(|type_id| au.preserved.contains(type_id));
         }
+
+        self.available_analysis.insert(pass.pass_type_id());
     }
 
     pub fn build(self) -> PassPipeline<'p, W> {
@@ -283,4 +285,11 @@ pub trait Pass<W: World>: 'static {
 
     /// A kebab-case identifier for this pass. Used by rilc.
     fn driver_key(&self) -> &'static str;
+
+    /// Gets the typeId of the underlying pass,
+    /// this is different from `.type_id`,
+    /// as that results in getting the TypeId of the dynamic trait object
+    fn pass_type_id(&self) -> TypeId {
+        TypeId::of::<Self>()
+    }
 }
