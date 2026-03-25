@@ -4,11 +4,10 @@
 //! This pass requires narrow_outputs.rs to be ran first
 //! This pass replaces constant_coalesce.rs and constant_fold.rs
 
-use super::Pass;
 use crate::compile_graph::{CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
-use crate::passes::analysis::ss_range_analysis::{SSRange, SSRangeInfo};
+use crate::passes::analysis::ss_range_analysis::{SSRange, SSRangeAnalysis, SSRangeInfo};
 use crate::passes::coalesce2::coalesce;
-use crate::passes::AnalysisInfos;
+use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::visit::NodeIndexable;
@@ -32,6 +31,7 @@ impl<W: World> Pass<W> for ConstantFold2 {
             is_input: false,
             is_output: false,
             annotations: Default::default(),
+            name: Some("GLOBAL_CONSTANT15".to_owned()),
         });
 
         range_info.set_range(constant, SSRange::constant(15));
@@ -61,5 +61,14 @@ impl<W: World> Pass<W> for ConstantFold2 {
 
     fn status_message(&self) -> &'static str {
         "Replacing nodes of constant output with constants"
+    }
+
+    fn driver_key(&self) -> &'static str {
+        "constant-fold-2"
+    }
+
+    fn analysis_usage(&self, au: &mut crate::passes::AnalysisUsage) {
+        au.set_required::<SSRangeAnalysis, W>();
+        au.set_preserved::<SSRangeAnalysis, W>();
     }
 }

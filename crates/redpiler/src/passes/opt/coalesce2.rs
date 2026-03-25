@@ -7,10 +7,10 @@
 use std::collections::HashSet;
 use std::hash::Hash;
 
-use super::Pass;
 use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx, NodeState, NodeType};
-use crate::passes::analysis::ss_range_analysis::SSRangeInfo;
+use crate::passes::analysis::ss_range_analysis::{SSRangeAnalysis, SSRangeInfo};
 use crate::passes::AnalysisInfos;
+use crate::passes::Pass;
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::visit::{EdgeRef, NodeIndexable};
@@ -33,6 +33,15 @@ impl<W: World> Pass<W> for Coalesce2 {
 
     fn status_message(&self) -> &'static str {
         "Combining duplicate logic but better"
+    }
+
+    fn driver_key(&self) -> &'static str {
+        "coalesce-2"
+    }
+
+    fn analysis_usage(&self, au: &mut crate::passes::AnalysisUsage) {
+        au.set_required::<SSRangeAnalysis, W>();
+        au.set_preserved::<SSRangeAnalysis, W>();
     }
 }
 

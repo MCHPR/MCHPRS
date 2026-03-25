@@ -1,0 +1,45 @@
+test_args "--passes=constant-fold-2"
+
+circuit @simple_input {
+  %constant = constant 1
+  %repeater1 = repeater 1, false, false, true, [%constant:0], []
+  %repeater2 = repeater 1, false, false, true, [%repeater1:0], []
+  %lamp = lamp true, [%repeater2:0]
+}
+
+test(@simple_input) circuit @simple {
+  %lamp = lamp true, [%GLOBAL_CONSTANT15:0]
+  %GLOBAL_CONSTANT15 = constant 15
+}
+
+circuit @comparator_input {
+  %constant5 = constant 5
+  %constant4 = constant 4
+  %constant10 = constant 10
+  # 5 - 4
+  %comp_sub1 = comparator subtract, none, false, 1, [%constant5:0], [%constant4:0]
+  # 4 - 5
+  %comp_sub2 = comparator subtract, none, false, 1, [%constant4:0], [%constant5:0]
+  # (10 - 1) - (10 - 5)
+  %comp_sub3 = comparator subtract, none, false, 1, [%constant10:1], [%constant10:5]
+}
+
+test(@comparator_input) circuit @comparator {
+  %comp_sub2 = comparator subtract, none, false, 1, [%GLOBAL_CONSTANT15:11], [%GLOBAL_CONSTANT15:10]
+  %comp_sub3 = comparator subtract, none, false, 1, [%GLOBAL_CONSTANT15:6], [%GLOBAL_CONSTANT15:10]
+  %GLOBAL_CONSTANT15 = constant 15
+}
+
+circuit @locking_rep_input {
+  %constant = constant 1
+  %lever = lever false
+  %side_rep = repeater 1, true, false, false, [%lever:0], []
+  # This repeater should be untouched
+  %locking_rep = repeater 1, false, false, true, [%constant:0], [%side_rep:0]
+}
+
+test(@locking_rep_input) circuit @locking_rep {
+  %lever = lever false
+  %side_rep = repeater 1, true, false, false, [%lever:0], []
+  %GLOBAL_CONSTANT15 = constant 15
+}

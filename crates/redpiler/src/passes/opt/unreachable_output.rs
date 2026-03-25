@@ -43,6 +43,7 @@ impl<W: World> Pass<W> for UnreachableOutput {
 
     fn analysis_usage(&self, au: &mut AnalysisUsage) {
         au.set_required::<SSRangeAnalysis, W>();
+        au.set_preserved::<SSRangeAnalysis, W>();
     }
 
     fn status_message(&self) -> &'static str {
