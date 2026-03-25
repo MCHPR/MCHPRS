@@ -1,7 +1,9 @@
 use crate::compile_graph::{
     CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeState, NodeType,
 };
+use crate::string_replacer::StringReplacer;
 use crate::CompilerOptions;
+use indexmap::IndexMap;
 use itertools::Itertools;
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use petgraph::stable_graph::EdgeReference;
@@ -608,7 +610,8 @@ pub struct RILTest {
 
 #[derive(Default)]
 pub struct RILModule {
-    globals: FxHashMap<String, ast::Global>,
+    // The order of the globals are preserved so the test results can more easily be replaced
+    globals: IndexMap<String, ast::Global>,
     test_args: Option<ast::TestArgs>,
 }
 
@@ -727,7 +730,7 @@ impl RILModule {
         expected_map.is_empty()
     }
 
-    pub fn update_test(&self, src: &mut String, name: &str, new_result: &str) {
+    pub fn update_test(&self, src: &mut StringReplacer, name: &str, new_result: &str) {
         let Some(ast::Global::Test(test)) = self.globals.get(name) else {
             panic!("could not find test: {}", name);
         };

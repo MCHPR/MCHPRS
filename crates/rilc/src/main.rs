@@ -5,6 +5,7 @@ use mchprs_blocks::BlockPos;
 use mchprs_redpiler::{
     passes::{build_pass_pipeline, PassPipelineBuilder, PassRegistry},
     ril::{self, RILModule, RILTest},
+    string_replacer::StringReplacer,
     CompilerInput, TaskMonitor,
 };
 use mchprs_schematic::{load_schematic, paste_clipboard};
@@ -67,7 +68,7 @@ fn run_test(
     module: &RILModule,
     test: RILTest,
     update: bool,
-    test_src: &mut String,
+    test_src: &mut StringReplacer,
 ) -> bool {
     let (world, bounds) = if let Some(schem_path) = test.schematic_path {
         let schem_path = test_path.parent().unwrap().join(schem_path);
@@ -154,7 +155,7 @@ fn run_tests(path: PathBuf, update: bool) {
     let mut num_passed = 0;
     let mut num_failed = 0;
     for path in ril_paths {
-        let mut src = fs::read_to_string(&path).unwrap();
+        let src = fs::read_to_string(&path).unwrap();
         let module = match RILModule::parse_from_string(&src) {
             Ok(module) => module,
             Err(err) => {
@@ -176,6 +177,9 @@ fn run_tests(path: PathBuf, update: bool) {
         };
         let tests = module.get_tests();
         let mut updated = false;
+
+        let mut src = StringReplacer::new(&src);
+
         for test in tests {
             let result = run_test(&test_root, &path, &module, test, update, &mut src);
             if result {
@@ -188,7 +192,7 @@ fn run_tests(path: PathBuf, update: bool) {
             }
         }
         if updated {
-            fs::write(&path, src).unwrap();
+            fs::write(&path, src.finish().as_ref()).unwrap();
         }
     }
 

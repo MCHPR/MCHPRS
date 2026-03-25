@@ -1370,6 +1370,7 @@ name = "mchprs_redpiler"
 version = "0.1.0"
 dependencies = [
  "enum_dispatch",
+ "indexmap",
  "itertools",
  "mchprs_blocks",
  "mchprs_redstone",
