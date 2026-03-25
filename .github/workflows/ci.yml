@@ -54,5 +54,8 @@ jobs:
       - name: Rust cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
+      - name: Run rust tests
         run: cargo test --all-features --all-targets
+
+      - name: Run redpiler tests
+        run: cargo run -p rilc test crates/redpiler/ril_tests
