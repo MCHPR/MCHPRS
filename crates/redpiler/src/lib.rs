@@ -2,6 +2,7 @@ pub mod backend;
 pub mod compile_graph;
 pub mod passes;
 pub mod ril;
+pub mod string_replacer;
 pub mod task_monitor;
 
 use backend::{BackendDispatcher, JITBackend};
