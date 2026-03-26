@@ -9,6 +9,7 @@ use std::hash::Hash;
 
 use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx, NodeState, NodeType};
 use crate::passes::analysis::ss_range_analysis::{SSRangeAnalysis, SSRangeInfo};
+use crate::passes::opt::dedup_links::DedupLinks;
 use crate::passes::AnalysisInfos;
 use crate::passes::Pass;
 use crate::{CompilerInput, CompilerOptions};
@@ -42,6 +43,7 @@ impl<W: World> Pass<W> for Coalesce2 {
     fn analysis_usage(&self, au: &mut crate::passes::AnalysisUsage) {
         au.set_required::<SSRangeAnalysis, W>();
         au.set_preserved::<SSRangeAnalysis, W>();
+        au.set_preserved::<DedupLinks, W>();
     }
 }
 
@@ -101,21 +103,21 @@ fn run_pass(graph: &mut CompileGraph, range_info: &mut SSRangeInfo) {
                 i.1 = ii;
             }
             inputs.sort();
-            // Dedup
-            let mut j = 0usize;
+            // Dedup links accepting the link with the least signal strength distance by making use of the sort order
             {
+                let mut j = 0usize;
                 let mut last = (false, NodeIdx::end(), 0);
                 for i in 0..inputs.len() {
                     let input = inputs[i];
-                    if input == last {
+                    if input.0 == last.0 && input.1 == last.1 {
                         continue;
                     }
                     inputs[j] = input;
                     last = input;
                     j += 1;
                 }
+                nod.inputs = &mut inputs[..j];
             }
-            nod.inputs = &mut inputs[..j];
 
             let (inputs, next_free) = free_inputs.split_at_mut(nod.inputs.len());
             free_inputs = next_free;

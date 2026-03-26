@@ -37,7 +37,6 @@ pub fn build_pass_pipeline<'p, W: World>(
         builder.add_pass::<constant_fold2::ConstantFold2>();
         builder.add_pass::<unreachable_output::UnreachableOutput>();
         builder.add_pass::<coalesce2::Coalesce2>();
-        builder.add_pass::<dedup_links::DedupLinks>();
 
         if options.io_only {
             builder.add_pass::<prune_orphans::PruneOrphans>();
