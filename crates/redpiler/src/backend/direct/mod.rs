@@ -28,9 +28,10 @@ impl Queues {
     #[inline(always)]
     fn drain_each<F: FnMut(NodeId)>(&mut self, mut f: F) {
         for q in self.0.iter_mut() {
-            for n in q.drain(..) {
-                f(n);
+            for n in q.iter() {
+                f(*n);
             }
+            q.clear();
         }
     }
 }
