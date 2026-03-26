@@ -79,10 +79,7 @@ impl TickScheduler {
         mem::take(&mut self.queues_deque[self.pos])
     }
 
-    fn end_tick(&mut self, mut queues: Queues) {
-        for queue in &mut queues.0 {
-            queue.clear();
-        }
+    fn end_tick(&mut self, queues: Queues) {
         self.queues_deque[self.pos % Self::NUM_QUEUES] = queues;
     }
 
