@@ -77,7 +77,7 @@ impl TickScheduler {
         for queue in &mut queues.0 {
             queue.clear();
         }
-        self.queues_deque[self.pos] = queues;
+        self.queues_deque[self.pos % Self::NUM_QUEUES] = queues;
     }
 
     fn priorities() -> [TickPriority; Self::NUM_PRIORITIES] {
