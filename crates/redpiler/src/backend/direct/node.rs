@@ -105,6 +105,41 @@ impl std::fmt::Debug for ForwardLink {
     }
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct ForwardLinkRange(std::ops::Range<usize>);
+
+impl ForwardLinkRange {
+    pub fn len(&self) -> usize {
+        self.0.end - self.0.start
+    }
+}
+
+#[derive(Default)]
+pub struct ForwardLinks {
+    links: Vec<ForwardLink>,
+}
+
+impl ForwardLinks {
+    pub fn extend(&mut self, iter: impl IntoIterator<Item = ForwardLink>) -> ForwardLinkRange {
+        let start = self.links.len();
+        self.links.extend(iter);
+        let end = self.links.len();
+
+        ForwardLinkRange(start..end)
+    }
+
+    /// The `range` MUST have been created by this instance of ForwardLinks, otherwise this is UB.
+    pub fn get(&self, range: &ForwardLinkRange) -> &[ForwardLink] {
+        // Safety: there's only one instance of ForwardLinks in the backend
+        unsafe { self.links.get_unchecked(range.0.clone()) }
+    }
+
+    /// After this point, all existing `ForwardLinkRange`s are invalidated.
+    pub fn clear(&mut self) {
+        self.links.clear();
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum NodeType {
     Repeater {
@@ -159,10 +194,7 @@ pub struct Node {
     pub default_inputs: NodeInput,
     pub side_inputs: NodeInput,
 
-    /// The index to the first forward link of this node.
-    pub fwd_link_begin: usize,
-    /// The index to after the last forward link of this node.
-    pub fwd_link_end: usize,
+    pub fwd_link_range: ForwardLinkRange,
 
     pub is_io: bool,
 

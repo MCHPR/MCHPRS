@@ -1,3 +1,4 @@
+use crate::backend::direct::node::ForwardLinks;
 use crate::compile_graph::{CompileGraph, LinkType, NodeIdx};
 use crate::{CompilerOptions, TaskMonitor};
 use itertools::Itertools;
@@ -27,7 +28,7 @@ fn compile_node(
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
     noteblock_info: &mut Vec<(BlockPos, Instrument, u8)>,
-    forward_links: &mut Vec<ForwardLink>,
+    forward_links: &mut ForwardLinks,
     stats: &mut FinalGraphStats,
 ) -> Node {
     let node = &graph[node_idx];
@@ -73,8 +74,7 @@ fn compile_node(
     side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
 
     use crate::compile_graph::NodeType as CNodeType;
-    let fwd_link_begin = forward_links.len();
-    if node.ty != CNodeType::Constant {
+    let fwd_link_range = if node.ty != CNodeType::Constant {
         let new_links = graph
             .edges_directed(node_idx, Direction::Outgoing)
             .sorted_by_key(|edge| nodes_map[&edge.target()])
@@ -91,10 +91,11 @@ fn compile_node(
                 let weight = edge.weight();
                 ForwardLink::new(target_id, weight.ty == LinkType::Side, weight.ss)
             });
-        forward_links.extend(new_links);
+        forward_links.extend(new_links)
+    } else {
+        Default::default()
     };
-    let fwd_link_end = forward_links.len();
-    stats.update_link_count += fwd_link_end - fwd_link_begin;
+    stats.update_link_count += fwd_link_range.len();
 
     let ty = match &node.ty {
         CNodeType::Repeater {
@@ -132,8 +133,7 @@ fn compile_node(
         ty,
         default_inputs,
         side_inputs,
-        fwd_link_begin,
-        fwd_link_end,
+        fwd_link_range,
         powered: node.state.powered,
         output_power: node.state.output_strength,
         locked: node.state.repeater_locked,
