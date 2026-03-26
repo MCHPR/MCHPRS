@@ -25,8 +25,13 @@ use tracing::{debug, warn};
 struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
 
 impl Queues {
-    fn drain_iter(&mut self) -> impl Iterator<Item = NodeId> + '_ {
-        self.0.iter_mut().flat_map(|q| q.drain(..))
+    #[inline(always)]
+    fn drain_each<F: FnMut(NodeId)>(&mut self, mut f: F) {
+        for q in self.0.iter_mut() {
+            for n in q.drain(..) {
+                f(n);
+            }
+        }
     }
 }
 
@@ -233,9 +238,9 @@ impl JITBackend for DirectBackend {
     fn tick(&mut self) {
         let mut queues = self.scheduler.queues_this_tick();
 
-        for node_id in queues.drain_iter() {
+        queues.drain_each(|node_id| {
             self.tick_node(node_id);
-        }
+        });
 
         self.scheduler.end_tick(queues);
     }
