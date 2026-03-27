@@ -78,8 +78,9 @@ impl<'a, W: World> InputSearchState<'a, W> {
     fn new(world: &'a W, graph: &'a mut CompileGraph) -> InputSearchState<'a, W> {
         let mut pos_map = FxHashMap::default();
         for id in graph.node_indices() {
-            let (pos, _) = graph[id].block.unwrap();
-            pos_map.insert(pos, id);
+            if let Some((pos, _)) = graph[id].block {
+                pos_map.insert(pos, id);
+            }
         }
 
         InputSearchState {

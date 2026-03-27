@@ -20,3 +20,4 @@ line-index = { workspace = true }
 clap = { workspace = true }
 anstream = { workspace = true }
 owo-colors = { workspace = true }
+tracing-subscriber = { workspace = true}

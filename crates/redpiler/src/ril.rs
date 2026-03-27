@@ -611,8 +611,8 @@ pub struct RILTest {
 #[derive(Default)]
 pub struct RILModule {
     // The order of the globals are preserved so the test results can more easily be replaced
-    globals: IndexMap<String, ast::Global>,
-    test_args: Option<ast::TestArgs>,
+    pub globals: IndexMap<String, ast::Global>,
+    pub test_args: Option<ast::TestArgs>,
 }
 
 impl RILModule {
@@ -621,7 +621,7 @@ impl RILModule {
         Parser::parse(tokens)
     }
 
-    fn get_graph(&self, circuit: &ast::Circuit) -> CompileGraph {
+    pub fn get_graph(&self, circuit: &ast::Circuit) -> CompileGraph {
         let mut graph = CompileGraph::new();
         let mut name_map = FxHashMap::default();
         for component in &circuit.components {
@@ -1134,7 +1134,7 @@ impl Parser {
     }
 }
 
-mod ast {
+pub mod ast {
     use crate::{
         compile_graph::{CompileLink, NodeState, NodeType},
         CompilerOptions,

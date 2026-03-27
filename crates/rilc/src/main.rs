@@ -1,22 +1,17 @@
-use anstream::println;
 use clap::{Parser, Subcommand};
 use line_index::{LineIndex, TextSize};
 use mchprs_blocks::BlockPos;
 use mchprs_redpiler::{
-    passes::{build_pass_pipeline, PassPipelineBuilder, PassRegistry},
-    ril::{self, RILModule, RILTest},
-    string_replacer::StringReplacer,
-    CompilerInput, TaskMonitor,
+    passes::{PassPipeline, PassPipelineBuilder, PassRegistry},
+    ril::RILModule,
+    CompilerOptions,
 };
 use mchprs_schematic::{load_schematic, paste_clipboard};
 use mchprs_world::testing::TestWorld;
-use owo_colors::OwoColorize as _;
-use std::{
-    ffi::OsStr,
-    fs,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::path::{Path, PathBuf};
+
+mod compile;
+mod test;
 
 #[derive(Parser)]
 struct Cli {
@@ -33,48 +28,44 @@ enum Command {
         #[arg(long)]
         update: bool,
     },
+    Compile {
+        /// Path to the input file
+        input_path: PathBuf,
+
+        /// Path to the output file
+        #[arg(short = 'o')]
+        output_path: Option<PathBuf>,
+
+        /// Enable optimization passes which may significantly increase compile times.
+        #[arg(long, short = 'O')]
+        optimize: bool,
+        /// Export the graph to a binary format. See the [`redpiler_graph`] crate.
+        #[arg(long, short)]
+        export: bool,
+        /// Only flush lamp, button, lever, pressure plate, or trapdoor updates.
+        #[arg(long, short)]
+        io_only: bool,
+        /// Consider a redstone dot to be an output block (for color screens)
+        #[arg(long, short = 'd')]
+        wire_dot_out: bool,
+        /// Print out the RIL circuit after every redpiler pass
+        #[arg(long)]
+        print_after_all: bool,
+        /// A comma seperated list of passes to run. This can only be used by the rilc driver.
+        #[arg(long)]
+        passes: Option<String>,
+    },
 }
 
-/// Recursively search for ril files starting from `path` and collect into `paths`.
-fn search_path(path: PathBuf, paths: &mut Vec<PathBuf>) {
-    if path.is_dir() {
-        for dir_entry in path.read_dir().unwrap() {
-            let dir_entry = dir_entry.unwrap();
-            search_path(dir_entry.path(), paths);
-        }
-    } else {
-        if path.extension() == Some(OsStr::new("ril")) {
-            paths.push(path);
-        }
-    }
-}
-
-fn find_test_root(path: &Path) -> Option<&Path> {
-    if path.is_file() {
-        return find_test_root(path.parent()?);
-    }
-
-    if path.join(".ril_test_root").exists() {
-        Some(path)
-    } else {
-        find_test_root(path.parent()?)
-    }
-}
-
-/// Returns true if a test was updated
-fn run_test(
-    test_root: &Option<&Path>,
-    test_path: &Path,
-    module: &RILModule,
-    test: RILTest,
-    update: bool,
-    test_src: &mut StringReplacer,
-) -> bool {
-    let (world, bounds) = if let Some(schem_path) = test.schematic_path {
-        let schem_path = test_path.parent().unwrap().join(schem_path);
+fn load_world(
+    ril_file_path: &Path,
+    schem_path: &Option<String>,
+) -> Option<(TestWorld, (BlockPos, BlockPos))> {
+    Some(if let Some(schem_path) = schem_path {
+        let schem_path = ril_file_path.parent().unwrap().join(schem_path);
         let Ok(schematic) = load_schematic(&schem_path) else {
             eprintln!("error: failed to load schematic at path: {:?}", schem_path);
-            return false;
+            return None;
         };
         let x_size = schematic.size_x.div_ceil(16) as i32;
         let y_size = schematic.size_y.div_ceil(16) as i32;
@@ -94,121 +85,79 @@ fn run_test(
         (world, bounds)
     } else {
         (
-            TestWorld::new(0, 0, 0),
+            TestWorld::new(1, 1, 1),
             (BlockPos::zero(), BlockPos::zero()),
         )
-    };
+    })
+}
 
-    let input = CompilerInput {
-        world: &world,
-        bounds,
-    };
-
-    let registry = PassRegistry::default();
-    let pass_pipeline = match &test.options.passes {
-        Some(passes) => {
-            let mut builder = PassPipelineBuilder::new(&registry);
-            for driver_key in passes.split(',') {
-                if !builder.add_pass_by_driver_key(driver_key) {
-                    eprintln!("error: failed to add pass with key: {}", driver_key);
-                    return false;
-                }
-            }
-            builder.build()
+fn load_ril(path: &Path, src: &str) -> Option<RILModule> {
+    match RILModule::parse_from_string(&src) {
+        Ok(module) => Some(module),
+        Err(err) => {
+            eprintln!("error: failed to load RIL module at path: {:?}", &path);
+            let file_name = path.file_name().unwrap();
+            let line_index = LineIndex::new(&src);
+            let pos = TextSize::new(err.pos as u32);
+            let line_col = line_index.line_col(pos);
+            eprintln!(
+                "{}:{}:{} {}",
+                file_name.display(),
+                line_col.line + 1,
+                line_col.col + 1,
+                err.message
+            );
+            None
         }
-        None => build_pass_pipeline(&registry, &test.options),
-    };
-    let monitor = Arc::new(TaskMonitor::default());
-    let result_graph = pass_pipeline.run_passes(&test.options, &input, test.graph, monitor);
-    let test_path = match test_root {
-        Some(test_root) => test_path.strip_prefix(test_root).unwrap(),
-        None => test_path,
-    };
-    let full_name = format!("{}:{}", test_path.with_extension("").display(), test.name);
-    if !module.compare_test_result(&test.name, &result_graph) {
-        let mut result_ril = String::new();
-        ril::dump_graph(&mut result_ril, &result_graph, &test.name).unwrap();
-        if update {
-            println!("{} {}", "[UPDATED]".blue(), full_name);
-            module.update_test(test_src, &test.name, &result_ril);
-        } else {
-            println!("{} {}", "[FAIL]".red(), full_name);
-            println!("Expected RIL:");
-            println!("{}", result_ril);
-        }
-        false
-    } else {
-        println!("{} {}", "[PASS]".green(), full_name);
-        true
     }
 }
 
-fn run_tests(path: PathBuf, update: bool) {
-    let mut ril_paths = Vec::new();
-    let test_root = find_test_root(&path);
-    if test_root.is_none() {
-        eprintln!("warning: failed to find .ril_test_root");
-    }
-    search_path(path.clone(), &mut ril_paths);
-    println!("Found {} RIL test modules.", ril_paths.len());
-
-    let mut num_passed = 0;
-    let mut num_failed = 0;
-    for path in ril_paths {
-        let src = fs::read_to_string(&path).unwrap();
-        let module = match RILModule::parse_from_string(&src) {
-            Ok(module) => module,
-            Err(err) => {
-                eprintln!("error: failed to load RIL module at path: {:?}", &path);
-                let file_name = path.file_name().unwrap();
-                let line_index = LineIndex::new(&src);
-                let pos = TextSize::new(err.pos as u32);
-                let line_col = line_index.line_col(pos);
-                eprintln!(
-                    "{}:{}:{} {}",
-                    file_name.display(),
-                    line_col.line + 1,
-                    line_col.col + 1,
-                    err.message
-                );
-                num_failed += 1;
-                continue;
-            }
-        };
-        let tests = module.get_tests();
-        let mut updated = false;
-
-        let mut src = StringReplacer::new(&src);
-
-        for test in tests {
-            let result = run_test(&test_root, &path, &module, test, update, &mut src);
-            if result {
-                num_passed += 1;
-            } else {
-                num_failed += 1;
-                if update {
-                    updated = true;
-                }
-            }
-        }
-        if updated {
-            fs::write(&path, src.finish().as_ref()).unwrap();
+fn parse_pass_pipeline<'p>(
+    registry: &'p PassRegistry<TestWorld>,
+    passes: &str,
+) -> Option<PassPipeline<'p, TestWorld>> {
+    let mut builder = PassPipelineBuilder::new(&registry);
+    for driver_key in passes.split(',') {
+        if !builder.add_pass_by_driver_key(driver_key) {
+            eprintln!("error: failed to add pass with key: {}", driver_key);
+            return None;
         }
     }
-
-    if update {
-        println!("{} tests updated.", num_failed);
-    } else {
-        println!("{}/{} tests passed.", num_passed, num_passed + num_failed)
-    }
+    Some(builder.build())
 }
 
 fn main() {
+    tracing_subscriber::fmt::init();
+
     let cli = Cli::parse();
 
     match cli.command {
         Command::Test { path, update } => {
-            run_tests(path, update);
+            test::run_tests(path, update);
+        }
+        Command::Compile {
+            input_path,
+            output_path,
+            optimize,
+            export,
+            io_only,
+            wire_dot_out,
+            print_after_all,
+            passes,
+        } => {
+            let options = CompilerOptions {
+                optimize,
+                export,
+                io_only,
+                update: false,
+                export_dot_graph: false,
+                wire_dot_out,
+                print_after_all,
+                print_before_backend: false,
+                backend_variant: Default::default(),
+                passes,
+            };
+            compile::compile(&input_path, &output_path, &options);
         }
     }
 }
