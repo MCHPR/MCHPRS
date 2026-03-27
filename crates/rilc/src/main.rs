@@ -55,6 +55,7 @@ enum Command {
         #[arg(long)]
         passes: Option<String>,
     },
+    Version,
 }
 
 fn load_world(
@@ -126,6 +127,15 @@ fn parse_pass_pipeline<'p>(
     Some(builder.build())
 }
 
+pub fn get_version_string() -> String {
+    format!(
+        "{} v{}\n{}",
+        env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_VERSION"),
+        env!("GIT_HASH")
+    )
+}
+
 fn main() {
     tracing_subscriber::fmt::init();
 
@@ -158,6 +168,9 @@ fn main() {
                 passes,
             };
             compile::compile(&input_path, &output_path, &options);
+        }
+        Command::Version => {
+            println!("{}", get_version_string());
         }
     }
 }
