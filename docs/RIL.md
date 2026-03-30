@@ -132,6 +132,6 @@ These arguments have a standard type:
 %x = note_block <instrument>, <note>, <inputs>
 ```
 
-`instrument` is one of `harp`, `basedrum`, `snare`, `hat`, `bass`, `flute`, `bell`, `guitar`, `chime`, `xylophone`, `iron_xylophone`, `cow_bell`, `didgeridoo`, `bit`, `banjo`, or `pling`\
-`note` is an integer between 0 and 24
+`instrument` is one of `harp`, `basedrum`, `snare`, `hat`, `bass`, `flute`, `bell`, `guitar`, `chime`, `xylophone`, `iron_xylophone`, `cow_bell`, `didgeridoo`, `bit`, `banjo`, or `pling`.\
+`note` is an integer between 0 and 24.
 
