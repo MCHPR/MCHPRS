@@ -106,6 +106,9 @@ pub fn get_state_for_placement(
         Item::DarkOakSign => sign_placement!(DarkOakSign, DarkOakWallSign),
         Item::CrimsonSign => sign_placement!(CrimsonSign, CrimsonWallSign),
         Item::WarpedSign => sign_placement!(WarpedSign, WarpedWallSign),
+        Item::BambooSign => sign_placement!(BambooSign, BambooWallSign),
+        Item::CherrySign => sign_placement!(CherrySign, CherryWallSign),
+        Item::MangroveSign => sign_placement!(MangroveSign, MangroveWallSign),
         Item::SeaPickle => Block::SeaPickle {
             pickles: 1,
             waterlogged: false,

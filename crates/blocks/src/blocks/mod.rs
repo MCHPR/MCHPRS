@@ -99,6 +99,9 @@ impl Block {
                 | Block::DarkOakSign { .. }
                 | Block::CrimsonSign { .. }
                 | Block::WarpedSign { .. }
+                | Block::BambooSign { .. }
+                | Block::CherrySign { .. }
+                | Block::MangroveSign { .. }
         )
     }
 
@@ -113,6 +116,9 @@ impl Block {
                 | Block::DarkOakWallSign { .. }
                 | Block::CrimsonWallSign { .. }
                 | Block::WarpedWallSign { .. }
+                | Block::BambooWallSign { .. }
+                | Block::CherryWallSign { .. }
+                | Block::MangroveWallSign { .. }
         )
     }
 
