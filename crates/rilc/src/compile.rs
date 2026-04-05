@@ -45,7 +45,7 @@ pub fn compile(input_path: &Path, output_path: &Option<PathBuf>, options: &Compi
         let input = CompilerInput {
             world: &world,
             bounds,
-            pending_ticks: &[]
+            pending_ticks: &[],
         };
 
         let monitor = Arc::new(TaskMonitor::default());

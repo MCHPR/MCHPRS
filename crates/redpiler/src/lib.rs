@@ -147,7 +147,11 @@ impl Compiler {
         debug!("Starting compile");
         let start = Instant::now();
 
-        let input = CompilerInput { world, bounds, pending_ticks: &ticks };
+        let input = CompilerInput {
+            world,
+            bounds,
+            pending_ticks: &ticks,
+        };
         let registry = PassRegistry::default();
         let pass_pipeline = passes::build_pass_pipeline::<W>(&registry, &options);
         let graph =
