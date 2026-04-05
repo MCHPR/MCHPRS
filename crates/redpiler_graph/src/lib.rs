@@ -1,5 +1,6 @@
 use bincode::{BincodeRead, Result};
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 pub type NodeId = usize;
 
@@ -55,7 +56,7 @@ pub struct NodeState {
 pub struct Node {
     pub ty: NodeType,
     /// Position and protocol id for block
-    pub block: Option<(BlockPos, u32)>,
+    pub block: SmallVec<[(BlockPos, u32); 1]>,
     pub state: NodeState,
 
     pub facing_diode: bool,

@@ -192,8 +192,14 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
         }
     }?;
 
-    if let Some((pos, _)) = node.block {
-        write!(f, "  # Loc: {}", pos)?;
+    if node.block.len() > 0 {
+        write!(f, "  # Loc: ")?;
+        for (idx, (pos, _)) in node.block.iter().copied().enumerate() {
+            if idx != 0 {
+                write!(f, ", ")?;
+            }
+            write!(f, "{}", pos)?;
+        }
     }
 
     Ok(())
@@ -629,7 +635,7 @@ impl RILModule {
                 ty: component.node_ty.clone(),
                 state: component.node_state.clone(),
                 name: Some(component.name.clone()),
-                block: None,
+                block: Default::default(),
                 is_input: component.node_ty.is_normally_input(),
                 is_output: component.node_ty.is_normally_output(),
                 annotations: Default::default(),

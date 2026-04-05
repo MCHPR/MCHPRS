@@ -53,7 +53,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
                     Entry::Vacant(entry) => {
                         let constant_idx = graph.add_node(CompileNode {
                             ty: NodeType::Constant,
-                            block: None,
+                            block: Default::default(),
                             name: None,
                             state: NodeState::ss(ss),
                             is_input: false,
