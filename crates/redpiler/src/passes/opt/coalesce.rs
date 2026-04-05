@@ -83,6 +83,7 @@ fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: No
         let into = &graph[into_idx];
 
         if dest.ty == into.ty
+            && dest.state == into.state
             && dest.is_removable()
             && graph
                 .neighbors_directed(dest_idx, Direction::Incoming)
