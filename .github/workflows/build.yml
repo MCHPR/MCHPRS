@@ -120,11 +120,13 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: artifacts
 
-      - name: Flatten artifacts
+      - name: Collect release assets
         run: |
-          find dist -type f \( -name '*.zip' -o -name '*.tar.gz' \) -exec mv {} dist/ \;
+          mkdir -p dist
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} dist/ \;
+          ls -l dist
 
       - name: Create preview release
         env:
@@ -135,7 +137,7 @@ jobs:
             --prerelease \
             --title "${GITHUB_REPOSITORY} Preview Build" \
             --notes "🚧 **This is a preview build of the latest commit.**" \
-            dist/*
+            dist/*.tar.gz dist/*.zip
 
       - name: Create release
         if: startsWith(github.ref, 'refs/tags/')
@@ -146,4 +148,4 @@ jobs:
           gh release create "$tag" \
             --title "${GITHUB_REPOSITORY} ${tag#v}" \
             --generate-notes \
-            dist/*
+            dist/*.tar.gz dist/*.zip
