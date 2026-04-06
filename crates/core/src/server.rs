@@ -435,19 +435,19 @@ impl MinecraftServer {
         let username = login_start.name;
         clients[client_idx].username = Some(username.clone());
 
-        if let Some(velocity_config) = &CONFIG.velocity {
-            if velocity_config.enabled {
-                let message_id = rand::random();
-                clients[client_idx].forwarding_message_id = Some(message_id);
-                let plugin_message = CLoginPluginRequest {
-                    channel: "velocity:player_info".to_string(),
-                    message_id,
-                    data: vec![1], // MODERN_DEFAULT
-                }
-                .encode();
-                clients[client_idx].send_packet(&plugin_message);
-                return;
+        if let Some(velocity_config) = &CONFIG.velocity
+            && velocity_config.enabled
+        {
+            let message_id = rand::random();
+            clients[client_idx].forwarding_message_id = Some(message_id);
+            let plugin_message = CLoginPluginRequest {
+                channel: "velocity:player_info".to_string(),
+                message_id,
+                data: vec![1], // MODERN_DEFAULT
             }
+            .encode();
+            clients[client_idx].send_packet(&plugin_message);
+            return;
         }
 
         self.complete_player_login(client_idx);

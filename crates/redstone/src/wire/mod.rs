@@ -109,7 +109,7 @@ fn can_connect_to(block: Block, side: BlockDirection) -> bool {
         Block::RedstoneWire { .. }
         | Block::Comparator(_)
         | Block::RedstoneTorch { .. }
-        | Block::RedstoneBlock { .. }
+        | Block::RedstoneBlock
         | Block::RedstoneWallTorch { .. }
         | Block::TripwireHook { .. }
         | Block::StoneButton { .. }

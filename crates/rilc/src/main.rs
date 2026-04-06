@@ -93,12 +93,12 @@ fn load_world(
 }
 
 fn load_ril(path: &Path, src: &str) -> Option<RILModule> {
-    match RILModule::parse_from_string(&src) {
+    match RILModule::parse_from_string(src) {
         Ok(module) => Some(module),
         Err(err) => {
             eprintln!("error: failed to load RIL module at path: {:?}", &path);
             let file_name = path.file_name().unwrap();
-            let line_index = LineIndex::new(&src);
+            let line_index = LineIndex::new(src);
             let pos = TextSize::new(err.pos as u32);
             let line_col = line_index.line_col(pos);
             eprintln!(
@@ -117,7 +117,7 @@ fn parse_pass_pipeline<'p>(
     registry: &'p PassRegistry<TestWorld>,
     passes: &str,
 ) -> Option<PassPipeline<'p, TestWorld>> {
-    let mut builder = PassPipelineBuilder::new(&registry);
+    let mut builder = PassPipelineBuilder::new(registry);
     for driver_key in passes.split(',') {
         if !builder.add_pass_by_driver_key(driver_key) {
             eprintln!("error: failed to add pass with key: {}", driver_key);

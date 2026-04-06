@@ -108,10 +108,10 @@ where
     }
 
     fn decode(&mut self, props: &HashMap<&str, &str>, name: &str) {
-        if let Some(&str) = props.get(name) {
-            if let Ok(val) = str.parse() {
-                *self = val;
-            }
+        if let Some(&str) = props.get(name)
+            && let Ok(val) = str.parse()
+        {
+            *self = val;
         }
     }
 }

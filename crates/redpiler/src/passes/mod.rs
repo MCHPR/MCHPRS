@@ -26,7 +26,7 @@ pub fn build_pass_pipeline<'p, W: World>(
     registry: &'p PassRegistry<W>,
     options: &CompilerOptions,
 ) -> PassPipeline<'p, W> {
-    let mut builder = PassPipelineBuilder::new(&registry);
+    let mut builder = PassPipelineBuilder::new(registry);
 
     builder.add_pass::<identify_nodes::IdentifyNodes>();
     builder.add_pass::<input_search::InputSearch>();

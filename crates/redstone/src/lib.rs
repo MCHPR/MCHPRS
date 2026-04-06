@@ -37,7 +37,7 @@ fn get_weak_power(
     match block {
         Block::RedstoneTorch { lit: true } if side != BlockFace::Top => 15,
         Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
-        Block::RedstoneBlock {} => 15,
+        Block::RedstoneBlock => 15,
         Block::Lever { powered, .. } if powered => 15,
         Block::StoneButton { powered, .. } if powered => 15,
         Block::Repeater(repeater) if repeater.facing.block_face() == side && repeater.powered => 15,
@@ -193,10 +193,10 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     let input_pos = pos.offset(facing.block_face());
     let input_block = world.get_block(input_pos);
     let mut power = get_redstone_power(input_block, world, input_pos, facing.block_face());
-    if power == 0 {
-        if let Block::RedstoneWire(wire) = input_block {
-            power = wire.power;
-        }
+    if power == 0
+        && let Block::RedstoneWire(wire) = input_block
+    {
+        power = wire.power;
     }
     power
 }

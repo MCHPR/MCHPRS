@@ -81,10 +81,10 @@ impl TimingsMonitor {
 
     pub fn stop(&mut self) {
         self.data.running.store(false, Ordering::Relaxed);
-        if let Some(handle) = self.monitor_thread.take() {
-            if handle.join().is_err() {
-                warn!("Failed to join monitor thread handle");
-            }
+        if let Some(handle) = self.monitor_thread.take()
+            && handle.join().is_err()
+        {
+            warn!("Failed to join monitor thread handle");
         }
     }
 

@@ -166,32 +166,32 @@ impl TextComponent {
 
         let mut chars = message.chars();
         'main_loop: while let Some(c) = chars.next() {
-            if c == '&' {
-                if let Some(code) = chars.next() {
-                    if let Some(color) = ColorCode::parse(code) {
-                        let make_new = !cur_component.text.is_empty();
-                        if color.is_formatting() && make_new {
-                            components.push(cur_component.clone());
-                            cur_component.text.clear();
-                        }
-                        match color {
-                            ColorCode::Bold => cur_component.bold = true,
-                            ColorCode::Italic => cur_component.italic = true,
-                            ColorCode::Underline => cur_component.underlined = true,
-                            ColorCode::Strikethrough => cur_component.strikethrough = true,
-                            ColorCode::Obfuscated => cur_component.obfuscated = true,
-                            _ => {
-                                components.push(cur_component);
-                                cur_component = Default::default();
-                                cur_component.color = Some(TextColor::ColorCode(color));
-                            }
-                        }
-                        continue;
+            if c == '&'
+                && let Some(code) = chars.next()
+            {
+                if let Some(color) = ColorCode::parse(code) {
+                    let make_new = !cur_component.text.is_empty();
+                    if color.is_formatting() && make_new {
+                        components.push(cur_component.clone());
+                        cur_component.text.clear();
                     }
-                    cur_component.text.push(c);
-                    cur_component.text.push(code);
+                    match color {
+                        ColorCode::Bold => cur_component.bold = true,
+                        ColorCode::Italic => cur_component.italic = true,
+                        ColorCode::Underline => cur_component.underlined = true,
+                        ColorCode::Strikethrough => cur_component.strikethrough = true,
+                        ColorCode::Obfuscated => cur_component.obfuscated = true,
+                        _ => {
+                            components.push(cur_component);
+                            cur_component = Default::default();
+                            cur_component.color = Some(TextColor::ColorCode(color));
+                        }
+                    }
                     continue;
                 }
+                cur_component.text.push(c);
+                cur_component.text.push(code);
+                continue;
             }
             if c == '#' {
                 let mut hex = String::from(c);

@@ -111,7 +111,7 @@ impl PlotWorld {
     fn get_chunk_index_for_block(&self, block_x: i32, block_z: i32) -> Option<usize> {
         let chunk_x = (block_x - (self.x * PLOT_BLOCK_WIDTH)) >> 4;
         let chunk_z = (block_z - (self.z * PLOT_BLOCK_WIDTH)) >> 4;
-        if chunk_x < 0 || chunk_x >= PLOT_WIDTH || chunk_z < 0 || chunk_z >= PLOT_WIDTH {
+        if !(0..PLOT_WIDTH).contains(&chunk_x) || !(0..PLOT_WIDTH).contains(&chunk_z) {
             return None;
         }
         Some(((chunk_x << PLOT_SCALE) + chunk_z).unsigned_abs() as usize)
@@ -338,16 +338,16 @@ impl Plot {
         let old_block = old.block_pos();
         let new_block = new.block_pos();
 
-        if let Some(true) = self.world.get_block(old_block).get_pressure_plate_powered() {
-            if !self.are_players_on_block(old_block) {
-                self.set_pressure_plate(old_block, false);
-            }
+        if let Some(true) = self.world.get_block(old_block).get_pressure_plate_powered()
+            && !self.are_players_on_block(old_block)
+        {
+            self.set_pressure_plate(old_block, false);
         }
 
-        if let Some(false) = self.world.get_block(new_block).get_pressure_plate_powered() {
-            if self.players[player_idx].on_ground {
-                self.set_pressure_plate(new_block, true);
-            }
+        if let Some(false) = self.world.get_block(new_block).get_pressure_plate_powered()
+            && self.players[player_idx].on_ground
+        {
+            self.set_pressure_plate(new_block, true);
         }
     }
 
@@ -610,10 +610,10 @@ impl Plot {
             let has_permission = self.players[player].has_permission("worldedit.selection.pos");
             if item.item_type == (Item::WoodenAxe) && has_permission {
                 self.send_block_change(block_pos, block.get_id());
-                if let Some(pos) = self.players[player].first_position {
-                    if pos == block_pos {
-                        return;
-                    }
+                if let Some(pos) = self.players[player].first_position
+                    && pos == block_pos
+                {
+                    return;
                 }
                 self.players[player].worldedit_set_first_position(block_pos);
                 return;

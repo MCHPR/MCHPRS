@@ -31,7 +31,7 @@ pub fn has_override(block: Block) -> bool {
         Block::Barrel { .. }
             | Block::Furnace { .. }
             | Block::Hopper { .. }
-            | Block::Cauldron { .. }
+            | Block::Cauldron
             | Block::Composter { .. }
             | Block::Cake { .. }
             | Block::EndPortalFrame { eye: true, .. }

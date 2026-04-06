@@ -40,6 +40,8 @@ impl<W: World> Pass<W> for InputSearch {
 /// queried blocks in a cache to reduce the number of times we query the world.
 struct BlockLookupCache<'world, W: World> {
     world: &'world W,
+    // It's not really that complex
+    #[allow(clippy::type_complexity)]
     cache: [[[Option<(Block, BlockPos)>; 16]; 16]; 16],
 }
 
@@ -265,7 +267,7 @@ impl<'a, W: World> InputSearchState<'a, W> {
         let side_block = self.block_lookup_cache.get_block(side_pos);
         if (mchprs_redstone::is_diode(side_block)
             && provides_weak_power(side_block, side.block_face()))
-            || matches!(side_block, Block::RedstoneBlock { .. })
+            || matches!(side_block, Block::RedstoneBlock)
         {
             self.graph
                 .add_edge(self.pos_map[&side_pos], id, CompileLink::side(0));
@@ -373,7 +375,7 @@ fn provides_weak_power(block: Block, side: BlockFace) -> bool {
     match block {
         Block::RedstoneTorch { .. } => side != BlockFace::Top,
         Block::RedstoneWallTorch { facing, .. } => facing.block_face() != side,
-        Block::RedstoneBlock {} => true,
+        Block::RedstoneBlock => true,
         Block::Lever { .. } => true,
         Block::StoneButton { .. } => true,
         Block::Repeater(repeater) => repeater.facing.block_face() == side,

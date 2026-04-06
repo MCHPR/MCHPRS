@@ -192,7 +192,7 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
         }
     }?;
 
-    if node.block.len() > 0 {
+    if !node.block.is_empty() {
         write!(f, "  # Loc: ")?;
         for (idx, (pos, _)) in node.block.iter().copied().enumerate() {
             if idx != 0 {
@@ -599,7 +599,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn skip_line(&mut self) {
-        while let Some((_, c)) = self.src_iter.next() {
+        for (_, c) in self.src_iter.by_ref() {
             if c == '\n' {
                 break;
             }
@@ -654,7 +654,7 @@ impl RILModule {
 
     fn get_test(&self, name: &str, test: &ast::Test) -> RILTest {
         let (graph, schematic_path) = match self.globals.get(&test.input) {
-            Some(ast::Global::Circuit(circuit)) => (self.get_graph(&circuit), None),
+            Some(ast::Global::Circuit(circuit)) => (self.get_graph(circuit), None),
             Some(ast::Global::Schematic(schematic)) => {
                 (CompileGraph::new(), Some(schematic.path.clone()))
             }
@@ -963,9 +963,9 @@ impl Parser {
             &[TokenType::Int(0), TokenType::None],
         )?;
         if token.ty == TokenType::None {
-            return Ok(None);
+            Ok(None)
         } else {
-            return Ok(Some(token.ty.unwrap_int() as u8));
+            Ok(Some(token.ty.unwrap_int() as u8))
         }
     }
 
@@ -1111,7 +1111,7 @@ impl Parser {
 
     fn expect_token(&mut self, valid_types: &[TokenType]) -> RILParserResult<Token> {
         let token = self.expect_any_token(valid_types)?;
-        if valid_types.iter().find(|ty| token.ty == **ty).is_some() {
+        if valid_types.contains(&token.ty) {
             Ok(token)
         } else {
             Err(RILParserError::new_expected(

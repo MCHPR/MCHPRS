@@ -28,7 +28,7 @@ impl<'a> StringReplacer<'a> {
     }
 
     pub fn updated(&self) -> bool {
-        self.output.len() > 0 || self.read > 0
+        !self.output.is_empty() || self.read > 0
     }
 
     pub fn finish(self) -> Cow<'a, str> {

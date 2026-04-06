@@ -939,7 +939,7 @@ pub fn ray_trace_block(
     // Player view height
     pos.y += 1.65;
     let rot_x = (start_yaw + 90.0) % 360.0;
-    let rot_y = start_pitch * -1.0;
+    let rot_y = -start_pitch;
     let h = check_distance * rot_y.to_radians().cos();
 
     let offset_x = h * rot_x.to_radians().cos();

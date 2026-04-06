@@ -64,10 +64,10 @@ fn fold_node(graph: &mut CompileGraph, idx: NodeIdx) -> bool {
         NodeType::Comparator {
             mode, far_input, ..
         } => {
-            if let Some(far_override) = far_input {
-                if default_power < 15 {
-                    default_power = far_override;
-                }
+            if let Some(far_override) = far_input
+                && default_power < 15
+            {
+                default_power = far_override;
             }
             match mode {
                 ComparatorMode::Compare => {

@@ -26,26 +26,26 @@ pub fn on_use(
             pickles,
             waterlogged,
         } => {
-            if let Some(Item::SeaPickle {}) = item_in_hand {
-                if pickles < 4 {
-                    world.set_block(
-                        pos,
-                        Block::SeaPickle {
-                            pickles: pickles + 1,
-                            waterlogged,
-                        },
-                    );
-                }
+            if let Some(Item::SeaPickle) = item_in_hand
+                && pickles < 4
+            {
+                world.set_block(
+                    pos,
+                    Block::SeaPickle {
+                        pickles: pickles + 1,
+                        waterlogged,
+                    },
+                );
             }
             ActionResult::Success
         }
         Block::EndPortalFrame { eye, facing } => {
-            if let Some(Item::EnderEye {}) = item_in_hand {
-                if !eye {
-                    world.set_block(pos, Block::EndPortalFrame { eye: true, facing });
-                    redstone::update_surrounding_blocks(world, pos);
-                    return ActionResult::Success;
-                }
+            if let Some(Item::EnderEye) = item_in_hand
+                && !eye
+            {
+                world.set_block(pos, Block::EndPortalFrame { eye: true, facing });
+                redstone::update_surrounding_blocks(world, pos);
+                return ActionResult::Success;
             }
             ActionResult::Pass
         }
@@ -280,13 +280,12 @@ pub fn place_in_world(
     pos: BlockPos,
     nbt: &Option<nbt::Blob>,
 ) {
-    if block.has_block_entity() {
-        if let Some(nbt) = nbt {
-            if let Some(block_entity) = read_block_entity_tag(nbt, block.get_name()) {
-                world.set_block_entity(pos, block_entity);
-            }
-        };
-    }
+    if block.has_block_entity()
+        && let Some(nbt) = nbt
+        && let Some(block_entity) = read_block_entity_tag(nbt, block.get_name())
+    {
+        world.set_block_entity(pos, block_entity);
+    };
     world.set_block(pos, block);
     change_surrounding_blocks(world, pos);
     if let Block::RedstoneWire { .. } = block {

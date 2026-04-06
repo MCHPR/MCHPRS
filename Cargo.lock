@@ -1367,7 +1367,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_redpiler"
-version = "0.1.0"
+version = "0.5.2-dev"
 dependencies = [
  "enum_dispatch",
  "indexmap",
@@ -1385,7 +1385,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_redstone"
-version = "0.1.0"
+version = "0.5.2-dev"
 dependencies = [
  "mchprs_blocks",
  "mchprs_world",
@@ -1423,7 +1423,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_text"
-version = "0.1.0"
+version = "0.5.2-dev"
 dependencies = [
  "regex",
  "serde",

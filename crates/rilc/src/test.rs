@@ -20,10 +20,8 @@ fn search_path(path: PathBuf, paths: &mut Vec<PathBuf>) {
             let dir_entry = dir_entry.unwrap();
             search_path(dir_entry.path(), paths);
         }
-    } else {
-        if path.extension() == Some(OsStr::new("ril")) {
-            paths.push(path);
-        }
+    } else if path.extension() == Some(OsStr::new("ril")) {
+        paths.push(path);
     }
 }
 

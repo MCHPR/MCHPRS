@@ -516,7 +516,7 @@ impl Player {
 
         let open_window = COpenScreen {
             window_id: 1,
-            window_type: container_type.window_type() as i32,
+            window_type: container_type.window_type(),
             window_title: "Container".into(),
         }
         .encode();

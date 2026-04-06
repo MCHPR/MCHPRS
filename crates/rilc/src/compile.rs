@@ -24,7 +24,7 @@ pub fn compile(input_path: &Path, output_path: &Option<PathBuf>, options: &Compi
             Some(pipeline) => pipeline,
             None => process::exit(1),
         },
-        None => build_pass_pipeline(&registry, &options),
+        None => build_pass_pipeline(&registry, options),
     };
 
     let mut result = String::new();

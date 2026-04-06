@@ -19,7 +19,7 @@ pub fn play_note(world: &mut impl World, pos: BlockPos, instrument: Instrument, 
     let pitch = f32::exp2(((note % 32) as f32 - 12.0) / 12.0);
     world.play_sound(
         pos,
-        instrument.to_sound_id() as i32,
+        instrument.to_sound_id(),
         sound_category,
         volume,
         pitch,

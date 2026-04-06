@@ -198,12 +198,12 @@ impl Instrument {
             // All stone materials
             _ if block.is_stone() => Instrument::Basedrum,
             // All sand/aggregate materials: ConcretePowder
-            Block::Sand {} => Instrument::Snare,
+            Block::Sand => Instrument::Snare,
             // All glass materials: GlassPane
             _ if block.is_glass() => Instrument::Hat,
             // All wood materials: Log, Plank
             _ if block.is_wood() => Instrument::Bass,
-            Block::Clay {} => Instrument::Flute,
+            Block::Clay => Instrument::Flute,
             Block::GoldBlock => Instrument::Bell,
             _ if block.is_wool() => Instrument::Guitar,
             Block::PackedIce => Instrument::Chime,
@@ -213,7 +213,7 @@ impl Instrument {
             Block::Pumpkin => Instrument::Didgeridoo,
             Block::EmeraldBlock => Instrument::Bit,
             Block::HayBlock { .. } => Instrument::Banjo,
-            Block::Glowstone { .. } => Instrument::Pling,
+            Block::Glowstone => Instrument::Pling,
             _ => Instrument::Harp,
         }
     }
