@@ -17,11 +17,5 @@ pub fn play_note(world: &mut impl World, pos: BlockPos, instrument: Instrument, 
     // The range [0, 31] is used even though it is different from the noteblock's note range
     // of [0, 24] because mapping to [0, 31] can be done efficiently using bitwise AND.
     let pitch = f32::exp2(((note % 32) as f32 - 12.0) / 12.0);
-    world.play_sound(
-        pos,
-        instrument.to_sound_id(),
-        sound_category,
-        volume,
-        pitch,
-    );
+    world.play_sound(pos, instrument.to_sound_id(), sound_category, volume, pitch);
 }
