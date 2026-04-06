@@ -1,5 +1,6 @@
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
+use mchprs_world::{TickEntry, TickPriority};
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use smallvec::SmallVec;
 
@@ -51,6 +52,7 @@ pub struct NodeState {
     pub powered: bool,
     pub repeater_locked: bool,
     pub output_strength: u8,
+    pending_ticks: Option<(TickPriority, u32)>,
 }
 
 impl NodeState {
@@ -67,6 +69,7 @@ impl NodeState {
             powered,
             repeater_locked: locked,
             output_strength: if powered { 15 } else { 0 },
+            ..Default::default()
         }
     }
 
@@ -104,6 +107,15 @@ pub struct CompileNode {
 impl CompileNode {
     pub fn is_removable(&self) -> bool {
         !self.is_input && !self.is_output
+    }
+
+    pub fn add_pending_tick(&mut self, tick: &TickEntry) {
+        assert!(!self.has_pending_ticks());
+        self.state.pending_ticks = Some((tick.tick_priority, tick.ticks_left));
+    }
+
+    pub fn has_pending_ticks(&self) -> bool {
+        self.state.pending_ticks.is_some()
     }
 }
 
