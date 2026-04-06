@@ -8,8 +8,8 @@ use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_world::World;
+use petgraph::visit::NodeIndexable;
 use petgraph::Direction;
-use rustc_hash::FxHashSet;
 
 pub struct PruneOrphans;
 
@@ -21,19 +21,29 @@ impl<W: World> Pass<W> for PruneOrphans {
         _: &CompilerInput<'_, W>,
         _: &mut AnalysisInfos,
     ) {
-        let mut to_visit = graph
+        // We start searching from output nodes
+        let mut worklist = graph
             .node_indices()
-            .filter(|&idx| !graph[idx].is_removable())
+            .filter(|&idx| graph[idx].is_output)
             .collect_vec();
 
-        let mut visited = FxHashSet::default();
-        while let Some(idx) = to_visit.pop() {
-            if visited.insert(idx) {
-                to_visit.extend(graph.neighbors_directed(idx, Direction::Incoming));
+        let mut visited = vec![false; graph.node_bound()];
+
+        // Visit initial nodes
+        for &idx in &worklist {
+            visited[idx.index()] = true;
+        }
+
+        while let Some(idx) = worklist.pop() {
+            for incoming in graph.neighbors_directed(idx, Direction::Incoming) {
+                if !visited[incoming.index()] {
+                    visited[incoming.index()] = true;
+                    worklist.push(incoming);
+                }
             }
         }
 
-        graph.retain_nodes(|_, idx| visited.contains(&idx));
+        graph.retain_nodes(|_, idx| visited[idx.index()]);
     }
 
     fn status_message(&self) -> &'static str {
