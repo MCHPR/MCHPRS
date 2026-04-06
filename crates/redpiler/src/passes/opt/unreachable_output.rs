@@ -34,7 +34,7 @@ impl<W: World> Pass<W> for UnreachableOutput {
             // is too high.
             let mut outgoing = graph.neighbors_directed(idx, Direction::Outgoing).detach();
             while let Some((edge_idx, _)) = outgoing.next(graph) {
-                if graph[edge_idx].ss >= range.high {
+                if graph[edge_idx].ss >= range.high() {
                     graph.remove_edge(edge_idx);
                 }
             }
@@ -43,6 +43,7 @@ impl<W: World> Pass<W> for UnreachableOutput {
 
     fn analysis_usage(&self, au: &mut AnalysisUsage) {
         au.set_required::<SSRangeAnalysis, W>();
+        au.set_preserved::<SSRangeAnalysis, W>();
     }
 
     fn status_message(&self) -> &'static str {

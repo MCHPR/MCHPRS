@@ -1,5 +1,6 @@
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
+use mchprs_world::{TickEntry, TickPriority};
 use petgraph::stable_graph::{NodeIndex, StableGraph};
 use smallvec::SmallVec;
 
@@ -46,11 +47,18 @@ impl NodeType {
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+impl NodeType {
+    pub fn is_bool(&self) -> bool {
+        !matches!(self, NodeType::Wire | NodeType::Comparator { .. })
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct NodeState {
     pub powered: bool,
     pub repeater_locked: bool,
     pub output_strength: u8,
+    pending_ticks: Option<(TickPriority, u32)>,
 }
 
 impl NodeState {
@@ -67,6 +75,7 @@ impl NodeState {
             powered,
             repeater_locked: locked,
             output_strength: if powered { 15 } else { 0 },
+            ..Default::default()
         }
     }
 
@@ -86,10 +95,10 @@ impl NodeState {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Annotations {}
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompileNode {
     pub ty: NodeType,
     pub block: SmallVec<[(BlockPos, u32); 1]>,
@@ -104,6 +113,15 @@ pub struct CompileNode {
 impl CompileNode {
     pub fn is_removable(&self) -> bool {
         !self.is_input && !self.is_output
+    }
+
+    pub fn add_pending_tick(&mut self, tick: &TickEntry) {
+        assert!(!self.has_pending_ticks());
+        self.state.pending_ticks = Some((tick.tick_priority, tick.ticks_left));
+    }
+
+    pub fn has_pending_ticks(&self) -> bool {
+        self.state.pending_ticks.is_some()
     }
 }
 

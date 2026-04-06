@@ -34,10 +34,10 @@ pub fn build_pass_pipeline<'p, W: World>(
 
     if options.optimize {
         builder.add_pass::<dedup_links::DedupLinks>();
-        builder.add_pass::<constant_fold::ConstantFold>();
+        builder.add_pass::<constant_fold2::ConstantFold2>();
         builder.add_pass::<unreachable_output::UnreachableOutput>();
-        builder.add_pass::<constant_coalesce::ConstantCoalesce>();
-        builder.add_pass::<coalesce::Coalesce>();
+        builder.add_pass::<coalesce2::Coalesce2>();
+
         if options.io_only {
             builder.add_pass::<prune_orphans::PruneOrphans>();
         }
@@ -70,9 +70,11 @@ impl<W: World> Default for PassRegistry<W> {
         registry.register_pass(clamp_weights::ClampWeights);
         registry.register_pass(dedup_links::DedupLinks);
         registry.register_pass(constant_fold::ConstantFold);
+        registry.register_pass(constant_fold2::ConstantFold2);
         registry.register_pass(unreachable_output::UnreachableOutput);
         registry.register_pass(constant_coalesce::ConstantCoalesce);
         registry.register_pass(coalesce::Coalesce);
+        registry.register_pass(coalesce2::Coalesce2);
         registry.register_pass(prune_orphans::PruneOrphans);
         registry.register_pass(export_graph::ExportGraph);
 
@@ -129,6 +131,13 @@ impl AnalysisInfos {
         self.analysis_infos
             .get(&type_id)
             .and_then(|ai| (ai.as_ref() as &dyn Any).downcast_ref())
+    }
+
+    pub fn get_analysis_mut<A: AnalysisInfo>(&mut self) -> Option<&mut A> {
+        let type_id = TypeId::of::<A>();
+        self.analysis_infos
+            .get_mut(&type_id)
+            .and_then(|ai| (ai.as_mut() as &mut dyn Any).downcast_mut())
     }
 }
 
