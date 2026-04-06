@@ -106,7 +106,7 @@ impl ChunkSectionIdx {
 /// ie, over x,y,z triples (where x,z are chunk indexes and y are section indexes)
 /// such that the bounding box defined by the two block positions intersect
 /// section y of the x,z chunk.
-/// 
+///
 /// The iterator yields the chunks in x,z order, and the sections in y order,
 /// i.e., if visiting sections 1,2 of chunks 0,0 and 0,1, the iterator will yield
 /// - section 1 of chunk 0,0 (0,1,0)
