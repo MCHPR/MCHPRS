@@ -12,6 +12,7 @@ readme.workspace = true
 version.workspace = true
 license.workspace = true
 repository.workspace = true
+include.workspace = true
 
 [workspace.package]
 authors = ["StackDoubleFlow <ojaslandge@gmail.com>"]

@@ -1,7 +1,15 @@
 [package]
 name = "mchprs_text"
-version = "0.1.0"
-edition = "2021"
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+include.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
