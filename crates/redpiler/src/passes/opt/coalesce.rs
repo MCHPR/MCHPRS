@@ -1,10 +1,8 @@
-use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeType};
+use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx, NodeType};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_world::World;
-use petgraph::visit::{EdgeRef, NodeIndexable};
-use petgraph::Direction;
 use tracing::trace;
 
 pub struct Coalesce;
@@ -50,7 +48,7 @@ fn run_iteration(graph: &mut CompileGraph) -> usize {
             continue;
         }
 
-        let Ok(edge) = graph.edges_directed(idx, Direction::Incoming).exactly_one() else {
+        let Ok(edge) = graph.edges(idx, Direction::Incoming).exactly_one() else {
             continue;
         };
 
@@ -70,9 +68,7 @@ fn run_iteration(graph: &mut CompileGraph) -> usize {
 
 fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: NodeIdx) -> usize {
     let mut num_coalesced = 0;
-    let mut walk_outgoing = graph
-        .neighbors_directed(source_idx, Direction::Outgoing)
-        .detach();
+    let mut walk_outgoing = graph.neighbors(source_idx, Direction::Outgoing).detach();
     while let Some(edge_idx) = walk_outgoing.next_edge(graph) {
         let dest_idx = graph.edge_endpoints(edge_idx).unwrap().1;
         if dest_idx == into_idx {
@@ -84,10 +80,7 @@ fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: No
 
         if dest.ty == into.ty
             && dest.is_removable()
-            && graph
-                .neighbors_directed(dest_idx, Direction::Incoming)
-                .count()
-                == 1
+            && graph.neighbors(dest_idx, Direction::Incoming).count() == 1
         {
             coalesce(graph, dest_idx, into_idx);
             num_coalesced += 1;
@@ -97,8 +90,7 @@ fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: No
 }
 
 fn coalesce(graph: &mut CompileGraph, node: NodeIdx, into: NodeIdx) {
-    let mut walk_outgoing: petgraph::stable_graph::WalkNeighbors<u32> =
-        graph.neighbors_directed(node, Direction::Outgoing).detach();
+    let mut walk_outgoing = graph.neighbors(node, Direction::Outgoing).detach();
     while let Some(edge_idx) = walk_outgoing.next_edge(graph) {
         let dest = graph.edge_endpoints(edge_idx).unwrap().1;
         let weight = graph.remove_edge(edge_idx).unwrap();

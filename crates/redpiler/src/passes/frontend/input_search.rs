@@ -10,7 +10,6 @@ use mchprs_blocks::blocks::{Block, LeverFace};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_redstone::{self, comparator, wire};
 use mchprs_world::World;
-use petgraph::visit::NodeIndexable;
 use rustc_hash::FxHashMap;
 
 pub struct InputSearch;

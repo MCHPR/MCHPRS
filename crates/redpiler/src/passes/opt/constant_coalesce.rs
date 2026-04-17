@@ -1,12 +1,10 @@
 use std::collections::hash_map::Entry;
 
-use crate::compile_graph::{CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
+use crate::compile_graph::{CompileGraph, CompileNode, Direction, NodeIdx, NodeState, NodeType};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::unionfind::UnionFind;
-use petgraph::visit::{EdgeRef, IntoEdgeReferences, NodeIndexable};
-use petgraph::Direction;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 pub struct ConstantCoalesce;
@@ -20,7 +18,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
         _: &mut AnalysisInfos,
     ) {
         let mut vertex_sets = UnionFind::new(graph.node_bound());
-        for edge in graph.edge_references() {
+        for edge in graph.all_edges() {
             let (src, dest) = (edge.source(), edge.target());
             let node = &graph[src];
             if node.ty != NodeType::Constant || !node.is_removable() {
@@ -44,7 +42,7 @@ impl<W: World> Pass<W> for ConstantCoalesce {
             }
             let ss = node.state.output_strength;
 
-            let mut neighbors = graph.neighbors_directed(idx, Direction::Outgoing).detach();
+            let mut neighbors = graph.neighbors(idx, Direction::Outgoing).detach();
             while let Some((edge, dest)) = neighbors.next(graph) {
                 let subgraph_component = vertex_sets.find(dest.index());
 

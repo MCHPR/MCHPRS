@@ -12,15 +12,12 @@
 //! TODO: handle cases where a cycle has a constrained input. Pulse extender example: button ->
 //! comparator subtract by constant -> comparator loop
 
-use crate::compile_graph::{CompileGraph, LinkType, NodeState, NodeType};
+use crate::compile_graph::{CompileGraph, LinkType, NodeState, NodeType, NodeIdx, Direction};
 use crate::passes::{AnalysisInfo, AnalysisInfos, AnalysisUsage, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;
-use petgraph::graph::NodeIndex;
-use petgraph::visit::{EdgeRef, NodeIndexable};
-use petgraph::Direction;
 use std::iter;
 
 /// The possible output range of a node
@@ -67,7 +64,7 @@ impl SSRangeInfo {
         self.ranges.extend(iter::repeat_n(None, len));
     }
 
-    fn set_range(&mut self, node_idx: NodeIndex, range: SSRange) {
+    fn set_range(&mut self, node_idx: NodeIdx, range: SSRange) {
         let idx = node_idx.index();
         if idx >= self.ranges.len() {
             self.ranges
@@ -76,11 +73,11 @@ impl SSRangeInfo {
         self.ranges[node_idx.index()] = Some(range);
     }
 
-    pub fn get_range(&self, node_idx: NodeIndex) -> Option<SSRange> {
+    pub fn get_range(&self, node_idx: NodeIdx) -> Option<SSRange> {
         self.ranges.get(node_idx.index()).copied().flatten()
     }
 
-    fn extend_range_to_include(&mut self, node_idx: NodeIndex, ss: u8) {
+    fn extend_range_to_include(&mut self, node_idx: NodeIdx, ss: u8) {
         if let Some(range) = &mut self.ranges[node_idx.index()] {
             if range.low > ss {
                 range.low = ss;
@@ -110,7 +107,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
         // First, we give all nodes with no inputs the default range
         for node_idx in graph.node_indices() {
             let node = &graph[node_idx];
-            let first_edge = graph.edges_directed(node_idx, Direction::Incoming).next();
+            let first_edge = graph.edges(node_idx, Direction::Incoming).next();
             if first_edge.is_none() {
                 let range = Self::range_for_no_inputs(&node.ty, &node.state);
                 range_info.set_range(node_idx, range);
@@ -128,7 +125,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
             }
 
             let first_side_edge = graph
-                .edges_directed(node_idx, Direction::Incoming)
+                .edges(node_idx, Direction::Incoming)
                 .find(|edge| edge.weight().ty == LinkType::Side);
             if first_side_edge.is_some() {
                 range_info.set_range(node_idx, SSRange::FULL);
@@ -174,9 +171,9 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
 }
 
 impl SSRangeAnalysis {
-    fn propogate_ss_ranges(graph: &CompileGraph, range_info: &mut SSRangeInfo, from: NodeIndex) {
+    fn propogate_ss_ranges(graph: &CompileGraph, range_info: &mut SSRangeInfo, from: NodeIdx) {
         let mut queue = graph
-            .neighbors_directed(from, Direction::Outgoing)
+            .neighbors(from, Direction::Outgoing)
             .collect_vec();
         while let Some(node_idx) = queue.pop() {
             if range_info.get_range(node_idx).is_some() {
@@ -193,14 +190,14 @@ impl SSRangeAnalysis {
             let output_range =
                 Self::evaluate_with_range(&node.ty, &node.state, default_range, side_range);
             range_info.set_range(node_idx, output_range);
-            queue.extend(graph.neighbors_directed(node_idx, Direction::Outgoing));
+            queue.extend(graph.neighbors(node_idx, Direction::Outgoing));
         }
     }
 
     fn collect_input_range(
         graph: &CompileGraph,
         range_info: &mut SSRangeInfo,
-        node_idx: NodeIndex,
+        node_idx: NodeIdx,
         allow_missing: bool,
     ) -> Option<(SSRange, SSRange)> {
         fn reduce_range(acc: &mut Option<SSRange>, range: SSRange) {
@@ -214,7 +211,7 @@ impl SSRangeAnalysis {
 
         let mut default_range = None;
         let mut side_range = None;
-        for edge in graph.edges_directed(node_idx, Direction::Incoming) {
+        for edge in graph.edges(node_idx, Direction::Incoming) {
             let source_idx = edge.source();
             let link = edge.weight();
             let src_range = range_info.get_range(source_idx).or({

@@ -1,12 +1,10 @@
 use crate::backend::direct::node::ForwardLinks;
-use crate::compile_graph::{CompileGraph, LinkType, NodeIdx};
+use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx};
 use crate::{CompilerOptions, TaskMonitor};
 use itertools::Itertools;
 use mchprs_blocks::blocks::{Block, Instrument};
 use mchprs_blocks::BlockPos;
 use mchprs_world::TickEntry;
-use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::sync::Arc;
@@ -41,7 +39,7 @@ fn compile_node(
 
     let mut default_inputs = NodeInput { ss_counts: [0; 16] };
     let mut side_inputs = NodeInput { ss_counts: [0; 16] };
-    for edge in graph.edges_directed(node_idx, Direction::Incoming) {
+    for edge in graph.edges(node_idx, Direction::Incoming) {
         let weight = edge.weight();
         let distance = weight.ss;
         let source = edge.source();
@@ -77,7 +75,7 @@ fn compile_node(
     use crate::compile_graph::NodeType as CNodeType;
     let fwd_link_range = if node.ty != CNodeType::Constant {
         let new_links = graph
-            .edges_directed(node_idx, Direction::Outgoing)
+            .edges(node_idx, Direction::Outgoing)
             .sorted_by_key(|edge| nodes_map[&edge.target()])
             .into_group_map_by(|edge| std::mem::discriminant(&graph[edge.target()].ty))
             .into_values()
@@ -182,7 +180,7 @@ pub fn compile(
     trace!("{:#?}", stats);
 
     backend.blocks = graph
-        .node_weights()
+        .all_node_weights()
         .map(|node| {
             node.block
                 .iter()

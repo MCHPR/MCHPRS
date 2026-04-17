@@ -5,12 +5,10 @@
 //! For example, if two nodes are connected with two links of weights 13 and 15, the link with
 //! weight 15 is removed.
 
-use crate::compile_graph::{CompileGraph, NodeIdx};
+use crate::compile_graph::{CompileGraph, Direction, NodeIdx};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
-use petgraph::visit::{EdgeRef, NodeIndexable};
-use petgraph::Direction;
 
 pub struct DedupLinks;
 
@@ -28,13 +26,13 @@ impl<W: World> Pass<W> for DedupLinks {
                 continue;
             }
 
-            let mut edges = graph.neighbors_directed(idx, Direction::Incoming).detach();
+            let mut edges = graph.neighbors(idx, Direction::Incoming).detach();
             while let Some(edge_idx) = edges.next_edge(graph) {
                 let edge = &graph[edge_idx];
                 let source_idx = graph.edge_endpoints(edge_idx).unwrap().0;
 
                 let mut should_remove = false;
-                for other_edge in graph.edges_directed(idx, Direction::Incoming) {
+                for other_edge in graph.edges(idx, Direction::Incoming) {
                     if other_edge.id() != edge_idx
                         && other_edge.source() == source_idx
                         && other_edge.weight().ty == edge.ty

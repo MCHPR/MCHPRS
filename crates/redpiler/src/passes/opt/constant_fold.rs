@@ -1,10 +1,8 @@
-use crate::compile_graph::{CompileGraph, LinkType, NodeIdx, NodeState, NodeType};
+use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx, NodeState, NodeType};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;
-use petgraph::visit::{EdgeRef, NodeIndexable};
-use petgraph::Direction;
 use tracing::trace;
 
 pub struct ConstantFold;
@@ -34,7 +32,7 @@ impl<W: World> Pass<W> for ConstantFold {
 fn fold_node(graph: &mut CompileGraph, idx: NodeIdx) -> bool {
     let mut default_power = 0;
     let mut side_power = 0;
-    for edge in graph.edges_directed(idx, Direction::Incoming) {
+    for edge in graph.edges(idx, Direction::Incoming) {
         let constant = &graph[edge.source()];
         if constant.ty != NodeType::Constant {
             return false;
@@ -102,7 +100,7 @@ fn fold_node(graph: &mut CompileGraph, idx: NodeIdx) -> bool {
     graph[idx].ty = NodeType::Constant;
     graph[idx].state = NodeState::ss(new_power);
 
-    let mut incoming = graph.neighbors_directed(idx, Direction::Incoming).detach();
+    let mut incoming = graph.neighbors(idx, Direction::Incoming).detach();
     while let Some(edge) = incoming.next_edge(graph) {
         graph.remove_edge(edge);
     }
@@ -124,7 +122,7 @@ fn fold(graph: &mut CompileGraph) -> usize {
         worklist.push(idx);
         while let Some(idx) = worklist.pop() {
             if fold_node(graph, idx) {
-                worklist.extend(graph.neighbors_directed(idx, Direction::Outgoing));
+                worklist.extend(graph.neighbors(idx, Direction::Outgoing));
                 num_folded += 1;
             }
         }

@@ -3,13 +3,11 @@
 //! This pass removes any nodes in the graph that aren't transitively connected to an output
 //! redstone component by using Depth-First-Search.
 
-use crate::compile_graph::CompileGraph;
+use crate::compile_graph::{CompileGraph, Direction};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_world::World;
-use petgraph::visit::NodeIndexable;
-use petgraph::Direction;
 
 pub struct PruneOrphans;
 
@@ -35,7 +33,7 @@ impl<W: World> Pass<W> for PruneOrphans {
         }
 
         while let Some(idx) = worklist.pop() {
-            for incoming in graph.neighbors_directed(idx, Direction::Incoming) {
+            for incoming in graph.neighbors(idx, Direction::Incoming) {
                 if !visited[incoming.index()] {
                     visited[incoming.index()] = true;
                     worklist.push(incoming);

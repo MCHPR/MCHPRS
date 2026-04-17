@@ -1,11 +1,9 @@
-use crate::compile_graph::{CompileGraph, LinkType as CLinkType, NodeIdx, NodeType as CNodeType};
+use crate::compile_graph::{CompileGraph, Direction, LinkType as CLinkType, NodeIdx, NodeType as CNodeType};
 use crate::passes::{AnalysisInfos, AnalysisUsage, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode as CComparatorMode;
 use mchprs_world::World;
-use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 use redpiler_graph::{
     serialize, BlockPos, ComparatorMode, Link, LinkType, Node, NodeState, NodeType,
 };
@@ -20,7 +18,7 @@ fn convert_node(
     let node = &graph[node_idx];
 
     let mut inputs = Vec::new();
-    for edge in graph.edges_directed(node_idx, Direction::Incoming) {
+    for edge in graph.edges(node_idx, Direction::Incoming) {
         let idx = nodes_map[&edge.source()];
         let weight = edge.weight();
         inputs.push(Link {
@@ -34,7 +32,7 @@ fn convert_node(
     }
 
     let updates = graph
-        .neighbors_directed(node_idx, Direction::Outgoing)
+        .neighbors(node_idx, Direction::Outgoing)
         .map(|idx| nodes_map[&idx])
         .collect();
 

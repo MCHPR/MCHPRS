@@ -1,14 +1,12 @@
 use crate::compile_graph::{
-    CompileGraph, CompileLink, CompileNode, LinkType, NodeIdx, NodeState, NodeType,
+    CompileGraph, CompileLink, CompileNode, Direction, EdgeRef, LinkType, NodeIdx, NodeState,
+    NodeType,
 };
 use crate::string_replacer::StringReplacer;
 use crate::CompilerOptions;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
-use petgraph::stable_graph::EdgeReference;
-use petgraph::visit::EdgeRef;
-use petgraph::Direction;
 use rustc_hash::FxHashMap;
 use std::iter::Peekable;
 use std::str::CharIndices;
@@ -36,7 +34,7 @@ fn dump_edge(
 fn dump_edges<'a>(
     f: &mut fmt::Formatter<'_>,
     ctx: &FmtContext<'_>,
-    edges: impl Iterator<Item = EdgeReference<'a, CompileLink>>,
+    edges: impl Iterator<Item = EdgeRef<'a, CompileLink, usize>>,
 ) -> fmt::Result {
     write!(f, "[")?;
     let mut first = true;
@@ -71,7 +69,7 @@ impl<'a> fmt::Display for SideInputFormatter<'a> {
         let default_inputs = self
             .ctx
             .graph
-            .edges_directed(self.ctx.node_idx, Direction::Incoming)
+            .edges(self.ctx.node_idx, Direction::Incoming)
             .filter(|edge| edge.weight().ty == LinkType::Side);
         dump_edges(f, self.ctx, default_inputs)
     }
@@ -86,7 +84,7 @@ impl<'a> fmt::Display for DefaultInputFormatter<'a> {
         let default_inputs = self
             .ctx
             .graph
-            .edges_directed(self.ctx.node_idx, Direction::Incoming)
+            .edges(self.ctx.node_idx, Direction::Incoming)
             .filter(|edge| edge.weight().ty == LinkType::Default);
         dump_edges(f, self.ctx, default_inputs)
     }
@@ -628,7 +626,7 @@ impl RILModule {
     }
 
     pub fn get_graph(&self, circuit: &ast::Circuit) -> CompileGraph {
-        let mut graph = CompileGraph::new();
+        let mut graph = CompileGraph::default();
         let mut name_map = FxHashMap::default();
         for component in &circuit.components {
             let node_idx = graph.add_node(CompileNode {
@@ -656,7 +654,7 @@ impl RILModule {
         let (graph, schematic_path) = match self.globals.get(&test.input) {
             Some(ast::Global::Circuit(circuit)) => (self.get_graph(circuit), None),
             Some(ast::Global::Schematic(schematic)) => {
-                (CompileGraph::new(), Some(schematic.path.clone()))
+                (CompileGraph::default(), Some(schematic.path.clone()))
             }
             Some(_) => panic!("invalid test input"),
             None => panic!("could not find test input with name: {}", test.input),
@@ -716,7 +714,7 @@ impl RILModule {
             }
             // We do it this way instead of searching for matching edges because we need to be able to count duplicates.
             let mut remaining_inputs = expected.inputs.clone();
-            for edge in result.edges_directed(node_idx, Direction::Incoming) {
+            for edge in result.edges(node_idx, Direction::Incoming) {
                 let src = &result[edge.source()];
                 let src_name = src
                     .name

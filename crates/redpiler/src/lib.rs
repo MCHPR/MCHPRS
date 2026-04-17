@@ -151,7 +151,7 @@ impl Compiler {
         let registry = PassRegistry::default();
         let pass_pipeline = passes::build_pass_pipeline::<W>(&registry, &options);
         let graph =
-            pass_pipeline.run_passes(&options, &input, CompileGraph::new(), monitor.clone());
+            pass_pipeline.run_passes(&options, &input, CompileGraph::default(), monitor.clone());
 
         if monitor.cancelled() {
             return;
