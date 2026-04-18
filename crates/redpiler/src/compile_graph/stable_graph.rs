@@ -131,6 +131,10 @@ impl<Node, Edge, Idx: IdxT> StableGraph<Node, Edge, Idx> {
         to: NodeIndex<Idx>,
         value: Edge,
     ) -> EdgeIndex<Idx> {
+        if !self.contains_node(from) || !self.contains_node(to) {
+            panic!("endpoint not in graph")
+        }
+
         let idx = match self.free_edge_stack.pop() {
             Some(idx) => idx,
             None => {
@@ -167,25 +171,40 @@ impl<Node, Edge, Idx: IdxT> StableGraph<Node, Edge, Idx> {
         let def = edge.def.take()?;
         let dirs = std::mem::take(&mut edge.dirs);
 
-        for (dir, dirs_pn) in dirs.into_iter().enumerate() {
-            for dir_pn in [DIR_PREV, DIR_NEXT] {
-                // When we have DIR_INCOMING, we want the destination endpoint
-                let endpoint = &mut self.nodes[def.endpoints[1 - dir].index()];
-                if let Some(opposite) = dirs_pn[1 - dir_pn] {
-                    endpoint.edge_dirs[dir].unwrap()[dir_pn] = opposite;
-                } else {
+        for dir in [DIR_INCOMING, DIR_OUTGOING] {
+            let endpoint_idx = def.endpoints[1 - dir];
+            let endpoint = &mut self.nodes[endpoint_idx.index()];
+
+            let prev = dirs[dir][DIR_PREV];
+            let next = dirs[dir][DIR_NEXT];
+
+            match (prev, next) {
+                (None, None) => {
                     endpoint.edge_dirs[dir] = None;
+                }
+                (None, Some(next_edge)) => {
+                    let [_, last] = endpoint.edge_dirs[dir].unwrap();
+                    endpoint.edge_dirs[dir] = Some([next_edge, last]);
+                }
+                (Some(prev_edge), None) => {
+                    let [first, _] = endpoint.edge_dirs[dir].unwrap();
+                    endpoint.edge_dirs[dir] = Some([first, prev_edge]);
+                }
+                (Some(_), Some(_)) => {
+                    // Neither the first nor last edge changes.
                 }
             }
         }
 
-        for (dir, dirs_pn) in dirs.into_iter().enumerate() {
-            for dir_pn in [DIR_PREV, DIR_NEXT] {
-                // If we have a next edge in this direction, set it's prev edge to our prev,
-                // and vice-versa
-                if let Some(pn_edge) = dirs_pn[dir_pn] {
-                    self.edges[pn_edge.index()].dirs[dir][1 - dir_pn] = dirs_pn[1 - dir_pn];
-                }
+        for dir in [DIR_INCOMING, DIR_OUTGOING] {
+            let prev = dirs[dir][DIR_PREV];
+            let next = dirs[dir][DIR_NEXT];
+
+            if let Some(prev_edge) = prev {
+                self.edges[prev_edge.index()].dirs[dir][DIR_NEXT] = next;
+            }
+            if let Some(next_edge) = next {
+                self.edges[next_edge.index()].dirs[dir][DIR_PREV] = prev;
             }
         }
 
@@ -210,6 +229,7 @@ impl<Node, Edge, Idx: IdxT> StableGraph<Node, Edge, Idx> {
             }
         }
 
+        self.free_node_stack.push(idx);
         self.node_count -= 1;
         Some(value)
     }
@@ -385,7 +405,7 @@ impl<Edge, Idx: IdxT> Iterator for Neighbors<'_, Edge, Idx> {
         let def = edge.def.as_ref().unwrap();
 
         self.next = edge.dirs[self.dir][DIR_NEXT];
-        Some(def.endpoints[1 - self.dir])
+        Some(def.endpoints[self.dir])
     }
 }
 
@@ -413,7 +433,7 @@ impl<Idx: IdxT> NeighborsDetached<Idx> {
         let def = edge.def.as_ref().unwrap();
 
         self.next = edge.dirs[self.dir][DIR_NEXT];
-        Some((edge_idx, def.endpoints[1 - self.dir]))
+        Some((edge_idx, def.endpoints[self.dir]))
     }
 
     pub fn next_node<Node, Edge>(
@@ -450,7 +470,7 @@ impl<Edge, Idx: IdxT> EdgeRef<'_, Edge, Idx> {
     }
 
     pub fn target(&self) -> NodeIndex<Idx> {
-        self.edge.endpoints[0]
+        self.edge.endpoints[1]
     }
 }
 
