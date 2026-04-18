@@ -12,7 +12,7 @@
 //! TODO: handle cases where a cycle has a constrained input. Pulse extender example: button ->
 //! comparator subtract by constant -> comparator loop
 
-use crate::compile_graph::{CompileGraph, LinkType, NodeState, NodeType, NodeIdx, Direction};
+use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx, NodeState, NodeType};
 use crate::passes::{AnalysisInfo, AnalysisInfos, AnalysisUsage, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
@@ -172,9 +172,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
 
 impl SSRangeAnalysis {
     fn propogate_ss_ranges(graph: &CompileGraph, range_info: &mut SSRangeInfo, from: NodeIdx) {
-        let mut queue = graph
-            .neighbors(from, Direction::Outgoing)
-            .collect_vec();
+        let mut queue = graph.neighbors(from, Direction::Outgoing).collect_vec();
         while let Some(node_idx) = queue.pop() {
             if range_info.get_range(node_idx).is_some() {
                 continue;

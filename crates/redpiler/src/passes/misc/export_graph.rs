@@ -1,4 +1,6 @@
-use crate::compile_graph::{CompileGraph, Direction, LinkType as CLinkType, NodeIdx, NodeType as CNodeType};
+use crate::compile_graph::{
+    CompileGraph, Direction, LinkType as CLinkType, NodeIdx, NodeType as CNodeType,
+};
 use crate::passes::{AnalysisInfos, AnalysisUsage, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
