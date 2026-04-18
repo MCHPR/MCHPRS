@@ -7,7 +7,7 @@ use stable_graph::{NodeIndex, StableGraph};
 mod stable_graph;
 
 pub use stable_graph::{Direction, EdgeRef};
-pub type NodeIdx = NodeIndex;
+pub type NodeIdx = NodeIndex<u32>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NodeType {
@@ -143,4 +143,4 @@ impl CompileLink {
     }
 }
 
-pub type CompileGraph = StableGraph<CompileNode, CompileLink>;
+pub type CompileGraph = StableGraph<CompileNode, CompileLink, u32>;

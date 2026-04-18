@@ -34,7 +34,7 @@ fn dump_edge(
 fn dump_edges<'a>(
     f: &mut fmt::Formatter<'_>,
     ctx: &FmtContext<'_>,
-    edges: impl Iterator<Item = EdgeRef<'a, CompileLink, usize>>,
+    edges: impl Iterator<Item = EdgeRef<'a, CompileLink, u32>>,
 ) -> fmt::Result {
     write!(f, "[")?;
     let mut first = true;

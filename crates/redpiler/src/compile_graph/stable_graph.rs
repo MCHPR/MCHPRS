@@ -1,22 +1,58 @@
 use std::fmt::Debug;
 use std::{iter, slice};
 
-pub trait IdxT: TryFrom<usize> + Into<usize> + Copy + Clone + Debug {}
-impl<T> IdxT for T where T: TryFrom<usize> + Into<usize> + Copy + Clone + Debug {}
+pub trait IdxT: Copy + Clone + Debug {
+    fn new_unchecked(idx: usize) -> Self;
+    fn max() -> Self;
+    fn index(self) -> usize;
+
+    fn new(idx: usize) -> Self {
+        if idx > Self::max().index() {
+            panic!("limit for index type reached");
+        };
+        Self::new_unchecked(idx)
+    }
+}
+
+impl IdxT for usize {
+    fn new_unchecked(idx: usize) -> Self {
+        idx
+    }
+
+    fn index(self) -> usize {
+        self
+    }
+
+    fn max() -> Self {
+        usize::MAX
+    }
+}
+
+impl IdxT for u32 {
+    fn new_unchecked(idx: usize) -> Self {
+        idx as u32
+    }
+
+    fn index(self) -> usize {
+        // This would fail on 16 bit systems, hopefully MCHPRS never runs on one
+        self as usize
+    }
+
+    fn max() -> Self {
+        u32::MAX
+    }
+}
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
-pub struct NodeIndex<Idx: IdxT = usize>(Idx);
+pub struct NodeIndex<Idx>(Idx);
 
 impl<Idx: IdxT> NodeIndex<Idx> {
     pub fn index(self) -> usize {
-        self.0.into()
+        self.0.index()
     }
 
     pub fn new(idx: usize) -> Self {
-        let Ok(idx) = idx.try_into() else {
-            panic!("limit for index type reached");
-        };
-        Self(idx)
+        Self(Idx::new(idx))
     }
 }
 
@@ -25,14 +61,11 @@ pub struct EdgeIndex<Idx: IdxT>(Idx);
 
 impl<Idx: IdxT> EdgeIndex<Idx> {
     pub fn index(self) -> usize {
-        self.0.into()
+        self.0.index()
     }
 
     pub fn new(idx: usize) -> Self {
-        let Ok(idx) = idx.try_into() else {
-            panic!("limit for index type reached");
-        };
-        Self(idx)
+        Self(Idx::new(idx))
     }
 }
 
