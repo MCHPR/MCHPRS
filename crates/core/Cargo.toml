@@ -17,7 +17,7 @@ include.workspace = true
 mchprs_proc_macros = { path = "../proc_macros" }
 mchprs_save_data = { path = "../save_data" }
 mchprs_blocks = { path = "../blocks" }
-mchprs_world = { path = "../world" }
+mchprs_world = { path = "../world", features = ["networking"] }
 mchprs_utils = { path = "../utils" }
 mchprs_network = { path = "../network" }
 mchprs_text = { path = "../text" }
