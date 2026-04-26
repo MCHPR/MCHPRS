@@ -21,6 +21,5 @@ rustc-hash = { workspace = true }
 hematite-nbt = { workspace = true }
 
 [features]
-default = ["networking"]
 networking = ["dep:mchprs_network"]
 testing = []
