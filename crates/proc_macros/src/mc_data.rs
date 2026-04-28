@@ -49,6 +49,12 @@ static REGISTRY: LazyLock<FxHashMap<String, Registry>> = LazyLock::new(|| {
     serde_json::from_str(&path).unwrap()
 });
 
+static PACKETS: LazyLock<FxHashMap<String, FxHashMap<String, FxHashMap<String, RegistryEntry>>>> =
+    LazyLock::new(|| {
+        let path = std::fs::read_to_string(mc_data_path("packets.json")).unwrap();
+        serde_json::from_str(&path).unwrap()
+    });
+
 fn parse_props(input: &str) -> IResult<&str, HashMap<&str, &str>> {
     let (input, items) = separated_list1(
         char(','),
@@ -131,5 +137,18 @@ pub fn get_protocol_id(registry: LitStr, entry: LitStr) -> Result<TokenStream, E
         .ok_or_else(|| Error::new_spanned(entry, "invalid entry identifier"))?;
 
     let lit = entry.protocol_id;
+    Ok(TokenStream::from(quote! { #lit }))
+}
+
+pub fn get_packet_id(state: LitStr, bound_to: LitStr, ident: LitStr) -> Result<TokenStream, Error> {
+    let packet = PACKETS
+        .get(&state.value())
+        .ok_or_else(|| Error::new_spanned(state, "invalid packet state"))?
+        .get(&bound_to.value())
+        .ok_or_else(|| Error::new_spanned(bound_to, "invalid packet binding"))?
+        .get(&ident.value())
+        .ok_or_else(|| Error::new_spanned(ident, "invalid packet identifier"))?;
+
+    let lit = packet.protocol_id as u32;
     Ok(TokenStream::from(quote! { #lit }))
 }
