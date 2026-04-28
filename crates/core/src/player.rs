@@ -393,13 +393,16 @@ impl Player {
         }
 
         let player_position_and_look = CSynchronizePlayerPosition {
+            teleport_id: 0,
             x: pos.x,
             y: pos.y,
             z: pos.z,
+            velocity_x: 0.0,
+            velocity_y: 0.0,
+            velocity_z: 0.0,
             yaw: 0f32,
             pitch: 0f32,
             flags: 0x08 | 0x10, // pitch and yaw are relative
-            teleport_id: 0,
         }
         .encode();
         self.pos = pos;
@@ -584,7 +587,7 @@ impl Player {
                 },
                 CSetEntityMetadataEntry {
                     index: 6,
-                    metadata_type: 20,
+                    metadata_type: 21,
                     value: vec![if self.crouching { 5 } else { 0 }],
                 },
                 CSetEntityMetadataEntry {

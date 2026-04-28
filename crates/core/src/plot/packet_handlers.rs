@@ -93,7 +93,7 @@ impl ServerBoundPacketHandler for Plot {
             let item = ItemStack {
                 count: slot_data.item_count as u8,
                 item_type: Item::from_id(slot_data.item_id as u32),
-                nbt: slot_data.nbt.map(nbt::Blob::with_content),
+                nbt: None,
             };
             self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
             if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
@@ -387,7 +387,7 @@ impl ServerBoundPacketHandler for Plot {
             },
             CSetEntityMetadataEntry {
                 index: 6,
-                metadata_type: 20,
+                metadata_type: 21,
                 value: vec![if self.players[player].crouching { 5 } else { 0 }],
             },
         ];
