@@ -264,36 +264,12 @@ pub struct SChatCommandArgumentSignature {
 #[derive(Debug)]
 pub struct SChatCommand {
     pub command: String,
-    pub timestamp: i64,
-    pub salt: i64,
-    pub argument_signatures: Vec<SChatCommandArgumentSignature>,
-    pub message_count: i32,
-    pub acknowledged: [u8; 3],
 }
 
 impl ServerBoundPacket for SChatCommand {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let command = decoder.read_string()?;
-        let timestamp = decoder.read_long()?;
-        let salt = decoder.read_long()?;
-        let mut argument_signatures = Vec::new();
-        let num_signatures = decoder.read_varint()?;
-        for _ in 0..num_signatures {
-            argument_signatures.push(SChatCommandArgumentSignature {
-                argument_name: decoder.read_string()?,
-                signature: decoder.read_bytes(256)?,
-            });
-        }
-        let message_count = decoder.read_varint()?;
-        let acknowledged = decoder.read_bytes(3)?.try_into().unwrap();
-        Ok(SChatCommand {
-            command,
-            timestamp,
-            salt,
-            argument_signatures,
-            message_count,
-            acknowledged,
-        })
+        Ok(SChatCommand { command })
     }
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
@@ -579,6 +555,7 @@ pub struct SUseItemOn {
     pub cursor_y: f32,
     pub cursor_z: f32,
     pub inside_block: bool,
+    pub world_border_hit: bool,
     pub sequence: i32,
 }
 
@@ -591,6 +568,7 @@ impl ServerBoundPacket for SUseItemOn {
         let cursor_y = decoder.read_float()?;
         let cursor_z = decoder.read_float()?;
         let inside_block = decoder.read_bool()?;
+        let world_border_hit = decoder.read_bool()?;
         let sequence = decoder.read_varint()?;
         Ok(SUseItemOn {
             x: location.0,
@@ -602,6 +580,7 @@ impl ServerBoundPacket for SUseItemOn {
             cursor_y,
             cursor_z,
             inside_block,
+            world_border_hit,
             sequence,
         })
     }
@@ -637,12 +616,15 @@ pub struct SSetCreativeModeSlot {
 impl ServerBoundPacket for SSetCreativeModeSlot {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let slot = decoder.read_short()?;
-        let clicked_item = if decoder.read_bool()? {
-            Some(SlotData {
+        let item_count = decoder.read_varint()?;
+        let clicked_item = if item_count > 0 {
+            let slot = Some(SlotData {
+                item_count,
                 item_id: decoder.read_varint()?,
-                item_count: decoder.read_byte()?,
-                nbt: decoder.read_nbt_compound()?,
-            })
+            });
+            decoder.read_varint()?;
+            decoder.read_varint()?;
+            slot
         } else {
             None
         };
