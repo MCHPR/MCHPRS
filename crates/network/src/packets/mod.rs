@@ -8,6 +8,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
+use mchprs_proc_macros::packet_id;
 use mchprs_text::TextComponent;
 use serde::Serialize;
 use serverbound::*;
@@ -22,8 +23,8 @@ pub const COMPRESSION_THRESHOLD: usize = 256;
 #[derive(Debug)]
 pub struct SlotData {
     pub item_id: i32,
-    pub item_count: i8,
-    pub nbt: Option<NBTCompound>,
+    pub item_count: i32,
+    // TODO: data components
 }
 
 #[derive(Debug, Clone)]
@@ -91,9 +92,11 @@ fn read_decompressed<T: PacketDecoderExt>(
     reader: &mut T,
     state: &mut NetworkState,
 ) -> DecodeResult<Box<dyn ServerBoundPacket>> {
-    let packet_id = reader.read_varint()?;
+    let packet_id = reader.read_varint()? as u32;
     let packet: Box<dyn ServerBoundPacket> = match *state {
-        NetworkState::Handshaking if packet_id == 0x00 => {
+        NetworkState::Handshaking
+            if packet_id == packet_id!("handshake", "serverbound", "minecraft:intention") =>
+        {
             let handshake = SHandshake::decode(reader)?;
             match handshake.next_state {
                 1 => *state = NetworkState::Status,
@@ -102,40 +105,108 @@ fn read_decompressed<T: PacketDecoderExt>(
             }
             Box::new(handshake)
         }
-        NetworkState::Status if packet_id == 0x00 => Box::new(SRequest::decode(reader)?),
-        NetworkState::Status if packet_id == 0x01 => Box::new(SPing::decode(reader)?),
-        NetworkState::Login if packet_id == 0x00 => Box::new(SLoginStart::decode(reader)?),
-        NetworkState::Login if packet_id == 0x02 => Box::new(SLoginPluginResponse::decode(reader)?),
-        NetworkState::Login if packet_id == 0x03 => {
+        NetworkState::Status
+            if packet_id == packet_id!("status", "serverbound", "minecraft:status_request") =>
+        {
+            Box::new(SRequest::decode(reader)?)
+        }
+        NetworkState::Status
+            if packet_id == packet_id!("status", "serverbound", "minecraft:ping_request") =>
+        {
+            Box::new(SPing::decode(reader)?)
+        }
+        NetworkState::Login
+            if packet_id == packet_id!("login", "serverbound", "minecraft:hello") =>
+        {
+            Box::new(SLoginStart::decode(reader)?)
+        }
+        NetworkState::Login
+            if packet_id == packet_id!("login", "serverbound", "minecraft:custom_query_answer") =>
+        {
+            Box::new(SLoginPluginResponse::decode(reader)?)
+        }
+        NetworkState::Login
+            if packet_id == packet_id!("login", "serverbound", "minecraft:login_acknowledged") =>
+        {
             *state = NetworkState::Configuration;
             Box::new(SLoginAcknowledged::decode(reader)?)
         }
-        NetworkState::Configuration if packet_id == 0x00 => {
+        NetworkState::Configuration
+            if packet_id
+                == packet_id!(
+                    "configuration",
+                    "serverbound",
+                    "minecraft:client_information"
+                ) =>
+        {
             Box::new(SClientInformation::decode(reader)?)
         }
-        NetworkState::Configuration if packet_id == 0x02 => {
+        NetworkState::Configuration
+            if packet_id
+                == packet_id!(
+                    "configuration",
+                    "serverbound",
+                    "minecraft:finish_configuration"
+                ) =>
+        {
             *state = NetworkState::Play;
             Box::new(SAcknowledgeFinishConfiguration::decode(reader)?)
         }
         _ => match packet_id {
-            0x04 => Box::new(SChatCommand::decode(reader)?),
-            0x05 => Box::new(SChatMessage::decode(reader)?),
-            0x09 => Box::new(SClientInformation::decode(reader)?),
-            0x0A => Box::new(SCommandSuggestionsRequest::decode(reader)?),
-            0x10 => Box::new(SPluginMessage::decode(reader)?),
-            0x15 => Box::new(SKeepAlive::decode(reader)?),
-            0x17 => Box::new(SSetPlayerPosition::decode(reader)?),
-            0x18 => Box::new(SSetPlayerPositionAndRotation::decode(reader)?),
-            0x19 => Box::new(SPlayerRotation::decode(reader)?),
-            0x1A => Box::new(SSetPlayerOnGround::decode(reader)?),
-            0x20 => Box::new(SPlayerAbilities::decode(reader)?),
-            0x21 => Box::new(SPlayerAction::decode(reader)?),
-            0x22 => Box::new(SPlayerCommand::decode(reader)?),
-            0x2C => Box::new(SSetHeldItem::decode(reader)?),
-            0x2F => Box::new(SSetCreativeModeSlot::decode(reader)?),
-            0x32 => Box::new(SUpdateSign::decode(reader)?),
-            0x33 => Box::new(SSwingArm::decode(reader)?),
-            0x35 => Box::new(SUseItemOn::decode(reader)?),
+            packet_id!("play", "serverbound", "minecraft:chat_command") => {
+                Box::new(SChatCommand::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:chat") => {
+                Box::new(SChatMessage::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:client_information") => {
+                Box::new(SClientInformation::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:command_suggestion") => {
+                Box::new(SCommandSuggestionsRequest::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:custom_payload") => {
+                Box::new(SPluginMessage::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:keep_alive") => {
+                Box::new(SKeepAlive::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:move_player_pos") => {
+                Box::new(SSetPlayerPosition::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:move_player_pos_rot") => {
+                Box::new(SSetPlayerPositionAndRotation::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:move_player_rot") => {
+                Box::new(SPlayerRotation::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:move_player_status_only") => {
+                Box::new(SSetPlayerOnGround::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:player_abilities") => {
+                Box::new(SPlayerAbilities::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:player_action") => {
+                Box::new(SPlayerAction::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:player_command") => {
+                Box::new(SPlayerCommand::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:set_carried_item") => {
+                Box::new(SSetHeldItem::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:set_creative_mode_slot") => {
+                Box::new(SSetCreativeModeSlot::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:sign_update") => {
+                Box::new(SUpdateSign::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:swing") => {
+                Box::new(SSwingArm::decode(reader)?)
+            }
+            packet_id!("play", "serverbound", "minecraft:use_item_on") => {
+                Box::new(SUseItemOn::decode(reader)?)
+            }
             _ => Box::new(SUnknown),
         },
     };
@@ -406,17 +477,17 @@ pub trait PacketEncoderExt: Write {
     where
         Self: Sized,
     {
-        if let Some(slot) = slot_data {
-            self.write_bool(true);
+        if let Some(slot) = slot_data
+            && slot.item_count > 0
+        {
+            self.write_varint(slot.item_count);
             self.write_varint(slot.item_id);
-            self.write_byte(slot.item_count);
-            if let Some(nbt) = &slot.nbt {
-                self.write_nbt(nbt);
-            } else {
-                self.write_byte(0); // End tag
-            }
+            // Components to add
+            self.write_varint(0);
+            // Components to remove
+            self.write_varint(0);
         } else {
-            self.write_bool(false);
+            self.write_varint(0);
         }
     }
 

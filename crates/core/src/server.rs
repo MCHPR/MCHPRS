@@ -9,11 +9,10 @@ use bus::Bus;
 use hmac::{Hmac, Mac};
 use mchprs_network::packets::clientbound::{
     CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent,
-    CGameEventType, CLogin, CLoginPluginRequest, CLoginSuccess, CPlayerInfoActions,
-    CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome,
-    CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec, CRegistryDimensionType, CResponse,
-    CSetCompression, CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition,
-    ClientBoundPacket, UpdateTime,
+    CGameEventType, CKnownPacks, CKnownPacksEntry, CLogin, CLoginPluginRequest, CLoginSuccess,
+    CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong,
+    CRegistryData, CRegistryDataEntry, CSetCompression, CSetContainerContent, CSetHeldItem,
+    CStatusReponse, CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime,
 };
 use mchprs_network::packets::serverbound::{
     SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginPluginResponse,
@@ -319,7 +318,7 @@ impl MinecraftServer {
             reduced_debug_info: false,
             enable_respawn_screen: false,
             do_limited_crafting: false,
-            dimension_type: "minecraft:overworld".to_owned(),
+            dimension_type: 0,
             dimension_name: "minecraft:overworld".to_owned(),
             hashed_seed: 0,
             gamemode: player.gamemode.get_id() as u8,
@@ -328,6 +327,8 @@ impl MinecraftServer {
             is_flat: true,
             death_location: None,
             portal_cooldown: 0,
+            sea_level: 16,
+            enforces_secure_chat: false,
         }
         .encode();
         player.client.send_packet(&join_game);
@@ -337,13 +338,16 @@ impl MinecraftServer {
 
         // Send the player's position and rotation.
         let player_pos_and_look = CSynchronizePlayerPosition {
+            teleport_id: 0,
             x: player.pos.x,
             y: player.pos.y,
             z: player.pos.z,
+            velocity_x: 0.0,
+            velocity_y: 0.0,
+            velocity_z: 0.0,
             yaw: player.yaw,
             pitch: player.pitch,
             flags: 0,
-            teleport_id: 0,
         }
         .encode();
         player.client.send_packet(&player_pos_and_look);
@@ -411,7 +415,8 @@ impl MinecraftServer {
         let time_update = UpdateTime {
             world_age: 0,
             // Noon
-            time_of_day: -6000,
+            time_of_day: 6000,
+            time_of_day_increasing: false,
         }
         .encode();
         player.client.send_packet(&time_update);
@@ -678,7 +683,7 @@ impl ServerBoundPacketHandler for MinecraftServer {
 
     fn handle_request(&mut self, _request: SRequest, client_idk: usize) {
         let client = &mut self.network.handshaking_clients[client_idk];
-        let response = CResponse {
+        let response = CStatusReponse {
             json_response: json!({
                 "version": {
                     "name": MC_VERSION,
@@ -733,61 +738,101 @@ impl ServerBoundPacketHandler for MinecraftServer {
         .encode();
         client.send_packet(&brand);
 
-        let dimension = CRegistryDimensionType {
-            fixed_time: Some(6000),
-            has_skylight: true,
-            has_ceiling: false,
-            ultrawarm: false,
-            natural: true,
-            coordinate_scale: 1.0,
-            bed_works: false,
-            respawn_anchor_works: false,
-            min_y: 0,
-            height: PLOT_BLOCK_HEIGHT,
-            logical_height: PLOT_BLOCK_HEIGHT,
-            infiniburn: "#minecraft:infiniburn_overworld".to_owned(),
-            effects: "#minecraft:overworld".to_owned(),
-            ambient_light: 1.0,
-            piglin_safe: false,
-            has_raids: false,
-            monster_spawn_block_light_limit: 0,
-            monster_spawn_light_level: 0,
-        };
+        let known_packs = [
+            CKnownPacksEntry {
+                namespace: "minecraft",
+                id: "core",
+                version: "1.21.8",
+            },
+            CKnownPacksEntry {
+                namespace: "mchprs",
+                id: "core",
+                version: "0.0.0",
+            },
+        ];
+        let known_packs = CKnownPacks {
+            known_packs: &known_packs,
+        }
+        .encode();
+        client.send_packet(&known_packs);
 
-        let codec = CRegistryDataCodec {
-            dimension_types: map! {
-                "minecraft:overworld" => dimension.clone()
-            },
-            biomes: map! {
-                "mchprs:plot" => CRegistryBiome {
-                    has_precipitation: false,
-                    temperature: 0.5,
-                    downfall: 0.5,
-                    effects: CRegistryBiomeEffects {
-                        sky_color: 0x7BA4FF,
-                        water_fog_color: 0x050533,
-                        fog_color: 0xC0D8FF,
-                        water_color: 0x3F76E4,
-                    },
-                },
-                // Apparently the client NEEDS this to exist (MC-267103)
-                "minecraft:plains" => CRegistryBiome {
-                    has_precipitation: false,
-                    temperature: 0.8,
-                    downfall: 0.4,
-                    effects: CRegistryBiomeEffects {
-                        sky_color: 7907327,
-                        water_fog_color: 329011,
-                        fog_color: 12638463,
-                        water_color: 4159204,
-                    },
-                }
-            },
-        };
-        let registry_data = CRegistryData {
-            registry_codec: codec,
-        };
-        client.send_packet(&registry_data.encode());
+        let damage_types = [
+            CRegistryDataEntry::new("minecraft:cactus"),
+            CRegistryDataEntry::new("minecraft:campfire"),
+            CRegistryDataEntry::new("minecraft:cramming"),
+            CRegistryDataEntry::new("minecraft:dragon_breath"),
+            CRegistryDataEntry::new("minecraft:drown"),
+            CRegistryDataEntry::new("minecraft:dry_out"),
+            CRegistryDataEntry::new("minecraft:ender_pearl"),
+            CRegistryDataEntry::new("minecraft:fall"),
+            CRegistryDataEntry::new("minecraft:fly_into_wall"),
+            CRegistryDataEntry::new("minecraft:freeze"),
+            CRegistryDataEntry::new("minecraft:generic"),
+            CRegistryDataEntry::new("minecraft:generic_kill"),
+            CRegistryDataEntry::new("minecraft:hot_floor"),
+            CRegistryDataEntry::new("minecraft:in_fire"),
+            CRegistryDataEntry::new("minecraft:in_wall"),
+            CRegistryDataEntry::new("minecraft:lava"),
+            CRegistryDataEntry::new("minecraft:lightning_bolt"),
+            CRegistryDataEntry::new("minecraft:magic"),
+            CRegistryDataEntry::new("minecraft:on_fire"),
+            CRegistryDataEntry::new("minecraft:out_of_world"),
+            CRegistryDataEntry::new("minecraft:outside_border"),
+            CRegistryDataEntry::new("minecraft:stalagmite"),
+            CRegistryDataEntry::new("minecraft:starve"),
+            CRegistryDataEntry::new("minecraft:sweet_berry_bush"),
+            CRegistryDataEntry::new("minecraft:wither"),
+        ];
+        let dimension_nbt = nbt::Blob::with_content(map! {
+            "ambient_light" => nbt::Value::Float(1.0),
+            "bed_works" => nbt::Value::Byte(1),
+            "coordinate_scale" => nbt::Value::Double(1.0),
+            "effects" => nbt::Value::String("minecraft:overworld".to_string()),
+            "fixed_time" => nbt::Value::Long(6000),
+            "has_ceiling" => nbt::Value::Byte(0),
+            "has_raids" => nbt::Value::Byte(1),
+            "has_skylight" => nbt::Value::Byte(1),
+            "height" => nbt::Value::Int(PLOT_BLOCK_HEIGHT),
+            "infiniburn" => nbt::Value::String("#minecraft:infiniburn_overworld".to_string()),
+            "logical_height" => nbt::Value::Int(PLOT_BLOCK_HEIGHT),
+            "min_y" => nbt::Value::Int(0),
+            "monster_spawn_block_light_limit" => nbt::Value::Int(0),
+            "monster_spawn_light_level" => nbt::Value::Compound(map !{
+                "max_inclusive" => nbt::Value::Int(7),
+                "min_inclusive" => nbt::Value::Int(0),
+                "type" => nbt::Value::String("minecraft:uniform".to_string())
+            }),
+            "natural" => nbt::Value::Byte(1),
+            "piglin_safe" => nbt::Value::Byte(0),
+            "respawn_anchor_works" => nbt::Value::Byte(0),
+            "ultrawarm" => nbt::Value::Byte(0)
+        });
+        let dimension_types = [CRegistryDataEntry::with_nbt(
+            "minecraft:overworld",
+            dimension_nbt.clone(),
+        )];
+        let biomes = [CRegistryDataEntry::new("minecraft:plains")];
+        let painting_variants = [CRegistryDataEntry::new("minecraft:kebab")];
+        let wolf_variants = [CRegistryDataEntry::new("minecraft:ashen")];
+        let wolf_sound_variants = [CRegistryDataEntry::new("minecraft:sad")];
+        let pig_variants = [CRegistryDataEntry::new("minecraft:warm")];
+        let cat_variants = [CRegistryDataEntry::new("minecraft:white")];
+        let registries = [
+            CRegistryData::new("minecraft:damage_type", &damage_types),
+            CRegistryData::new("minecraft:dimension_type", &dimension_types),
+            CRegistryData::new("minecraft:worldgen/biome", &biomes),
+            CRegistryData::new("minecraft:painting_variant", &painting_variants),
+            CRegistryData::new("minecraft:wolf_variant", &wolf_variants),
+            CRegistryData::new("minecraft:wolf_sound_variant", &wolf_sound_variants),
+            CRegistryData::new("minecraft:pig_variant", &pig_variants),
+            CRegistryData::new("minecraft:frog_variant", &pig_variants),
+            CRegistryData::new("minecraft:cat_variant", &cat_variants),
+            CRegistryData::new("minecraft:cow_variant", &pig_variants),
+            CRegistryData::new("minecraft:chicken_variant", &pig_variants),
+        ];
+        for packet in registries {
+            client.send_packet(&packet.encode());
+        }
 
         client.send_packet(&CFinishConfiguration.encode());
     }

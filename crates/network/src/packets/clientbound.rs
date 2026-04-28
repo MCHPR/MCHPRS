@@ -2,7 +2,7 @@ use super::{PacketEncoder, PacketEncoderExt, PalettedContainer, PlayerProperty, 
 use crate::nbt_util::{NBTCompound, NBTMap};
 use bitvec::bits;
 use bitvec::prelude::Lsb0;
-use mchprs_proc_macros::protocol_id;
+use mchprs_proc_macros::{packet_id, protocol_id};
 use mchprs_text::TextComponent;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -20,15 +20,33 @@ fn encode_plugin_message(packet_id: u32, channel: &str, data: &[u8]) -> PacketEn
 
 // Server List Ping Packets
 
-pub struct CResponse {
+pub struct CStatusReponse {
     pub json_response: String,
 }
 
-impl ClientBoundPacket for CResponse {
+impl ClientBoundPacket for CStatusReponse {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.json_response);
-        PacketEncoder::new(buf, 0x00)
+        PacketEncoder::new(
+            buf,
+            packet_id!("status", "clientbound", "minecraft:status_response"),
+        )
+    }
+}
+
+pub struct CPong {
+    pub payload: i64,
+}
+
+impl ClientBoundPacket for CPong {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_long(self.payload);
+        PacketEncoder::new(
+            buf,
+            packet_id!("status", "clientbound", "minecraft:pong_response"),
+        )
     }
 }
 
@@ -42,19 +60,10 @@ impl ClientBoundPacket for CDisconnectLogin {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_string(32767, &self.reason);
-        PacketEncoder::new(buf, 0x00)
-    }
-}
-
-pub struct CPong {
-    pub payload: i64,
-}
-
-impl ClientBoundPacket for CPong {
-    fn encode(&self) -> PacketEncoder {
-        let mut buf = Vec::new();
-        buf.write_long(self.payload);
-        PacketEncoder::new(buf, 0x01)
+        PacketEncoder::new(
+            buf,
+            packet_id!("login", "clientbound", "minecraft:login_disconnect"),
+        )
     }
 }
 
@@ -73,7 +82,10 @@ impl ClientBoundPacket for CLoginSuccess {
         for prop in &self.properties {
             buf.write_player_property(prop);
         }
-        PacketEncoder::new(buf, 0x02)
+        PacketEncoder::new(
+            buf,
+            packet_id!("login", "clientbound", "minecraft:login_finished"),
+        )
     }
 }
 
@@ -85,7 +97,10 @@ impl ClientBoundPacket for CSetCompression {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.threshold);
-        PacketEncoder::new(buf, 0x03)
+        PacketEncoder::new(
+            buf,
+            packet_id!("login", "clientbound", "minecraft:login_compression"),
+        )
     }
 }
 
@@ -101,7 +116,10 @@ impl ClientBoundPacket for CLoginPluginRequest {
         buf.write_varint(self.message_id);
         buf.write_identifier(&self.channel);
         buf.write_bytes(&self.data);
-        PacketEncoder::new(buf, 0x04)
+        PacketEncoder::new(
+            buf,
+            packet_id!("login", "clientbound", "minecraft:custom_query"),
+        )
     }
 }
 
@@ -114,7 +132,11 @@ pub struct CConfigurationPluginMessage {
 
 impl ClientBoundPacket for CConfigurationPluginMessage {
     fn encode(&self) -> PacketEncoder {
-        encode_plugin_message(0x00, &self.channel, &self.data)
+        encode_plugin_message(
+            packet_id!("configuration", "clientbound", "minecraft:custom_payload"),
+            &self.channel,
+            &self.data,
+        )
     }
 }
 
@@ -122,145 +144,101 @@ pub struct CFinishConfiguration;
 
 impl ClientBoundPacket for CFinishConfiguration {
     fn encode(&self) -> PacketEncoder {
-        PacketEncoder::new(Vec::new(), 0x02)
+        PacketEncoder::new(
+            Vec::new(),
+            packet_id!(
+                "configuration",
+                "clientbound",
+                "minecraft:finish_configuration"
+            ),
+        )
     }
 }
 
-#[derive(Serialize, Clone)]
-pub struct CRegistryDimensionType {
-    pub fixed_time: Option<i64>,
-    pub has_skylight: bool,
-    pub has_ceiling: bool,
-    pub ultrawarm: bool,
-    pub natural: bool,
-    pub coordinate_scale: f32,
-    pub bed_works: bool,
-    pub respawn_anchor_works: bool,
-    pub min_y: i32,
-    pub height: i32,
-    pub logical_height: i32,
-    pub infiniburn: String,
-    pub effects: String,
-    pub ambient_light: f32,
-    pub piglin_safe: bool,
-    pub has_raids: bool,
-    pub monster_spawn_light_level: i8,
-    pub monster_spawn_block_light_limit: i8,
+pub struct CRegistryDataEntry<'a> {
+    pub entry_id: &'a str,
+    pub data: Option<nbt::Blob>,
 }
 
-#[derive(Serialize, Clone)]
-pub struct CRegistryBiomeEffects {
-    pub fog_color: i32,
-    pub water_color: i32,
-    pub water_fog_color: i32,
-    pub sky_color: i32,
-}
-
-#[derive(Serialize, Clone)]
-pub struct CRegistryBiome {
-    // serializied as byte tag
-    pub has_precipitation: bool,
-    pub temperature: f32,
-    pub downfall: f32,
-    pub effects: CRegistryBiomeEffects,
-}
-
-#[derive(Serialize, Clone, Default)]
-pub struct CRegistryDamageType {
-    message_id: String,
-    scaling: String,
-    exhaustion: f32,
-}
-
-pub struct CRegistryDataCodec {
-    /// The `minecraft:dimension_type registry`. It defines the types of dimension that can be
-    /// attributed to a world, along with all their characteristics.
-    pub dimension_types: HashMap<String, CRegistryDimensionType>,
-    /// The `minecraft:worldgen/biome` registry. It defines several aesthetic characteristics of
-    /// the biomes present in the game.
-    pub biomes: HashMap<String, CRegistryBiome>,
-}
-
-#[derive(Serialize)]
-struct CRegistryDataCodecInner {
-    #[serde(rename = "minecraft:dimension_type")]
-    pub dimension_types: NBTMap<CRegistryDimensionType>,
-    #[serde(rename = "minecraft:worldgen/biome")]
-    pub biomes: NBTMap<CRegistryBiome>,
-    #[serde(rename = "minecraft:damage_type")]
-    pub damage_types: NBTMap<CRegistryDamageType>,
-}
-
-impl CRegistryDataCodec {
-    fn encode(&self, buf: &mut Vec<u8>) {
-        let mut dimension_map: NBTMap<CRegistryDimensionType> =
-            NBTMap::new("minecraft:dimension_type".to_owned());
-        for (name, element) in &self.dimension_types {
-            dimension_map.push_element(name.clone(), element.clone());
+impl<'a> CRegistryDataEntry<'a> {
+    pub fn new(entry_id: &'a str) -> Self {
+        Self {
+            entry_id,
+            data: None,
         }
-        let mut biome_map = NBTMap::new("minecraft:worldgen/biome".to_owned());
-        for (name, element) in &self.biomes {
-            biome_map.push_element(name.clone(), element.clone());
-        }
+    }
 
-        // The game will throw if it doesn't have these. See MC-267103.
-        let required_types = [
-            "in_fire",
-            "lightning_bolt",
-            "on_fire",
-            "lava",
-            "hot_floor",
-            "in_wall",
-            "cramming",
-            "drown",
-            "starve",
-            "cactus",
-            "fall",
-            "fly_into_wall",
-            "out_of_world",
-            "fell_out_of_world",
-            "generic",
-            "magic",
-            "wither",
-            "dragon_breath",
-            "dry_out",
-            "sweet_berry_bush",
-            "freeze",
-            "stalagmite",
-            "outside_border",
-            "generic_kill",
-            "player_attack",
-        ];
-        let mut damage_map = NBTMap::new("minecraft:damage_type".to_owned());
-        for ty in required_types {
-            damage_map.push_element(
-                format!("minecraft:{ty}"),
-                CRegistryDamageType {
-                    message_id: "generic".into(),
-                    scaling: "always".into(),
-                    ..Default::default()
-                },
-            );
+    pub fn with_nbt(entry_id: &'a str, nbt: nbt::Blob) -> Self {
+        Self {
+            entry_id,
+            data: Some(nbt),
         }
-
-        let codec = CRegistryDataCodecInner {
-            dimension_types: dimension_map,
-            biomes: biome_map,
-            damage_types: damage_map,
-        };
-        buf.write_nbt(&codec);
     }
 }
 
-pub struct CRegistryData {
-    pub registry_codec: CRegistryDataCodec,
+pub struct CRegistryData<'a> {
+    pub registry_id: &'a str,
+    pub entries: &'a [CRegistryDataEntry<'a>],
 }
 
-impl ClientBoundPacket for CRegistryData {
+impl<'a> CRegistryData<'a> {
+    pub fn new(registry_id: &'a str, entries: &'a [CRegistryDataEntry]) -> Self {
+        Self {
+            registry_id,
+            entries,
+        }
+    }
+}
+
+impl ClientBoundPacket for CRegistryData<'_> {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
-        self.registry_codec.encode(&mut buf);
-        PacketEncoder::new(buf, 0x05)
+        buf.write_identifier(self.registry_id);
+
+        buf.write_varint(self.entries.len() as i32);
+        for entry in self.entries {
+            buf.write_identifier(entry.entry_id);
+
+            buf.write_bool(entry.data.is_some());
+            if let Some(nbt) = entry.data.as_ref() {
+                buf.write_nbt(nbt);
+            }
+        }
+
+        PacketEncoder::new(
+            buf,
+            packet_id!("configuration", "clientbound", "minecraft:registry_data"),
+        )
+    }
+}
+
+pub struct CKnownPacksEntry<'a> {
+    pub namespace: &'a str,
+    pub id: &'a str,
+    pub version: &'a str,
+}
+
+pub struct CKnownPacks<'a> {
+    pub known_packs: &'a [CKnownPacksEntry<'a>],
+}
+
+impl ClientBoundPacket for CKnownPacks<'_> {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.known_packs.len() as i32);
+        for known_pack in self.known_packs {
+            buf.write_identifier(known_pack.namespace);
+            buf.write_identifier(known_pack.id);
+            buf.write_identifier(known_pack.version);
+        }
+        PacketEncoder::new(
+            buf,
+            packet_id!(
+                "configuration",
+                "clientbound",
+                "minecraft:select_known_packs"
+            ),
+        )
     }
 }
 
@@ -298,7 +276,10 @@ impl ClientBoundPacket for CSpawnEntity {
         buf.write_short(self.velocity_x);
         buf.write_short(self.velocity_y);
         buf.write_short(self.velocity_z);
-        PacketEncoder::new(buf, 0x01)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:add_entity"),
+        )
     }
 }
 
@@ -312,7 +293,7 @@ impl ClientBoundPacket for CEntityAnimation {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_unsigned_byte(self.animation);
-        PacketEncoder::new(buf, 0x03)
+        PacketEncoder::new(buf, packet_id!("play", "clientbound", "minecraft:animate"))
     }
 }
 
@@ -324,7 +305,10 @@ impl ClientBoundPacket for CAcknowledgeBlockChange {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.sequence_id);
-        PacketEncoder::new(buf, 0x05)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:block_changed_ack"),
+        )
     }
 }
 
@@ -342,7 +326,10 @@ impl ClientBoundPacket for CBlockEntityData {
         buf.write_position(self.x, self.y, self.z);
         buf.write_varint(self.ty);
         buf.write_nbt(&self.nbt);
-        PacketEncoder::new(buf, 0x07)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:block_entity_data"),
+        )
     }
 }
 
@@ -358,7 +345,10 @@ impl ClientBoundPacket for CBlockUpdate {
         let mut buf = Vec::new();
         buf.write_position(self.x, self.y, self.z);
         buf.write_varint(self.block_id);
-        PacketEncoder::new(buf, 0x09)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:block_update"),
+        )
     }
 }
 
@@ -389,7 +379,10 @@ impl ClientBoundPacket for CCommandSuggestionsResponse {
             }
         }
 
-        PacketEncoder::new(buf, 0x10)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:command_suggestions"),
+        )
     }
 }
 
@@ -481,12 +474,12 @@ impl ClientBoundPacket for CCommands {
             }
         }
         buf.write_varint(self.root_index);
-        PacketEncoder::new(buf, 0x11)
+        PacketEncoder::new(buf, packet_id!("play", "clientbound", "minecraft:commands"))
     }
 }
 
 pub struct CSetContainerContent {
-    pub window_id: u8,
+    pub window_id: i32,
     pub state_id: i32,
     pub slot_data: Vec<Option<SlotData>>,
     pub carried_item: Option<SlotData>,
@@ -495,19 +488,22 @@ pub struct CSetContainerContent {
 impl ClientBoundPacket for CSetContainerContent {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_unsigned_byte(self.window_id);
+        buf.write_varint(self.window_id);
         buf.write_varint(self.state_id);
         buf.write_varint(self.slot_data.len() as i32);
         for slot_data in &self.slot_data {
             buf.write_slot_data(slot_data);
         }
         buf.write_slot_data(&self.carried_item);
-        PacketEncoder::new(buf, 0x13)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:container_set_content"),
+        )
     }
 }
 
 pub struct CSetContainerSlot {
-    pub window_id: u8,
+    pub window_id: i32,
     pub state_id: i32,
     pub slot: i16,
     pub slot_data: Option<SlotData>,
@@ -516,11 +512,14 @@ pub struct CSetContainerSlot {
 impl ClientBoundPacket for CSetContainerSlot {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
-        buf.write_unsigned_byte(self.window_id);
+        buf.write_varint(self.window_id);
         buf.write_varint(self.state_id);
         buf.write_short(self.slot);
         buf.write_slot_data(&self.slot_data);
-        PacketEncoder::new(buf, 0x15)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:container_set_slot"),
+        )
     }
 }
 
@@ -531,7 +530,11 @@ pub struct CPlayPluginMessage {
 
 impl ClientBoundPacket for CPlayPluginMessage {
     fn encode(&self) -> PacketEncoder {
-        encode_plugin_message(0x18, &self.channel, &self.data)
+        encode_plugin_message(
+            packet_id!("play", "clientbound", "minecraft:custom_payload"),
+            &self.channel,
+            &self.data,
+        )
     }
 }
 
@@ -543,7 +546,10 @@ impl ClientBoundPacket for CDisconnect {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_text_component(&self.reason);
-        PacketEncoder::new(buf, 0x1B)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:disconnect"),
+        )
     }
 }
 
@@ -558,7 +564,10 @@ impl ClientBoundPacket for CUnloadChunk {
         let mut buf = Vec::new();
         buf.write_int(self.chunk_z);
         buf.write_int(self.chunk_x);
-        PacketEncoder::new(buf, 0x1F)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:forget_level_chunk"),
+        )
     }
 }
 
@@ -581,7 +590,10 @@ impl ClientBoundPacket for CGameEvent {
             CGameEventType::WaitForChunks => buf.write_unsigned_byte(13),
         }
         buf.write_float(self.value);
-        PacketEncoder::new(buf, 0x20)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:game_event"),
+        )
     }
 }
 
@@ -593,7 +605,10 @@ impl ClientBoundPacket for CKeepAlive {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_long(self.id);
-        PacketEncoder::new(buf, 0x24)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:keep_alive"),
+        )
     }
 }
 
@@ -615,7 +630,7 @@ pub struct CChunkDataBlockEntity {
 pub struct CChunkData {
     pub chunk_x: i32,
     pub chunk_z: i32,
-    pub heightmaps: NBTCompound,
+    pub heightmaps: HashMap<i32, Vec<i64>>,
     pub chunk_sections: Vec<CChunkDataSection>,
     pub block_entities: Vec<CChunkDataBlockEntity>,
 }
@@ -625,7 +640,14 @@ impl ClientBoundPacket for CChunkData {
         let mut buf = Vec::new();
         buf.write_int(self.chunk_x);
         buf.write_int(self.chunk_z);
-        buf.write_nbt(&self.heightmaps);
+
+        buf.write_varint(self.heightmaps.len() as i32);
+        for (ty, data) in &self.heightmaps {
+            buf.write_varint(*ty);
+            buf.write_varint(data.len() as i32);
+            data.iter().for_each(|&x| buf.write_long(x));
+        }
+
         let mut data = Vec::new();
         for chunk_section in &self.chunk_sections {
             data.write_short(chunk_section.block_count);
@@ -653,7 +675,6 @@ impl ClientBoundPacket for CChunkData {
                 }
 
                 // Data Array
-                data.write_varint(container.data_array.len() as i32);
                 for long in &container.data_array {
                     data.write_long(*long as i64);
                 }
@@ -692,7 +713,10 @@ impl ClientBoundPacket for CChunkData {
         // Block Light array count
         buf.write_varint(0);
 
-        PacketEncoder::new(buf, 0x25)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:level_chunk_with_light"),
+        )
     }
 }
 
@@ -712,7 +736,10 @@ impl ClientBoundPacket for CWorldEvent {
         buf.write_position(self.x, self.y, self.z);
         buf.write_int(self.data);
         buf.write_bool(self.disable_relative_volume);
-        PacketEncoder::new(buf, 0x26)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:level_event"),
+        )
     }
 }
 
@@ -733,7 +760,7 @@ pub struct CLogin {
     pub reduced_debug_info: bool,
     pub enable_respawn_screen: bool,
     pub do_limited_crafting: bool,
-    pub dimension_type: String,
+    pub dimension_type: i32,
     pub dimension_name: String,
     pub hashed_seed: u64,
     pub gamemode: u8,
@@ -742,6 +769,8 @@ pub struct CLogin {
     pub is_flat: bool,
     pub death_location: Option<CLoginDeathLocation>,
     pub portal_cooldown: i32,
+    pub sea_level: i32,
+    pub enforces_secure_chat: bool,
 }
 
 impl ClientBoundPacket for CLogin {
@@ -759,7 +788,7 @@ impl ClientBoundPacket for CLogin {
         buf.write_bool(self.reduced_debug_info);
         buf.write_bool(self.enable_respawn_screen);
         buf.write_bool(self.do_limited_crafting);
-        buf.write_identifier(&self.dimension_type);
+        buf.write_varint(self.dimension_type);
         buf.write_identifier(&self.dimension_name);
         buf.write_long(self.hashed_seed as i64);
         buf.write_unsigned_byte(self.gamemode);
@@ -772,7 +801,9 @@ impl ClientBoundPacket for CLogin {
             buf.write_position(death_location.x, death_location.y, death_location.z);
         }
         buf.write_varint(self.portal_cooldown);
-        PacketEncoder::new(buf, 0x29)
+        buf.write_varint(self.sea_level);
+        buf.write_bool(self.enforces_secure_chat);
+        PacketEncoder::new(buf, packet_id!("play", "clientbound", "minecraft:login"))
     }
 }
 
@@ -788,7 +819,10 @@ impl ClientBoundPacket for COpenSignEditor {
         let mut buf = Vec::new();
         buf.write_position(self.pos_x, self.pos_y, self.pos_z);
         buf.write_bool(self.is_front_text);
-        PacketEncoder::new(buf, 0x32)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:open_sign_editor"),
+        )
     }
 }
 
@@ -808,7 +842,10 @@ impl ClientBoundPacket for CUpdateEntityPosition {
         buf.write_short(self.delta_y);
         buf.write_short(self.delta_z);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x2C)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:move_entity_pos"),
+        )
     }
 }
 
@@ -832,7 +869,10 @@ impl ClientBoundPacket for CUpdateEntityPositionAndRotation {
         buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x2D)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:move_entity_pos_rot"),
+        )
     }
 }
 
@@ -850,7 +890,10 @@ impl ClientBoundPacket for CEntityRotation {
         buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x2E)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:move_entity_rot"),
+        )
     }
 }
 
@@ -866,7 +909,10 @@ impl ClientBoundPacket for COpenScreen {
         buf.write_varint(self.window_id);
         buf.write_varint(self.window_type);
         buf.write_text_component(&self.window_title);
-        PacketEncoder::new(buf, 0x31)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:open_screen"),
+        )
     }
 }
 
@@ -882,7 +928,10 @@ impl ClientBoundPacket for CPlayerAbilities {
         buf.write_unsigned_byte(self.flags);
         buf.write_float(self.fly_speed);
         buf.write_float(self.fov_modifier);
-        PacketEncoder::new(buf, 0x36)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:player_abilities"),
+        )
     }
 }
 
@@ -897,7 +946,10 @@ impl ClientBoundPacket for CPlayerInfoRemove {
         for &uuid in &self.players {
             buf.write_uuid(uuid);
         }
-        PacketEncoder::new(buf, 0x3B)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:player_info_remove"),
+        )
     }
 }
 
@@ -988,31 +1040,43 @@ impl ClientBoundPacket for CPlayerInfoUpdate {
             buf.write_uuid(player.uuid);
             player.actions.encode(&mut buf);
         }
-        PacketEncoder::new(buf, 0x3C)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:player_info_update"),
+        )
     }
 }
 
 pub struct CSynchronizePlayerPosition {
+    pub teleport_id: i32,
     pub x: f64,
     pub y: f64,
     pub z: f64,
+    pub velocity_x: f64,
+    pub velocity_y: f64,
+    pub velocity_z: f64,
     pub yaw: f32,
     pub pitch: f32,
-    pub flags: u8,
-    pub teleport_id: i32,
+    pub flags: i32,
 }
 
 impl ClientBoundPacket for CSynchronizePlayerPosition {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
+        buf.write_varint(self.teleport_id);
         buf.write_double(self.x);
         buf.write_double(self.y);
         buf.write_double(self.z);
+        buf.write_double(self.velocity_x);
+        buf.write_double(self.velocity_y);
+        buf.write_double(self.velocity_z);
         buf.write_float(self.yaw);
         buf.write_float(self.pitch);
-        buf.write_unsigned_byte(self.flags);
-        buf.write_varint(self.teleport_id);
-        PacketEncoder::new(buf, 0x3E)
+        buf.write_int(self.flags);
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:player_position"),
+        )
     }
 }
 
@@ -1027,7 +1091,10 @@ impl ClientBoundPacket for CRemoveEntities {
         for &entity_id in &self.entity_ids {
             buf.write_varint(entity_id);
         }
-        PacketEncoder::new(buf, 0x40)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:remove_entities"),
+        )
     }
 }
 
@@ -1044,7 +1111,10 @@ impl ClientBoundPacket for CResetScore {
         if let Some(objective_name) = &self.objective_name {
             buf.write_string(32767, objective_name);
         }
-        PacketEncoder::new(buf, 0x42)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:reset_score"),
+        )
     }
 }
 
@@ -1058,7 +1128,10 @@ impl ClientBoundPacket for CSetHeadRotation {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_byte(((self.head_yaw / 360f32 * 256f32) as i32 % 256) as i8);
-        PacketEncoder::new(buf, 0x46)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:rotate_head"),
+        )
     }
 }
 
@@ -1094,7 +1167,10 @@ impl ClientBoundPacket for CUpdateSectionBlocks {
             buf.write_varlong(long as i64);
         }
 
-        PacketEncoder::new(buf, 0x47)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:section_blocks_update"),
+        )
     }
 }
 
@@ -1106,7 +1182,10 @@ impl ClientBoundPacket for CSetHeldItem {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_byte(self.slot);
-        PacketEncoder::new(buf, 0x51)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_held_slot"),
+        )
     }
 }
 
@@ -1120,7 +1199,10 @@ impl ClientBoundPacket for CSetCenterChunk {
         let mut buf = Vec::new();
         buf.write_varint(self.chunk_x);
         buf.write_varint(self.chunk_z);
-        PacketEncoder::new(buf, 0x52)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_chunk_cache_center"),
+        )
     }
 }
 
@@ -1134,7 +1216,10 @@ impl ClientBoundPacket for CDisplayObjective {
         let mut buf = Vec::new();
         buf.write_byte(self.position as i8);
         buf.write_string(32767, &self.score_name);
-        PacketEncoder::new(buf, 0x55)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_display_objective"),
+        )
     }
 }
 
@@ -1159,7 +1244,10 @@ impl ClientBoundPacket for CSetEntityMetadata {
             buf.write_bytes(&entry.value);
         }
         buf.write_byte(-1); // 0xFF
-        PacketEncoder::new(buf, 0x56)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_entity_data"),
+        )
     }
 }
 
@@ -1182,7 +1270,10 @@ impl ClientBoundPacket for CSetEquipment {
             buf.write_slot_data(&slot.item);
         }
 
-        PacketEncoder::new(buf, 0x59)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_equipment"),
+        )
     }
 }
 
@@ -1232,16 +1323,23 @@ impl ClientBoundPacket for CUpdateScore {
         if let Some(number_format) = &self.number_format {
             number_format.write_to_buf(&mut buf);
         }
-        PacketEncoder::new(buf, 0x5F)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_score"),
+        )
     }
+}
+
+pub struct CUpdateObjectivesObjective {
+    pub value: TextComponent,
+    pub ty: u32,
+    pub number_format: Option<ObjectiveNumberFormat>,
 }
 
 pub struct CUpdateObjectives {
     pub objective_name: String,
     pub mode: u8,
-    pub objective_value: TextComponent,
-    pub ty: u32,
-    pub number_format: Option<ObjectiveNumberFormat>,
+    pub objective: Option<CUpdateObjectivesObjective>,
 }
 
 impl ClientBoundPacket for CUpdateObjectives {
@@ -1249,20 +1347,26 @@ impl ClientBoundPacket for CUpdateObjectives {
         let mut buf = Vec::new();
         buf.write_string(16, &self.objective_name);
         buf.write_byte(self.mode as i8);
-        if self.mode == 0 || self.mode == 2 {
-            buf.write_text_component(&self.objective_value);
-            buf.write_varint(self.ty as i32);
-            if let Some(number_format) = &self.number_format {
+        if let Some(objective) = &self.objective
+            && (self.mode == 0 || self.mode == 2)
+        {
+            buf.write_text_component(&objective.value);
+            buf.write_varint(objective.ty as i32);
+            if let Some(number_format) = &objective.number_format {
                 number_format.write_to_buf(&mut buf);
             }
         }
-        PacketEncoder::new(buf, 0x5C)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_objective"),
+        )
     }
 }
 
 pub struct UpdateTime {
     pub world_age: i64,
     pub time_of_day: i64,
+    pub time_of_day_increasing: bool,
 }
 
 impl ClientBoundPacket for UpdateTime {
@@ -1270,7 +1374,8 @@ impl ClientBoundPacket for UpdateTime {
         let mut buf = Vec::new();
         buf.write_long(self.world_age);
         buf.write_long(self.time_of_day);
-        PacketEncoder::new(buf, 0x62)
+        buf.write_bool(self.time_of_day_increasing);
+        PacketEncoder::new(buf, packet_id!("play", "clientbound", "minecraft:set_time"))
     }
 }
 
@@ -1299,7 +1404,7 @@ impl ClientBoundPacket for CSoundEffect {
         buf.write_float(self.volume);
         buf.write_float(self.pitch);
         buf.write_long(self.seed);
-        PacketEncoder::new(buf, 0x66)
+        PacketEncoder::new(buf, packet_id!("play", "clientbound", "minecraft:sound"))
     }
 }
 
@@ -1323,7 +1428,10 @@ impl ClientBoundPacket for CTeleportEntity {
         buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
         buf.write_bool(self.on_ground);
-        PacketEncoder::new(buf, 0x6D)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:entity_position_sync"),
+        )
     }
 }
 
@@ -1337,6 +1445,9 @@ impl ClientBoundPacket for CSystemChatMessage {
         let mut buf = Vec::new();
         buf.write_text_component(&self.content);
         buf.write_bool(self.overlay);
-        PacketEncoder::new(buf, 0x69)
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:system_chat"),
+        )
     }
 }

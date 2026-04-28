@@ -1,5 +1,4 @@
 mod fixer;
-mod v2_to_v3;
 
 use self::fixer::FixInfo;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -20,7 +19,8 @@ use thiserror::Error;
 /// 1: Add world send rate
 /// 2: Update to MC 1.20.4
 /// 3: Change Tps and WorldSendRate to support real values (f32)
-pub const VERSION: u32 = 3;
+/// 4: Update to MC 1.21.8
+pub const VERSION: u32 = 4;
 
 #[derive(Error, Debug)]
 pub enum PlotLoadError {
