@@ -1,7 +1,7 @@
 use crate::player::{PacketSender, Player};
 use mchprs_network::packets::clientbound::{
-    CDisplayObjective, CResetScore, CUpdateObjectives, CUpdateScore, ClientBoundPacket,
-    ObjectiveNumberFormat,
+    CDisplayObjective, CResetScore, CUpdateObjectives, CUpdateObjectivesObjective, CUpdateScore,
+    ClientBoundPacket, ObjectiveNumberFormat,
 };
 use mchprs_redpiler::CompilerOptions;
 use mchprs_text::{ColorCode, TextComponentBuilder};
@@ -88,12 +88,15 @@ impl Scoreboard {
         player.send_packet(
             &CUpdateObjectives {
                 objective_name: "redpiler_status".into(),
+                // Create scoreboard
                 mode: 0,
-                objective_value: TextComponentBuilder::new("Redpiler Status".into())
-                    .color_code(ColorCode::Red)
-                    .finish(),
-                ty: 0,
-                number_format: Some(ObjectiveNumberFormat::Blank),
+                objective: Some(CUpdateObjectivesObjective {
+                    value: TextComponentBuilder::new("Redpiler Status".into())
+                        .color_code(ColorCode::Red)
+                        .finish(),
+                    ty: 0,
+                    number_format: Some(ObjectiveNumberFormat::Blank),
+                }),
             }
             .encode(),
         );
@@ -113,6 +116,15 @@ impl Scoreboard {
         for i in 0..self.current_state.len() {
             player.send_packet(&self.make_removal_packet(i).encode());
         }
+        player.send_packet(
+            &CUpdateObjectives {
+                objective_name: "redpiler_status".into(),
+                // Remove scoreboard
+                mode: 1,
+                objective: None,
+            }
+            .encode(),
+        );
     }
 
     pub fn set_redpiler_state(&mut self, players: &[Player], state: RedpilerState) {

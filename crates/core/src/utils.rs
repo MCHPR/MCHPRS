@@ -69,9 +69,8 @@ impl<'de> Deserialize<'de> for HyphenatedUUID {
 
 pub fn encode_slot_data(item: &ItemStack) -> SlotData {
     SlotData {
-        item_count: item.count as i8,
+        item_count: item.count as i32,
         item_id: item.item_type.get_id() as i32,
-        nbt: item.nbt.clone().map(|nbt| nbt.content),
     }
 }
 
