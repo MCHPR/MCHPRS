@@ -267,6 +267,9 @@ impl JITBackend for DirectBackend {
                 if let Some(powered) = block_powered_mut(block) {
                     *powered = node.powered
                 }
+                if let Block::IronTrapdoor { open, .. } = block {
+                    *open = node.powered;
+                }
                 if let Block::RedstoneWire(wire) = block {
                     wire.power = node.output_power
                 };

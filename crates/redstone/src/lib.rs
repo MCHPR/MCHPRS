@@ -234,8 +234,8 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
             powered,
             facing,
             half,
-            open,
             waterlogged,
+            ..
         } => {
             let should_be_powered = redstone_lamp_should_be_lit(world, pos);
             if powered != should_be_powered {
@@ -243,7 +243,7 @@ pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
                     facing,
                     half,
                     powered: should_be_powered,
-                    open,
+                    open: should_be_powered,
                     waterlogged,
                 };
                 world.set_block(pos, new_block);
