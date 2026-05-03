@@ -168,6 +168,19 @@ fn process_block(
             ),
         };
     }
+
+    // Sort properties by their change interval in the state list in ascending order.
+    props.sort_by_cached_key(|prop| {
+        let name = prop.name.as_str();
+        
+        let last = json.states.first().unwrap()
+            .properties.as_ref().unwrap()[name].as_str();
+        
+        let interval = json.states.iter().position(|state| state.properties.as_ref().unwrap()[name] != last).unwrap();
+
+        usize::MAX - interval
+    });
+
     let mut attrs = BlockAttrs::default();
     for attr in attrs_str.split(',').filter(|s| !s.is_empty()) {
         match attr {
