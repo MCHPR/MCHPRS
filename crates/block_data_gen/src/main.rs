@@ -173,12 +173,13 @@ fn process_block(
     props.sort_by_cached_key(|prop| {
         let name = prop.name.as_str();
 
-        let last = json.states.first().unwrap().properties.as_ref().unwrap()[name].as_str();
+        let previous_state =
+            json.states.first().unwrap().properties.as_ref().unwrap()[name].as_str();
 
         let interval = json
             .states
             .iter()
-            .position(|state| state.properties.as_ref().unwrap()[name] != last)
+            .position(|state| state.properties.as_ref().unwrap()[name] != previous_state)
             .unwrap();
 
         usize::MAX - interval
