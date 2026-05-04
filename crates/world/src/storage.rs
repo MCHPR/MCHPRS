@@ -235,7 +235,7 @@ impl PalettedBitBuffer {
         if self.use_palette && self.palette.len() == 1 {
             PalettedContainer {
                 bits_per_entry: 0,
-                data_array: vec![0],
+                data_array: vec![],
                 palette: Some(vec![self.palette[0] as i32]),
             }
         } else {
