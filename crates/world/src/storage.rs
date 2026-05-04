@@ -235,7 +235,7 @@ impl PalettedBitBuffer {
         if self.use_palette && self.palette.len() == 1 {
             PalettedContainer {
                 bits_per_entry: 0,
-                data_array: vec![0],
+                data_array: vec![],
                 palette: Some(vec![self.palette[0] as i32]),
             }
         } else {
@@ -414,6 +414,8 @@ pub struct Chunk {
 impl Chunk {
     #[cfg(feature = "networking")]
     pub fn encode_packet(&self) -> PacketEncoder {
+        use std::collections::HashMap;
+
         let block_height = self.sections.len() * 16;
         // Integer arithmetic trick: ceil(log2(x)) can be calculated with 32 - (x -
         // 1).leading_zeros(). See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
@@ -430,15 +432,16 @@ impl Chunk {
         for section in &self.sections {
             chunk_sections.push(section.encode_packet());
         }
-        let mut heightmaps = nbt::Map::new();
+        let mut heightmaps = HashMap::new();
         let heightmap_longs: Vec<i64> = heightmap_buffer
             .longs
             .into_iter()
             .map(|x| x as i64)
             .collect();
         heightmaps.insert(
-            "MOTION_BLOCKING".to_string(),
-            nbt::Value::LongArray(heightmap_longs),
+            // MOTION_BLOCKING
+            4,
+            heightmap_longs,
         );
         let mut block_entities = Vec::new();
         for (pos, block_entity) in &self.block_entities {
@@ -482,7 +485,7 @@ impl Chunk {
                 .collect(),
             chunk_x: x,
             chunk_z: z,
-            heightmaps: nbt::Map::new(),
+            heightmaps: Default::default(),
             block_entities: vec![],
         }
         .encode()
