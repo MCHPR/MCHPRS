@@ -5,7 +5,7 @@ use crate::plot::PLOT_SCALE;
 use crate::utils::{self, HyphenatedUUID};
 use byteorder::{BigEndian, ReadBytesExt};
 use mchprs_blocks::block_entities::{ContainerType, InventoryEntry};
-use mchprs_blocks::items::{Item, ItemStack};
+use mchprs_blocks::items::ItemStack;
 use mchprs_blocks::{BlockDirection, BlockFacing, BlockPos};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::{PacketEncoder, PlayerProperty, SlotData};
@@ -201,14 +201,7 @@ impl Player {
         // Load inventory
         let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
         for entry in player_data.inventory {
-            let nbt = entry
-                .nbt
-                .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
-            inventory[entry.slot as usize] = Some(ItemStack {
-                item_type: Item::from_id(entry.id),
-                count: entry.count as u8,
-                nbt,
-            });
+            inventory[entry.slot as usize] = Some(entry.get_item_stack());
         }
         let permissions_cache = CONFIG
             .luckperms
@@ -295,17 +288,7 @@ impl Player {
         let mut inventory: Vec<InventoryEntry> = Vec::new();
         for (slot, item_option) in self.inventory.iter().enumerate() {
             if let Some(item) = item_option {
-                let nbt = item.nbt.clone().map(|blob| {
-                    let mut data = Vec::new();
-                    blob.to_writer(&mut data).unwrap();
-                    data
-                });
-                inventory.push(InventoryEntry {
-                    count: item.count as i8,
-                    id: item.item_type.get_id(),
-                    slot: slot as i8,
-                    nbt,
-                });
+                inventory.push(InventoryEntry::from_item_stack(slot as i8, item));
             }
         }
         let data = bincode::serialize(&PlayerData {
@@ -513,7 +496,7 @@ impl Player {
         let mut slots: Vec<Option<SlotData>> =
             (0..container_type.num_slots()).map(|_| None).collect();
         for entry in inventory {
-            let item_stack = utils::inventory_entry_to_stack(entry);
+            let item_stack = entry.get_item_stack();
             slots[entry.slot as usize] = Some(utils::encode_slot_data(&item_stack));
         }
 

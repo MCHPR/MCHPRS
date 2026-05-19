@@ -1,8 +1,10 @@
-use crate::items::Item;
+use crate::blocks::Block;
+use crate::items::{Item, ItemStack};
 use mchprs_proc_macros::protocol_id;
 use mchprs_utils::{map, nbt_unwrap_val};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::str::FromStr;
 
 /// A single item in an inventory
@@ -12,6 +14,47 @@ pub struct InventoryEntry {
     pub slot: i8,
     pub count: i8,
     pub nbt: Option<Vec<u8>>,
+    pub container_items: Vec<Option<InventoryEntry>>,
+}
+
+impl InventoryEntry {
+    pub fn get_item_stack(&self) -> ItemStack {
+        ItemStack {
+            item_type: Item::from_id(self.id),
+            count: self.count as u8,
+            nbt: self
+                .nbt
+                .as_ref()
+                .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap()),
+            container_slots: self
+                .container_items
+                .iter()
+                .map(|entry| entry.as_ref().map(|entry| entry.get_item_stack()))
+                .collect(),
+        }
+    }
+
+    pub fn from_item_stack(slot: i8, item_stack: &ItemStack) -> Self {
+        Self {
+            id: item_stack.item_type.get_id(),
+            slot,
+            count: item_stack.count as i8,
+            nbt: item_stack.nbt.clone().map(|blob| {
+                let mut data = Vec::new();
+                blob.to_writer(&mut data).unwrap();
+                data
+            }),
+            container_items: item_stack
+                .container_slots
+                .iter()
+                .enumerate()
+                .map(|(slot, item)| {
+                    item.as_ref()
+                        .map(|item| InventoryEntry::from_item_stack(slot as i8, item))
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -67,6 +110,15 @@ impl ContainerType {
             ContainerType::Hopper => protocol_id!("minecraft:menu", "minecraft:hopper"),
         }
     }
+
+    pub fn for_block(block: &Block) -> Option<Self> {
+        match block {
+            Block::Furnace { .. } => Some(ContainerType::Furnace),
+            Block::Barrel { .. } => Some(ContainerType::Barrel),
+            Block::Hopper { .. } => Some(ContainerType::Hopper),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,10 +153,24 @@ impl BlockEntity {
         }
     }
 
-    fn load_container(slots_nbt: &[nbt::Value], ty: ContainerType) -> Option<BlockEntity> {
-        use nbt::Value;
+    pub fn make_container(ty: ContainerType, inventory: Vec<InventoryEntry>) -> BlockEntity {
         let num_slots = ty.num_slots();
         let mut fullness_sum: f32 = 0.0;
+        for item in &inventory {
+            let item_type = Item::from_id(item.id);
+            fullness_sum += item.count as f32 / item_type.max_stack_size() as f32;
+        }
+        BlockEntity::Container {
+            comparator_override: (if fullness_sum > 0.0 { 1.0 } else { 0.0 }
+                + (fullness_sum / num_slots as f32) * 14.0)
+                .floor() as u8,
+            inventory,
+            ty,
+        }
+    }
+
+    fn load_container(slots_nbt: &[nbt::Value], ty: ContainerType) -> Option<BlockEntity> {
+        use nbt::Value;
         let mut inventory = Vec::new();
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
@@ -139,17 +205,11 @@ impl BlockEntity {
                 count,
                 id: item_type.unwrap_or(Item::Redstone).get_id(),
                 nbt: tag,
+                // TODO: Containers containing containers
+                container_items: Vec::new(),
             });
-
-            fullness_sum += count as f32 / item_type.map_or(64, Item::max_stack_size) as f32;
         }
-        Some(BlockEntity::Container {
-            comparator_override: (if fullness_sum > 0.0 { 1.0 } else { 0.0 }
-                + (fullness_sum / num_slots as f32) * 14.0)
-                .floor() as u8,
-            inventory,
-            ty,
-        })
+        Some(Self::make_container(ty, inventory))
     }
 
     pub fn from_nbt(id: &str, nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
