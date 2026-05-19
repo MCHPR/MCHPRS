@@ -616,18 +616,7 @@ pub struct SSetCreativeModeSlot {
 impl ServerBoundPacket for SSetCreativeModeSlot {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let slot = decoder.read_short()?;
-        let item_count = decoder.read_varint()?;
-        let clicked_item = if item_count > 0 {
-            let slot = Some(SlotData {
-                item_count,
-                item_id: decoder.read_varint()?,
-            });
-            decoder.read_varint()?;
-            decoder.read_varint()?;
-            slot
-        } else {
-            None
-        };
+        let clicked_item = decoder.read_slot_data(true)?;
         Ok(SSetCreativeModeSlot { slot, clicked_item })
     }
 
