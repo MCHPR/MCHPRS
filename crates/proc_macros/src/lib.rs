@@ -59,3 +59,33 @@ pub fn protocol_id(input: TokenStream) -> TokenStream {
         Err(err) => err.to_compile_error().into(),
     }
 }
+
+struct GetPacketIdInput {
+    state: LitStr,
+    _comma1: Token![,],
+    bound_to: LitStr,
+    _comma2: Token![,],
+    identifier: LitStr,
+}
+
+impl Parse for GetPacketIdInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        Ok(Self {
+            state: input.parse()?,
+            _comma1: input.parse()?,
+            bound_to: input.parse()?,
+            _comma2: input.parse()?,
+            identifier: input.parse()?,
+        })
+    }
+}
+
+#[proc_macro]
+pub fn packet_id(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as GetPacketIdInput);
+
+    match mc_data::get_packet_id(input.state, input.bound_to, input.identifier) {
+        Ok(ts) => ts,
+        Err(err) => err.to_compile_error().into(),
+    }
+}
