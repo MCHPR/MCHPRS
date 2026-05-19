@@ -8,7 +8,7 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 use flate2::bufread::ZlibDecoder;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
-use mchprs_proc_macros::packet_id;
+use mchprs_proc_macros::{packet_id, protocol_id};
 use mchprs_text::TextComponent;
 use serde::Serialize;
 use serverbound::*;
@@ -24,7 +24,7 @@ pub const COMPRESSION_THRESHOLD: usize = 256;
 pub struct SlotData {
     pub item_id: i32,
     pub item_count: i32,
-    // TODO: data components
+    pub container_items: Vec<Option<SlotData>>,
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +48,7 @@ pub enum PacketDecodeError {
     Io(io::Error),
     FromUtf8(std::string::FromUtf8Error),
     Nbt(nbt::Error),
+    UnsupportedSlotComponent(i32),
 }
 
 impl From<nbt::Error> for PacketDecodeError {
@@ -370,6 +371,44 @@ pub trait PacketDecoderExt: Read + Sized {
             },
         })
     }
+
+    fn read_slot_data(&mut self, can_skip_components: bool) -> DecodeResult<Option<SlotData>> {
+        let item_count = self.read_varint()?;
+        if item_count == 0 {
+            return Ok(None);
+        }
+
+        let item_id = self.read_varint()?;
+        let num_components = self.read_varint()?;
+        // Num components removed
+        self.read_varint()?;
+
+        let mut container_items = Vec::new();
+        for _ in 0..num_components {
+            let component_ty = self.read_varint()?;
+            match component_ty {
+                protocol_id!("minecraft:data_component_type", "minecraft:container") => {
+                    let num_slots = self.read_varint()?;
+                    for _ in 0..num_slots {
+                        container_items.push(self.read_slot_data(false)?);
+                    }
+                }
+                // If there's a component we can't handle, then there's no way to know how many bytes to skip to the next component, so we have to stop early
+                _ => {
+                    if !can_skip_components {
+                        return Err(PacketDecodeError::UnsupportedSlotComponent(component_ty));
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+        Ok(Some(SlotData {
+            item_count,
+            item_id,
+            container_items,
+        }))
+    }
 }
 
 pub trait PacketEncoderExt: Write {
@@ -483,9 +522,24 @@ pub trait PacketEncoderExt: Write {
             self.write_varint(slot.item_count);
             self.write_varint(slot.item_id);
             // Components to add
-            self.write_varint(0);
+            if !slot.container_items.is_empty() {
+                self.write_varint(1);
+            } else {
+                self.write_varint(0);
+            }
             // Components to remove
             self.write_varint(0);
+
+            if !slot.container_items.is_empty() {
+                self.write_varint(protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:container"
+                ));
+                self.write_varint(slot.container_items.len() as i32);
+                for item in &slot.container_items {
+                    self.write_slot_data(item);
+                }
+            }
         } else {
             self.write_varint(0);
         }
