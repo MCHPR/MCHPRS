@@ -41,7 +41,7 @@ Once complete, the optimized executable will be located at `./target/release/mch
 
 MCHPRS will generate a `Config.toml` file in the current working directory when starting the server if it does not exist.
 
-The folowing options are available at the toplevel (under no header):
+The following options are available at the toplevel (under no header):
 | Field | Description | Default |
 | --- | --- |--- |
 | `bind_address` | Bind address and port | `0.0.0.0:25565` |
