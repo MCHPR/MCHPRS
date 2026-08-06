@@ -207,6 +207,42 @@ pub fn is_cross(wire: RedstoneWire) -> bool {
         && wire.west == RedstoneWireSide::Side
 }
 
+pub fn is_illegal(wire: RedstoneWire) -> bool {
+    wire.north == RedstoneWireSide::Side
+        && wire.south == RedstoneWireSide::None
+        && wire.east == RedstoneWireSide::None
+        && wire.west == RedstoneWireSide::None
+        || wire.north == RedstoneWireSide::None
+            && wire.south == RedstoneWireSide::Side
+            && wire.east == RedstoneWireSide::None
+            && wire.west == RedstoneWireSide::None
+        || wire.north == RedstoneWireSide::None
+            && wire.south == RedstoneWireSide::None
+            && wire.east == RedstoneWireSide::Side
+            && wire.west == RedstoneWireSide::None
+        || wire.north == RedstoneWireSide::None
+            && wire.south == RedstoneWireSide::None
+            && wire.east == RedstoneWireSide::None
+            && wire.west == RedstoneWireSide::Side
+
+        || wire.north == RedstoneWireSide::Up
+            && wire.south == RedstoneWireSide::None
+            && wire.east == RedstoneWireSide::None
+            && wire.west == RedstoneWireSide::None
+        || wire.north == RedstoneWireSide::None
+            && wire.south == RedstoneWireSide::Up
+            && wire.east == RedstoneWireSide::None
+            && wire.west == RedstoneWireSide::None
+        || wire.north == RedstoneWireSide::None
+            && wire.south == RedstoneWireSide::None
+            && wire.east == RedstoneWireSide::Up
+            && wire.west == RedstoneWireSide::None
+        || wire.north == RedstoneWireSide::None
+            && wire.south == RedstoneWireSide::None
+            && wire.east == RedstoneWireSide::None
+            && wire.west == RedstoneWireSide::Up
+}
+
 fn max_wire_power(wire_power: u8, world: &impl World, pos: BlockPos) -> u8 {
     let block = world.get_block(pos);
     if let Block::RedstoneWire(wire) = block {

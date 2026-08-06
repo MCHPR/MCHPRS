@@ -46,13 +46,15 @@ pub struct CompilerOptions {
     pub export_dot_graph: bool,
     /// Consider a redstone dot to be an output block (for color screens)
     pub wire_dot_out: bool,
+    /// Consider "illegal" redstone wires to be an output block (for sprite screens)
+    pub illegal_states_out: bool,
     /// Print out the RIL circuit after every redpiler pass
     pub print_after_all: bool,
     /// Print out the RIL circuit before starting backend compile
     pub print_before_backend: bool,
     /// The backend variant to be used after compilation
     pub backend_variant: BackendVariant,
-    /// A comma seperated list of passes to run. This can only be used by the rilc driver.
+    /// A comma separated list of passes to run. This can only be used by the rilc driver.
     pub passes: Option<String>,
 }
 
@@ -77,6 +79,7 @@ impl CompilerOptions {
                 "--update" => self.update = true,
                 "--export-dot" => self.export_dot_graph = true,
                 "--wire-dot-out" => self.wire_dot_out = true,
+                "--illegal-states-out" => self.illegal_states_out = true,
                 "--print-after-all" => self.print_after_all = true,
                 "--print-before-backend" => self.print_before_backend = true,
                 // FIXME: use actual error handling
@@ -91,6 +94,7 @@ impl CompilerOptions {
                     "i" => self.io_only = true,
                     "u" => self.update = true,
                     "d" => self.wire_dot_out = true,
+                    "l" => self.illegal_states_out = true,
                     // FIXME: use actual error handling
                     _ => warn!("Unrecognized option: -{}", c),
                 }
@@ -272,6 +276,7 @@ mod tests {
             update: true,
             export_dot_graph: false,
             wire_dot_out: false,
+            illegal_states_out: false,
             print_after_all: false,
             print_before_backend: false,
             backend_variant: BackendVariant::default(),

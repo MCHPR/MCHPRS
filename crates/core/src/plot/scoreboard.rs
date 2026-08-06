@@ -138,6 +138,9 @@ impl Scoreboard {
         if options.wire_dot_out {
             flags.push("§b- wire dot out");
         }
+        if options.illegal_states_out {
+            flags.push("§b- illegal states out")
+        }
 
         if !flags.is_empty() {
             new_lines.push("§7Flags:".to_string());
