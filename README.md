@@ -166,16 +166,17 @@ Placing or breaking blocks while redpiler is running will cause a reset and disa
 | `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. There are several flags available, described below. |
 | `/redpiler reset` | `/rp r` | Stops redpiler. |
 
-| Flag | Short | Description |
-| --- | --- | --- |
-| `--optimize` | `-o` | Enable redpiler optimizations. WARNING: This can, and will, break the state of your build. Use backups when using this flag. |
-| `--io-only` | `-i` | Only send blocks updates of relavent input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
-| `--wire-dot-out` | `-d` | Consider wires in the dot shape as an output block for `-i`. Useful for e.g. color displays. |
-| `--update` | `-u` | Update all blocks after redpiler resets. |
-| `--export` | `-e` | Export the compile graph using a binary format. This can be useful for developing out-of-tree uses of redpiler graphs. |
-| `--export-dot` | None | Create a graphvis dot file of backend graph. Used for debugging/development. |
-| `--print-after-all` | None | Print out the RIL circuit after every redpiler pass. Used for debugging/development. |
-| `--print-before-backend` | None | Print out the RIL circuit before starting backend compilation. Used for debugging/development. |
+| Flag                     | Short | Description                                                                                                                                                                                                             |
+|--------------------------|-------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `--optimize`             | `-o`  | Enable redpiler optimizations. WARNING: This can, and will, break the state of your build. Use backups when using this flag.                                                                                            |
+| `--io-only`              | `-i`  | Only send blocks updates of relavent input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
+| `--wire-dot-out`         | `-d`  | Consider wires in the dot shape as an output block for `-i`. Useful, for example, for color displays.                                                                                                                   |
+| `--illegal-states-out`   | `-l`  | Consider wires in so-called "illegal" states as an output block for `-i`. Useful, for example, for sprite displays.                                                                                                   |
+| `--update`               | `-u`  | Update all blocks after redpiler resets.                                                                                                                                                                                |
+| `--export`               | `-e`  | Export the compile graph using a binary format. This can be useful for developing out-of-tree uses of redpiler graphs.                                                                                                  |
+| `--export-dot`           | None  | Create a graphvis dot file of backend graph. Used for debugging/development.                                                                                                                                            |
+| `--print-after-all`      | None  | Print out the RIL circuit after every redpiler pass. Used for debugging/development.                                                                                                                                    |
+| `--print-before-backend` | None  | Print out the RIL circuit before starting backend compilation. Used for debugging/development.                                                                                                                          |
 
 ## Acknowledgments
 - [@AL1L](https://github.com/AL1L) for his contributions to worldedit and other various features.
