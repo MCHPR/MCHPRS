@@ -83,6 +83,12 @@ pub enum TextColor {
     ColorCode(ColorCode),
 }
 
+impl Into<TextColor> for ColorCode {
+    fn into(self) -> TextColor {
+        TextColor::ColorCode(self)
+    }
+}
+
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 enum ClickEventType {
@@ -126,8 +132,13 @@ impl TextComponentBuilder {
         self
     }
 
-    pub fn strikethrough(mut self, val: bool) -> Self {
-        self.component.strikethrough = val;
+    pub fn strikethrough(mut self) -> Self {
+        self.component.strikethrough = true;
+        self
+    }
+
+    pub fn bold(mut self) -> Self {
+        self.component.bold = true;
         self
     }
 
@@ -194,7 +205,6 @@ impl TextComponent {
                 continue;
             }
             if c == '#' {
-                println!("hex string perhaps found");
                 let mut hex = String::from(c);
                 for _ in 0..6 {
                     if let Some(c) = chars.next() {

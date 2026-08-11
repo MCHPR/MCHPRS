@@ -15,27 +15,28 @@ pub enum RedpilerState {
 }
 
 impl RedpilerState {
-    fn to_str(self) -> &'static str {
-        match self {
-            RedpilerState::Stopped => "&d&lStopped",
-            RedpilerState::Compiling => "&e&lCompiling",
-            RedpilerState::Running => "&a&lRunning",
-        }
+    fn to_str(self) -> TextComponent {
+        let (text, color) = match self {
+            RedpilerState::Stopped => ("Stopped", ColorCode::LightPurple.into()),
+            RedpilerState::Compiling => ("Compiling", ColorCode::Yellow.into()),
+            RedpilerState::Running => ("Running", ColorCode::Green.into()),
+        };
+        TextComponentBuilder::new(text.into())
+            .color(color)
+            .bold()
+            .finish()
     }
 }
 
 #[derive(Clone)]
 pub struct ScoreboardLine {
-    owner: String,
-    text: String,
+    entity_name: String,
+    text: TextComponent,
 }
 
 impl ScoreboardLine {
-    pub fn new(owner: &str, text: &str) -> Self {
-        Self {
-            owner: owner.to_string(),
-            text: text.to_string(),
-        }
+    pub fn new(entity_name: String, text: TextComponent) -> Self {
+        Self { entity_name, text }
     }
 }
 
@@ -55,21 +56,18 @@ impl Default for Scoreboard {
 
 impl Scoreboard {
     fn make_update_packet(&self, line: usize) -> CUpdateScore {
-        let mut text = TextComponent::default();
-        text.extra = TextComponent::from_legacy_text(&self.current_state[line].text);
-
         CUpdateScore {
-            entity_name: self.current_state[line].owner.clone(),
+            entity_name: self.current_state[line].entity_name.clone(),
             objective_name: "redpiler_status".to_string(),
             value: (self.current_state.len() - line) as i32,
-            display_name: Some(text),
+            display_name: Some(self.current_state[line].text.clone()),
             number_format: Some(ObjectiveNumberFormat::Blank),
         }
     }
 
     fn make_removal_packet(&self, line: usize) -> CResetScore {
         CResetScore {
-            entity_name: self.current_state[line].owner.clone(),
+            entity_name: self.current_state[line].entity_name.clone(),
             objective_name: Some("redpiler_status".to_string()),
         }
     }
@@ -137,7 +135,7 @@ impl Scoreboard {
         self.set_line(
             players,
             0,
-            ScoreboardLine::new("redpiler_state", state.to_str()),
+            ScoreboardLine::new("redpiler_state".into(), state.to_str()),
         );
     }
 
@@ -146,28 +144,36 @@ impl Scoreboard {
 
         let mut flags = Vec::new();
         if options.optimize {
-            flags.push(("o", "&b- optimize"));
+            flags.push(("o", "- optimize"));
         }
         if options.export {
-            flags.push(("e", "&b- export"));
+            flags.push(("e", "- export"));
         }
         if options.io_only {
-            flags.push(("i", "&b- io only"));
+            flags.push(("i", "- io only"));
         }
         if options.update {
-            flags.push(("u", "&b- update"));
+            flags.push(("u", "- update"));
         }
         if options.wire_dot_out {
-            flags.push(("d", "&b- wire dot out"));
+            flags.push(("d", "- wire dot out"));
         }
 
         if !flags.is_empty() {
-            new_lines.push(ScoreboardLine::new("flags", "&7Flags:"));
-            new_lines.extend(
-                flags
-                    .iter()
-                    .map(|pair| ScoreboardLine::new(format!("flag_{}", pair.0).as_str(), pair.1)),
-            );
+            new_lines.push(ScoreboardLine::new(
+                "flags".into(),
+                TextComponentBuilder::new("Flags:".into())
+                    .color_code(ColorCode::Gray)
+                    .finish(),
+            ));
+            new_lines.extend(flags.iter().map(|flag| {
+                ScoreboardLine::new(
+                    format!("flag_{}", flag.0),
+                    TextComponentBuilder::new(flag.1.to_string())
+                        .color_code(ColorCode::Aqua)
+                        .finish(),
+                )
+            }));
         }
         self.set_lines(players, new_lines);
     }

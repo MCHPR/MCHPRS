@@ -569,7 +569,7 @@ pub(super) fn execute_flip(ctx: CommandExecuteContext<'_>) {
         pos
     };
 
-    let mut newcpdata = PalettedBitBuffer::new((volume) as usize, 9);
+    let mut newcpdata = PalettedBitBuffer::new(volume as usize, 9);
 
     let mut c_x = 0;
     let mut c_y = 0;
@@ -679,7 +679,7 @@ pub(super) fn execute_rotate(ctx: CommandExecuteContext<'_>) {
         },
     };
 
-    let mut newcpdata = PalettedBitBuffer::new((volume) as usize, 9);
+    let mut newcpdata = PalettedBitBuffer::new(volume as usize, 9);
 
     let mut c_x = 0;
     let mut c_y = 0;
@@ -761,12 +761,12 @@ pub(super) fn execute_help(mut ctx: CommandExecuteContext<'_>) {
     let mut message = vec![
         TextComponentBuilder::new("--------------".to_owned())
             .color_code(ColorCode::Yellow)
-            .strikethrough(true)
+            .strikethrough()
             .finish(),
         TextComponentBuilder::new(format!(" Help for /{} ", command_name)).finish(),
         TextComponentBuilder::new("--------------\n".to_owned())
             .color_code(ColorCode::Yellow)
-            .strikethrough(true)
+            .strikethrough()
             .finish(),
         TextComponentBuilder::new(command.description.to_owned())
             .color_code(ColorCode::Gray)
