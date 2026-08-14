@@ -387,6 +387,80 @@ pub trait PacketDecoderExt: Read + Sized {
         for _ in 0..num_components {
             let component_ty = self.read_varint()?;
             match component_ty {
+                protocol_id!("minecraft:data_component_type", "minecraft:custom_data")
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:debug_stick_state"
+                )
+                | protocol_id!("minecraft:data_component_type", "minecraft:entity_data")
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:bucket_entity_data"
+                )
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:block_entity_data"
+                ) => {
+                    let _ = self.read_nbt_compound()?;
+                }
+                protocol_id!("minecraft:data_component_type", "minecraft:max_stack_size")
+                | protocol_id!("minecraft:data_component_type", "minecraft:max_damage")
+                | protocol_id!("minecraft:data_component_type", "minecraft:damage")
+                | protocol_id!("minecraft:data_component_type", "minecraft:rarity")
+                | protocol_id!("minecraft:data_component_type", "minecraft:repair_cost")
+                | protocol_id!("minecraft:data_component_type", "minecraft:enchantable")
+                | protocol_id!("minecraft:data_component_type", "minecraft:map_id")
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:map_post_processing"
+                )
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:ominous_bottle_amplifier"
+                )
+                | protocol_id!("minecraft:data_component_type", "minecraft:base_color")
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:villager/variant"
+                )
+                | protocol_id!("minecraft:data_component_type", "minecraft:wolf/variant")
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:wolf/sound_variant"
+                )
+                | protocol_id!("minecraft:data_component_type", "minecraft:wolf/collar")
+                | protocol_id!("minecraft:data_component_type", "minecraft:fox/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:salmon/size")
+                | protocol_id!("minecraft:data_component_type", "minecraft:parrot/variant")
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:tropical_fish/pattern"
+                )
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:tropical_fish/base_color"
+                )
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:tropical_fish/pattern_color"
+                )
+                | protocol_id!(
+                    "minecraft:data_component_type",
+                    "minecraft:mooshroom/variant"
+                )
+                | protocol_id!("minecraft:data_component_type", "minecraft:rabbit/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:pig/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:cow/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:frog/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:horse/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:llama/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:axolotl/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:cat/variant")
+                | protocol_id!("minecraft:data_component_type", "minecraft:cat/collar")
+                | protocol_id!("minecraft:data_component_type", "minecraft:sheep/color")
+                | protocol_id!("minecraft:data_component_type", "minecraft:shulker/color") => {
+                    let _ = self.read_varint()?;
+                }
                 protocol_id!("minecraft:data_component_type", "minecraft:container") => {
                     let num_slots = self.read_varint()?;
                     for _ in 0..num_slots {
