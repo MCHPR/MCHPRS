@@ -1281,7 +1281,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "clap",
  "mchprs_blocks",
@@ -1297,7 +1297,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_block_data_gen"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "convert_case",
  "indexmap",
@@ -1310,7 +1310,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_blocks"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "hematite-nbt",
  "mchprs_proc_macros",
@@ -1320,7 +1320,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_core"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "backtrace",
@@ -1360,7 +1360,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_network"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "bitvec",
  "byteorder",
@@ -1374,7 +1374,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_proc_macros"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "nom",
  "quote",
@@ -1386,7 +1386,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_redpiler"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "enum_dispatch",
  "indexmap",
@@ -1404,7 +1404,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_redstone"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "mchprs_blocks",
  "mchprs_world",
@@ -1414,7 +1414,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_save_data"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "bincode",
  "byteorder",
@@ -1428,7 +1428,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_schematic"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "hematite-nbt",
@@ -1442,7 +1442,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_text"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "regex",
  "serde",
@@ -1451,11 +1451,11 @@ dependencies = [
 
 [[package]]
 name = "mchprs_utils"
-version = "0.5.2-dev"
+version = "0.5.2"
 
 [[package]]
 name = "mchprs_world"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "hematite-nbt",
  "mchprs_blocks",
@@ -1466,7 +1466,7 @@ dependencies = [
 
 [[package]]
 name = "mchprs_world_exporter"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1995,7 +1995,7 @@ dependencies = [
 
 [[package]]
 name = "redpiler_graph"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "bincode",
  "serde",
@@ -2073,7 +2073,7 @@ dependencies = [
 
 [[package]]
 name = "rilc"
-version = "0.5.2-dev"
+version = "0.5.2"
 dependencies = [
  "anstream",
  "clap",
