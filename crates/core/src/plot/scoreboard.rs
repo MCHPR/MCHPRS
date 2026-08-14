@@ -159,7 +159,7 @@ impl Scoreboard {
             flags.push(("d", "- wire dot out"));
         }
         if options.illegal_states_out {
-            flags.push("§b- illegal states out")
+            flags.push(("l", "- illegal states out"));
         }
 
         if !flags.is_empty() {
