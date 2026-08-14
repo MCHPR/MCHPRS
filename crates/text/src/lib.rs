@@ -83,6 +83,12 @@ pub enum TextColor {
     ColorCode(ColorCode),
 }
 
+impl Into<TextColor> for ColorCode {
+    fn into(self) -> TextColor {
+        TextColor::ColorCode(self)
+    }
+}
+
 #[derive(Serialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 enum ClickEventType {
@@ -126,8 +132,13 @@ impl TextComponentBuilder {
         self
     }
 
-    pub fn strikethrough(mut self, val: bool) -> Self {
-        self.component.strikethrough = val;
+    pub fn strikethrough(mut self) -> Self {
+        self.component.strikethrough = true;
+        self
+    }
+
+    pub fn bold(mut self) -> Self {
+        self.component.bold = true;
         self
     }
 
@@ -217,8 +228,8 @@ impl TextComponent {
         components.push(cur_component);
 
         // This code is stinky
-        // Find urls and add click action
-        let mut new_componenets = Vec::with_capacity(components.len());
+        // Find URLs and add click action
+        let mut new_components = Vec::with_capacity(components.len());
         for component in components {
             let mut last = 0;
             let text = &component.text;
@@ -229,7 +240,7 @@ impl TextComponent {
                 if last != index {
                     let mut new = component.clone();
                     new.text = String::from(&text[last..index]);
-                    new_componenets.push(new);
+                    new_components.push(new);
                 }
                 let mut new = component.clone();
                 new.text = matched.to_string();
@@ -237,17 +248,17 @@ impl TextComponent {
                     action: ClickEventType::OpenUrl,
                     value: matched.to_string(),
                 });
-                new_componenets.push(new);
+                new_components.push(new);
                 last = index + matched.len();
             }
             if last < text.len() {
                 let mut new = component.clone();
                 new.text = String::from(&text[last..]);
-                new_componenets.push(new);
+                new_components.push(new);
             }
         }
 
-        new_componenets
+        new_components
     }
 
     pub fn encode_json(&self) -> String {

@@ -4,7 +4,7 @@ use mchprs_network::packets::clientbound::{
     ObjectiveNumberFormat,
 };
 use mchprs_redpiler::CompilerOptions;
-use mchprs_text::{ColorCode, TextComponentBuilder};
+use mchprs_text::{ColorCode, TextComponent, TextComponentBuilder};
 
 #[derive(PartialEq, Eq, Default, Clone, Copy)]
 pub enum RedpilerState {
@@ -15,17 +15,33 @@ pub enum RedpilerState {
 }
 
 impl RedpilerState {
-    fn to_str(self) -> &'static str {
-        match self {
-            RedpilerState::Stopped => "§d§lStopped",
-            RedpilerState::Compiling => "§e§lCompiling",
-            RedpilerState::Running => "§a§lRunning",
-        }
+    fn to_str(self) -> TextComponent {
+        let (text, color) = match self {
+            RedpilerState::Stopped => ("Stopped", ColorCode::LightPurple.into()),
+            RedpilerState::Compiling => ("Compiling", ColorCode::Yellow.into()),
+            RedpilerState::Running => ("Running", ColorCode::Green.into()),
+        };
+        TextComponentBuilder::new(text.into())
+            .color(color)
+            .bold()
+            .finish()
+    }
+}
+
+#[derive(Clone)]
+pub struct ScoreboardLine {
+    entity_name: String,
+    text: TextComponent,
+}
+
+impl ScoreboardLine {
+    pub fn new(entity_name: String, text: TextComponent) -> Self {
+        Self { entity_name, text }
     }
 }
 
 pub struct Scoreboard {
-    current_state: Vec<String>,
+    current_state: Vec<ScoreboardLine>,
 }
 
 impl Default for Scoreboard {
@@ -41,22 +57,22 @@ impl Default for Scoreboard {
 impl Scoreboard {
     fn make_update_packet(&self, line: usize) -> CUpdateScore {
         CUpdateScore {
-            entity_name: self.current_state[line].clone(),
+            entity_name: self.current_state[line].entity_name.clone(),
             objective_name: "redpiler_status".to_string(),
             value: (self.current_state.len() - line) as i32,
-            display_name: None,
-            number_format: None,
+            display_name: Some(self.current_state[line].text.clone()),
+            number_format: Some(ObjectiveNumberFormat::Blank),
         }
     }
 
     fn make_removal_packet(&self, line: usize) -> CResetScore {
         CResetScore {
-            entity_name: self.current_state[line].clone(),
+            entity_name: self.current_state[line].entity_name.clone(),
             objective_name: Some("redpiler_status".to_string()),
         }
     }
 
-    fn set_lines(&mut self, players: &[Player], lines: Vec<String>) {
+    fn set_lines(&mut self, players: &[Player], lines: Vec<ScoreboardLine>) {
         for line in 0..self.current_state.len() {
             let removal_packet = self.make_removal_packet(line).encode();
             players.iter().for_each(|p| p.send_packet(&removal_packet));
@@ -70,7 +86,7 @@ impl Scoreboard {
         }
     }
 
-    fn set_line(&mut self, players: &[Player], line: usize, text: String) {
+    fn set_line(&mut self, players: &[Player], line: usize, text: ScoreboardLine) {
         if line == self.current_state.len() {
             self.current_state.push(text);
         } else {
@@ -116,7 +132,11 @@ impl Scoreboard {
     }
 
     pub fn set_redpiler_state(&mut self, players: &[Player], state: RedpilerState) {
-        self.set_line(players, 0, state.to_str().to_string());
+        self.set_line(
+            players,
+            0,
+            ScoreboardLine::new("redpiler_state".into(), state.to_str()),
+        );
     }
 
     pub fn set_redpiler_options(&mut self, players: &[Player], options: &CompilerOptions) {
@@ -124,27 +144,39 @@ impl Scoreboard {
 
         let mut flags = Vec::new();
         if options.optimize {
-            flags.push("§b- optimize");
+            flags.push(("o", "- optimize"));
         }
         if options.export {
-            flags.push("§b- export");
+            flags.push(("e", "- export"));
         }
         if options.io_only {
-            flags.push("§b- io only");
+            flags.push(("i", "- io only"));
         }
         if options.update {
-            flags.push("§b- update");
+            flags.push(("u", "- update"));
         }
         if options.wire_dot_out {
-            flags.push("§b- wire dot out");
+            flags.push(("d", "- wire dot out"));
         }
         if options.illegal_states_out {
             flags.push("§b- illegal states out")
         }
 
         if !flags.is_empty() {
-            new_lines.push("§7Flags:".to_string());
-            new_lines.extend(flags.iter().map(|s| s.to_string()));
+            new_lines.push(ScoreboardLine::new(
+                "flags".into(),
+                TextComponentBuilder::new("Flags:".into())
+                    .color_code(ColorCode::Gray)
+                    .finish(),
+            ));
+            new_lines.extend(flags.iter().map(|flag| {
+                ScoreboardLine::new(
+                    format!("flag_{}", flag.0),
+                    TextComponentBuilder::new(flag.1.to_string())
+                        .color_code(ColorCode::Aqua)
+                        .finish(),
+                )
+            }));
         }
         self.set_lines(players, new_lines);
     }
