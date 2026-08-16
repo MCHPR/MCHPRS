@@ -161,6 +161,9 @@ impl Scoreboard {
         if options.illegal_states_out {
             flags.push(("l", "- illegal states out"));
         }
+        if options.wire_cross_out {
+            flags.push(("c", "- wire cross out"));
+        }
 
         if !flags.is_empty() {
             new_lines.push(ScoreboardLine::new(

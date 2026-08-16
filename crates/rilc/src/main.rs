@@ -51,6 +51,9 @@ enum Command {
         /// Consider "illegal" redstone wires to be an output block (for sprite screens)
         #[arg(long, short = 'l')]
         illegal_states_out: bool,
+        /// Consider a redstone cross to be an output block (for sprite screens without illegal wire states)
+        #[arg(long, short = 'c')]
+        wire_cross_out: bool,
         /// Print out the RIL circuit after every redpiler pass
         #[arg(long)]
         print_after_all: bool,
@@ -156,6 +159,7 @@ fn main() {
             io_only,
             wire_dot_out,
             illegal_states_out,
+            wire_cross_out,
             print_after_all,
             passes,
         } => {
@@ -167,6 +171,7 @@ fn main() {
                 export_dot_graph: false,
                 wire_dot_out,
                 illegal_states_out,
+                wire_cross_out,
                 print_after_all,
                 print_before_backend: false,
                 backend_variant: Default::default(),

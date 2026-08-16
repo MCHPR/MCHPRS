@@ -47,6 +47,7 @@ impl<W: World> Pass<W> for IdentifyNodes {
                 ignore_wires,
                 options.wire_dot_out,
                 options.illegal_states_out,
+                options.wire_cross_out,
                 plot,
                 pos,
             );
@@ -73,6 +74,7 @@ fn for_pos<W: World>(
     ignore_wires: bool,
     wire_dot_out: bool,
     illegal_states_out: bool,
+    wire_cross_out: bool,
     world: &W,
     pos: BlockPos,
 ) {
@@ -94,7 +96,8 @@ fn for_pos<W: World>(
             block,
             Block::RedstoneWire(wire) if
                 wire_dot_out && wire::is_dot(wire) ||
-                illegal_states_out && wire::is_illegal(wire)
+                illegal_states_out && wire::is_illegal(wire) ||
+                wire_cross_out && wire::is_cross(wire)
         );
 
     if ignore_wires && ty == NodeType::Wire && !(is_input | is_output) {

@@ -316,7 +316,7 @@ pub(super) fn execute_save(ctx: CommandExecuteContext<'_>) {
     match save_schematic(&path, clipboard) {
         Ok(_) => {
             ctx.player.send_worldedit_message(&format!(
-                "The schematic was saved sucessfuly. ({:?})",
+                "The schematic was saved successfully. ({:?})",
                 start_time.elapsed()
             ));
         }
@@ -1016,7 +1016,7 @@ pub(super) fn execute_update(ctx: CommandExecuteContext<'_>) {
     update(ctx.plot, first_pos, second_pos);
 
     ctx.player.send_worldedit_message(&format!(
-        "Your selection was updated sucessfully. ({:?})",
+        "Your selection was updated successfully. ({:?})",
         start_time.elapsed()
     ));
 }
@@ -1097,7 +1097,7 @@ pub(super) fn execute_replace_container(ctx: CommandExecuteContext<'_>) {
     }
 
     ctx.player.send_worldedit_message(&format!(
-        "Your selection was replaced sucessfully. ({:?})",
+        "Your selection was replaced successfully. ({:?})",
         start_time.elapsed()
     ));
 }

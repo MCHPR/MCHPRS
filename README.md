@@ -93,18 +93,18 @@ server_context = "global"
 ## Usage
 
 ### General Commands
-| Command | Alias | Description |
-| --- | --- |--- |
-| `/rtps [rtps\|unlimited]` | None | Set the **redstone** ticks per second in the plot to `[rtps]` or `unlimited`. Default: 10. (There are two game ticks in a redstone tick) |
-| `/radvance <ticks>` | `/radv` | Advances the plot by `<ticks>` redstone ticks. |
-| `/teleport <player>` | `/tp` | Teleports you to `<player>`. |
-| `/teleport <x> <y> <z>` | `/tp` | Teleports you to `<x> <y> <z>`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
-| `/speed <speed>` | None | Sets your flyspeed. |
-| `/gamemode <mode>` | `/gmc`, `/gmsp` | Sets your gamemode. |
-| `/container <type> <power>` | None | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator. |
-| `/worldsendrate [hertz]` | `/wsr` | Sets the world send rate to `[hertz]` (frequency of world updates sent to clients). Range: 1-1000. Default: 60. |
-| `/toggleautorp` | None | Toggles automatic redpiler compilation. |
-| `/stop` | None | Stops the server. |
+| Command                     | Alias           | Description                                                                                                                                                           |
+|-----------------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/rtps [rtps\|unlimited]`   | None            | Set the **redstone** ticks per second in the plot to `[rtps]` or `unlimited`. Default: 10. (There are two game ticks in a redstone tick)                              |
+| `/radvance <ticks>`         | `/radv`         | Advances the plot by `<ticks>` redstone ticks.                                                                                                                        |
+| `/teleport <player>`        | `/tp`           | Teleports you to `<player>`.                                                                                                                                          |
+| `/teleport <x> <y> <z>`     | `/tp`           | Teleports you to `<x> <y> <z>`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
+| `/speed <speed>`            | None            | Sets your flyspeed.                                                                                                                                                   |
+| `/gamemode <mode>`          | `/gmc`, `/gmsp` | Sets your gamemode.                                                                                                                                                   |
+| `/container <type> <power>` | None            | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator.                                                            |
+| `/worldsendrate [hertz]`    | `/wsr`          | Sets the world send rate to `[hertz]` (frequency of world updates sent to clients). Range: 1-1000. Default: 60.                                                       |
+| `/toggleautorp`             | None            | Toggles automatic redpiler compilation.                                                                                                                               |
+| `/stop`                     | None            | Stops the server.                                                                                                                                                     |
 
 ### Plot Ownership
 The plot ownership system in MCHPRS is very incomplete.
@@ -161,17 +161,18 @@ MCHPRS provides Redpiler, the redstone compiler. This allows redstone simulation
 While redpiler is running, all redstone connections are pre-computed, thus interaction with the world is limited in this state.
 Placing or breaking blocks while redpiler is running will cause a reset and disable redpiler.
 
-| Command | Alias | Description |
-| --- | --- | --- |
+| Command             | Alias   | Description                                                                               |
+|---------------------|---------|-------------------------------------------------------------------------------------------|
 | `/redpiler compile` | `/rp c` | Manually starts redpiler compilation. There are several flags available, described below. |
-| `/redpiler reset` | `/rp r` | Stops redpiler. |
+| `/redpiler reset`   | `/rp r` | Stops redpiler.                                                                           |
 
 | Flag                     | Short | Description                                                                                                                                                                                                             |
 |--------------------------|-------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `--optimize`             | `-o`  | Enable redpiler optimizations. WARNING: This can, and will, break the state of your build. Use backups when using this flag.                                                                                            |
 | `--io-only`              | `-i`  | Only send blocks updates of relavent input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
 | `--wire-dot-out`         | `-d`  | Consider wires in the dot shape as an output block for `-i`. Useful, for example, for color displays.                                                                                                                   |
-| `--illegal-states-out`   | `-l`  | Consider wires in so-called "illegal" states as an output block for `-i`. Useful, for example, for sprite displays.                                                                                                   |
+| `--illegal-states-out`   | `-l`  | Consider wires in so-called "illegal" states as an output block for `-i`. Useful, for example, for sprite displays.                                                                                                     |
+| `--wire-cross-out`       | `-c`  | Consider a redstone cross to be an output block (for sprite screens without illegal wire states)                                                                                                                        |
 | `--update`               | `-u`  | Update all blocks after redpiler resets.                                                                                                                                                                                |
 | `--export`               | `-e`  | Export the compile graph using a binary format. This can be useful for developing out-of-tree uses of redpiler graphs.                                                                                                  |
 | `--export-dot`           | None  | Create a graphvis dot file of backend graph. Used for debugging/development.                                                                                                                                            |

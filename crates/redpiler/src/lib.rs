@@ -48,6 +48,8 @@ pub struct CompilerOptions {
     pub wire_dot_out: bool,
     /// Consider "illegal" redstone wires to be an output block (for sprite screens)
     pub illegal_states_out: bool,
+    /// Consider a redstone cross to be an output block (for sprite screens without illegal wire states)
+    pub wire_cross_out: bool,
     /// Print out the RIL circuit after every redpiler pass
     pub print_after_all: bool,
     /// Print out the RIL circuit before starting backend compile
@@ -80,6 +82,7 @@ impl CompilerOptions {
                 "--export-dot" => self.export_dot_graph = true,
                 "--wire-dot-out" => self.wire_dot_out = true,
                 "--illegal-states-out" => self.illegal_states_out = true,
+                "--wire-cross-out" => self.wire_cross_out = true,
                 "--print-after-all" => self.print_after_all = true,
                 "--print-before-backend" => self.print_before_backend = true,
                 // FIXME: use actual error handling
@@ -95,6 +98,7 @@ impl CompilerOptions {
                     "u" => self.update = true,
                     "d" => self.wire_dot_out = true,
                     "l" => self.illegal_states_out = true,
+                    "c" => self.wire_cross_out = true,
                     // FIXME: use actual error handling
                     _ => warn!("Unrecognized option: -{}", c),
                 }
@@ -277,6 +281,7 @@ mod tests {
             export_dot_graph: false,
             wire_dot_out: false,
             illegal_states_out: false,
+            wire_cross_out: false,
             print_after_all: false,
             print_before_backend: false,
             backend_variant: BackendVariant::default(),
