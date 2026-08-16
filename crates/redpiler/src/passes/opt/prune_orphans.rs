@@ -41,7 +41,13 @@ impl<W: World> Pass<W> for PruneOrphans {
             }
         }
 
-        graph.retain_nodes(|_, idx| visited[idx.index()]);
+        graph.retain_nodes(|g, idx| {
+            let visible = visited[idx.index()];
+            let is_input = g[idx].is_input;
+
+            // Retain inputs so they can be updated when used
+            visible || is_input
+        });
     }
 
     fn status_message(&self) -> &'static str {

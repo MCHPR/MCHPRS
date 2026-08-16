@@ -256,8 +256,7 @@ pub struct ChunkSection {
     block_count: u32,
     #[cfg(feature = "networking")]
     multi_block: CUpdateSectionBlocks,
-    changed_blocks: [i16; 16 * 16 * 16],
-    changed: bool,
+    changed_blocks: Option<Box<[i16; 16 * 16 * 16]>>,
 }
 
 impl ChunkSection {
@@ -279,8 +278,7 @@ impl ChunkSection {
                 chunk_z: 0,
                 records: Vec::new(),
             },
-            changed_blocks: [-1; 16 * 16 * 16],
-            changed: false,
+            changed_blocks: None,
         }
     }
 
@@ -290,10 +288,9 @@ impl ChunkSection {
 
     pub fn get_block(&self, x: u32, y: u32, z: u32) -> u32 {
         let idx = ChunkSection::get_index(x, y, z);
-        if self.changed_blocks[idx] >= 0 {
-            self.changed_blocks[idx] as u32
-        } else {
-            self.buffer.get_entry(idx)
+        match &self.changed_blocks {
+            Some(changed_blocks) if changed_blocks[idx] >= 0 => changed_blocks[idx] as u32,
+            _ => self.buffer.get_entry(idx),
         }
     }
 
@@ -308,8 +305,10 @@ impl ChunkSection {
         let idx = ChunkSection::get_index(x, y, z);
         let changed = old_block != block;
         if changed {
-            self.changed = true;
-            self.changed_blocks[idx] = block as i16;
+            let changed_blocks = self
+                .changed_blocks
+                .get_or_insert(Box::new([-1; 16 * 16 * 16]));
+            changed_blocks[idx] = block as i16;
         }
         changed
     }
@@ -352,13 +351,17 @@ impl ChunkSection {
     }
 
     fn flush(&mut self) {
-        if self.changed {
-            for (i, block) in self.changed_blocks.iter().enumerate() {
-                if *block >= 0 {
-                    self.buffer.set_entry(i, *block as u32);
+        if let Some(changed_blocks) = &self.changed_blocks {
+            for (i, block) in changed_blocks.iter().copied().enumerate() {
+                if block >= 0 {
+                    self.buffer.set_entry(i, block as u32);
                 }
             }
         }
+    }
+
+    fn changed(&self) -> bool {
+        self.changed_blocks.is_some()
     }
 
     #[cfg(feature = "networking")]
@@ -366,21 +369,20 @@ impl ChunkSection {
         self.multi_block.chunk_x = chunk_x;
         self.multi_block.chunk_y = chunk_y;
         self.multi_block.chunk_z = chunk_z;
-        if self.changed {
-            for (i, block) in self.changed_blocks.iter().enumerate() {
-                if *block >= 0 {
-                    self.buffer.set_entry(i, *block as u32);
+        if let Some(changed_blocks) = &self.changed_blocks {
+            for (i, block) in changed_blocks.iter().copied().enumerate() {
+                if block >= 0 {
+                    self.buffer.set_entry(i, block as u32);
                     self.multi_block.records.push(CUpdateSectionBlocksRecord {
-                        block_id: *block as u32,
+                        block_id: block as u32,
                         x: (i & 0xF) as u8,
                         y: (i >> 8) as u8,
                         z: ((i & 0xF0) >> 4) as u8,
                     });
                 }
             }
-            self.changed = false;
-            self.changed_blocks = [-1; 16 * 16 * 16];
         }
+        self.changed_blocks = None;
         &self.multi_block
     }
 }
@@ -397,8 +399,7 @@ impl Default for ChunkSection {
                 chunk_z: 0,
                 records: Vec::new(),
             },
-            changed_blocks: [-1; 16 * 16 * 16],
-            changed: false,
+            changed_blocks: None,
         }
     }
 }
@@ -553,7 +554,7 @@ impl Chunk {
             .enumerate()
             .filter_map(move |(y, section)| {
                 section
-                    .changed
+                    .changed()
                     .then(move || section.multi_block(x, y as u32, z))
             })
     }

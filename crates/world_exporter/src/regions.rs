@@ -5,6 +5,7 @@ use mchprs_blocks::BlockPos;
 use mchprs_save_data::plot_data::{ChunkData, PlotData};
 use mchprs_utils::map;
 use mchprs_world::storage::{ChunkSection, PalettedBitBuffer};
+use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
@@ -142,13 +143,21 @@ pub fn generate_regions(world_path: &Path, output_path: &Path) -> Result<()> {
 
         println!("processing plot file: {}", file_name);
 
-        for (chunk_idx, chunk_data) in plot_data.chunk_data.into_iter().enumerate() {
-            let chunk_idx = chunk_idx as i32;
-            let chunk_x = chunk_idx / plot_chunk_width + plot_x * plot_chunk_width;
-            let chunk_z = chunk_idx % plot_chunk_width + plot_z * plot_chunk_width;
-            let region_pos = (chunk_x >> 5, chunk_z >> 5);
-            let pos_in_region = ((chunk_x & 31) as u8, (chunk_z & 31) as u8);
-            let data = serialize_chunk(chunk_x, chunk_z, chunk_data)?;
+        let chunks = plot_data
+            .chunk_data
+            .into_par_iter()
+            .enumerate()
+            .map(|(chunk_idx, chunk_data)| {
+                let chunk_idx = chunk_idx as i32;
+                let chunk_x = chunk_idx / plot_chunk_width + plot_x * plot_chunk_width;
+                let chunk_z = chunk_idx % plot_chunk_width + plot_z * plot_chunk_width;
+                let region_pos = (chunk_x >> 5, chunk_z >> 5);
+                let pos_in_region = ((chunk_x & 31) as u8, (chunk_z & 31) as u8);
+                let data = serialize_chunk(chunk_x, chunk_z, chunk_data)?;
+                Ok((region_pos, pos_in_region, data))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        for (region_pos, pos_in_region, data) in chunks {
             let region = regions.entry(region_pos).or_default();
             region.chunks.insert(pos_in_region, data);
         }

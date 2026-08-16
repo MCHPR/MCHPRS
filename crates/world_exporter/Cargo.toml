@@ -24,3 +24,4 @@ hematite-nbt = { workspace = true }
 anyhow = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
+rayon = { workspace = true }

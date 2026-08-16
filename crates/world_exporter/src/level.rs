@@ -169,18 +169,18 @@ pub fn write_level_dat(level_name: &str, output_path: &Path) -> Result<()> {
                     features: false,
                     lakes: false,
                     layers: vec![
-                        GeneratorLayer {
-                            block: "minecraft:bedrock".to_string(),
-                            height: 1,
-                        },
-                        GeneratorLayer {
-                            block: "minecraft:stone".to_string(),
-                            height: 3,
-                        },
-                        GeneratorLayer {
-                            block: "minecraft:sandstone".to_string(),
-                            height: 68,
-                        },
+                        // GeneratorLayer {
+                        //     block: "minecraft:bedrock".to_string(),
+                        //     height: 1,
+                        // },
+                        // GeneratorLayer {
+                        //     block: "minecraft:stone".to_string(),
+                        //     height: 3,
+                        // },
+                        // GeneratorLayer {
+                        //     block: "minecraft:sandstone".to_string(),
+                        //     height: 68,
+                        // },
                     ],
                     biome: "minecraft:desert".to_string(),
                 },
