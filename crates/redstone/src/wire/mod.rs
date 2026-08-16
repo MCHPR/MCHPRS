@@ -224,7 +224,6 @@ pub fn is_illegal(wire: RedstoneWire) -> bool {
             && wire.south == RedstoneWireSide::None
             && wire.east == RedstoneWireSide::None
             && wire.west == RedstoneWireSide::Side
-
         || wire.north == RedstoneWireSide::Up
             && wire.south == RedstoneWireSide::None
             && wire.east == RedstoneWireSide::None
