@@ -6,7 +6,7 @@
 
 A Minecraft 1.20.4 creative server built for redstone. Each 512x512 plot runs on a separate thread, allowing for less lag, more concurrency, and many awesome extra features!
 
-MCHPRS is very different from traditional servers. Because this server is tailored to the use of computation redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
+MCHPRS is very different from traditional servers. Because this server is tailored to the use of computational redstone, many things that are a part of Vanilla Minecraft servers don't exist here. That being said, MCHPRS comes with many of its own unique features.
 
 MCHPRS has made it possible to run programs such as [a limited form of Minecraft](https://www.youtube.com/watch?v=-BP7DhHTU-I) on CPUs in Minecraft. To accomplish these speeds, we created [Redpiler](docs/Redpiler.md), the "Redstone Compiler".
 
@@ -49,7 +49,7 @@ The following options are available at the toplevel (under no header):
 | `chat_format` | How to format chat message interpolating `username` and `message` with curly braces | `<{username}> {message}` |
 | `max_players` | Maximum number of simultaneous players | `99999` |
 | `view_distance` | Maximal distance (in chunks) between players and loaded chunks | `8` |
-| `whitelist` | Whether or not the whitelist (in `whitelist.json`) shoud be enabled | `false` |
+| `whitelist` | Whether or not the whitelist (in `whitelist.json`) should be enabled | `false` |
 | `schemati` | Mimic the verification and directory layout used by the Open Redstone Engineers [Schemati plugin](https://github.com/OpenRedstoneEngineers/Schemati) | `false` |
 | `block_in_hitbox` | Allow placing blocks inside of players (hitbox logic is simplified) | `true` |
 | `auto_redpiler` | Use redpiler automatically | `false` |
@@ -72,7 +72,7 @@ secret = "<secret>"
 
 ### LuckPerms
 
-MCHPRS has basic support for LuckPerms with MySQL or MariaDB remote database storage. This implementation has no commands or interface and would have to be manged through LuckPerms running on a proxy (`/lpb`) or other server (`/lp`)
+MCHPRS has basic support for LuckPerms with MySQL or MariaDB remote database storage. This implementation has no commands or interface and would have to be managed through LuckPerms running on a proxy (`/lpb`) or other server (`/lp`)
 
 To use LuckPerms, append this to your `Config.toml`:
 
@@ -169,7 +169,7 @@ Placing or breaking blocks while redpiler is running will cause a reset and disa
 | Flag | Short | Description |
 | --- | --- | --- |
 | `--optimize` | `-o` | Enable redpiler optimizations. WARNING: This can, and will, break the state of your build. Use backups when using this flag. |
-| `--io-only` | `-i` | Only send blocks updates of relavent input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
+| `--io-only` | `-i` | Only send blocks updates of relevent input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
 | `--wire-dot-out` | `-d` | Consider wires in the dot shape as an output block for `-i`. Useful for e.g. color displays. |
 | `--update` | `-u` | Update all blocks after redpiler resets. |
 | `--export` | `-e` | Export the compile graph using a binary format. This can be useful for developing out-of-tree uses of redpiler graphs. |
