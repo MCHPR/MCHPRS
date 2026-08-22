@@ -169,7 +169,7 @@ Placing or breaking blocks while redpiler is running will cause a reset and disa
 | Flag | Short | Description |
 | --- | --- | --- |
 | `--optimize` | `-o` | Enable redpiler optimizations. WARNING: This can, and will, break the state of your build. Use backups when using this flag. |
-| `--io-only` | `-i` | Only send blocks updates of relevent input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
+| `--io-only` | `-i` | Only send blocks updates of relevant input/output blocks. This includes trapdoors, lamps, note blocks, buttons, levers, and pressure plates. Using this flag can significantly reduce lag and improve simulation speed. |
 | `--wire-dot-out` | `-d` | Consider wires in the dot shape as an output block for `-i`. Useful for e.g. color displays. |
 | `--update` | `-u` | Update all blocks after redpiler resets. |
 | `--export` | `-e` | Export the compile graph using a binary format. This can be useful for developing out-of-tree uses of redpiler graphs. |
