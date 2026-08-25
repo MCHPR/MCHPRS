@@ -211,7 +211,7 @@ pub fn is_illegal(wire: RedstoneWire) -> bool {
     let sides = [wire.north, wire.south, wire.east, wire.west];
     sides
         .into_iter()
-        .filter(|&side | side == RedstoneWireSide::None)
+        .filter(|&side| side == RedstoneWireSide::None)
         .count()
         == 3
 }
