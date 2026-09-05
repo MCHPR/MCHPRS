@@ -46,6 +46,7 @@ impl Plot {
             "teleport" | "tp" => "plots.visit",
             "lock" | "unlock" => "plots.lock",
             "sel" | "select" => "plots.select",
+            "autosave" => "plots.autosave",
             _ => {
                 self.players[player].send_error_message("Invalid argument for /plot");
                 return;
@@ -166,6 +167,37 @@ impl Plot {
                 let corners = self.world.get_corners();
                 self.players[player].worldedit_set_first_position(corners.0);
                 self.players[player].worldedit_set_second_position(corners.1);
+            }
+            "autosave" => {
+                if args.is_empty() {
+                    let res = match self.autosave_interval {
+                        None => "This plot does not autosave".to_owned(),
+                        Some(interval) => {
+                            format!("This plot autosaves every {interval:?}")
+                        }
+                    };
+                    self.players[player].send_system_message(&res);
+                    return;
+                }
+
+                let interval = match args.join(" ").as_str() {
+                    "never" => None,
+                    d => match humantime::parse_duration(d) {
+                        Ok(d) => Some(d),
+                        Err(e) => {
+                            self.players[player]
+                                .send_error_message(&format!("Invalid duration: {e}."));
+                            return;
+                        }
+                    },
+                };
+                self.autosave_interval = interval;
+
+                let res = match interval {
+                    None => "This plot will not autosave".to_owned(),
+                    Some(d) => format!("This plot will now autosave every {d:?}"),
+                };
+                self.players[player].send_system_message(&res);
             }
             _ => self.players[player].send_error_message("Invalid argument for /plot"),
         }
@@ -669,7 +701,7 @@ pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
             // 13: /plot
             Node {
                 flags: (CommandFlags::LITERAL).bits() as i8,
-                children: vec![14, 15, 16, 17, 19, 20, 21, 22, 24, 25, 27, 28, 29],
+                children: vec![14, 15, 16, 17, 19, 20, 21, 22, 24, 25, 27, 28, 29, 53],
                 redirect_node: None,
                 name: Some("plot"),
                 parser: None,
@@ -1027,6 +1059,24 @@ pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
                 redirect_node: None,
                 name: Some("version"),
                 parser: None,
+                suggestions_type: None,
+            },
+            // 53: /plot autosave
+            Node {
+                flags: (CommandFlags::LITERAL | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![54],
+                redirect_node: None,
+                name: Some("autosave"),
+                parser: None,
+                suggestions_type: None,
+            },
+            // 54: /plot autosave [interval]
+            Node {
+                flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
+                children: vec![],
+                redirect_node: None,
+                name: Some("interval"),
+                parser: Some(Parser::String(2)),
                 suggestions_type: None,
             },
         ],
