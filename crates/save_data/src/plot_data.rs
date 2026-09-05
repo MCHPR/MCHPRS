@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::Path;
+use std::time::Duration;
 use std::{fmt, io};
 use thiserror::Error;
 
@@ -18,7 +19,8 @@ use thiserror::Error;
 /// 0: Initial plot data file with header (MC 1.18.2)
 /// 1: Add world send rate
 /// 2: Update to MC 1.20.4
-pub const VERSION: u32 = 2;
+/// 3: Add autosave frequency
+pub const VERSION: u32 = 3;
 
 #[derive(Error, Debug)]
 pub enum PlotLoadError {
@@ -160,6 +162,7 @@ impl fmt::Display for Tps {
 pub struct PlotData {
     pub tps: Tps,
     pub world_send_rate: WorldSendRate,
+    pub autosave_interval: Option<Duration>,
     pub chunk_data: Vec<ChunkData>,
     pub pending_ticks: Vec<TickEntry>,
 }
@@ -171,13 +174,13 @@ impl PlotData {
         let mut magic = [0; 8];
         file.read_exact(&mut magic)?;
         if &magic != PLOT_MAGIC {
-            return fixer::try_fix(path, FixInfo::InvalidHeader)?
+            return fixer::try_fix(path, file, FixInfo::InvalidHeader)?
                 .ok_or(PlotLoadError::InvalidHeader);
         }
 
         let version = file.read_u32::<LittleEndian>()?;
         if version < VERSION {
-            return fixer::try_fix(path, FixInfo::OldVersion { version })?
+            return fixer::try_fix(path, file, FixInfo::OldVersion { version })?
                 .ok_or(PlotLoadError::ConversionFailed(version));
         }
         if version > VERSION {

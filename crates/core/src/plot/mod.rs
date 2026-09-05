@@ -79,6 +79,9 @@ pub struct Plot {
     last_player_time: Instant,
     /// The last time the world changes were sent to the player
     last_world_send_time: Instant,
+    /// The amount of time between each autosave
+    autosave_interval: Option<Duration>,
+    last_autosave: Instant,
     /// The duration we should sleep for after every update
     sleep_time: Duration,
     /// When this is false, the update loop will end and the thread will stop.
@@ -1062,6 +1065,21 @@ impl Plot {
 
         self.remove_dc_players();
         self.remove_oob_players();
+
+        // TODO: only autosave if anything in the plot has actually changed
+        if let Some(autosave_interval) = self.autosave_interval
+            && Instant::now().duration_since(self.last_autosave) >= autosave_interval
+        {
+            self.broadcast_plot_chat_message("Autosaving plot");
+            let autosave_start = Instant::now();
+            self.save();
+            let autosave_duration = Instant::now().duration_since(autosave_start);
+            self.broadcast_plot_chat_message(&format!(
+                "Autosaving done in {:?}",
+                autosave_duration
+            ));
+            self.last_autosave = Instant::now();
+        }
     }
 
     fn create_async_rt() -> Runtime {
@@ -1129,15 +1147,18 @@ impl Plot {
         };
         let tps = plot_data.tps;
         let world_send_rate = plot_data.world_send_rate;
+        let autosave_interval = plot_data.autosave_interval;
         Plot {
             last_player_time: Instant::now(),
             last_update_time: Instant::now(),
             last_world_send_time: Instant::now(),
+            last_autosave: Instant::now(),
             lag_time: Duration::new(0, 0),
             sleep_time: sleep_time_for_tps(tps),
             last_nspt: None,
             message_receiver: rx,
             message_sender: tx,
+            autosave_interval,
             priv_message_receiver: priv_rx,
             players: Vec::new(),
             locked_players: HashSet::new(),
@@ -1185,6 +1206,7 @@ impl Plot {
         let data = PlotData {
             tps: self.tps,
             world_send_rate: self.world_send_rate,
+            autosave_interval: self.autosave_interval,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
         };
