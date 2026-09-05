@@ -40,7 +40,7 @@ jobs:
 
       - name: Run clippy
         # If we ever get around to fix everything clippy complains about we can start failing on warning via: -- -D warnings
-        run: cargo clippy --all-features --all-targets
+        run: cargo clippy --workspace --all-features --all-targets
 
   test:
     name: Run tests
@@ -55,7 +55,7 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run rust tests
-        run: cargo test --all-features --all-targets
+        run: cargo test --workspace --all-features --all-targets
 
       - name: Run redpiler tests
         run: cargo run -p rilc test crates/redpiler/ril_tests
