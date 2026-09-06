@@ -176,11 +176,13 @@ impl TimingsMonitor {
 
                 let tps = data.tps.get();
                 let ticking = data.ticking.load(Ordering::Relaxed);
-                if !(ticking && was_ticking_before)
-                    || tps != last_tps
-                    || data.reset_timings.load(Ordering::Relaxed) > 0
-                {
-                    data.reset_timings.fetch_sub(1, Ordering::Relaxed);
+                let resetting = data
+                    .reset_timings
+                    .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |remaining| {
+                        remaining.checked_sub(1)
+                    })
+                    .is_ok();
+                if !(ticking && was_ticking_before) || tps != last_tps || resetting {
                     was_ticking_before = ticking;
                     last_tps = tps;
                     continue;
