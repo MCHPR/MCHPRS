@@ -155,7 +155,11 @@ impl Compiler {
         debug!("Starting compile");
         let start = Instant::now();
 
-        let input = CompilerInput { world, bounds };
+        let input = CompilerInput {
+            world,
+            bounds,
+            ticks: &ticks,
+        };
         let registry = PassRegistry::default();
         let pass_pipeline = passes::build_pass_pipeline::<W>(&registry, &options);
         let graph =
@@ -264,6 +268,7 @@ impl Compiler {
 pub struct CompilerInput<'w, W: World> {
     pub world: &'w W,
     pub bounds: (BlockPos, BlockPos),
+    pub ticks: &'w [TickEntry],
 }
 
 #[cfg(test)]

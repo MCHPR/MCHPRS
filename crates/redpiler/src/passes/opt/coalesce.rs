@@ -42,8 +42,6 @@ fn run_iteration(graph: &mut CompileGraph) -> usize {
         }
 
         let node = &graph[idx];
-        // Comparators depend on the link weight as well as the type,
-        // we could implement that later if it's beneficial enough.
         if matches!(node.ty, NodeType::Comparator { .. }) || !node.is_removable() {
             continue;
         }
@@ -79,7 +77,9 @@ fn coalesce_outgoing(graph: &mut CompileGraph, source_idx: NodeIdx, into_idx: No
         let into = &graph[into_idx];
 
         if dest.ty == into.ty
+            && dest.state == into.state
             && dest.is_removable()
+            && graph[edge_idx].ty == LinkType::Default
             && graph.neighbors(dest_idx, Direction::Incoming).count() == 1
         {
             coalesce(graph, dest_idx, into_idx);

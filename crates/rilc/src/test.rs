@@ -58,6 +58,7 @@ fn run_test(
     let input = CompilerInput {
         world: &world,
         bounds,
+        ticks: &[],
     };
 
     let registry = PassRegistry::default();

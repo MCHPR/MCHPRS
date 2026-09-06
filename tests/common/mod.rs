@@ -11,9 +11,10 @@ struct RedpilerInstance {
 }
 
 impl RedpilerInstance {
-    fn new(world: &TestWorld, variant: BackendVariant) -> RedpilerInstance {
+    fn new(world: &TestWorld, variant: BackendVariant, optimize: bool) -> RedpilerInstance {
         let options = CompilerOptions {
             backend_variant: variant,
+            optimize,
             ..Default::default()
         };
         let mut compiler = Compiler::default();
@@ -31,7 +32,10 @@ impl RedpilerInstance {
 #[derive(Copy, Clone)]
 pub enum TestBackend {
     Redstone,
-    Redpiler(BackendVariant),
+    Redpiler {
+        variant: BackendVariant,
+        optimize: bool,
+    },
 }
 
 pub struct BackendRunner {
@@ -46,8 +50,8 @@ impl BackendRunner {
                 world,
                 redpiler: None,
             },
-            TestBackend::Redpiler(variant) => BackendRunner {
-                redpiler: Some(RedpilerInstance::new(&world, variant)),
+            TestBackend::Redpiler { variant, optimize } => BackendRunner {
+                redpiler: Some(RedpilerInstance::new(&world, variant, optimize)),
                 world,
             },
         }
@@ -130,7 +134,19 @@ macro_rules! test_all_backends {
             #[test]
             fn [< $name _redstone >]() { $name(TestBackend::Redstone) }
             #[test]
-            fn [< $name _rp_direct >]() { $name(TestBackend::Redpiler(::mchprs_redpiler::BackendVariant::Direct)) }
+            fn [< $name _rp_direct >]() {
+                $name(TestBackend::Redpiler {
+                    variant: ::mchprs_redpiler::BackendVariant::Direct,
+                    optimize: false,
+                })
+            }
+            #[test]
+            fn [< $name _rp_direct_optimized >]() {
+                $name(TestBackend::Redpiler {
+                    variant: ::mchprs_redpiler::BackendVariant::Direct,
+                    optimize: true,
+                })
+            }
         }
     };
 }

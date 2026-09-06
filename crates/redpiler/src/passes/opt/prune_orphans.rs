@@ -19,10 +19,10 @@ impl<W: World> Pass<W> for PruneOrphans {
         _: &CompilerInput<'_, W>,
         _: &mut AnalysisInfos,
     ) {
-        // We start searching from output nodes
+        // We start searching from output nodes and nodes with pending ticks
         let mut worklist = graph
             .node_indices()
-            .filter(|&idx| graph[idx].is_output)
+            .filter(|&idx| graph[idx].is_output || graph[idx].state.pending_tick)
             .collect_vec();
 
         let mut visited = vec![false; graph.node_bound()];

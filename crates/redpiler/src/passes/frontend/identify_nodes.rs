@@ -53,6 +53,12 @@ impl<W: World> Pass<W> for IdentifyNodes {
             );
         });
 
+        for tick in input.ticks {
+            if let Some(&idx) = first_pass.get(&tick.pos) {
+                graph[idx].state.pending_tick = true;
+            }
+        }
+
         for pos in second_pass {
             apply_annotations(graph, options, &first_pass, plot, pos);
         }
