@@ -1,0 +1,56 @@
+test_args "--passes=unreachable-output"
+
+# %sub outputs at most 3, so the loop through %loop cannot exceed 3 either
+circuit @bounded_loop_input {
+  %button = button false
+  %constant = constant 12
+  %sub = comparator subtract, none, false, 0, [%button:0], [%constant:0]
+  %loop = comparator compare, none, false, 0, [%sub:0, %loop:1], []
+  %lamp_sub = lamp false, [%sub:3]
+  %lamp_near = lamp false, [%loop:2]
+  %lamp_far = lamp false, [%loop:3]
+}
+
+test(@bounded_loop_input) circuit @bounded_loop {
+  %button = button false
+  %constant = constant 12
+  %sub = comparator subtract, none, false, 0, [%button:0], [%constant:0]
+  %loop = comparator compare, none, false, 0, [%sub:0, %loop:1], []
+  %lamp_sub = lamp false, []
+  %lamp_near = lamp false, [%loop:2]
+  %lamp_far = lamp false, []
+}
+
+# The current output stays reachable even if the inputs can no longer produce it
+circuit @current_output_input {
+  %constant = constant 0
+  %cmp = comparator compare, none, false, 9, [%constant:0], []
+  %lamp_near = lamp false, [%cmp:8]
+  %lamp_far = lamp false, [%cmp:9]
+}
+
+test(@current_output_input) circuit @current_output {
+  %constant = constant 0
+  %cmp = comparator compare, none, false, 9, [], []
+  %lamp_near = lamp false, [%cmp:8]
+  %lamp_far = lamp false, []
+}
+
+# A repeater whose side input is never off keeps its output, locked or not
+circuit @locked_repeater_input {
+  %lever = lever false
+  %constant = constant 15
+  %locked = repeater 1, false, true, false, [%lever:0], [%constant:0]
+  %unlocked = repeater 1, false, false, false, [%lever:0], [%constant:0]
+  %lamp_locked = lamp false, [%locked:0]
+  %lamp_unlocked = lamp false, [%unlocked:14]
+}
+
+test(@locked_repeater_input) circuit @locked_repeater {
+  %lever = lever false
+  %constant = constant 15
+  %locked = repeater 1, false, true, false, [%lever:0], [%constant:0]
+  %unlocked = repeater 1, false, false, false, [%lever:0], [%constant:0]
+  %lamp_locked = lamp false, []
+  %lamp_unlocked = lamp false, []
+}

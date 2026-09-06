@@ -64,7 +64,7 @@ impl<W: World> Default for PassRegistry<W> {
         registry.register_pass(input_search::InputSearch);
 
         // Analysis Passes
-        registry.register_pass(ss_range_analysis::SSRangeAnalysis);
+        registry.register_pass(ss_set_analysis::SSSetAnalysis);
 
         // Optimization Passes
         registry.register_pass(clamp_weights::ClampWeights);
