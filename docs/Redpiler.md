@@ -34,7 +34,7 @@ The links created in the `InputSearch` pass are weighted by the distance taken i
 
 Sometimes, the breadth-first search done by the `InputSearch` pass can result in two different paths to the same node. While this would not cause any problems during execution, it is still inefficent. This optimization pass removes duplicate links to the same node, only keeping the link with the lowest weight. For example, if two nodes are connected with two links of weights 13 and 15, the link with weight 15 is removed.
 
-# The [`AnalogRepeaters`] Pass
+## The [`AnalogRepeaters`] Pass
 
 This pass optimizes all instances of "analog repeaters", by replacing them with an equivalent comparator.
 An analog repeater is a comparator, that is only connected to exactly 15 repeaters each with distances 0 counting to 14,
