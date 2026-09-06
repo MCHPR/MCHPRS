@@ -23,12 +23,13 @@ fn make_backup(path: impl AsRef<Path>) -> Result<(), PlotLoadError> {
     let path = path.as_ref();
     let mut backup_path = path.with_extension("bak");
     if backup_path.exists() {
-        let num = 1;
+        let mut num = 1;
         loop {
             backup_path = path.with_extension(format!("bak.{}", num));
             if !backup_path.exists() {
                 break;
             }
+            num += 1;
         }
     }
     fs::rename(path, backup_path)?;
