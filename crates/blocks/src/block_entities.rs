@@ -268,7 +268,7 @@ impl BlockEntity {
         use nbt::Value;
         match id.trim_start_matches("minecraft:") {
             "comparator" => Some(BlockEntity::Comparator {
-                output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8,
+                output_strength: nbt_get_int(nbt, "OutputSignal").unwrap_or(0).clamp(0, 15) as u8,
             }),
             "furnace" => BlockEntity::load_container(
                 nbt_unwrap_val!(&nbt["Items"], Value::List),
