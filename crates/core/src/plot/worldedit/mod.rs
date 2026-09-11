@@ -150,13 +150,14 @@ pub fn execute_command(
     } else {
         plot.flush_redpiler();
     }
-    let ctx = CommandExecuteContext {
+    let context = CommandExecuteContext {
         plot: &mut plot.world,
         player: &mut plot.players[player_idx],
         arguments,
         flags: ctx_flags,
     };
-    (command.execute_fn)(ctx);
+    let execute = command.execute_fn;
+    execute(context);
     if command.mutates_world {
         plot.publish_world();
     }

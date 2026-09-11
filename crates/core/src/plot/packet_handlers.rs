@@ -428,8 +428,17 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].selected_slot = held_item_change.slot as u32;
     }
 
-    fn handle_update_sign(&mut self, packet: SUpdateSign, _player: usize) {
+    fn handle_update_sign(&mut self, packet: SUpdateSign, player: usize) {
         let pos = BlockPos::new(packet.x, packet.y, packet.z);
+        if !Plot::in_plot_bounds(self.world.x, self.world.z, pos.x, pos.z)
+            || !(0..super::PLOT_BLOCK_HEIGHT).contains(&pos.y)
+        {
+            return;
+        }
+        let block = self.world.get_block(pos);
+        if !(block.is_sign() || block.is_wall_sign()) || !self.can_interact_with_plot(player) {
+            return;
+        }
         let mut rows = packet
             .lines
             .iter()

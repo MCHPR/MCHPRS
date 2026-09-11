@@ -503,15 +503,7 @@ impl Plot {
             }
         }
 
-        if let Some(owner) = self.owner {
-            let player = &mut self.players[player];
-            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
-                player.send_no_permission_message();
-                cancel(self);
-                return;
-            }
-        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
-            self.players[player].send_no_permission_message();
+        if !self.can_interact_with_plot(player) {
             cancel(self);
             return;
         }
@@ -523,47 +515,37 @@ impl Plot {
                 self.redpiler.on_use_block(block_pos);
                 self.publish_world();
                 return;
-            } else {
-                match self.redpiler.current_flags() {
-                    Some(flags) if flags.io_only => {
-                        self.players[player].send_error_message(ERROR_IO_ONLY);
-                        cancel(self);
-                        return;
-                    }
-                    _ => {}
-                }
-                self.reset_redpiler();
             }
         }
 
-        if let Some(item) = item_in_hand {
-            let cancelled = interaction::use_item_on_block(
-                &item,
-                &mut self.world,
-                UseOnBlockContext {
-                    block_face,
-                    block_pos,
-                    player: &mut self.players[player],
-                    cursor_y: use_item_on.cursor_y,
-                },
-            );
-            if cancelled {
-                cancel(self);
-            }
-            self.publish_world();
+        if !self.can_edit_world(player) {
+            cancel(self);
             return;
         }
 
-        let block = self.world.get_block(block_pos);
+        if let Some(item) = item_in_hand {
+            let cancelled = self.edit_world(player, |world, player| {
+                interaction::use_item_on_block(
+                    &item,
+                    world,
+                    UseOnBlockContext {
+                        block_face,
+                        block_pos,
+                        player,
+                        cursor_y: use_item_on.cursor_y,
+                    },
+                )
+            });
+            if cancelled {
+                cancel(self);
+            }
+            return;
+        }
+
         if !self.players[player].crouching {
-            interaction::on_use(
-                block,
-                &mut self.world,
-                &mut self.players[player],
-                block_pos,
-                None,
-            );
-            self.publish_world();
+            self.edit_world(player, |world, player| {
+                interaction::on_use(world.get_block(block_pos), world, player, block_pos, None);
+            });
         }
     }
 
@@ -595,32 +577,14 @@ impl Plot {
             }
         }
 
-        if let Some(owner) = self.owner {
-            let player = &mut self.players[player];
-            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
-                player.send_no_permission_message();
-                self.send_block_corrections(&[block_pos]);
-                return;
-            }
-        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
-            self.players[player].send_no_permission_message();
+        if !self.can_interact_with_plot(player) || !self.can_edit_world(player) {
             self.send_block_corrections(&[block_pos]);
             return;
         }
 
-        match self.redpiler.current_flags() {
-            Some(flags) if flags.io_only => {
-                self.players[player].send_error_message(ERROR_IO_ONLY);
-                self.send_block_corrections(&[block_pos]);
-                return;
-            }
-            _ => {}
-        }
-
-        self.reset_redpiler();
-
-        interaction::destroy(block, &mut self.world, block_pos);
-        self.publish_world();
+        self.edit_world(player, |world, _| {
+            interaction::destroy(world.get_block(block_pos), world, block_pos);
+        });
 
         let effect = CWorldEvent {
             event: 2001,
@@ -637,6 +601,43 @@ impl Plot {
             };
             self.players[other_player].client.send_packet(&effect);
         }
+    }
+
+    fn can_interact_with_plot(&mut self, player: usize) -> bool {
+        let player = &mut self.players[player];
+        let allowed = match self.owner {
+            Some(owner) => {
+                owner == player.uuid || player.has_permission("plots.admin.interact.other")
+            }
+            None => player.has_permission("plots.admin.interact.unowned"),
+        };
+        if !allowed {
+            player.send_no_permission_message();
+        }
+        allowed
+    }
+
+    fn can_edit_world(&mut self, player: usize) -> bool {
+        if self
+            .redpiler
+            .current_flags()
+            .is_some_and(|flags| flags.io_only)
+        {
+            self.players[player].send_error_message(ERROR_IO_ONLY);
+            return false;
+        }
+        true
+    }
+
+    fn edit_world<R>(
+        &mut self,
+        player: usize,
+        edit: impl FnOnce(&mut PlotWorld, &mut Player) -> R,
+    ) -> R {
+        self.reset_redpiler();
+        let result = edit(&mut self.world, &mut self.players[player]);
+        self.publish_world();
+        result
     }
 
     fn restart_tick_schedule(&mut self) {
@@ -705,8 +706,6 @@ impl Plot {
         self.restart_tick_schedule();
     }
 
-    /// Redpiler needs to reset implicitly in the case of any block changes done by a player. This
-    /// can be
     fn reset_redpiler(&mut self) {
         if self.redpiler.is_active() {
             debug!("Discarding redpiler");
