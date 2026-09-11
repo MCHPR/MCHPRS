@@ -5,16 +5,10 @@ mod node;
 mod tick;
 mod update;
 
-use super::JITBackend;
-use crate::backend::direct::node::ForwardLinks;
-use crate::compile_graph::CompileGraph;
-use crate::task_monitor::TaskMonitor;
-use crate::{block_powered_mut, CompilerOptions};
-use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
-use mchprs_blocks::BlockPos;
-use mchprs_redstone::{bool_to_ss, noteblock};
-use mchprs_world::{TickEntry, TickPriority, World};
+use mchprs_backend_lib::block_entities::BlockEntity;
+use mchprs_backend_lib::compile_graph::CompileGraph;
+use mchprs_backend_lib::{BlockPos, CompilerOptions, JITBackend, TaskMonitor, TickEntry, TickPriority, World, block_powered_mut, bool_to_ss, noteblock};
+use mchprs_backend_lib::blocks::{Block, ComparatorMode, Instrument};
 use node::{Node, NodeId, NodeType, Nodes};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
@@ -22,6 +16,8 @@ use std::fmt::Write;
 use std::sync::Arc;
 use std::{fmt, mem};
 use tracing::{debug, warn};
+
+use crate::node::ForwardLinks;
 
 #[derive(Default, Clone)]
 struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);

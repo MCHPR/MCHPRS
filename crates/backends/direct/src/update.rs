@@ -1,4 +1,3 @@
-use mchprs_world::TickPriority;
 
 use super::node::{NodeId, NodeType};
 use super::*;

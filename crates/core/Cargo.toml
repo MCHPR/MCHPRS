@@ -22,6 +22,7 @@ mchprs_utils = { path = "../utils" }
 mchprs_network = { path = "../network" }
 mchprs_text = { path = "../text" }
 mchprs_redpiler = { path = "../redpiler" }
+mchprs_backend_manager = { path = "../backend_manager" }
 mchprs_redstone = { path = "../redstone" }
 mchprs_schematic = { path = "../schematic" }
 toml = { workspace = true }

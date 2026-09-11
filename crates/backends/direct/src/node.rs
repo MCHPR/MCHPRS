@@ -1,6 +1,7 @@
-use mchprs_blocks::blocks::ComparatorMode;
 use std::num::NonZeroU8;
 use std::ops::{Index, IndexMut};
+
+use mchprs_backend_lib::blocks::ComparatorMode;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NodeId(u32);

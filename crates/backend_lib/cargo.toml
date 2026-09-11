@@ -1,0 +1,18 @@
+[package]
+name = "mchprs_backend_lib"
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+readme.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+mchprs_blocks = { path = "../blocks" }
+mchprs_world = { path = "../world" }
+mchprs_redstone = { path = "../redstone" }
+mchprs_redpiler = { path = "../redpiler" }
+enum_delegate = { workspace = true }

@@ -1,14 +1,14 @@
-use crate::backend::direct::node::ForwardLinks;
-use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx};
-use crate::{CompilerOptions, TaskMonitor};
+use std::sync::Arc;
+
 use itertools::Itertools;
-use mchprs_blocks::blocks::{Block, Instrument};
-use mchprs_blocks::BlockPos;
-use mchprs_world::TickEntry;
+use mchprs_backend_lib::blocks::{Block, Instrument};
+use mchprs_backend_lib::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx};
+use mchprs_backend_lib::*;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::sync::Arc;
 use tracing::trace;
+
+use crate::node::ForwardLinks;
 
 use super::node::{ForwardLink, Node, NodeId, NodeInput, NodeType, Nodes, NonMaxU8};
 use super::DirectBackend;
@@ -72,7 +72,7 @@ fn compile_node(
     default_inputs.ss_counts[0] += (MAX_INPUTS - default_input_count) as u8;
     side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
 
-    use crate::compile_graph::NodeType as CNodeType;
+    use mchprs_backend_lib::compile_graph::NodeType as CNodeType;
     let fwd_link_range = if node.ty != CNodeType::Constant {
         let new_links = graph
             .edges(node_idx, Direction::Outgoing)

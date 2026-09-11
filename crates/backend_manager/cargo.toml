@@ -1,5 +1,5 @@
 [package]
-name = "mchprs_redpiler"
+name = "mchprs_backend_manager"
 authors.workspace = true
 description.workspace = true
 edition.workspace = true
@@ -10,17 +10,19 @@ version.workspace = true
 license.workspace = true
 repository.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+mchprs_backend_direct = { path = "../backends/direct" }
+
+mchprs_backend_lib = { path = "../backend_lib" }
 mchprs_blocks = { path = "../blocks" }
-mchprs_world = { path = "../world" }
 mchprs_redstone = { path = "../redstone" }
-redpiler_graph = { path = "../redpiler_graph" }
+mchprs_world = { path = "../world" }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 petgraph = { workspace = true }
 itertools = { workspace = true }
 rustc-hash = { workspace = true }
+enum_delegate = { workspace = true }
 indexmap = { workspace = true }
 smallvec = { workspace = true }
