@@ -1,6 +1,7 @@
 mod nbt_util;
 pub mod packets;
 
+use mchprs_text::TextComponentBuilder;
 use packets::serverbound::ServerBoundPacket;
 use packets::{read_packet, PacketEncoder, PlayerProperty};
 use std::net::{Shutdown, TcpListener, TcpStream};
@@ -10,6 +11,8 @@ use std::thread;
 use tracing::warn;
 
 pub use nbt_util::NBTCompound;
+
+use crate::packets::clientbound::{CDisconnect, ClientBoundPacket};
 
 #[derive(Debug)]
 pub struct PlayerPacketSender {
@@ -122,8 +125,18 @@ impl NetworkClient {
         loop {
             let packet = match read_packet(&mut stream, &compressed, &mut state) {
                 Ok(packet) => packet,
-                // This will cause the client to disconnect
-                Err(_) => return,
+                Err(err) => {
+                    if state == NetworkState::Play {
+                        let _ = CDisconnect {
+                            reason: TextComponentBuilder::new(format!("Protocol error: {:?}", err))
+                                .finish(),
+                        }
+                        .encode()
+                        .write_compressed(&mut stream);
+                    }
+                    // This will cause the client to disconnect
+                    return;
+                }
             };
             if sender.send(packet).is_err() {
                 return;

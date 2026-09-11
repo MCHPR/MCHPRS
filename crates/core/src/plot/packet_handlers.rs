@@ -6,8 +6,8 @@ use crate::utils::{self, HyphenatedUUID};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::BlockPos;
-use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::serverbound::*;
+use mchprs_network::packets::{clientbound::*, SlotData};
 use mchprs_world::World;
 use serde_json::json;
 use std::fs;
@@ -90,12 +90,10 @@ impl ServerBoundPacketHandler for Plot {
             if creative_inventory_action.slot < 0 || creative_inventory_action.slot >= 46 {
                 return;
             }
-            let item = ItemStack {
-                count: slot_data.item_count as u8,
-                item_type: Item::from_id(slot_data.item_id as u32),
-                nbt: slot_data.nbt.map(nbt::Blob::with_content),
-            };
+
+            let item = item_stack_from_slot_data(&slot_data);
             self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
+
             if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
                 let entity_equipment = CSetEquipment {
                     entity_id: self.players[player].entity_id as i32,
@@ -387,7 +385,7 @@ impl ServerBoundPacketHandler for Plot {
             },
             CSetEntityMetadataEntry {
                 index: 6,
-                metadata_type: 20,
+                metadata_type: 21,
                 value: vec![if self.players[player].crouching { 5 } else { 0 }],
             },
         ];
@@ -451,5 +449,21 @@ impl ServerBoundPacketHandler for Plot {
         }
         self.world
             .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));
+    }
+}
+
+fn item_stack_from_slot_data(slot_data: &SlotData) -> ItemStack {
+    ItemStack {
+        item_type: Item::from_id(slot_data.item_id as u32),
+        count: slot_data.item_count as u8,
+        nbt: None,
+        container_slots: slot_data
+            .container_items
+            .iter()
+            .map(|slot| {
+                slot.as_ref()
+                    .map(|slot_data| item_stack_from_slot_data(slot_data))
+            })
+            .collect(),
     }
 }

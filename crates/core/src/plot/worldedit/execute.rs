@@ -19,6 +19,7 @@ pub(super) fn execute_wand(ctx: CommandExecuteContext<'_>) {
         count: 1,
         item_type: Item::WoodenAxe,
         nbt: None,
+        container_slots: Vec::new(),
     };
     ctx.player.inventory[(ctx.player.selected_slot + 36) as usize] = Some(item);
     let entity_equipment = CSetEquipment {
@@ -1081,6 +1082,7 @@ pub(super) fn execute_replace_container(ctx: CommandExecuteContext<'_>) {
                             slot: slot as i8,
                             count: count as i8,
                             nbt: None,
+                            container_items: Vec::new(),
                         });
                     }
 
