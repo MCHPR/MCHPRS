@@ -1295,8 +1295,10 @@ version = "0.5.2-dev"
 dependencies = [
  "hematite-nbt",
  "mchprs_proc_macros",
+ "mchprs_text",
  "mchprs_utils",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

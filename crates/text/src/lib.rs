@@ -1,5 +1,5 @@
 use regex::Regex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
 
 static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
@@ -11,7 +11,7 @@ fn is_valid_hex(ch: char) -> bool {
     ch.is_numeric() || ('a'..='f').contains(&ch) || ('A'..='F').contains(&ch)
 }
 
-#[derive(Serialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "snake_case")]
 pub enum ColorCode {
     Black,
@@ -76,22 +76,22 @@ impl ColorCode {
     }
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum TextColor {
     Hex(String),
     ColorCode(ColorCode),
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
 enum ClickEventType {
     OpenUrl,
-    // RunCommand,
-    // SuggestCommand,
+    RunCommand,
+    SuggestCommand,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ClickEvent {
     action: ClickEventType,
     value: String,
@@ -136,18 +136,23 @@ impl TextComponentBuilder {
     }
 }
 
-#[derive(Serialize, Default, Debug, Clone)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct TextComponent {
     pub text: String,
     #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub bold: bool,
     #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub italic: bool,
     #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub underlined: bool,
     #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub strikethrough: bool,
     #[serde(skip_serializing_if = "is_false")]
+    #[serde(default)]
     pub obfuscated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<TextColor>,
@@ -155,6 +160,7 @@ pub struct TextComponent {
     #[serde(rename = "clickEvent")]
     pub click_event: Option<ClickEvent>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
     pub extra: Vec<TextComponent>,
 }
 
