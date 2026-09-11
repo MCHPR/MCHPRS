@@ -43,10 +43,6 @@ impl Nodes {
     pub fn inner_mut(&mut self) -> &mut [Node] {
         &mut self.nodes
     }
-
-    pub fn into_inner(self) -> Box<[Node]> {
-        self.nodes
-    }
 }
 
 impl Index<NodeId> for Nodes {
