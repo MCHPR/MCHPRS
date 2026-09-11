@@ -9,7 +9,6 @@ use mchprs_blocks::BlockPos;
 use mchprs_network::packets::serverbound::*;
 use mchprs_network::packets::{clientbound::*, SlotData};
 use mchprs_world::World;
-use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -428,10 +427,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_update_sign(&mut self, packet: SUpdateSign, _player: usize) {
         let pos = BlockPos::new(packet.x, packet.y, packet.z);
-        let mut rows = packet
-            .lines
-            .iter()
-            .map(|line| json!({ "text": line }).to_string());
+        let mut rows = packet.lines.into_iter();
         let rows = [
             rows.next().unwrap(),
             rows.next().unwrap(),
