@@ -1,6 +1,5 @@
 use super::{database, worldedit, Plot, PlotWorld};
 use crate::player::{Gamemode, PacketSender, PlayerPos};
-use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
 use crate::server::{get_version_string, Message};
 use mchprs_blocks::items::ItemStack;
@@ -15,7 +14,7 @@ use mchprs_text::TextComponent;
 use std::ops::Add;
 use std::str::FromStr;
 use std::sync::LazyLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
 // Parses a relative or absolute coordinate relative to a reference coordinate
@@ -192,6 +191,7 @@ impl Plot {
                 debug!("Compile took {:?}", start_time.elapsed());
             }
             "inspect" | "i" => {
+                self.flush_redpiler();
                 let player = &self.players[player];
                 let pos = worldedit::ray_trace_block(
                     &self.world,
@@ -312,9 +312,8 @@ impl Plot {
                     return false;
                 };
 
-                self.sleep_time = sleep_time_for_tps(tps);
                 self.tps = tps;
-                self.reset_timings();
+                self.restart_tick_schedule();
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
             "radv" | "radvance" => {
@@ -330,14 +329,19 @@ impl Plot {
                     return false;
                 };
                 let start_time = Instant::now();
-                self.tickn(ticks as u64);
+                let deadline = start_time + Duration::from_secs(15);
+                let completed = self.run_ticks(u64::from(ticks), Some(deadline));
                 self.publish_world();
-                self.reset_timings();
-                self.players[player].send_system_message(&format!(
-                    "Plot has been advanced by {} ticks ({:?})",
-                    ticks,
-                    start_time.elapsed()
-                ));
+                self.restart_tick_schedule();
+                let message = if completed == u64::from(ticks) {
+                    format!(
+                        "Plot has been advanced by {completed} ticks ({:?})",
+                        start_time.elapsed()
+                    )
+                } else {
+                    format!("Plot has been advanced by {completed} of {ticks} ticks before the time limit ({:?})", start_time.elapsed())
+                };
+                self.players[player].send_system_message(&message);
             }
             "toggleautorp" => {
                 self.auto_redpiler = !self.auto_redpiler;
@@ -498,7 +502,7 @@ impl Plot {
                 if args.is_empty() {
                     self.players[player].send_system_message(&format!(
                         "Current world send rate: {} Hz",
-                        self.world.world_send_rate.0
+                        self.world.output.rate().0
                     ));
                     return false;
                 }
@@ -528,9 +532,9 @@ impl Plot {
                     return false;
                 }
 
-                self.world.world_send_rate = WorldSendRate(hertz);
-                self.world.pending_sounds.clear();
-                self.last_world_send_time = Instant::now();
+                self.world
+                    .output
+                    .set_rate(WorldSendRate(hertz), Instant::now());
                 self.players[player]
                     .send_system_message("The world send rate was successfully set.");
             }

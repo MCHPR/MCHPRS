@@ -96,7 +96,7 @@ server_context = "global"
 | Command                     | Alias           | Description                                                                                                                                                           |
 |-----------------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `/rtps [rtps\|unlimited]`   | None            | Set redstone ticks/s (fractional or `unlimited`). Default: 10. There are two game ticks per redstone tick.                                                            |
-| `/radvance <ticks>`         | `/radv`         | Advances the plot by `<ticks>` redstone ticks.                                                                                                                        |
+| `/radvance <ticks>`         | `/radv`         | Advances up to `<ticks>` redstone ticks within a 15-second time budget and reports the completed count.                                                               |
 | `/teleport <player>`        | `/tp`           | Teleports you to `<player>`.                                                                                                                                          |
 | `/teleport <x> <y> <z>`     | `/tp`           | Teleports you to `<x> <y> <z>`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
 | `/speed <speed>`            | None            | Sets your flyspeed.                                                                                                                                                   |

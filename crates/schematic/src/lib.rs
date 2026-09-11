@@ -103,9 +103,6 @@ pub fn paste_clipboard<W: World>(
         }
     }
 
-    // Send block changes before we send block entity data, otherwise it'll be ignored
-    world.flush_block_changes();
-
     for (pos, block_entity) in &cb.block_entities {
         let new_pos = BlockPos {
             x: pos.x + offset_x,
