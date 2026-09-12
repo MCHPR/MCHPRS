@@ -27,12 +27,11 @@ use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::Sha256;
-use std::fs::{self, File};
-use std::io::Cursor;
-use std::path::Path;
+use std::fs;
+use std::io::{self, Cursor, Write as _};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
@@ -114,7 +113,7 @@ struct PlotListEntry {
     priv_message_sender: mpsc::Sender<PrivMessage>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct WhitelistEntry {
     uuid: HyphenatedUUID,
     name: String,
@@ -162,13 +161,19 @@ impl MinecraftServer {
         .expect("There was an error setting the ctrlc handler");
 
         let whitelist = CONFIG.whitelist.then(|| {
-            if !Path::new("whitelist.json").exists() {
-                File::create("whitelist.json").expect("Failed to create whitelist.json");
+            let content = match fs::read("whitelist.json") {
+                Ok(content) => content,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    fs::write("whitelist.json", b"[]").expect("Failed to create whitelist.json");
+                    Vec::new()
+                }
+                Err(error) => panic!("Failed to read whitelist.json: {error}"),
+            };
+            if content.trim_ascii().is_empty() {
+                Vec::new()
+            } else {
+                serde_json::from_slice(&content).expect("Invalid whitelist.json")
             }
-            serde_json::from_reader(
-                File::open("whitelist.json").expect("Failed to open whitelist.json"),
-            )
-            .unwrap_or_default()
         });
 
         if let Some(permissions_config) = &CONFIG.luckperms {
@@ -243,10 +248,6 @@ impl MinecraftServer {
                 }
                 std::thread::sleep(Duration::from_millis(2));
             }
-        }
-
-        if let Some(whitelist) = &self.whitelist {
-            fs::write("whitelist.json", serde_json::to_string(whitelist).unwrap()).unwrap();
         }
 
         std::process::exit(0);
@@ -591,44 +592,60 @@ impl MinecraftServer {
                     .broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
             }
             Message::WhitelistAdd(uuid, username, sender) => {
-                if let Some(whitelist) = &mut self.whitelist {
-                    let msg = format!("{} was successfully added to the whitelist.", &username);
-                    sender.send_system_message(&msg);
-                    let uuid = HyphenatedUUID(uuid);
-                    debug!("Added to whitelist: {} ({})", username, uuid);
-
+                self.update_whitelist(sender, |whitelist| {
+                    if whitelist.iter().any(|entry| entry.uuid.0 == uuid) {
+                        return Err("That player is already whitelisted.");
+                    }
+                    let message = format!("{username} was successfully added to the whitelist.");
                     whitelist.push(WhitelistEntry {
                         name: username,
-                        uuid,
+                        uuid: HyphenatedUUID(uuid),
                     });
-                } else {
-                    sender.send_error_message("Whitelist is not enabled!");
-                }
+                    Ok(message)
+                })
             }
-            Message::WhitelistRemove(uuid, sender) => {
-                if let Some(whitelist) = &mut self.whitelist {
-                    let mut found = false;
-                    whitelist.retain(|entry| {
-                        let matches = entry.uuid.0 == uuid;
-                        if matches {
-                            let msg = format!(
-                                "{} was successfully removed from the whitelist.",
-                                &entry.name
-                            );
-                            sender.send_system_message(&msg);
-                            debug!("Removed from whitelist: {}", HyphenatedUUID(uuid));
-                            found = true;
-                        }
-                        !matches
-                    });
-                    if !found {
-                        sender.send_error_message("That player is not whitelisted on this server.");
-                    }
-                } else {
-                    sender.send_error_message("Whitelist is not enabled!");
-                }
-            }
+            Message::WhitelistRemove(uuid, sender) => self.update_whitelist(sender, |whitelist| {
+                let Some(entry) = whitelist.iter().find(|entry| entry.uuid.0 == uuid) else {
+                    return Err("That player is not whitelisted on this server.");
+                };
+                let message = format!(
+                    "{} was successfully removed from the whitelist.",
+                    entry.name
+                );
+                whitelist.retain(|entry| entry.uuid.0 != uuid);
+                Ok(message)
+            }),
         }
+    }
+
+    fn update_whitelist(
+        &mut self,
+        sender: PlayerPacketSender,
+        change: impl FnOnce(&mut Vec<WhitelistEntry>) -> Result<String, &'static str>,
+    ) {
+        let Some(mut whitelist) = self.whitelist.clone() else {
+            sender.send_error_message("Whitelist is not enabled!");
+            return;
+        };
+        let message = match change(&mut whitelist) {
+            Ok(message) => message,
+            Err(message) => {
+                sender.send_error_message(message);
+                return;
+            }
+        };
+        let result = serde_json::to_vec_pretty(&whitelist)
+            .map_err(io::Error::from)
+            .and_then(|data| {
+                mchprs_save_data::replace_file("whitelist.json", |file| file.write_all(&data))
+            });
+        if let Err(error) = result {
+            warn!("Failed to save whitelist: {error}");
+            sender.send_error_message("Unable to save the whitelist. No changes were applied.");
+            return;
+        }
+        self.whitelist = Some(whitelist);
+        sender.send_system_message(&message);
     }
 
     fn update(&mut self) {

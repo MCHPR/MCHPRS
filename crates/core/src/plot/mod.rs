@@ -1238,8 +1238,9 @@ impl Plot {
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
         };
-        data.save_to_file(format!("./world/plots/p{},{}", world.x, world.z))
-            .unwrap();
+        if let Err(error) = data.save_to_file(format!("./world/plots/p{},{}", world.x, world.z)) {
+            error!("Failed to save plot ({}, {}): {error}", world.x, world.z);
+        }
 
         self.reset_timings();
     }
@@ -1337,17 +1338,16 @@ impl Drop for Plot {
                     .unwrap();
             }
         }
-        let world = &self.world;
-        self.message_sender
-            .send(Message::PlotUnload(world.x, world.z))
-            .unwrap();
-
         self.reset_redpiler();
         self.world
             .chunks
             .iter_mut()
             .for_each(|chunk| chunk.compress());
         self.save();
+        let world = &self.world;
+        self.message_sender
+            .send(Message::PlotUnload(world.x, world.z))
+            .unwrap();
     }
 }
 
