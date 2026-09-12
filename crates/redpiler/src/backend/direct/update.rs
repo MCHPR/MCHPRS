@@ -6,7 +6,7 @@ use super::*;
 #[inline(always)]
 pub(super) fn update_node(
     scheduler: &mut TickScheduler,
-    events: &mut Vec<Event>,
+    noteblock_info: &mut [NoteBlockInfo],
     nodes: &mut Nodes,
     node_id: NodeId,
 ) {
@@ -98,7 +98,7 @@ pub(super) fn update_node(
             if node.powered != should_be_powered {
                 set_node(node, should_be_powered);
                 if should_be_powered {
-                    events.push(Event::NoteBlockPlay { noteblock_id });
+                    noteblock_info[noteblock_id as usize].pending = true;
                 }
             }
         }

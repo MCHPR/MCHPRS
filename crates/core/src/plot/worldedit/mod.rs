@@ -155,6 +155,9 @@ pub fn execute_command(
         flags: ctx_flags,
     };
     (command.execute_fn)(ctx);
+    if command.mutates_world {
+        plot.publish_world();
+    }
     true
 }
 
