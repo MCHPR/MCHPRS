@@ -15,7 +15,7 @@ use mchprs_schematic::WorldEditClipboard;
 use mchprs_text::{ColorCode, TextComponent, TextComponentBuilder};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Instant, SystemTime};
@@ -280,11 +280,6 @@ impl Player {
     /// Saves the player to `./world/players/{uuid}`. This will create
     /// the file if it does not already exist.
     pub fn save(&self) {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(format!("./world/players/{:032x}", self.uuid))
-            .unwrap();
         let mut inventory: Vec<InventoryEntry> = Vec::new();
         for (slot, item_option) in self.inventory.iter().enumerate() {
             if let Some(item) = item_option {
@@ -304,7 +299,10 @@ impl Player {
             walk_speed: self.walk_speed,
         })
         .unwrap();
-        file.write_all(&data).unwrap();
+        let path = format!("./world/players/{:032x}", self.uuid);
+        if let Err(error) = mchprs_save_data::replace_file(&path, |file| file.write_all(&data)) {
+            error!("Failed to save player data for {}: {error}", self.username);
+        }
     }
 
     /// Manages keep alives and packet reading. Return true if the view position should be updated.

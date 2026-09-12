@@ -1,6 +1,7 @@
 mod fixer;
 
 use self::fixer::FixInfo;
+use crate::replace_file;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::BlockPos;
@@ -192,13 +193,11 @@ impl PlotData {
     }
 
     pub fn save_to_file(&self, path: impl AsRef<Path>) -> Result<(), PlotSaveError> {
-        let mut file = File::create(path)?;
-
-        file.write_all(PLOT_MAGIC)?;
-        file.write_u32::<LittleEndian>(VERSION)?;
-        let data = bincode::serialize(self)?;
-        file.write_all(&data)?;
-        file.sync_data()?;
-        Ok(())
+        replace_file(path, |file| {
+            file.write_all(PLOT_MAGIC)?;
+            file.write_u32::<LittleEndian>(VERSION)?;
+            let data = bincode::serialize(self)?;
+            Ok(file.write_all(&data)?)
+        })
     }
 }
