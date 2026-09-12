@@ -1,0 +1,85 @@
+test_args "--passes=coalesce"
+
+# Both torches read the same two inputs, which then makes the repeaters they feed identical too
+circuit @same_inputs_input {
+  %lever_a = lever false
+  %lever_b = lever false
+  %repeater1 = repeater 1, false, false, false, [%torch1:0], []
+  %repeater2 = repeater 1, false, false, false, [%torch2:5], []
+  %torch1 = torch true, [%lever_a:3, %lever_b:0]
+  %torch2 = torch true, [%lever_b:7, %lever_a:0]
+  %lamp = lamp false, [%repeater1:0, %repeater2:4]
+}
+
+test(@same_inputs_input) circuit @same_inputs {
+  %lever_a = lever false
+  %lever_b = lever false
+  %repeater1 = repeater 1, false, false, false, [%torch1:0], []
+  %torch1 = torch true, [%lever_a:3, %lever_b:0]
+  %lamp = lamp false, [%repeater1:0, %repeater1:4]
+}
+
+# A side link locks the repeater instead of powering it, so the link type must match
+circuit @side_link_input {
+  %lever = lever false
+  %powered = repeater 1, false, false, false, [%lever:0], []
+  %locked = repeater 1, false, false, false, [], [%lever:0]
+  %lamp_powered = lamp false, [%powered:0]
+  %lamp_locked = lamp false, [%locked:0]
+}
+
+test(@side_link_input) circuit @side_link {
+  %lever = lever false
+  %powered = repeater 1, false, false, false, [%lever:0], []
+  %locked = repeater 1, false, false, false, [], [%lever:0]
+  %lamp_powered = lamp false, [%powered:0]
+  %lamp_locked = lamp false, [%locked:0]
+}
+
+# The repeaters only differ in their initial state
+circuit @different_state_input {
+  %lever = lever false
+  %off = repeater 1, false, false, false, [%lever:0], []
+  %on = repeater 1, false, false, true, [%lever:0], []
+  %lamp_off = lamp false, [%off:0]
+  %lamp_on = lamp false, [%on:0]
+}
+
+test(@different_state_input) circuit @different_state {
+  %lever = lever false
+  %off = repeater 1, false, false, false, [%lever:0], []
+  %on = repeater 1, false, false, true, [%lever:0], []
+  %lamp_off = lamp false, [%off:0]
+  %lamp_on = lamp false, [%on:0]
+}
+
+# Constants with the same strength merge
+circuit @constants_input {
+  %constant_a = constant 7
+  %constant_b = constant 7
+  %lamp_a = lamp false, [%constant_a:0]
+  %lamp_b = lamp false, [%constant_b:0]
+}
+
+test(@constants_input) circuit @constants {
+  %constant_a = constant 7
+  %lamp_a = lamp false, [%constant_a:0]
+  %lamp_b = lamp false, [%constant_a:0]
+}
+
+# A comparator reading itself and a comparator reading it see the same values, so they merge and
+# the self link follows the merged node
+circuit @self_loop_input {
+  %lever = lever false
+  %reader = comparator compare, none, false, 0, [%lever:0, %loop:1], []
+  %loop = comparator compare, none, false, 0, [%lever:0, %loop:1], []
+  %lamp_reader = lamp false, [%reader:0]
+  %lamp_loop = lamp false, [%loop:0]
+}
+
+test(@self_loop_input) circuit @self_loop {
+  %lever = lever false
+  %reader = comparator compare, none, false, 0, [%lever:0, %reader:1], []
+  %lamp_reader = lamp false, [%reader:0]
+  %lamp_loop = lamp false, [%reader:0]
+}
