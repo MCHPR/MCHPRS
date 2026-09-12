@@ -6,6 +6,12 @@ use mchprs_proc_macros::BlockTransform;
 pub use props::*;
 
 #[derive(Clone, Copy, Debug)]
+pub struct PropertyDefinition {
+    pub name: &'static str,
+    pub values: &'static [&'static str],
+}
+
+#[derive(Clone, Copy, Debug)]
 pub enum FlipDirection {
     FlipX,
     FlipZ,

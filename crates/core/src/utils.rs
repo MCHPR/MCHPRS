@@ -7,7 +7,7 @@ use std::io::Cursor;
 use std::num::ParseIntError;
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HyphenatedUUID(pub u128);
 
 impl std::fmt::Display for HyphenatedUUID {
