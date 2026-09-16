@@ -1,0 +1,11 @@
+[package]
+name = "mchprs_commands"
+authors.workspace = true
+description = "Command graphs and cursor-based parsing for MCHPRS"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+thiserror.workspace = true

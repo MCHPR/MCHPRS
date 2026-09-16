@@ -248,6 +248,10 @@ impl Compiler {
         self.backend().flush(world, io_only);
     }
 
+    pub fn flush_all<W: World>(&mut self, world: &mut W) {
+        self.backend().flush(world, false);
+    }
+
     pub fn inspect(&mut self, pos: BlockPos) {
         if let Some(backend) = &mut self.backend {
             backend.inspect(pos);

@@ -1,19 +1,21 @@
-use crate::config::CONFIG;
-use crate::player::{Gamemode, PacketSender, Player};
-use crate::plot::commands::DECLARE_COMMANDS;
-use crate::plot::{self, database, Plot, PLOT_BLOCK_HEIGHT};
-use crate::utils::HyphenatedUUID;
-use crate::{permissions, utils};
+use crate::{
+    commands::{CommandSuggestions, PlayerTarget, SuggestionSource, COMMAND_REGISTRY},
+    config::CONFIG,
+    permissions,
+    player::{Gamemode, PacketSender, Player},
+    plot::{self, database, Plot, PLOT_BLOCK_HEIGHT},
+    utils::{self, HyphenatedUUID},
+};
 use backtrace::Backtrace;
 use bus::Bus;
 use hmac::{Hmac, Mac};
 use mchprs_network::packets::clientbound::{
-    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent,
-    CGameEventType, CLogin, CLoginPluginRequest, CLoginSuccess, CPlayerInfoActions,
-    CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong, CRegistryBiome,
-    CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec, CRegistryDimensionType, CResponse,
-    CSetCompression, CSetContainerContent, CSetHeldItem, CSynchronizePlayerPosition,
-    ClientBoundPacket, UpdateTime,
+    CCommandSuggestionsResponse, CConfigurationPluginMessage, CDisconnectLogin,
+    CFinishConfiguration, CGameEvent, CGameEventType, CLogin, CLoginPluginRequest, CLoginSuccess,
+    CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong,
+    CRegistryBiome, CRegistryBiomeEffects, CRegistryData, CRegistryDataCodec,
+    CRegistryDimensionType, CResponse, CSetCompression, CSetContainerContent, CSetHeldItem,
+    CSynchronizePlayerPosition, ClientBoundPacket, UpdateTime,
 };
 use mchprs_network::packets::serverbound::{
     SAcknowledgeFinishConfiguration, SHandshake, SLoginAcknowledged, SLoginPluginResponse,
@@ -28,16 +30,19 @@ use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::Sha256;
-use std::fs::{self, File};
-use std::io::Cursor;
-use std::path::Path;
-use std::sync::mpsc::{self, Receiver, Sender};
-use std::time::{Duration, Instant};
-use tracing::{debug, error, info, warn};
+use std::{
+    fs,
+    io::{self, Cursor},
+    sync::mpsc::{self, Receiver, Sender, SyncSender},
+    sync::LazyLock,
+    time::{Duration, Instant},
+};
+use tracing::{error, info, warn};
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
 pub enum Message {
+    CommandSuggestions(CommandSuggestions, SyncSender<CCommandSuggestionsResponse>),
     /// This message is sent to the server thread when a player sends a chat message,
     /// It contains the uuid and name of the player and the raw message the player sent.
     ChatInfo(u128, String, String),
@@ -48,7 +53,7 @@ pub enum Message {
     /// This message is sent to the server thread when a player goes outside of their plot.
     PlayerLeavePlot(Player),
     /// This message is sent to the server thread when a player runs /tp <name>.
-    PlayerTeleportOther(Player, String),
+    PlayerTeleportOther(Player, PlayerTarget),
     /// This message is sent to the server thread when a player changes their gamemode.
     PlayerUpdateGamemode(u128, Gamemode),
     /// This message is sent to the server thread when a plot unloads itself.
@@ -56,7 +61,7 @@ pub enum Message {
     /// This message is sent to the server thread when a player runs /whitelist add.
     WhitelistAdd(u128, String, PlayerPacketSender),
     /// This message is sent to the server thread when a player runs /whitelist remove.
-    WhitelistRemove(u128, PlayerPacketSender),
+    WhitelistRemove(String, PlayerPacketSender),
     /// This message is sent to the server thread when a player runs /stop.
     Shutdown,
 }
@@ -115,7 +120,7 @@ struct PlotListEntry {
     priv_message_sender: mpsc::Sender<PrivMessage>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 struct WhitelistEntry {
     uuid: HyphenatedUUID,
     name: String,
@@ -162,14 +167,22 @@ impl MinecraftServer {
         })
         .expect("There was an error setting the ctrlc handler");
 
+        LazyLock::force(&COMMAND_REGISTRY);
+
         let whitelist = CONFIG.whitelist.then(|| {
-            if !Path::new("whitelist.json").exists() {
-                File::create("whitelist.json").expect("Failed to create whitelist.json");
+            let content = match fs::read("whitelist.json") {
+                Ok(content) => content,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    fs::write("whitelist.json", b"[]").expect("Failed to create whitelist.json");
+                    Vec::new()
+                }
+                Err(error) => panic!("Failed to read whitelist.json: {error}"),
+            };
+            if content.trim_ascii().is_empty() {
+                Vec::new()
+            } else {
+                serde_json::from_slice(&content).expect("Invalid whitelist.json")
             }
-            serde_json::from_reader(
-                File::open("whitelist.json").expect("Failed to open whitelist.json"),
-            )
-            .unwrap_or_default()
         });
 
         if let Some(permissions_config) = &CONFIG.luckperms {
@@ -244,10 +257,6 @@ impl MinecraftServer {
                 }
                 std::thread::sleep(Duration::from_millis(2));
             }
-        }
-
-        if let Some(whitelist) = &self.whitelist {
-            fs::write("whitelist.json", serde_json::to_string(whitelist).unwrap()).unwrap();
         }
 
         std::process::exit(0);
@@ -406,7 +415,9 @@ impl MinecraftServer {
         .encode();
         player.client.send_packet(&held_item_change);
 
-        player.client.send_packet(&DECLARE_COMMANDS);
+        player
+            .client
+            .send_packet(&COMMAND_REGISTRY.declare_commands_packet(&player));
 
         let time_update = UpdateTime {
             world_age: 0,
@@ -504,6 +515,15 @@ impl MinecraftServer {
 
     fn handle_message(&mut self, message: Message) {
         match message {
+            Message::CommandSuggestions(mut suggestions, sender) => {
+                suggestions.resolve(
+                    SuggestionSource::PlayerNames,
+                    self.online_players
+                        .values()
+                        .map(|player| player.username.as_str()),
+                );
+                let _ = sender.send(suggestions.into_response());
+            }
             Message::PlayerJoined(player) => {
                 info!("{} joined the game", player.username);
                 // Send player info to plots
@@ -544,15 +564,19 @@ impl MinecraftServer {
             Message::Shutdown => {
                 self.graceful_shutdown();
             }
-            Message::PlayerTeleportOther(player, other_username) => {
-                let username_lower = other_username.to_lowercase();
-                if let Some((_, other_player)) = self
-                    .online_players
-                    .iter()
-                    .find(|(_, p)| p.username.to_lowercase().starts_with(&username_lower))
+            Message::PlayerTeleportOther(player, target) => {
+                if let Some((_, other_player)) =
+                    self.online_players
+                        .iter()
+                        .find(|(uuid, other)| match &target {
+                            PlayerTarget::Name(name) => other.username.eq_ignore_ascii_case(name),
+                            PlayerTarget::Uuid(target) => **uuid == *target,
+                            PlayerTarget::SelfPlayer => **uuid == player.uuid,
+                        })
                 {
                     let plot_x = other_player.plot_x;
                     let plot_z = other_player.plot_z;
+                    let target_name = other_player.username.clone();
 
                     let plot_loaded = self
                         .running_plots
@@ -571,7 +595,7 @@ impl MinecraftServer {
                             .unwrap();
                         let _ = plot_list_entry
                             .priv_message_sender
-                            .send(PrivMessage::PlayerTeleportOther(player, other_username));
+                            .send(PrivMessage::PlayerTeleportOther(player, target_name));
                     }
                 } else {
                     player.send_system_message("Player not found!");
@@ -586,44 +610,67 @@ impl MinecraftServer {
                     .broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
             }
             Message::WhitelistAdd(uuid, username, sender) => {
-                if let Some(whitelist) = &mut self.whitelist {
-                    let msg = format!("{} was successfully added to the whitelist.", &username);
-                    sender.send_system_message(&msg);
-                    let uuid = HyphenatedUUID(uuid);
-                    debug!("Added to whitelist: {} ({})", username, uuid);
-
+                self.update_whitelist(sender, |whitelist| {
+                    if whitelist.iter().any(|entry| entry.uuid.0 == uuid) {
+                        return Err("That player is already whitelisted.");
+                    }
+                    let message = format!("{username} was successfully added to the whitelist.");
                     whitelist.push(WhitelistEntry {
                         name: username,
-                        uuid,
+                        uuid: HyphenatedUUID(uuid),
                     });
-                } else {
-                    sender.send_error_message("Whitelist is not enabled!");
-                }
+                    Ok(message)
+                })
             }
-            Message::WhitelistRemove(uuid, sender) => {
-                if let Some(whitelist) = &mut self.whitelist {
-                    let mut found = false;
-                    whitelist.retain(|entry| {
-                        let matches = entry.uuid.0 == uuid;
-                        if matches {
-                            let msg = format!(
-                                "{} was successfully removed from the whitelist.",
-                                &entry.name
-                            );
-                            sender.send_system_message(&msg);
-                            debug!("Removed from whitelist: {}", HyphenatedUUID(uuid));
-                            found = true;
-                        }
-                        !matches
-                    });
-                    if !found {
-                        sender.send_error_message("That player is not whitelisted on this server.");
+            Message::WhitelistRemove(username, sender) => {
+                self.update_whitelist(sender, |whitelist| {
+                    let mut matches = whitelist
+                        .iter()
+                        .filter(|entry| entry.name.eq_ignore_ascii_case(&username));
+                    let Some(entry) = matches.next() else {
+                        return Err("That player is not whitelisted on this server.");
+                    };
+                    let uuid = entry.uuid.0;
+                    if matches.any(|entry| entry.uuid.0 != uuid) {
+                        return Err("Multiple whitelisted players match this name.");
                     }
-                } else {
-                    sender.send_error_message("Whitelist is not enabled!");
-                }
+                    let message = format!(
+                        "{} was successfully removed from the whitelist.",
+                        entry.name
+                    );
+                    whitelist.retain(|entry| entry.uuid.0 != uuid);
+                    Ok(message)
+                })
             }
         }
+    }
+
+    fn update_whitelist(
+        &mut self,
+        sender: PlayerPacketSender,
+        change: impl FnOnce(&mut Vec<WhitelistEntry>) -> Result<String, &'static str>,
+    ) {
+        let Some(mut whitelist) = self.whitelist.clone() else {
+            sender.send_error_message("Whitelist is not enabled!");
+            return;
+        };
+        let message = match change(&mut whitelist) {
+            Ok(message) => message,
+            Err(message) => {
+                sender.send_error_message(message);
+                return;
+            }
+        };
+        let result = serde_json::to_vec_pretty(&whitelist)
+            .map_err(io::Error::from)
+            .and_then(|data| fs::write("whitelist.json", data));
+        if let Err(error) = result {
+            warn!("Failed to save whitelist: {error}");
+            sender.send_error_message("Unable to save the whitelist. No changes were applied.");
+            return;
+        }
+        self.whitelist = Some(whitelist);
+        sender.send_system_message(&message);
     }
 
     fn update(&mut self) {
