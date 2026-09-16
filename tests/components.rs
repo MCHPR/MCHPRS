@@ -199,3 +199,21 @@ fn ground_torch_does_not_power_block_below(backend: TestBackend) {
     runner.tick();
     runner.check_block_powered(lamp_pos, false);
 }
+
+test_all_backends!(pending_repeater_pulses_without_input);
+fn pending_repeater_pulses_without_input(backend: TestBackend) {
+    let repeater_pos = pos(0, 1, 0);
+    let trapdoor_pos = pos(1, 1, 0);
+
+    let mut world = TestWorld::new(1, 1, 1);
+    make_repeater(&mut world, repeater_pos, 1, BlockDirection::West);
+    world.set_block(trapdoor_pos, trapdoor());
+    world.schedule_tick(repeater_pos, 1, TickPriority::Higher);
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.check_block_powered(trapdoor_pos, false);
+    runner.tick();
+    runner.check_block_powered(trapdoor_pos, true);
+    runner.tick();
+    runner.check_block_powered(trapdoor_pos, false);
+}

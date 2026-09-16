@@ -16,6 +16,8 @@ The pass iterates through all the blocks in the input, and tries to identify the
 
 Blocks that have a comparator override such as Barrels, Furnaces, Hoppers, Cauldron, Composters, and Cake are also added into the graph as constant nodes.
 
+Nodes with pending ticks are marked before optimization; the backend keeps the original schedule.
+
 ## The `InputSearch` Pass
 
 Now that the graph been populated with nodes, Redpiler can now start finding the connections between Redstone components. This mandatory pass populates the graph with links.
@@ -37,25 +39,45 @@ Sometimes, the breadth-first search done by the `InputSearch` pass can result in
 ## The `ConstantFold` Pass
 
 While nodes that are never updated in theory have no affect on the number of instructions that are run at runtime, therefore the time taken to perform a tick at runtime, keeping the size of the graph small helps to avoid cache misses that to end up taking time at runtime. This optimization pass reduces the size of the final graph by recognizing situations where a node only has constant inputs and tranforming that node into a constant node, breaking the links to the other constant nodes.
+Nodes with pending ticks are not folded. A folded node keeps its current output strength, because a node whose inputs are all constant is never updated again.
 
 ## The `UnreachableOutput` Pass
 
-If the side of a Comparator in subtract mode is constant, then the maximum output of the comparator is equal to the difference of the maximum side input and the maximum default input. Outgoing links that have a weight greater than or equal to the maxium output of the comparator can be safely removed.
+A link only carries a signal if its source can output a strength above the link's weight.
+`SSSetAnalysis` provides each node's maximum output strength, including its current output and any pending tick.
+Every outgoing link whose weight is at least that maximum is removed.
+For example, a comparator in subtract mode with a constant side input never outputs more than its maximum default input minus that constant, so links with a higher weight are removed.
 
-This optimization implements a simplified version of this idea. First, it iterates through all comparators in subtract mode and checks if a comparator has a single constant side input. If it does, it takes the difference between 15 and the constant strength, clamped at 0. If there are any outgoing links that have a weight greater than or equal to the difference, then it is removed from the graph.
+## The `SSSetAnalysis` Pass
 
-## The `ConstantCoalesce` Pass
+This analysis approximates output strengths using the compile graph's node states and inputs.
+Every node starts with its current output strength.
+Then the sets of its inputs are decayed by the link weights and combined, and the node type determines which outputs these inputs can produce.
+Evaluation results are unioned into the existing set.
+Nodes are visited in index order, and a node whose set grew marks the nodes it feeds for the next sweep, until a sweep changes nothing.
+Constants retain their current strength; buttons, levers and pressure plates admit both 0 and 15.
 
-Disregarding High-Signal Strength logic, which Redpiler does not support anyways, the value of a constant is ever only in between 0 and 15. Effectively, there are only 16 different constant values possible. This optimization pass creates the 16 different constant nodes for all values, and removes all other constant nodes in the graph. The outgoing edges of the old constant nodes are transformed to source from the new constant nodes.
+Pending repeaters include both 0 and 15: a queued tick can turn an unlocked repeater on after its input disappears. Torches and comparators instead reevaluate their inputs when ticked.
+A repeater whose side input is never off keeps its output, locked or not: every update locks it before evaluating its power.
+
+Since each set has only 16 possible strengths and sets only grow, the sweeps terminate.
+Cycles can retain bounded output sets, for example a comparator loop fed by a bounded signal.
+The sets do not track correlations between inputs, so they can include combinations that cannot occur together at runtime.
 
 ## The `Coalesce` Pass
 
 There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repetears that lock other repeaters. This is very inefficent because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
+Two nodes that are neither inputs nor outputs are merged when they have the same type, the same initial state, no pending tick, and the same input links, where each link is compared by source node, link type and weight and only the strongest link per source node and link type counts.
+The weight is ignored when a binary source (everything except comparators, wires and constants) feeds a binary reader (everything except comparators and wires), since any such link powers the reader in the same way.
+Constants have no inputs, so all constants with the same strength merge into one.
+The pass repeats until nothing changes, because merging two nodes can make the nodes they feed identical as well.
+Merged nodes can end up with parallel links to a shared consumer, so `DedupLinks` runs once more afterwards.
 
 ## The `PruneOrphans` Pass
 
 Any redstone components that do not contribute to the functioning of output components (Trapdoors and Lamps) can be disregarded.
 This pass recusively marks all nodes connected to an output node and removes all remaining unmarked nodes (Depth-First-Search).
+Nodes with pending ticks and their input dependencies are also retained.
 
 ## The `ExportGraph` Pass
 

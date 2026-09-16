@@ -43,7 +43,7 @@ impl IdxT for u32 {
     }
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct NodeIndex<Idx>(Idx);
 
 impl<Idx: IdxT> NodeIndex<Idx> {

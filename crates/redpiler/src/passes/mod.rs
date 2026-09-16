@@ -36,8 +36,8 @@ pub fn build_pass_pipeline<'p, W: World>(
         builder.add_pass::<dedup_links::DedupLinks>();
         builder.add_pass::<constant_fold::ConstantFold>();
         builder.add_pass::<unreachable_output::UnreachableOutput>();
-        builder.add_pass::<constant_coalesce::ConstantCoalesce>();
         builder.add_pass::<coalesce::Coalesce>();
+        builder.add_pass::<dedup_links::DedupLinks>();
         if options.io_only {
             builder.add_pass::<prune_orphans::PruneOrphans>();
         }
@@ -64,14 +64,13 @@ impl<W: World> Default for PassRegistry<W> {
         registry.register_pass(input_search::InputSearch);
 
         // Analysis Passes
-        registry.register_pass(ss_range_analysis::SSRangeAnalysis);
+        registry.register_pass(ss_set_analysis::SSSetAnalysis);
 
         // Optimization Passes
         registry.register_pass(clamp_weights::ClampWeights);
         registry.register_pass(dedup_links::DedupLinks);
         registry.register_pass(constant_fold::ConstantFold);
         registry.register_pass(unreachable_output::UnreachableOutput);
-        registry.register_pass(constant_coalesce::ConstantCoalesce);
         registry.register_pass(coalesce::Coalesce);
         registry.register_pass(prune_orphans::PruneOrphans);
         registry.register_pass(export_graph::ExportGraph);
