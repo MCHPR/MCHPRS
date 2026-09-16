@@ -2,16 +2,14 @@ use crate::backend::direct::node::ForwardLinks;
 use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx};
 use crate::{CompilerOptions, TaskMonitor};
 use itertools::Itertools;
-use mchprs_blocks::blocks::{Block, Instrument};
-use mchprs_blocks::BlockPos;
+use mchprs_blocks::blocks::Block;
 use mchprs_world::TickEntry;
 use rustc_hash::FxHashMap;
-use smallvec::SmallVec;
 use std::sync::Arc;
 use tracing::trace;
 
 use super::node::{ForwardLink, Node, NodeId, NodeInput, NodeType, Nodes, NonMaxU8};
-use super::DirectBackend;
+use super::{DirectBackend, NoteBlockInfo};
 
 #[derive(Debug, Default)]
 struct FinalGraphStats {
@@ -26,7 +24,7 @@ fn compile_node(
     node_idx: NodeIdx,
     nodes_len: usize,
     nodes_map: &FxHashMap<NodeIdx, usize>,
-    noteblock_info: &mut Vec<(SmallVec<[BlockPos; 1]>, Instrument, u8)>,
+    noteblock_info: &mut Vec<NoteBlockInfo>,
     forward_links: &mut ForwardLinks,
     stats: &mut FinalGraphStats,
 ) -> Node {
@@ -123,11 +121,12 @@ fn compile_node(
         CNodeType::Constant => NodeType::Constant,
         CNodeType::NoteBlock { instrument, note } => {
             let noteblock_id = noteblock_info.len().try_into().unwrap();
-            noteblock_info.push((
-                node.block.iter().copied().map(|(pos, _)| pos).collect(),
-                *instrument,
-                *note,
-            ));
+            noteblock_info.push(NoteBlockInfo {
+                positions: node.block.iter().copied().map(|(pos, _)| pos).collect(),
+                instrument: *instrument,
+                note: *note,
+                pending: false,
+            });
             NodeType::NoteBlock { noteblock_id }
         }
     };

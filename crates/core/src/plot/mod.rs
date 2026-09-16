@@ -27,6 +27,7 @@ use mchprs_text::TextComponent;
 use mchprs_world::storage::Chunk;
 use mchprs_world::{TickEntry, TickPriority, World};
 use monitor::TimingsMonitor;
+use rustc_hash::FxHashMap;
 use scoreboard::RedpilerState;
 use std::cmp::Ordering;
 use std::collections::HashSet;
@@ -56,6 +57,8 @@ pub const PLOT_BLOCK_HEIGHT: i32 = PLOT_SECTIONS as i32 * 16;
 
 const ERROR_IO_ONLY: &str = "This plot cannot be interacted with while redpiler is active with `--io-only`. To stop redpiler, run `/redpiler reset`.";
 
+const MAX_BATCH_SIZE: u32 = 50_000;
+
 pub struct Plot {
     pub world: PlotWorld,
     pub players: Vec<Player>,
@@ -70,7 +73,6 @@ pub struct Plot {
 
     // Timings
     tps: Tps,
-    world_send_rate: WorldSendRate,
     last_update_time: Instant,
     lag_time: Duration,
     last_nspt: Option<Duration>,
@@ -99,6 +101,9 @@ pub struct PlotWorld {
     pub chunks: Vec<Chunk>,
     pub to_be_ticked: Vec<TickEntry>,
     pub packet_senders: Vec<PlayerPacketSender>,
+    world_send_rate: WorldSendRate,
+    pending_block_entities: FxHashMap<BlockPos, CBlockEntityData>,
+    pending_sounds: FxHashMap<BlockPos, CSoundEffect>,
 }
 
 impl PlotWorld {
@@ -162,6 +167,7 @@ impl World for PlotWorld {
     }
 
     fn delete_block_entity(&mut self, pos: BlockPos) {
+        self.pending_block_entities.remove(&pos);
         let chunk_index = match self.get_chunk_index_for_block(pos.x, pos.z) {
             Some(idx) => idx,
             None => return,
@@ -189,11 +195,10 @@ impl World for PlotWorld {
                 // For now the only nbt we send to the client is sign data
                 ty: block_entity.ty(),
                 nbt: nbt.content,
-            }
-            .encode();
-            for player in &self.packet_senders {
-                player.send_packet(&block_entity_data);
-            }
+            };
+            self.pending_block_entities.insert(pos, block_entity_data);
+        } else {
+            self.pending_block_entities.remove(&pos);
         }
         let chunk = &mut self.chunks[chunk_index];
         chunk.set_block_entity(BlockPos::new(pos.x & 0xF, pos.y, pos.z & 0xF), block_entity);
@@ -228,6 +233,9 @@ impl World for PlotWorld {
         volume: f32,
         pitch: f32,
     ) {
+        if self.world_send_rate.0 == 0.0 {
+            return;
+        }
         // FIXME: We do not know the players location here, so we send the sound packet to all
         // players A notchian server would only send to players in hearing distance
         // (volume.clamp(0.0, 1.0) * 16.0)
@@ -244,12 +252,8 @@ impl World for PlotWorld {
             pitch,
             // FIXME: How do we decide this?
             seed: 0,
-        }
-        .encode();
-
-        for player in &self.packet_senders {
-            player.send_packet(&sound_effect_data);
-        }
+        };
+        self.pending_sounds.insert(pos, sound_effect_data);
     }
 
     fn flush_block_changes(&mut self) {
@@ -261,6 +265,18 @@ impl World for PlotWorld {
         }
         for chunk in &mut self.chunks {
             chunk.reset_multi_blocks();
+        }
+        for (_, block_entity) in self.pending_block_entities.drain() {
+            let encoded = block_entity.encode();
+            for player in &self.packet_senders {
+                player.send_packet(&encoded);
+            }
+        }
+        for (_, sound) in self.pending_sounds.drain() {
+            let encoded = sound.encode();
+            for player in &self.packet_senders {
+                player.send_packet(&encoded);
+            }
         }
     }
 }
@@ -297,17 +313,19 @@ impl Plot {
         }
     }
 
-    /// Send a block change to all connected players
-    pub fn send_block_change(&mut self, pos: BlockPos, id: u32) {
-        let block_change = CBlockUpdate {
-            block_id: id as i32,
-            x: pos.x,
-            y: pos.y,
-            z: pos.z,
-        }
-        .encode();
-        for player in &mut self.players {
-            player.client.send_packet(&block_change);
+    pub fn send_block_corrections(&mut self, positions: &[BlockPos]) {
+        self.publish_world();
+        for pos in positions {
+            let block_change = CBlockUpdate {
+                block_id: self.world.get_block_raw(*pos) as i32,
+                x: pos.x,
+                y: pos.y,
+                z: pos.z,
+            }
+            .encode();
+            for player in &self.players {
+                player.client.send_packet(&block_change);
+            }
         }
     }
 
@@ -354,6 +372,7 @@ impl Plot {
     fn set_pressure_plate(&mut self, pos: BlockPos, new_powered: bool) {
         if self.redpiler.is_active() {
             self.redpiler.set_pressure_plate(pos, new_powered);
+            self.publish_world();
             return;
         }
 
@@ -369,6 +388,7 @@ impl Plot {
         } else {
             warn!("Block at {} is not a pressure plate", pos);
         }
+        self.publish_world();
     }
 
     fn are_players_on_block(&mut self, pos: BlockPos) -> bool {
@@ -382,6 +402,9 @@ impl Plot {
 
     fn enter_plot(&mut self, player: Player) {
         self.save();
+        if self.players.is_empty() {
+            self.world.pending_sounds.clear();
+        }
         let spawn_player = player.spawn_packet().encode();
         let metadata = player.metadata_packet().encode();
         let entity_equipment = player.equippment_packet();
@@ -438,15 +461,15 @@ impl Plot {
                     .client
                     .send_packet(&Chunk::encode_empty_packet(chunk_x, chunk_z, PLOT_SECTIONS));
             } else {
-                let chunk_data = self.world.chunks
-                    [self.world.get_chunk_index_for_chunk(chunk_x, chunk_z)]
-                .encode_packet();
+                let chunk_idx = self.world.get_chunk_index_for_chunk(chunk_x, chunk_z);
+                let chunk_data = self.world.chunks[chunk_idx].encode_packet();
                 self.players[player_idx].client.send_packet(&chunk_data);
             }
         }
     }
 
     pub fn update_view_pos_for_player(&mut self, player_idx: usize, force_load: bool) {
+        self.publish_world();
         let view_distance = CONFIG.view_distance as i32;
         let (chunk_x, chunk_z) = self.players[player_idx].pos.chunk_pos();
         let last_chunk_x = self.players[player_idx].last_chunk_x;
@@ -493,10 +516,7 @@ impl Plot {
         let block_face = BlockFace::from_id(use_item_on.face as u32);
 
         let cancel = |plot: &mut Plot| {
-            plot.send_block_change(block_pos, plot.world.get_block_raw(block_pos));
-
-            let offset_pos = block_pos.offset(block_face);
-            plot.send_block_change(offset_pos, plot.world.get_block_raw(offset_pos));
+            plot.send_block_corrections(&[block_pos, block_pos.offset(block_face)]);
         };
 
         let selected_slot = self.players[player].selected_slot as usize;
@@ -546,8 +566,7 @@ impl Plot {
             let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
             if lever_or_button && !self.players[player].crouching {
                 self.redpiler.on_use_block(block_pos);
-                self.redpiler.flush(&mut self.world);
-                self.world.flush_block_changes();
+                self.publish_world();
                 return;
             } else {
                 match self.redpiler.current_flags() {
@@ -609,7 +628,7 @@ impl Plot {
         if let Some(item) = item_in_hand {
             let has_permission = self.players[player].has_permission("worldedit.selection.pos");
             if item.item_type == (Item::WoodenAxe) && has_permission {
-                self.send_block_change(block_pos, block.get_id());
+                self.send_block_corrections(&[block_pos]);
                 if let Some(pos) = self.players[player].first_position
                     && pos == block_pos
                 {
@@ -624,19 +643,19 @@ impl Plot {
             let player = &mut self.players[player];
             if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
                 player.send_no_permission_message();
-                self.send_block_change(block_pos, block.get_id());
+                self.send_block_corrections(&[block_pos]);
                 return;
             }
         } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
             self.players[player].send_no_permission_message();
-            self.send_block_change(block_pos, block.get_id());
+            self.send_block_corrections(&[block_pos]);
             return;
         }
 
         match self.redpiler.current_flags() {
             Some(flags) if flags.io_only => {
                 self.players[player].send_error_message(ERROR_IO_ONLY);
-                self.send_block_change(block_pos, block.get_id());
+                self.send_block_corrections(&[block_pos]);
                 return;
             }
             _ => {}
@@ -672,6 +691,14 @@ impl Plot {
         self.last_update_time = Instant::now();
         self.last_nspt = None;
         self.timings.reset_timings();
+    }
+
+    fn publish_world(&mut self) {
+        if self.redpiler.is_active() {
+            self.redpiler.flush(&mut self.world);
+        }
+        self.world.flush_block_changes();
+        self.last_world_send_time = Instant::now();
     }
 
     fn start_redpiler(&mut self, options: CompilerOptions) {
@@ -986,26 +1013,33 @@ impl Plot {
             let now = Instant::now();
             self.last_player_time = now;
 
-            let world_send_rate =
-                Duration::from_nanos(1_000_000_000 / self.world_send_rate.0 as u64);
+            let world_send_interval =
+                Duration::try_from_secs_f64(1.0 / f64::from(self.world.world_send_rate.0))
+                    .unwrap_or(Duration::MAX);
 
+            let batch_interval = world_send_interval.min(Duration::from_millis(50));
             let max_batch_size = match self.last_nspt {
                 Some(Duration::ZERO) | None => 1,
                 Some(last_nspt) => {
-                    let ticks_fit = (world_send_rate.as_nanos() / last_nspt.as_nanos()) as u64;
-                    // A tick previously took longer than the world send rate.
+                    let ticks_fit = batch_interval.as_nanos() / last_nspt.as_nanos();
+                    // A tick previously took longer than the batch interval.
                     // Run at least one just so we're not stuck doing nothing
-                    ticks_fit.max(1)
+                    ticks_fit.clamp(1, u128::from(MAX_BATCH_SIZE)) as u32
                 }
             };
 
             let batch_size = match self.tps {
-                Tps::Limited(tps) if tps != 0 => {
-                    let dur_per_tick = Duration::from_nanos(1_000_000_000 / tps as u64);
+                Tps::Limited(tps) if tps > 0.0 => {
+                    // Very high rates can round the interval to zero and cause division by zero.
+                    let dur_per_tick = Duration::try_from_secs_f64(1.0 / f64::from(tps))
+                        .unwrap_or(Duration::MAX)
+                        .max(Duration::from_nanos(1));
                     self.lag_time += now - self.last_update_time;
-                    let batch_size = (self.lag_time.as_nanos() / dur_per_tick.as_nanos()) as u64;
-                    self.lag_time -= dur_per_tick * batch_size as u32;
-                    batch_size.min(max_batch_size)
+                    let ticks_behind = self.lag_time.as_nanos() / dur_per_tick.as_nanos();
+                    self.lag_time = Duration::from_nanos(
+                        (self.lag_time.as_nanos() % dur_per_tick.as_nanos()) as u64,
+                    );
+                    ticks_behind.min(u128::from(max_batch_size)) as u32
                 }
                 Tps::Unlimited => max_batch_size,
                 _ => 0,
@@ -1013,10 +1047,6 @@ impl Plot {
 
             self.last_update_time = now;
             if batch_size != 0 {
-                // 50_000 (= 3.33 MHz) here is arbitrary.
-                // We just need a number that's not too high so we actually get around to sending
-                // block updates.
-                let batch_size = batch_size.min(50_000) as u32;
                 let mut ticks_completed = batch_size;
                 if self.redpiler.is_active() {
                     self.tickn(batch_size as u64);
@@ -1042,7 +1072,7 @@ impl Plot {
 
             let now = Instant::now();
             let time_since_last_world_send = now - self.last_world_send_time;
-            if time_since_last_world_send > world_send_rate {
+            if time_since_last_world_send > world_send_interval {
                 self.last_world_send_time = now;
                 self.world.flush_block_changes();
             }
@@ -1126,9 +1156,11 @@ impl Plot {
             chunks,
             to_be_ticked: plot_data.pending_ticks,
             packet_senders: Vec::new(),
+            world_send_rate: plot_data.world_send_rate,
+            pending_block_entities: FxHashMap::default(),
+            pending_sounds: FxHashMap::default(),
         };
         let tps = plot_data.tps;
-        let world_send_rate = plot_data.world_send_rate;
         Plot {
             last_player_time: Instant::now(),
             last_update_time: Instant::now(),
@@ -1144,7 +1176,6 @@ impl Plot {
             running: true,
             auto_redpiler: CONFIG.auto_redpiler,
             tps,
-            world_send_rate,
             always_running,
             redpiler: Default::default(),
             timings: TimingsMonitor::new(tps),
@@ -1184,7 +1215,7 @@ impl Plot {
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(ChunkData::new).collect();
         let data = PlotData {
             tps: self.tps,
-            world_send_rate: self.world_send_rate,
+            world_send_rate: world.world_send_rate,
             chunk_data,
             pending_ticks: world.to_be_ticked.clone(),
         };

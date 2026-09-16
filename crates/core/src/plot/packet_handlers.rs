@@ -451,5 +451,6 @@ impl ServerBoundPacketHandler for Plot {
         }
         self.world
             .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));
+        self.publish_world();
     }
 }

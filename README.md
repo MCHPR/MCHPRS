@@ -95,14 +95,14 @@ server_context = "global"
 ### General Commands
 | Command                     | Alias           | Description                                                                                                                                                           |
 |-----------------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `/rtps [rtps\|unlimited]`   | None            | Set the **redstone** ticks per second in the plot to `[rtps]` or `unlimited`. Default: 10. (There are two game ticks in a redstone tick)                              |
+| `/rtps [rtps\|unlimited]`   | None            | Set redstone ticks/s (fractional or `unlimited`). Default: 10. There are two game ticks per redstone tick.                                                            |
 | `/radvance <ticks>`         | `/radv`         | Advances the plot by `<ticks>` redstone ticks.                                                                                                                        |
 | `/teleport <player>`        | `/tp`           | Teleports you to `<player>`.                                                                                                                                          |
 | `/teleport <x> <y> <z>`     | `/tp`           | Teleports you to `<x> <y> <z>`. Supports relative coordinates. Floats can be expressed as described [here](https://doc.rust-lang.org/std/primitive.f64.html#grammar). |
 | `/speed <speed>`            | None            | Sets your flyspeed.                                                                                                                                                   |
 | `/gamemode <mode>`          | `/gmc`, `/gmsp` | Sets your gamemode.                                                                                                                                                   |
 | `/container <type> <power>` | None            | Gives you a container (e.g. barrel) which outputs a specified amount of power when used with a comparator.                                                            |
-| `/worldsendrate [hertz]`    | `/wsr`          | Sets the world send rate to `[hertz]` (frequency of world updates sent to clients). Range: 1-1000. Default: 60.                                                       |
+| `/worldsendrate [hertz]`    | `/wsr`          | World updates/s (0-1000, fractional; 0 disables periodic sends). Default: 60.                                                                                         |
 | `/toggleautorp`             | None            | Toggles automatic redpiler compilation.                                                                                                                               |
 | `/stop`                     | None            | Stops the server.                                                                                                                                                     |
 

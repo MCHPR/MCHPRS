@@ -9,8 +9,8 @@ use std::time::Duration;
 pub fn sleep_time_for_tps(tps: Tps) -> Duration {
     match tps {
         Tps::Limited(tps) => {
-            if tps > 10 {
-                Duration::from_micros(1_000_000 / tps as u64)
+            if tps > 10.0 {
+                Duration::from_secs_f64(1.0 / f64::from(tps))
             } else {
                 Duration::from_millis(50)
             }
@@ -50,10 +50,13 @@ static EMPTY_PLOT: LazyLock<PlotData> = LazyLock::new(|| {
             chunks,
             to_be_ticked: Vec::new(),
             packet_senders: Vec::new(),
+            world_send_rate: WorldSendRate::default(),
+            pending_block_entities: Default::default(),
+            pending_sounds: Default::default(),
         };
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(ChunkData::new).collect();
         PlotData {
-            tps: Tps::Limited(10),
+            tps: Tps::Limited(10.0),
             world_send_rate: WorldSendRate::default(),
             chunk_data,
             pending_ticks: Vec::new(),

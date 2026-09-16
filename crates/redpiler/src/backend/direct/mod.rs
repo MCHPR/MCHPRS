@@ -109,8 +109,11 @@ impl TickScheduler {
     }
 }
 
-enum Event {
-    NoteBlockPlay { noteblock_id: u16 },
+struct NoteBlockInfo {
+    positions: SmallVec<[BlockPos; 1]>,
+    instrument: Instrument,
+    note: u8,
+    pending: bool,
 }
 
 #[derive(Default)]
@@ -120,8 +123,7 @@ pub struct DirectBackend {
     blocks: Vec<SmallVec<[(BlockPos, Block); 1]>>,
     pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
-    events: Vec<Event>,
-    noteblock_info: Vec<(SmallVec<[BlockPos; 1]>, Instrument, u8)>,
+    noteblock_info: Vec<NoteBlockInfo>,
 }
 
 impl DirectBackend {
@@ -164,7 +166,7 @@ impl DirectBackend {
 
             update::update_node(
                 &mut self.scheduler,
-                &mut self.events,
+                &mut self.noteblock_info,
                 &mut self.nodes,
                 update,
             );
@@ -205,7 +207,6 @@ impl JITBackend for DirectBackend {
         self.forward_links.clear();
         self.pos_map.clear();
         self.noteblock_info.clear();
-        self.events.clear();
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
@@ -248,16 +249,6 @@ impl JITBackend for DirectBackend {
     }
 
     fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
-        for event in self.events.drain(..) {
-            match event {
-                Event::NoteBlockPlay { noteblock_id } => {
-                    let (positions, instrument, note) = &self.noteblock_info[noteblock_id as usize];
-                    for pos in positions.iter().copied() {
-                        noteblock::play_note(world, pos, *instrument, *note);
-                    }
-                }
-            }
-        }
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
             if !node.changed || (io_only && !node.is_io) {
                 continue;
@@ -277,6 +268,13 @@ impl JITBackend for DirectBackend {
                     repeater.locked = node.locked;
                 }
                 world.set_block(*pos, *block);
+            }
+        }
+        for info in &mut self.noteblock_info {
+            if mem::take(&mut info.pending) {
+                for pos in info.positions.iter().copied() {
+                    noteblock::play_note(world, pos, info.instrument, info.note);
+                }
             }
         }
     }
