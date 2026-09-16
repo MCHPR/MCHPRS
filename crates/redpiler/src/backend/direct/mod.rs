@@ -182,26 +182,11 @@ impl JITBackend for DirectBackend {
         debug!("Node {:?}: {:#?}", node_id, self.nodes[*node_id]);
     }
 
-    fn reset<W: World>(&mut self, world: &mut W, io_only: bool) {
+    fn reset<W: World>(&mut self, world: &mut W) {
+        self.flush(world, false);
         self.scheduler.reset(world, &self.blocks);
-
-        let nodes = std::mem::take(&mut self.nodes);
-
-        for (i, node) in nodes.into_inner().iter().enumerate() {
-            for (pos, block) in self.blocks[i].iter().copied() {
-                if matches!(node.ty, NodeType::Comparator { .. }) {
-                    let block_entity = BlockEntity::Comparator {
-                        output_strength: node.output_power,
-                    };
-                    world.set_block_entity(pos, block_entity);
-                }
-
-                if io_only && !node.is_io {
-                    world.set_block(pos, block);
-                }
-            }
-        }
-
+        self.nodes = Nodes::default();
+        self.blocks.clear();
         self.forward_links.clear();
         self.pos_map.clear();
         self.noteblock_info.clear();
@@ -277,6 +262,14 @@ impl JITBackend for DirectBackend {
                     repeater.locked = node.locked;
                 }
                 world.set_block(*pos, *block);
+                if matches!(block, Block::Comparator(_)) {
+                    world.set_block_entity(
+                        *pos,
+                        BlockEntity::Comparator {
+                            output_strength: node.output_power,
+                        },
+                    );
+                }
             }
         }
     }

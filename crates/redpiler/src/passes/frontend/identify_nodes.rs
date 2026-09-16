@@ -144,7 +144,6 @@ fn identify_block<W: World>(
                 ),
             },
             NodeState::comparator(
-                comparator.powered,
                 if let Some(BlockEntity::Comparator { output_strength }) =
                     world.get_block_entity(pos)
                 {

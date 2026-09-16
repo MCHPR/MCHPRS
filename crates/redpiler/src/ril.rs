@@ -893,7 +893,7 @@ impl Parser {
                 ast::Component {
                     name,
                     inputs,
-                    node_state: NodeState::comparator(output_strength > 0, output_strength as u8),
+                    node_state: NodeState::comparator(output_strength as u8),
                     node_ty: NodeType::Comparator {
                         mode,
                         far_input,

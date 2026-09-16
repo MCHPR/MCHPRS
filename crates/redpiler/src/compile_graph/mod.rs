@@ -81,10 +81,10 @@ impl NodeState {
         }
     }
 
-    pub fn comparator(powered: bool, ss: u8) -> NodeState {
+    pub fn comparator(output_strength: u8) -> NodeState {
         NodeState {
-            powered,
-            output_strength: ss,
+            powered: output_strength > 0,
+            output_strength,
             ..Default::default()
         }
     }

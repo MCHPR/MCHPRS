@@ -201,7 +201,7 @@ impl Compiler {
         if self.is_active {
             self.is_active = false;
             if let Some(backend) = &mut self.backend {
-                backend.reset(world, self.options.io_only)
+                backend.reset(world)
             }
         }
 

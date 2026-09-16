@@ -394,8 +394,8 @@ pub fn on_use(block: Block, world: &mut impl World, pos: BlockPos) -> bool {
         Block::Comparator(comparator) => {
             let mut comparator = comparator;
             comparator.mode = comparator.mode.toggle();
-            comparator::tick(comparator, world, pos);
             world.set_block(pos, Block::Comparator(comparator));
+            comparator::tick(comparator, world, pos);
             true
         }
         Block::Lever {
