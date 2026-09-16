@@ -1,6 +1,5 @@
 use super::{database, worldedit, Plot, PlotWorld};
 use crate::player::{Gamemode, PacketSender, PlayerPos};
-use crate::plot::data::sleep_time_for_tps;
 use crate::profile::PlayerProfile;
 use crate::server::{get_version_string, Message};
 use mchprs_blocks::items::ItemStack;
@@ -15,7 +14,7 @@ use mchprs_text::TextComponent;
 use std::ops::Add;
 use std::str::FromStr;
 use std::sync::LazyLock;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use tracing::{debug, info, warn};
 
 // Parses a relative or absolute coordinate relative to a reference coordinate
@@ -187,10 +186,12 @@ impl Plot {
 
                 self.reset_redpiler();
                 self.start_redpiler(options);
+                self.publish_world();
 
                 debug!("Compile took {:?}", start_time.elapsed());
             }
             "inspect" | "i" => {
+                self.flush_redpiler();
                 let player = &self.players[player];
                 let pos = worldedit::ray_trace_block(
                     &self.world,
@@ -207,6 +208,7 @@ impl Plot {
             }
             "reset" | "r" => {
                 self.reset_redpiler();
+                self.publish_world();
             }
             _ => self.players[player].send_error_message("Invalid argument for /redpiler"),
         }
@@ -276,7 +278,7 @@ impl Plot {
             },
             "rtps" => {
                 if args.is_empty() {
-                    let report = self.timings.generate_report();
+                    let report = self.timings.generate_report(Instant::now());
                     if let Some(report) = report {
                         self.players[player].send_chat_message(&TextComponent::from_legacy_text(
                             &format!(
@@ -293,7 +295,15 @@ impl Plot {
                     return false;
                 }
 
-                let tps = if let Ok(tps) = args[0].parse::<u32>() {
+                let tps = if let Ok(tps) = args[0].parse::<f32>() {
+                    if !tps.is_finite() {
+                        self.players[player].send_error_message("RTPS must be a finite number!");
+                        return false;
+                    }
+                    if tps < 0.0 {
+                        self.players[player].send_error_message("RTPS cannot be negative!");
+                        return false;
+                    }
                     Tps::Limited(tps)
                 } else if !args[0].is_empty() && "unlimited".starts_with(args[0]) {
                     Tps::Unlimited
@@ -302,10 +312,8 @@ impl Plot {
                     return false;
                 };
 
-                self.sleep_time = sleep_time_for_tps(tps);
-                self.timings.set_tps(tps);
                 self.tps = tps;
-                self.reset_timings();
+                self.restart_tick_schedule();
                 self.players[player].send_system_message("The rtps was successfully set.");
             }
             "radv" | "radvance" => {
@@ -321,16 +329,19 @@ impl Plot {
                     return false;
                 };
                 let start_time = Instant::now();
-                self.tickn(ticks as u64);
-
-                if self.redpiler.is_active() {
-                    self.redpiler.flush(&mut self.world);
-                }
-                self.players[player].send_system_message(&format!(
-                    "Plot has been advanced by {} ticks ({:?})",
-                    ticks,
-                    start_time.elapsed()
-                ));
+                let deadline = start_time + Duration::from_secs(15);
+                let completed = self.run_ticks(u64::from(ticks), Some(deadline));
+                self.publish_world();
+                self.restart_tick_schedule();
+                let message = if completed == u64::from(ticks) {
+                    format!(
+                        "Plot has been advanced by {completed} ticks ({:?})",
+                        start_time.elapsed()
+                    )
+                } else {
+                    format!("Plot has been advanced by {completed} of {ticks} ticks before the time limit ({:?})", start_time.elapsed())
+                };
+                self.players[player].send_system_message(&message);
             }
             "toggleautorp" => {
                 self.auto_redpiler = !self.auto_redpiler;
@@ -491,7 +502,7 @@ impl Plot {
                 if args.is_empty() {
                     self.players[player].send_system_message(&format!(
                         "Current world send rate: {} Hz",
-                        self.world_send_rate.0
+                        self.world.output.rate().0
                     ));
                     return false;
                 }
@@ -501,22 +512,29 @@ impl Plot {
                     return false;
                 }
 
-                let Ok(hertz) = args[0].parse::<u32>() else {
+                let Ok(hertz) = args[0].parse::<f32>() else {
                     self.players[player].send_error_message("Unable to parse send rate!");
                     return false;
                 };
-                if hertz == 0 {
-                    self.players[player].send_error_message("The world send rate cannot be 0!");
+                if !hertz.is_finite() {
+                    self.players[player]
+                        .send_error_message("The world send rate must be a finite number!");
                     return false;
                 }
-                if hertz > 1000 {
+                if hertz < 0.0 {
                     self.players[player]
-                        .send_error_message("The world send rate cannot go higher than 1000!");
+                        .send_error_message("The world send rate cannot be negative!");
+                    return false;
+                }
+                if hertz > 1000.0 {
+                    self.players[player]
+                        .send_error_message("The world send rate cannot be higher than 1000!");
                     return false;
                 }
 
-                self.world_send_rate = WorldSendRate(hertz);
-                self.reset_timings();
+                self.world
+                    .output
+                    .set_rate(WorldSendRate(hertz), Instant::now());
                 self.players[player]
                     .send_system_message("The world send rate was successfully set.");
             }
@@ -618,7 +636,7 @@ pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
                 children: vec![],
                 redirect_node: None,
                 name: Some("rtps"),
-                parser: Some(Parser::Integer(0, i32::MAX)),
+                parser: Some(Parser::Float(0.0, f32::MAX)),
                 suggestions_type: None,
             },
             // 8: /radvance
@@ -1002,13 +1020,13 @@ pub static DECLARE_COMMANDS: LazyLock<PacketEncoder> = LazyLock::new(|| {
                 parser: None,
                 suggestions_type: None,
             },
-            // 50: /worldsendrate [rticks]
+            // 50: /worldsendrate [hertz]
             Node {
                 flags: (CommandFlags::ARGUMENT | CommandFlags::EXECUTABLE).bits() as i8,
                 children: vec![],
                 redirect_node: None,
                 name: Some("hertz"),
-                parser: Some(Parser::Integer(0, 1000)),
+                parser: Some(Parser::Float(0.0, 1000.0)),
                 suggestions_type: None,
             },
             // 51: /wsr

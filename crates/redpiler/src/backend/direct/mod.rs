@@ -20,23 +20,12 @@ use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
 use std::fmt::Write;
 use std::sync::Arc;
+use std::time::Instant;
 use std::{fmt, mem};
 use tracing::{debug, warn};
 
 #[derive(Default, Clone)]
 struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
-
-impl Queues {
-    #[inline(always)]
-    fn drain_each<F: FnMut(NodeId)>(&mut self, mut f: F) {
-        for q in self.0.iter_mut() {
-            for n in q.iter() {
-                f(*n);
-            }
-            q.clear();
-        }
-    }
-}
 
 #[derive(Default)]
 struct TickScheduler {
@@ -79,15 +68,6 @@ impl TickScheduler {
         self.queues_deque[(self.pos + delay) % Self::NUM_QUEUES].0[priority as usize].push(node);
     }
 
-    fn queues_this_tick(&mut self) -> Queues {
-        self.pos = (self.pos + 1) % Self::NUM_QUEUES;
-        mem::take(&mut self.queues_deque[self.pos])
-    }
-
-    fn end_tick(&mut self, queues: Queues) {
-        self.queues_deque[self.pos % Self::NUM_QUEUES] = queues;
-    }
-
     fn priorities() -> [TickPriority; Self::NUM_PRIORITIES] {
         [
             TickPriority::Highest,
@@ -109,22 +89,47 @@ impl TickScheduler {
     }
 }
 
-enum Event {
-    NoteBlockPlay { noteblock_id: u16 },
+struct NoteBlockInfo {
+    positions: SmallVec<[BlockPos; 1]>,
+    instrument: Instrument,
+    note: u8,
+    pending: bool,
 }
 
 #[derive(Default)]
 pub struct DirectBackend {
+    processed_work: usize,
     nodes: Nodes,
     forward_links: ForwardLinks,
     blocks: Vec<SmallVec<[(BlockPos, Block); 1]>>,
     pos_map: FxHashMap<BlockPos, NodeId>,
     scheduler: TickScheduler,
-    events: Vec<Event>,
-    noteblock_info: Vec<(SmallVec<[BlockPos; 1]>, Instrument, u8)>,
+    noteblock_info: Vec<NoteBlockInfo>,
 }
 
 impl DirectBackend {
+    const WORK_PER_TIME_CHECK: usize = 20_000;
+
+    #[inline(always)]
+    fn tick(&mut self) {
+        let position = (self.scheduler.pos + 1) % TickScheduler::NUM_QUEUES;
+        self.scheduler.pos = position;
+        self.processed_work += 1;
+        for priority in 0..TickScheduler::NUM_PRIORITIES {
+            let queue = &mut self.scheduler.queues_deque[position].0[priority];
+            if queue.is_empty() {
+                continue;
+            }
+            self.processed_work += queue.len();
+            let mut queue = mem::take(queue);
+            for &node_id in &queue {
+                self.tick_node(node_id);
+            }
+            queue.clear();
+            self.scheduler.queues_deque[position].0[priority] = queue;
+        }
+    }
+
     fn schedule_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
         self.scheduler.schedule_tick(node_id, delay, priority);
     }
@@ -137,7 +142,8 @@ impl DirectBackend {
         node.powered = powered;
         node.output_power = new_power;
 
-        for forward_link in self.forward_links.get(&node.fwd_link_range) {
+        let forward_links = self.forward_links.get(&node.fwd_link_range);
+        for forward_link in forward_links {
             let side = forward_link.side();
             let distance = forward_link.ss();
             let update = forward_link.node();
@@ -164,7 +170,7 @@ impl DirectBackend {
 
             update::update_node(
                 &mut self.scheduler,
-                &mut self.events,
+                &mut self.noteblock_info,
                 &mut self.nodes,
                 update,
             );
@@ -205,7 +211,6 @@ impl JITBackend for DirectBackend {
         self.forward_links.clear();
         self.pos_map.clear();
         self.noteblock_info.clear();
-        self.events.clear();
     }
 
     fn on_use_block(&mut self, pos: BlockPos) {
@@ -226,38 +231,44 @@ impl JITBackend for DirectBackend {
         }
     }
 
-    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
+    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) -> bool {
         let node_id = self.pos_map[&pos];
         let node = &self.nodes[node_id];
         match node.ty {
             NodeType::PressurePlate => {
+                if node.powered == powered {
+                    return false;
+                }
                 self.set_node(node_id, powered, bool_to_ss(powered));
+                true
             }
-            _ => warn!("Tried to set pressure plate state for a {:?}", node.ty),
+            _ => {
+                warn!("Tried to set pressure plate state for a {:?}", node.ty);
+                false
+            }
         }
     }
 
-    fn tick(&mut self) {
-        let mut queues = self.scheduler.queues_this_tick();
-
-        queues.drain_each(|node_id| {
-            self.tick_node(node_id);
-        });
-
-        self.scheduler.end_tick(queues);
-    }
-
-    fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
-        for event in self.events.drain(..) {
-            match event {
-                Event::NoteBlockPlay { noteblock_id } => {
-                    let (positions, instrument, note) = &self.noteblock_info[noteblock_id as usize];
-                    for pos in positions.iter().copied() {
-                        noteblock::play_note(world, pos, *instrument, *note);
-                    }
+    fn run_ticks(&mut self, max_ticks: u64, deadline: Option<Instant>) -> u64 {
+        if max_ticks == 0 || deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+            return 0;
+        }
+        let mut remaining = max_ticks;
+        self.processed_work = 0;
+        while remaining != 0 {
+            self.tick();
+            remaining -= 1;
+            if self.processed_work >= Self::WORK_PER_TIME_CHECK {
+                self.processed_work = 0;
+                if deadline.is_some_and(|deadline| Instant::now() >= deadline) {
+                    break;
                 }
             }
         }
+        max_ticks - remaining
+    }
+
+    fn flush<W: World>(&mut self, world: &mut W, io_only: bool) {
         for (i, node) in self.nodes.inner_mut().iter_mut().enumerate() {
             if !node.changed || (io_only && !node.is_io) {
                 continue;
@@ -277,6 +288,13 @@ impl JITBackend for DirectBackend {
                     repeater.locked = node.locked;
                 }
                 world.set_block(*pos, *block);
+            }
+        }
+        for note in &mut self.noteblock_info {
+            if mem::take(&mut note.pending) {
+                for pos in note.positions.iter().copied() {
+                    noteblock::play_note(world, pos, note.instrument, note.note);
+                }
             }
         }
     }
@@ -315,6 +333,7 @@ fn schedule_tick(
     delay: usize,
     priority: TickPriority,
 ) {
+    debug_assert!((1..TickScheduler::NUM_QUEUES).contains(&delay));
     node.pending_tick = true;
     scheduler.schedule_tick(node_id, delay, priority);
 }
