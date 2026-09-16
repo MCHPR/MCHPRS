@@ -48,3 +48,4 @@ rustc-hash = { workspace = true }
 hmac = { workspace = true }
 sha2 = { workspace = true }
 regex = { workspace = true }
+humantime = { workspace = true }

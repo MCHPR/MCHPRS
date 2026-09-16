@@ -96,3 +96,4 @@ anstream = "1.0"
 owo-colors = "4.3"
 smallvec = { version = "1.15", features = ["union", "serde"] }
 rayon = "1.12"
+humantime = "2.4.0"
