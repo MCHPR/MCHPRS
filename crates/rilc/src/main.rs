@@ -9,6 +9,7 @@ use mchprs_redpiler::{
 use mchprs_schematic::{load_schematic, paste_clipboard};
 use mchprs_world::testing::TestWorld;
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
 mod compile;
 mod test;
@@ -142,14 +143,18 @@ pub fn get_version_string() -> String {
     )
 }
 
-fn main() {
+fn main() -> ExitCode {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
 
     match cli.command {
         Command::Test { path, update } => {
-            test::run_tests(path, update);
+            return if test::run_tests(path, update) {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::FAILURE
+            };
         }
         Command::Compile {
             input_path,
@@ -183,4 +188,5 @@ fn main() {
             println!("{}", get_version_string());
         }
     }
+    ExitCode::SUCCESS
 }
