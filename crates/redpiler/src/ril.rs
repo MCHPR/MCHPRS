@@ -728,6 +728,9 @@ impl RILModule {
                 };
                 remaining_inputs.remove(pos);
             }
+            if !remaining_inputs.is_empty() {
+                return false;
+            }
             expected_map.remove(&name);
         }
 
