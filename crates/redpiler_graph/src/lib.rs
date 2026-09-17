@@ -45,11 +45,11 @@ pub enum NodeType {
     NoteBlock,
 }
 
+/// Binary components are either 0 or 15, output components store their activation the same way
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct NodeState {
-    pub powered: bool,
-    pub repeater_locked: bool,
     pub output_strength: u8,
+    pub repeater_locked: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]

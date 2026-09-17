@@ -15,9 +15,9 @@ impl DirectBackend {
                 }
 
                 let should_be_powered = get_bool_input(node);
-                if node.powered && !should_be_powered {
-                    self.set_node(node_id, false, 0);
-                } else if !node.powered {
+                if node.is_powered() && !should_be_powered {
+                    self.set_node_output(node_id, 0);
+                } else if !node.is_powered() {
                     if !should_be_powered {
                         schedule_tick(
                             &mut self.scheduler,
@@ -27,13 +27,13 @@ impl DirectBackend {
                             TickPriority::Higher,
                         );
                     }
-                    self.set_node(node_id, true, 15);
+                    self.set_node_output(node_id, 15);
                 }
             }
             NodeType::Torch => {
                 let should_be_powered = !get_bool_input(node);
-                if node.powered != should_be_powered {
-                    self.set_node(node_id, should_be_powered, bool_to_ss(should_be_powered));
+                if node.is_powered() != should_be_powered {
+                    self.set_node_output(node_id, bool_to_ss(should_be_powered));
                 }
             }
             NodeType::Comparator {
@@ -45,21 +45,21 @@ impl DirectBackend {
                 {
                     input_power = far_override.get();
                 }
-                let old_strength = node.output_power;
+                let old_strength = node.output_strength;
                 let new_strength = calculate_comparator_output(mode, input_power, side_input_power);
                 if new_strength != old_strength {
-                    self.set_node(node_id, new_strength > 0, new_strength);
+                    self.set_node_output(node_id, new_strength);
                 }
             }
             NodeType::Lamp => {
                 let should_be_lit = get_bool_input(node);
-                if node.powered && !should_be_lit {
-                    self.set_node(node_id, false, 0);
+                if node.is_powered() && !should_be_lit {
+                    set_node_powered(node, false);
                 }
             }
             NodeType::Button => {
-                if node.powered {
-                    self.set_node(node_id, false, 0);
+                if node.is_powered() {
+                    self.set_node_output(node_id, 0);
                 }
             }
             _ => {} //unreachable!("Node {:?} should not be ticked!", node.ty),

@@ -84,7 +84,6 @@ fn convert_node(
             .collect(),
         state: NodeState {
             output_strength: node.state.output_strength,
-            powered: node.state.powered,
             repeater_locked: node.state.repeater_locked,
         },
         comparator_far_input,

@@ -141,13 +141,12 @@ impl DirectBackend {
         }
     }
 
-    fn set_node(&mut self, node_id: NodeId, powered: bool, new_power: u8) {
+    fn set_node_output(&mut self, node_id: NodeId, output_strength: u8) {
         let node = &mut self.nodes[node_id];
-        let old_power = node.output_power;
+        let old_strength = node.output_strength;
 
         node.changed = true;
-        node.powered = powered;
-        node.output_power = new_power;
+        node.output_strength = output_strength;
 
         for forward_link in self.forward_links.get(&node.fwd_link_range) {
             let side = forward_link.side();
@@ -161,17 +160,17 @@ impl DirectBackend {
                 &mut update_ref.default_inputs
             };
 
-            let old_power = old_power.saturating_sub(distance);
-            let new_power = new_power.saturating_sub(distance);
+            let old_input = old_strength.saturating_sub(distance);
+            let new_input = output_strength.saturating_sub(distance);
 
-            if old_power == new_power {
+            if old_input == new_input {
                 continue;
             }
 
             // Safety: signal strength is never larger than 15
             unsafe {
-                *inputs.ss_counts.get_unchecked_mut(old_power as usize) -= 1;
-                *inputs.ss_counts.get_unchecked_mut(new_power as usize) += 1;
+                *inputs.ss_counts.get_unchecked_mut(old_input as usize) -= 1;
+                *inputs.ss_counts.get_unchecked_mut(new_input as usize) += 1;
             }
 
             update::update_node(
@@ -214,14 +213,14 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             NodeType::Button => {
-                if node.powered {
+                if node.is_powered() {
                     return;
                 }
                 self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node(node_id, true, 15);
+                self.set_node_output(node_id, 15);
             }
             NodeType::Lever => {
-                self.set_node(node_id, !node.powered, bool_to_ss(!node.powered));
+                self.set_node_output(node_id, bool_to_ss(!node.is_powered()));
             }
             _ => warn!("Tried to use a {:?} redpiler node", node.ty),
         }
@@ -232,7 +231,7 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             NodeType::PressurePlate => {
-                self.set_node(node_id, powered, bool_to_ss(powered));
+                self.set_node_output(node_id, bool_to_ss(powered));
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.ty),
         }
@@ -276,13 +275,13 @@ impl JITBackend for DirectBackend {
 fn write_blocks<W: World>(world: &mut W, blocks: &mut [(BlockPos, Block)], node: &Node) {
     for (pos, block) in blocks {
         if let Some(powered) = block_powered_mut(block) {
-            *powered = node.powered
+            *powered = node.is_powered()
         }
         if let Block::IronTrapdoor { open, .. } = block {
-            *open = node.powered;
+            *open = node.is_powered();
         }
         if let Block::RedstoneWire(wire) = block {
-            wire.power = node.output_power
+            wire.power = node.output_strength
         };
         if let Block::Repeater(repeater) = block {
             repeater.locked = node.locked;
@@ -292,17 +291,17 @@ fn write_blocks<W: World>(world: &mut W, blocks: &mut [(BlockPos, Block)], node:
             world.set_block_entity(
                 *pos,
                 BlockEntity::Comparator {
-                    output_strength: node.output_power,
+                    output_strength: node.output_strength,
                 },
             );
         }
     }
 }
 
-/// Set node for use in `update`. None of the nodes here have usable output power,
-/// so this function does not set that.
-fn set_node(node: &mut Node, powered: bool) {
-    node.powered = powered;
+/// Activates an output component without notifying anything, since output components have no
+/// forward links.
+fn set_node_powered(node: &mut Node, powered: bool) {
+    node.output_strength = bool_to_ss(powered);
     node.changed = true;
 }
 
@@ -387,7 +386,7 @@ impl fmt::Display for DirectBackend {
                 NodeType::PressurePlate => "PressurePlate".to_string(),
                 NodeType::Trapdoor => "Trapdoor".to_string(),
                 NodeType::Wire => "Wire".to_string(),
-                NodeType::Constant => format!("Constant({})", node.output_power),
+                NodeType::Constant => format!("Constant({})", node.output_strength),
                 NodeType::NoteBlock { .. } => "NoteBlock".to_string(),
             };
             let pos = if !self.blocks[id].is_empty() {
