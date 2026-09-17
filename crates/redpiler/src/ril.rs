@@ -133,14 +133,14 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
             delay,
             facing_diode,
             node.state.repeater_locked,
-            node.state.powered,
+            node.state.is_powered(),
             inputs.default_inputs(),
             inputs.side_inputs(),
         ),
         NodeType::Torch => write!(
             f,
             "torch {}, {}",
-            node.state.powered,
+            node.state.is_powered(),
             inputs.default_inputs()
         ),
         NodeType::Comparator {
@@ -160,16 +160,16 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
         NodeType::Lamp => write!(
             f,
             "lamp {}, {}",
-            node.state.powered,
+            node.state.is_powered(),
             inputs.default_inputs()
         ),
-        NodeType::Button => write!(f, "button {}", node.state.powered),
-        NodeType::Lever => write!(f, "lever {}", node.state.powered),
-        NodeType::PressurePlate => write!(f, "pressure_plate {}", node.state.powered),
+        NodeType::Button => write!(f, "button {}", node.state.is_powered()),
+        NodeType::Lever => write!(f, "lever {}", node.state.is_powered()),
+        NodeType::PressurePlate => write!(f, "pressure_plate {}", node.state.is_powered()),
         NodeType::Trapdoor => write!(
             f,
             "trapdoor {}, {}",
-            node.state.powered,
+            node.state.is_powered(),
             inputs.default_inputs()
         ),
         NodeType::Wire => write!(
@@ -893,7 +893,7 @@ impl Parser {
                 ast::Component {
                     name,
                     inputs,
-                    node_state: NodeState::comparator(output_strength as u8),
+                    node_state: NodeState::ss(output_strength as u8),
                     node_ty: NodeType::Comparator {
                         mode,
                         far_input,

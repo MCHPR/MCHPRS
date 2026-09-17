@@ -143,7 +143,7 @@ fn identify_block<W: World>(
                     world.get_block(pos.offset(comparator.facing.opposite().block_face())),
                 ),
             },
-            NodeState::comparator(
+            NodeState::ss(
                 if let Some(BlockEntity::Comparator { output_strength }) =
                     world.get_block_entity(pos)
                 {

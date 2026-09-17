@@ -26,7 +26,7 @@ pub(super) fn update_node(
             }
 
             let should_be_powered = get_bool_input(node);
-            if should_be_powered != node.powered {
+            if should_be_powered != node.is_powered() {
                 let priority = if facing_diode {
                     TickPriority::Highest
                 } else if !should_be_powered {
@@ -42,7 +42,7 @@ pub(super) fn update_node(
                 return;
             }
             let should_be_powered = !get_bool_input(node);
-            if node.powered != should_be_powered {
+            if node.is_powered() != should_be_powered {
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
         }
@@ -60,9 +60,9 @@ pub(super) fn update_node(
             {
                 input_power = far_override.get();
             }
-            let old_strength = node.output_power;
-            let output_power = calculate_comparator_output(mode, input_power, side_input_power);
-            if output_power != old_strength {
+            let old_strength = node.output_strength;
+            let new_strength = calculate_comparator_output(mode, input_power, side_input_power);
+            if new_strength != old_strength {
                 let priority = if facing_diode {
                     TickPriority::High
                 } else {
@@ -73,30 +73,30 @@ pub(super) fn update_node(
         }
         NodeType::Lamp => {
             let should_be_lit = get_bool_input(node);
-            let lit = node.powered;
+            let lit = node.is_powered();
             if lit && !should_be_lit {
                 schedule_tick(scheduler, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
-                set_node(node, true);
+                set_node_powered(node, true);
             }
         }
         NodeType::Trapdoor => {
             let should_be_powered = get_bool_input(node);
-            if node.powered != should_be_powered {
-                set_node(node, should_be_powered);
+            if node.is_powered() != should_be_powered {
+                set_node_powered(node, should_be_powered);
             }
         }
         NodeType::Wire => {
             let (input_power, _) = get_all_input(node);
-            if node.output_power != input_power {
-                node.output_power = input_power;
+            if node.output_strength != input_power {
+                node.output_strength = input_power;
                 node.changed = true;
             }
         }
         NodeType::NoteBlock { noteblock_id } => {
             let should_be_powered = get_bool_input(node);
-            if node.powered != should_be_powered {
-                set_node(node, should_be_powered);
+            if node.is_powered() != should_be_powered {
+                set_node_powered(node, should_be_powered);
                 if should_be_powered {
                     events.push(Event::NoteBlockPlay { noteblock_id });
                 }

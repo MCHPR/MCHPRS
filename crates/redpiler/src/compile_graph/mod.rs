@@ -1,5 +1,6 @@
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
+use mchprs_redstone::bool_to_ss;
 // use petgraph::stable_graph::{NodeIndex, StableGraph};
 use smallvec::SmallVec;
 use stable_graph::{NodeIndex, StableGraph};
@@ -50,27 +51,22 @@ impl NodeType {
     }
 }
 
+/// Binary components are either 0 or 15, output components store their activation the same way
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct NodeState {
-    pub powered: bool,
-    pub repeater_locked: bool,
     pub output_strength: u8,
+    pub repeater_locked: bool,
 }
 
 impl NodeState {
     pub fn simple(powered: bool) -> NodeState {
-        NodeState {
-            powered,
-            output_strength: if powered { 15 } else { 0 },
-            ..Default::default()
-        }
+        NodeState::ss(bool_to_ss(powered))
     }
 
     pub fn repeater(powered: bool, locked: bool) -> NodeState {
         NodeState {
-            powered,
+            output_strength: bool_to_ss(powered),
             repeater_locked: locked,
-            output_strength: if powered { 15 } else { 0 },
         }
     }
 
@@ -81,12 +77,8 @@ impl NodeState {
         }
     }
 
-    pub fn comparator(output_strength: u8) -> NodeState {
-        NodeState {
-            powered: output_strength > 0,
-            output_strength,
-            ..Default::default()
-        }
+    pub fn is_powered(&self) -> bool {
+        self.output_strength > 0
     }
 }
 

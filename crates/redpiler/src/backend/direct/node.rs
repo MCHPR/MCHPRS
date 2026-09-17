@@ -194,11 +194,15 @@ pub struct Node {
 
     pub is_io: bool,
 
-    /// Powered or lit
-    pub powered: bool,
     /// Only for repeaters
     pub locked: bool,
-    pub output_power: u8,
+    pub output_strength: u8,
     pub changed: bool,
     pub pending_tick: bool,
+}
+
+impl Node {
+    pub fn is_powered(&self) -> bool {
+        self.output_strength > 0
+    }
 }
