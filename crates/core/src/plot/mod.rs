@@ -987,7 +987,7 @@ impl Plot {
             self.last_player_time = now;
 
             let world_send_rate =
-                Duration::from_nanos(1_000_000_000 / self.world_send_rate.0 as u64);
+                Duration::from_nanos(1_000_000_000 / self.world_send_rate.0.max(1) as u64);
 
             let max_batch_size = match self.last_nspt {
                 Some(Duration::ZERO) | None => 1,
@@ -1003,9 +1003,10 @@ impl Plot {
                 Tps::Limited(tps) if tps != 0 => {
                     let dur_per_tick = Duration::from_nanos(1_000_000_000 / tps as u64);
                     self.lag_time += now - self.last_update_time;
-                    let batch_size = (self.lag_time.as_nanos() / dur_per_tick.as_nanos()) as u64;
+                    let batch_size =
+                        (self.lag_time.as_nanos() / dur_per_tick.as_nanos().max(1)) as u64;
                     self.lag_time -= dur_per_tick * batch_size as u32;
-                    batch_size.min(max_batch_size)
+                    batch_size.min(max_batch_size).max(1)
                 }
                 Tps::Unlimited => max_batch_size,
                 _ => 0,
@@ -1030,7 +1031,7 @@ impl Plot {
                         }
                     }
                 }
-                self.last_nspt = Some(self.last_update_time.elapsed() / ticks_completed);
+                self.last_nspt = Some(self.last_update_time.elapsed() / ticks_completed.max(1));
             }
 
             if self.auto_redpiler
