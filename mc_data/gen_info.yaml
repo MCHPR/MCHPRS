@@ -150,7 +150,7 @@ blocks:
   "minecraft:green_wool": "solid,cube,simple_item,wool"
   "minecraft:red_wool": "solid,cube,simple_item,wool"
   "minecraft:black_wool": "solid,cube,simple_item,wool"
-  "minecraft:iron_trapdoor": "solid,cube,item"
+  "minecraft:iron_trapdoor": "cube,item"
   "minecraft:note_block": "solid,cube,item,wood"
   "minecraft:clay": "solid,cube,simple_item"
   "minecraft:gold_block": "solid,cube,simple_item"
@@ -163,7 +163,7 @@ blocks:
   "minecraft:hay_block": "solid,cube,item"
   "minecraft:sand": "solid,cube,simple_item"
   "minecraft:stone_bricks": "solid,cube,simple_item"
-  "minecraft:end_portal_frame": "solid,cube,item"
+  "minecraft:end_portal_frame": "cube,item"
 
 # Map block property sets to a Rust enum type
 prop_types:
