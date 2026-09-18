@@ -5,10 +5,11 @@
 //! For example, if two nodes are connected with two links of weights 13 and 15, the link with
 //! weight 15 is removed.
 
+use mchprs_world::World;
+
 use crate::compile_graph::{CompileGraph, Direction, NodeIdx};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
-use mchprs_world::World;
 
 pub struct DedupLinks;
 
@@ -28,15 +29,16 @@ impl<W: World> Pass<W> for DedupLinks {
 
             let mut edges = graph.neighbors(idx, Direction::Incoming).detach();
             while let Some(edge_idx) = edges.next_edge(graph) {
-                let edge = &graph[edge_idx];
+                let link = &graph[edge_idx];
                 let source_idx = graph.edge_endpoints(edge_idx).unwrap().0;
 
                 let mut should_remove = false;
                 for other_edge in graph.edges(idx, Direction::Incoming) {
+                    let other_link = other_edge.weight();
                     if other_edge.id() != edge_idx
                         && other_edge.source() == source_idx
-                        && other_edge.weight().ty == edge.ty
-                        && other_edge.weight().ss <= edge.ss
+                        && other_link.ty == link.ty
+                        && other_link.weight <= link.weight
                     {
                         should_remove = true;
                         break;

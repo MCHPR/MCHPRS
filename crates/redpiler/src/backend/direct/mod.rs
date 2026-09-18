@@ -1,27 +1,31 @@
-//! The direct backend does not do code generation and operates on the `CompileNode` graph directly
+//! The direct backend lowers the compile graph to nodes and interprets their updates and ticks.
 
 mod compile;
 mod node;
 mod tick;
 mod update;
 
-use super::JITBackend;
-use crate::backend::direct::node::ForwardLinks;
-use crate::compile_graph::CompileGraph;
-use crate::task_monitor::TaskMonitor;
-use crate::{block_powered_mut, CompilerOptions};
-use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, ComparatorMode, Instrument};
-use mchprs_blocks::BlockPos;
-use mchprs_redstone::{bool_to_ss, noteblock};
+use std::{
+    fmt::{self, Write},
+    mem,
+    sync::Arc,
+};
+
+use mchprs_blocks::{
+    block_entities::BlockEntity,
+    blocks::{Block, ComparatorMode, Instrument},
+    BlockPos,
+};
+use mchprs_redstone::noteblock;
 use mchprs_world::{TickEntry, TickPriority, World};
-use node::{Node, NodeId, NodeType, Nodes};
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::fmt::Write;
-use std::sync::Arc;
-use std::{fmt, mem};
 use tracing::{debug, warn};
+
+use self::node::{ForwardLinks, Node, NodeId, NodeType, Nodes};
+use super::JITBackend;
+use crate::compile_graph::{CompileGraph, SignalStrength};
+use crate::{block_powered_mut, CompilerOptions, TaskMonitor};
 
 #[derive(Default, Clone)]
 struct Queues([Vec<NodeId>; TickScheduler::NUM_PRIORITIES]);
@@ -125,20 +129,14 @@ pub struct DirectBackend {
 }
 
 impl DirectBackend {
-    fn schedule_tick(&mut self, node_id: NodeId, delay: usize, priority: TickPriority) {
-        self.scheduler.schedule_tick(node_id, delay, priority);
-    }
-
-    fn set_node_output(&mut self, node_id: NodeId, output_strength: u8) {
+    fn set_power_and_propagate(&mut self, node_id: NodeId, power: SignalStrength) {
         let node = &mut self.nodes[node_id];
-        let old_strength = node.output_strength;
-
-        node.changed = true;
-        node.output_strength = output_strength;
+        let old_power = node.power;
+        node.set_power(power);
 
         for forward_link in self.forward_links.get(&node.fwd_link_range) {
             let side = forward_link.side();
-            let distance = forward_link.ss();
+            let weight = forward_link.weight();
             let update = forward_link.node();
 
             let update_ref = &mut self.nodes[update];
@@ -148,17 +146,21 @@ impl DirectBackend {
                 &mut update_ref.default_inputs
             };
 
-            let old_input = old_strength.saturating_sub(distance);
-            let new_input = output_strength.saturating_sub(distance);
+            let old_input = old_power.saturating_sub(weight);
+            let new_input = power.saturating_sub(weight);
 
             if old_input == new_input {
                 continue;
             }
 
-            // Safety: signal strength is never larger than 15
+            // Safety: SignalStrength bounds both indices to 0..=15.
             unsafe {
-                *inputs.ss_counts.get_unchecked_mut(old_input as usize) -= 1;
-                *inputs.ss_counts.get_unchecked_mut(new_input as usize) += 1;
+                *inputs
+                    .power_counts
+                    .get_unchecked_mut(old_input.get() as usize) -= 1;
+                *inputs
+                    .power_counts
+                    .get_unchecked_mut(new_input.get() as usize) += 1;
             }
 
             update::update_node(
@@ -200,11 +202,12 @@ impl JITBackend for DirectBackend {
                 if node.is_powered() {
                     return;
                 }
-                self.schedule_tick(node_id, 10, TickPriority::Normal);
-                self.set_node_output(node_id, 15);
+                self.scheduler
+                    .schedule_tick(node_id, 10, TickPriority::Normal);
+                self.set_power_and_propagate(node_id, SignalStrength::MAX);
             }
             NodeType::Lever => {
-                self.set_node_output(node_id, bool_to_ss(!node.is_powered()));
+                self.set_power_and_propagate(node_id, (!node.is_powered()).into());
             }
             _ => warn!("Tried to use a {:?} redpiler node", node.ty),
         }
@@ -215,7 +218,7 @@ impl JITBackend for DirectBackend {
         let node = &self.nodes[node_id];
         match node.ty {
             NodeType::PressurePlate => {
-                self.set_node_output(node_id, bool_to_ss(powered));
+                self.set_power_and_propagate(node_id, powered.into());
             }
             _ => warn!("Tried to set pressure plate state for a {:?}", node.ty),
         }
@@ -255,17 +258,17 @@ impl JITBackend for DirectBackend {
                     *open = node.is_powered();
                 }
                 if let Block::RedstoneWire(wire) = block {
-                    wire.power = node.output_strength
+                    wire.power = node.power.get()
                 };
                 if let Block::Repeater(repeater) = block {
-                    repeater.locked = node.locked;
+                    repeater.locked = node.repeater_locked;
                 }
                 world.set_block(*pos, *block);
                 if matches!(block, Block::Comparator(_)) {
                     world.set_block_entity(
                         *pos,
                         BlockEntity::Comparator {
-                            output_strength: node.output_strength,
+                            output_strength: node.power.get(),
                         },
                     );
                 }
@@ -288,18 +291,6 @@ impl JITBackend for DirectBackend {
     }
 }
 
-/// Activates an output component without notifying anything, since output components have no
-/// forward links.
-fn set_node_powered(node: &mut Node, powered: bool) {
-    node.output_strength = bool_to_ss(powered);
-    node.changed = true;
-}
-
-fn set_node_locked(node: &mut Node, locked: bool) {
-    node.locked = locked;
-    node.changed = true;
-}
-
 fn schedule_tick(
     scheduler: &mut TickScheduler,
     node_id: NodeId,
@@ -311,45 +302,27 @@ fn schedule_tick(
     scheduler.schedule_tick(node_id, delay, priority);
 }
 
-fn get_bool_input(node: &Node) -> bool {
-    // During compilation its ensured all signal strength buckets add up to 255
-    // So if and only if the zero bucket contains 255 is the input zero
-    node.default_inputs.ss_counts[0] != 255
-}
-
-fn get_bool_side(node: &Node) -> bool {
-    node.side_inputs.ss_counts[0] != 255
-}
-
-fn last_index_positive(array: &[u8; 16]) -> u32 {
-    // Note: this might be slower on big-endian systems
-    let value = u128::from_le_bytes(*array);
-    if value == 0 {
-        0
-    } else {
-        15 - (value.leading_zeros() >> 3)
+#[inline]
+fn comparator_output_power(
+    node: &Node,
+    mode: ComparatorMode,
+    far_input: Option<SignalStrength>,
+) -> SignalStrength {
+    let mut input_power = node.default_inputs.power();
+    let side_power = node.side_inputs.power();
+    if let Some(far_input) = far_input
+        && input_power < SignalStrength::MAX
+    {
+        input_power = far_input;
     }
-}
-
-fn get_all_input(node: &Node) -> (u8, u8) {
-    let input_power = last_index_positive(&node.default_inputs.ss_counts) as u8;
-
-    let side_input_power = last_index_positive(&node.side_inputs.ss_counts) as u8;
-
-    (input_power, side_input_power)
-}
-
-// This function is optimized for input values from 0 to 15 and does not work correctly outside that
-// range
-fn calculate_comparator_output(mode: ComparatorMode, input_strength: u8, power_on_sides: u8) -> u8 {
-    let difference = input_strength.wrapping_sub(power_on_sides);
-    if difference <= 15 {
+    let difference = input_power.get().wrapping_sub(side_power.get());
+    if difference <= SignalStrength::MAX.get() {
         match mode {
-            ComparatorMode::Compare => input_strength,
-            ComparatorMode::Subtract => difference,
+            ComparatorMode::Compare => input_power,
+            ComparatorMode::Subtract => SignalStrength::try_from(difference).unwrap(),
         }
     } else {
-        0
+        SignalStrength::ZERO
     }
 }
 
@@ -376,7 +349,7 @@ impl fmt::Display for DirectBackend {
                 NodeType::PressurePlate => "PressurePlate".to_string(),
                 NodeType::Trapdoor => "Trapdoor".to_string(),
                 NodeType::Wire => "Wire".to_string(),
-                NodeType::Constant => format!("Constant({})", node.output_strength),
+                NodeType::Constant => format!("Constant({})", node.power),
                 NodeType::NoteBlock { .. } => "NoteBlock".to_string(),
             };
             let pos = if !self.blocks[id].is_empty() {
@@ -394,12 +367,12 @@ impl fmt::Display for DirectBackend {
             writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id, label, pos)?;
             for link in self.forward_links.get(&node.fwd_link_range) {
                 let out_index = link.node().index();
-                let distance = link.ss();
+                let weight = link.weight();
                 let color = if link.side() { ",color=\"blue\"" } else { "" };
                 writeln!(
                     f,
                     "    n{} -> n{} [ label = \"{}\"{} ];",
-                    id, out_index, distance, color
+                    id, out_index, weight, color
                 )?;
             }
         }

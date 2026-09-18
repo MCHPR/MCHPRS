@@ -1,6 +1,8 @@
-use mchprs_blocks::blocks::ComparatorMode;
-use std::num::NonZeroU8;
 use std::ops::{Index, IndexMut};
+
+use mchprs_blocks::blocks::ComparatorMode;
+
+use crate::compile_graph::SignalStrength;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct NodeId(u32);
@@ -66,12 +68,11 @@ pub struct ForwardLink {
 }
 
 impl ForwardLink {
-    pub fn new(id: NodeId, side: bool, ss: u8) -> Self {
+    pub fn new(id: NodeId, side: bool, weight: u8) -> Self {
         assert!(id.index() < (1 << 27));
-        // the clamp_weights compile pass should ensure ss < 15
-        assert!(ss < 15);
+        assert!(weight < 15);
         Self {
-            data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | ss as u32,
+            data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | weight as u32,
         }
     }
 
@@ -86,7 +87,7 @@ impl ForwardLink {
         self.data & (1 << 4) != 0
     }
 
-    pub fn ss(self) -> u8 {
+    pub fn weight(self) -> u8 {
         (self.data & 0b1111) as u8
     }
 }
@@ -96,7 +97,7 @@ impl std::fmt::Debug for ForwardLink {
         f.debug_struct("ForwardLink")
             .field("node", &self.node())
             .field("side", &self.side())
-            .field("ss", &self.ss())
+            .field("weight", &self.weight())
             .finish()
     }
 }
@@ -145,7 +146,7 @@ pub enum NodeType {
     Torch,
     Comparator {
         mode: ComparatorMode,
-        far_input: Option<NonMaxU8>,
+        far_input: Option<SignalStrength>,
         facing_diode: bool,
     },
     Lamp,
@@ -163,19 +164,22 @@ pub enum NodeType {
 #[repr(align(16))]
 #[derive(Debug, Clone, Default)]
 pub struct NodeInput {
-    pub ss_counts: [u8; 16],
+    pub power_counts: [u8; 16],
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct NonMaxU8(NonZeroU8);
-
-impl NonMaxU8 {
-    pub fn new(value: u8) -> Option<Self> {
-        NonZeroU8::new(value + 1).map(Self)
+impl NodeInput {
+    pub fn is_powered(&self) -> bool {
+        // Compilation pads the zero-power bucket so all counts sum to 255.
+        self.power_counts[0] != 255
     }
 
-    pub fn get(self) -> u8 {
-        self.0.get() - 1
+    pub fn power(&self) -> SignalStrength {
+        let counts = u128::from_le_bytes(self.power_counts);
+        if counts == 0 {
+            SignalStrength::ZERO
+        } else {
+            SignalStrength::try_from(15 - (counts.leading_zeros() >> 3) as u8).unwrap()
+        }
     }
 }
 
@@ -194,15 +198,28 @@ pub struct Node {
 
     pub is_io: bool,
 
-    /// Only for repeaters
-    pub locked: bool,
-    pub output_strength: u8,
+    pub power: SignalStrength,
+    pub repeater_locked: bool,
     pub changed: bool,
     pub pending_tick: bool,
 }
 
 impl Node {
     pub fn is_powered(&self) -> bool {
-        self.output_strength > 0
+        !self.power.is_zero()
+    }
+
+    pub fn set_power(&mut self, power: SignalStrength) {
+        self.power = power;
+        self.changed = true;
+    }
+
+    pub fn set_powered(&mut self, powered: bool) {
+        self.set_power(powered.into());
+    }
+
+    pub fn set_repeater_locked(&mut self, locked: bool) {
+        self.repeater_locked = locked;
+        self.changed = true;
     }
 }

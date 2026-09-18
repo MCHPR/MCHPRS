@@ -1,16 +1,16 @@
-use crate::compile_graph::{
-    CompileGraph, CompileLink, CompileNode, Direction, EdgeRef, LinkType, NodeIdx, NodeState,
-    NodeType,
-};
-use crate::string_replacer::StringReplacer;
-use crate::CompilerOptions;
+use std::{fmt, iter::Peekable, str::CharIndices, vec};
+
 use indexmap::IndexMap;
 use itertools::Itertools;
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use rustc_hash::FxHashMap;
-use std::iter::Peekable;
-use std::str::CharIndices;
-use std::{fmt, vec};
+
+use crate::compile_graph::{
+    CompileGraph, CompileLink, CompileNode, Direction, EdgeRef, LinkType, NodeIdx, NodeState,
+    NodeType, SignalStrength,
+};
+use crate::string_replacer::StringReplacer;
+use crate::CompilerOptions;
 
 fn dump_node_name(f: &mut impl fmt::Write, ctx: &FmtContext<'_>, node_idx: NodeIdx) -> fmt::Result {
     write!(f, "%")?;
@@ -25,10 +25,10 @@ fn dump_edge(
     f: &mut fmt::Formatter<'_>,
     ctx: &FmtContext<'_>,
     src: NodeIdx,
-    weight: &CompileLink,
+    link: &CompileLink,
 ) -> fmt::Result {
     dump_node_name(f, ctx, src)?;
-    write!(f, ":{}", weight.ss)
+    write!(f, ":{}", link.weight)
 }
 
 fn dump_edges<'a>(
@@ -94,12 +94,12 @@ struct InputFormatter<'a> {
     ctx: &'a FmtContext<'a>,
 }
 
-struct FarInputFormatter(Option<u8>);
+struct FarInputFormatter(Option<SignalStrength>);
 
 impl fmt::Display for FarInputFormatter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.0 {
-            Some(ss) => write!(f, "{}", ss),
+            Some(power) => write!(f, "{}", power),
             None => write!(f, "none"),
         }
     }
@@ -153,7 +153,7 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
             mode,
             FarInputFormatter(far_input),
             facing_diode,
-            node.state.output_strength,
+            node.state.power,
             inputs.default_inputs(),
             inputs.side_inputs(),
         ),
@@ -172,13 +172,8 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
             node.state.is_powered(),
             inputs.default_inputs()
         ),
-        NodeType::Wire => write!(
-            f,
-            "wire {}, {}",
-            node.state.output_strength,
-            inputs.default_inputs()
-        ),
-        NodeType::Constant => write!(f, "constant {}", node.state.output_strength),
+        NodeType::Wire => write!(f, "wire {}, {}", node.state.power, inputs.default_inputs()),
+        NodeType::Constant => write!(f, "constant {}", node.state.power),
         NodeType::NoteBlock { instrument, note } => {
             write!(
                 f,
@@ -867,7 +862,7 @@ impl Parser {
                 ast::Component {
                     name,
                     inputs,
-                    node_state: NodeState::simple(powered),
+                    node_state: NodeState::from_powered(powered),
                     node_ty: component_ty.simple_node_type(),
                 }
             }
@@ -884,7 +879,7 @@ impl Parser {
                 self.expect_token(&[TokenType::Comma])?;
                 let (_, facing_diode) = self.expect_bool()?;
                 self.expect_token(&[TokenType::Comma])?;
-                let (_, output_strength) = self.expect_int()?;
+                let power = self.expect_power()?;
                 self.expect_token(&[TokenType::Comma])?;
                 let mut inputs = self.parse_input_list(LinkType::Default)?;
                 self.expect_token(&[TokenType::Comma])?;
@@ -893,7 +888,7 @@ impl Parser {
                 ast::Component {
                     name,
                     inputs,
-                    node_state: NodeState::ss(output_strength as u8),
+                    node_state: NodeState::from_power(power),
                     node_ty: NodeType::Comparator {
                         mode,
                         far_input,
@@ -906,27 +901,27 @@ impl Parser {
                 ast::Component {
                     name,
                     inputs: Vec::new(),
-                    node_state: NodeState::simple(powered),
+                    node_state: NodeState::from_powered(powered),
                     node_ty: component_ty.simple_node_type(),
                 }
             }
             ComponentType::Wire => {
-                let (_, ss) = self.expect_int()?;
+                let power = self.expect_power()?;
                 self.expect_token(&[TokenType::Comma])?;
                 let inputs = self.parse_input_list(LinkType::Default)?;
                 ast::Component {
                     name,
                     inputs,
-                    node_state: NodeState::ss(ss as u8),
+                    node_state: NodeState::from_power(power),
                     node_ty: component_ty.simple_node_type(),
                 }
             }
             ComponentType::Constant => {
-                let (_, ss) = self.expect_int()?;
+                let power = self.expect_power()?;
                 ast::Component {
                     name,
                     inputs: Vec::new(),
-                    node_state: NodeState::ss(ss as u8),
+                    node_state: NodeState::from_power(power),
                     node_ty: component_ty.simple_node_type(),
                 }
             }
@@ -945,7 +940,7 @@ impl Parser {
                 ast::Component {
                     name,
                     inputs,
-                    node_state: NodeState::simple(false),
+                    node_state: NodeState::from_powered(false),
                     node_ty: NodeType::NoteBlock {
                         instrument,
                         note: note as u8,
@@ -955,15 +950,16 @@ impl Parser {
         })
     }
 
-    fn parse_comparator_far_input(&mut self) -> RILParserResult<Option<u8>> {
-        let token = self.expect_token_with(
-            |token| matches!(token.ty, TokenType::Int(_) | TokenType::None),
-            &[TokenType::Int(0), TokenType::None],
-        )?;
-        if token.ty == TokenType::None {
+    fn parse_comparator_far_input(&mut self) -> RILParserResult<Option<SignalStrength>> {
+        if self
+            .tokens
+            .peek()
+            .is_some_and(|token| token.ty == TokenType::None)
+        {
+            self.tokens.next();
             Ok(None)
         } else {
-            Ok(Some(token.ty.unwrap_int() as u8))
+            self.expect_power().map(Some)
         }
     }
 
@@ -1024,8 +1020,10 @@ impl Parser {
     ) -> RILParserResult<()> {
         let value = value_token.ty.unwrap_value();
         self.expect_token(&[TokenType::Colon])?;
-        let (_, ss) = self.expect_int()?;
-        let link = CompileLink::new(ty, ss as u8);
+        let (token, weight) = self.expect_int()?;
+        let weight = u8::try_from(weight)
+            .map_err(|_| RILParserError::new(token.pos, "link weight out of range"))?;
+        let link = CompileLink::new(ty, weight);
         inputs.push(ast::Input { link, value });
         Ok(())
     }
@@ -1064,6 +1062,12 @@ impl Parser {
         }
 
         Ok(inputs)
+    }
+
+    fn expect_power(&mut self) -> RILParserResult<SignalStrength> {
+        let (token, power) = self.expect_int()?;
+        SignalStrength::try_from(power)
+            .map_err(|error| RILParserError::new(token.pos, error.to_string()))
     }
 
     fn expect_int(&mut self) -> RILParserResult<(Token, u32)> {

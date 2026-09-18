@@ -1,7 +1,7 @@
 use mchprs_world::TickPriority;
 
-use super::node::{NodeId, NodeType};
-use super::*;
+use super::node::{NodeId, NodeType, Nodes};
+use super::{comparator_output_power, schedule_tick, Event, TickScheduler};
 
 #[inline(always)]
 pub(super) fn update_node(
@@ -17,15 +17,15 @@ pub(super) fn update_node(
             delay,
             facing_diode,
         } => {
-            let should_be_locked = get_bool_side(node);
-            if should_be_locked != node.locked {
-                set_node_locked(node, should_be_locked);
+            let should_be_locked = node.side_inputs.is_powered();
+            if should_be_locked != node.repeater_locked {
+                node.set_repeater_locked(should_be_locked);
             }
-            if node.locked || node.pending_tick {
+            if node.repeater_locked || node.pending_tick {
                 return;
             }
 
-            let should_be_powered = get_bool_input(node);
+            let should_be_powered = node.default_inputs.is_powered();
             if should_be_powered != node.is_powered() {
                 let priority = if facing_diode {
                     TickPriority::Highest
@@ -41,7 +41,7 @@ pub(super) fn update_node(
             if node.pending_tick {
                 return;
             }
-            let should_be_powered = !get_bool_input(node);
+            let should_be_powered = !node.default_inputs.is_powered();
             if node.is_powered() != should_be_powered {
                 schedule_tick(scheduler, node_id, node, 1, TickPriority::Normal);
             }
@@ -54,15 +54,8 @@ pub(super) fn update_node(
             if node.pending_tick {
                 return;
             }
-            let (mut input_power, side_input_power) = get_all_input(node);
-            if let Some(far_override) = far_input
-                && input_power < 15
-            {
-                input_power = far_override.get();
-            }
-            let old_strength = node.output_strength;
-            let new_strength = calculate_comparator_output(mode, input_power, side_input_power);
-            if new_strength != old_strength {
+            let power = comparator_output_power(node, mode, far_input);
+            if power != node.power {
                 let priority = if facing_diode {
                     TickPriority::High
                 } else {
@@ -72,36 +65,35 @@ pub(super) fn update_node(
             }
         }
         NodeType::Lamp => {
-            let should_be_lit = get_bool_input(node);
+            let should_be_lit = node.default_inputs.is_powered();
             let lit = node.is_powered();
             if lit && !should_be_lit {
                 schedule_tick(scheduler, node_id, node, 2, TickPriority::Normal);
             } else if !lit && should_be_lit {
-                set_node_powered(node, true);
+                node.set_powered(true);
             }
         }
         NodeType::Trapdoor => {
-            let should_be_powered = get_bool_input(node);
+            let should_be_powered = node.default_inputs.is_powered();
             if node.is_powered() != should_be_powered {
-                set_node_powered(node, should_be_powered);
+                node.set_powered(should_be_powered);
             }
         }
         NodeType::Wire => {
-            let (input_power, _) = get_all_input(node);
-            if node.output_strength != input_power {
-                node.output_strength = input_power;
-                node.changed = true;
+            let input_power = node.default_inputs.power();
+            if node.power != input_power {
+                node.set_power(input_power);
             }
         }
         NodeType::NoteBlock { noteblock_id } => {
-            let should_be_powered = get_bool_input(node);
+            let should_be_powered = node.default_inputs.is_powered();
             if node.is_powered() != should_be_powered {
-                set_node_powered(node, should_be_powered);
+                node.set_powered(should_be_powered);
                 if should_be_powered {
                     events.push(Event::NoteBlockPlay { noteblock_id });
                 }
             }
         }
-        _ => {} // unreachable!("Node {:?} should not be updated!", node.ty),
+        _ => {}
     }
 }

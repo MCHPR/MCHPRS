@@ -1,5 +1,4 @@
-use std::fmt::Debug;
-use std::{iter, slice};
+use std::{fmt::Debug, iter, slice};
 
 pub trait IdxT: Copy + Clone + Debug {
     fn new_unchecked(idx: usize) -> Self;

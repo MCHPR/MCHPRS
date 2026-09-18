@@ -7,19 +7,22 @@
 //!
 //! There are no requirements for this pass.
 
-use crate::compile_graph::{Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
-use crate::passes::{AnalysisInfos, Pass};
-use crate::{CompilerInput, CompilerOptions};
 use itertools::Itertools;
-use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::Block;
-use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_blocks::{
+    block_entities::BlockEntity, blocks::Block, BlockDirection, BlockFace, BlockPos,
+};
 use mchprs_redstone::{self, comparator, noteblock, wire};
 use mchprs_world::{for_each_block_optimized, World};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde_json::Value;
 use smallvec::smallvec;
 use tracing::warn;
+
+use crate::compile_graph::{
+    Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType, SignalStrength,
+};
+use crate::passes::{AnalysisInfos, Pass};
+use crate::{CompilerInput, CompilerOptions};
 
 pub struct IdentifyNodes;
 
@@ -123,7 +126,7 @@ fn identify_block<W: World>(
     world: &W,
 ) -> Option<(NodeType, NodeState)> {
     if let Some(powered) = block.clone().get_pressure_plate_powered() {
-        return Some((NodeType::PressurePlate, NodeState::simple(*powered)));
+        return Some((NodeType::PressurePlate, NodeState::from_powered(*powered)));
     }
     let (ty, state) = match block {
         Block::Repeater(repeater) => (
@@ -138,30 +141,42 @@ fn identify_block<W: World>(
         Block::Comparator(comparator) => (
             NodeType::Comparator {
                 mode: comparator.mode,
-                far_input: comparator::get_far_input(world, pos, comparator.facing),
+                far_input: comparator::get_far_input(world, pos, comparator.facing).map(|power| {
+                    SignalStrength::try_from(power).expect("invalid comparator far input")
+                }),
                 facing_diode: mchprs_redstone::is_diode(
                     world.get_block(pos.offset(comparator.facing.opposite().block_face())),
                 ),
             },
-            NodeState::ss(
+            NodeState::from_power(
                 if let Some(BlockEntity::Comparator { output_strength }) =
                     world.get_block_entity(pos)
                 {
-                    *output_strength
+                    SignalStrength::try_from(*output_strength).expect("invalid comparator output")
                 } else {
-                    0
+                    SignalStrength::ZERO
                 },
             ),
         ),
         Block::RedstoneTorch { lit, .. } | Block::RedstoneWallTorch { lit, .. } => {
-            (NodeType::Torch, NodeState::simple(lit))
+            (NodeType::Torch, NodeState::from_powered(lit))
         }
-        Block::RedstoneWire(wire) => (NodeType::Wire, NodeState::ss(wire.power)),
-        Block::StoneButton { powered, .. } => (NodeType::Button, NodeState::simple(powered)),
-        Block::RedstoneLamp { lit } => (NodeType::Lamp, NodeState::simple(lit)),
-        Block::Lever { powered, .. } => (NodeType::Lever, NodeState::simple(powered)),
-        Block::IronTrapdoor { powered, .. } => (NodeType::Trapdoor, NodeState::simple(powered)),
-        Block::RedstoneBlock => (NodeType::Constant, NodeState::ss(15)),
+        Block::RedstoneWire(wire) => (
+            NodeType::Wire,
+            NodeState::from_power(
+                SignalStrength::try_from(wire.power).expect("invalid wire power"),
+            ),
+        ),
+        Block::StoneButton { powered, .. } => (NodeType::Button, NodeState::from_powered(powered)),
+        Block::RedstoneLamp { lit } => (NodeType::Lamp, NodeState::from_powered(lit)),
+        Block::Lever { powered, .. } => (NodeType::Lever, NodeState::from_powered(powered)),
+        Block::IronTrapdoor { powered, .. } => {
+            (NodeType::Trapdoor, NodeState::from_powered(powered))
+        }
+        Block::RedstoneBlock => (
+            NodeType::Constant,
+            NodeState::from_power(SignalStrength::MAX),
+        ),
         Block::NoteBlock {
             instrument: _,
             note,
@@ -170,12 +185,15 @@ fn identify_block<W: World>(
             let instrument = noteblock::get_noteblock_instrument(world, pos);
             (
                 NodeType::NoteBlock { instrument, note },
-                NodeState::simple(powered),
+                NodeState::from_powered(powered),
             )
         }
         block if comparator::has_override(block) => (
             NodeType::Constant,
-            NodeState::ss(comparator::get_override(block, world, pos)),
+            NodeState::from_power(
+                SignalStrength::try_from(comparator::get_override(block, world, pos))
+                    .expect("invalid comparator override"),
+            ),
         ),
         _ => return None,
     };

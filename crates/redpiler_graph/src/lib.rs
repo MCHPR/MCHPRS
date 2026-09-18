@@ -1,6 +1,10 @@
+mod signal_strength;
+
 use bincode::{BincodeRead, Result};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+
+pub use self::signal_strength::{InvalidSignalStrength, SignalStrength};
 
 pub type NodeId = usize;
 
@@ -45,10 +49,9 @@ pub enum NodeType {
     NoteBlock,
 }
 
-/// Binary components are either 0 or 15, output components store their activation the same way
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct NodeState {
-    pub output_strength: u8,
+    pub power: SignalStrength,
     pub repeater_locked: bool,
 }
 
@@ -60,7 +63,7 @@ pub struct Node {
     pub state: NodeState,
 
     pub facing_diode: bool,
-    pub comparator_far_input: Option<u8>,
+    pub comparator_far_input: Option<SignalStrength>,
 
     pub inputs: Vec<Link>,
     pub updates: Vec<NodeId>,

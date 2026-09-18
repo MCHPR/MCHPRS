@@ -1,5 +1,8 @@
-use super::node::NodeId;
-use super::*;
+use mchprs_world::TickPriority;
+
+use super::node::{NodeId, NodeType};
+use super::{comparator_output_power, schedule_tick, DirectBackend};
+use crate::compile_graph::SignalStrength;
 
 impl DirectBackend {
     // Benchmarks show that `tick_node` getting inlined into `tick` causes worse perf.
@@ -10,13 +13,13 @@ impl DirectBackend {
 
         match node.ty {
             NodeType::Repeater { delay, .. } => {
-                if node.locked {
+                if node.repeater_locked {
                     return;
                 }
 
-                let should_be_powered = get_bool_input(node);
+                let should_be_powered = node.default_inputs.is_powered();
                 if node.is_powered() && !should_be_powered {
-                    self.set_node_output(node_id, 0);
+                    self.set_power_and_propagate(node_id, SignalStrength::ZERO);
                 } else if !node.is_powered() {
                     if !should_be_powered {
                         schedule_tick(
@@ -27,42 +30,33 @@ impl DirectBackend {
                             TickPriority::Higher,
                         );
                     }
-                    self.set_node_output(node_id, 15);
+                    self.set_power_and_propagate(node_id, SignalStrength::MAX);
                 }
             }
             NodeType::Torch => {
-                let should_be_powered = !get_bool_input(node);
+                let should_be_powered = !node.default_inputs.is_powered();
                 if node.is_powered() != should_be_powered {
-                    self.set_node_output(node_id, bool_to_ss(should_be_powered));
+                    self.set_power_and_propagate(node_id, should_be_powered.into());
                 }
             }
             NodeType::Comparator {
                 mode, far_input, ..
             } => {
-                let (mut input_power, side_input_power) = get_all_input(node);
-                if let Some(far_override) = far_input
-                    && input_power < 15
-                {
-                    input_power = far_override.get();
-                }
-                let old_strength = node.output_strength;
-                let new_strength = calculate_comparator_output(mode, input_power, side_input_power);
-                if new_strength != old_strength {
-                    self.set_node_output(node_id, new_strength);
+                let power = comparator_output_power(node, mode, far_input);
+                if power != node.power {
+                    self.set_power_and_propagate(node_id, power);
                 }
             }
             NodeType::Lamp => {
-                let should_be_lit = get_bool_input(node);
+                let should_be_lit = node.default_inputs.is_powered();
                 if node.is_powered() && !should_be_lit {
-                    set_node_powered(node, false);
+                    node.set_powered(false);
                 }
             }
-            NodeType::Button => {
-                if node.is_powered() {
-                    self.set_node_output(node_id, 0);
-                }
+            NodeType::Button if node.is_powered() => {
+                self.set_power_and_propagate(node_id, SignalStrength::ZERO);
             }
-            _ => {} //unreachable!("Node {:?} should not be ticked!", node.ty),
+            _ => {}
         }
     }
 }

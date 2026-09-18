@@ -1,8 +1,5 @@
-use crate::compile_graph::{
-    CompileGraph, Direction, LinkType as CLinkType, NodeIdx, NodeType as CNodeType,
-};
-use crate::passes::{AnalysisInfos, AnalysisUsage, Pass};
-use crate::{CompilerInput, CompilerOptions};
+use std::fs;
+
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode as CComparatorMode;
 use mchprs_world::World;
@@ -10,7 +7,12 @@ use redpiler_graph::{
     serialize, BlockPos, ComparatorMode, Link, LinkType, Node, NodeState, NodeType,
 };
 use rustc_hash::FxHashMap;
-use std::fs;
+
+use crate::compile_graph::{
+    CompileGraph, Direction, LinkType as CLinkType, NodeIdx, NodeType as CNodeType,
+};
+use crate::passes::{AnalysisInfos, AnalysisUsage, Pass};
+use crate::{CompilerInput, CompilerOptions};
 
 fn convert_node(
     graph: &CompileGraph,
@@ -22,13 +24,13 @@ fn convert_node(
     let mut inputs = Vec::new();
     for edge in graph.edges(node_idx, Direction::Incoming) {
         let idx = nodes_map[&edge.source()];
-        let weight = edge.weight();
+        let link = edge.weight();
         inputs.push(Link {
-            ty: match weight.ty {
+            ty: match link.ty {
                 CLinkType::Default => LinkType::Default,
                 CLinkType::Side => LinkType::Side,
             },
-            weight: weight.ss,
+            weight: link.weight,
             to: idx,
         });
     }
@@ -83,7 +85,7 @@ fn convert_node(
             })
             .collect(),
         state: NodeState {
-            output_strength: node.state.output_strength,
+            power: node.state.power,
             repeater_locked: node.state.repeater_locked,
         },
         comparator_far_input,

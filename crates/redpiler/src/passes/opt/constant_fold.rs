@@ -1,9 +1,12 @@
-use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx, NodeState, NodeType};
-use crate::passes::{AnalysisInfos, Pass};
-use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;
 use tracing::trace;
+
+use crate::compile_graph::{
+    CompileGraph, Direction, LinkType, NodeIdx, NodeState, NodeType, SignalStrength,
+};
+use crate::passes::{AnalysisInfos, Pass};
+use crate::{CompilerInput, CompilerOptions};
 
 pub struct ConstantFold;
 
@@ -30,31 +33,19 @@ impl<W: World> Pass<W> for ConstantFold {
 
 /// Returns true if the node was turned into a constant
 fn fold_node(graph: &mut CompileGraph, idx: NodeIdx) -> bool {
-    let mut default_power = 0;
-    let mut side_power = 0;
+    let mut default_power = SignalStrength::ZERO;
+    let mut side_power = SignalStrength::ZERO;
     for edge in graph.edges(idx, Direction::Incoming) {
         let constant = &graph[edge.source()];
         if constant.ty != NodeType::Constant {
             return false;
         }
 
-        match edge.weight().ty {
-            LinkType::Default => {
-                default_power = default_power.max(
-                    constant
-                        .state
-                        .output_strength
-                        .saturating_sub(edge.weight().ss),
-                )
-            }
-            LinkType::Side => {
-                side_power = side_power.max(
-                    constant
-                        .state
-                        .output_strength
-                        .saturating_sub(edge.weight().ss),
-                )
-            }
+        let link = edge.weight();
+        let power = constant.state.power.saturating_sub(link.weight);
+        match link.ty {
+            LinkType::Default => default_power = default_power.max(power),
+            LinkType::Side => side_power = side_power.max(power),
         }
     }
 
@@ -63,7 +54,7 @@ fn fold_node(graph: &mut CompileGraph, idx: NodeIdx) -> bool {
             mode, far_input, ..
         } => {
             if let Some(far_override) = far_input
-                && default_power < 15
+                && default_power < SignalStrength::MAX
             {
                 default_power = far_override;
             }
@@ -72,33 +63,25 @@ fn fold_node(graph: &mut CompileGraph, idx: NodeIdx) -> bool {
                     if default_power >= side_power {
                         default_power
                     } else {
-                        0
+                        SignalStrength::ZERO
                     }
                 }
-                ComparatorMode::Subtract => default_power.saturating_sub(side_power),
+                ComparatorMode::Subtract => default_power.saturating_sub(side_power.get()),
             }
         }
         NodeType::Repeater { .. } => {
             if graph[idx].state.repeater_locked {
-                graph[idx].state.output_strength
-            } else if default_power > 0 {
-                15
+                graph[idx].state.power
             } else {
-                0
+                (!default_power.is_zero()).into()
             }
         }
-        NodeType::Torch => {
-            if default_power > 0 {
-                0
-            } else {
-                15
-            }
-        }
+        NodeType::Torch => default_power.is_zero().into(),
         _ => return false,
     };
 
     graph[idx].ty = NodeType::Constant;
-    graph[idx].state = NodeState::ss(new_power);
+    graph[idx].state = NodeState::from_power(new_power);
 
     let mut incoming = graph.neighbors(idx, Direction::Incoming).detach();
     while let Some(edge) = incoming.next_edge(graph) {
