@@ -1,11 +1,12 @@
 use std::collections::hash_map::Entry;
 
-use crate::compile_graph::{CompileGraph, CompileNode, Direction, NodeIdx, NodeState, NodeType};
-use crate::passes::{AnalysisInfos, Pass};
-use crate::{CompilerInput, CompilerOptions};
 use mchprs_world::World;
 use petgraph::unionfind::UnionFind;
 use rustc_hash::{FxHashMap, FxHashSet};
+
+use crate::compile_graph::{CompileGraph, CompileNode, Direction, NodeIdx, NodeState, NodeType};
+use crate::passes::{AnalysisInfos, Pass};
+use crate::{CompilerInput, CompilerOptions};
 
 pub struct ConstantCoalesce;
 
@@ -40,20 +41,20 @@ impl<W: World> Pass<W> for ConstantCoalesce {
             {
                 continue;
             }
-            let ss = node.state.output_strength;
+            let power = node.state.power;
 
             let mut neighbors = graph.neighbors(idx, Direction::Outgoing).detach();
             while let Some((edge, dest)) = neighbors.next(graph) {
                 let subgraph_component = vertex_sets.find(dest.index());
 
-                let constant_idx = match constant_map.entry((subgraph_component, ss)) {
+                let constant_idx = match constant_map.entry((subgraph_component, power)) {
                     Entry::Occupied(entry) => *entry.get(),
                     Entry::Vacant(entry) => {
                         let constant_idx = graph.add_node(CompileNode {
                             ty: NodeType::Constant,
                             block: Default::default(),
                             name: None,
-                            state: NodeState::ss(ss),
+                            state: NodeState::from_power(power),
                             is_input: false,
                             is_output: false,
                             annotations: Default::default(),

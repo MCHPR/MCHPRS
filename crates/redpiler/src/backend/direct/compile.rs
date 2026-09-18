@@ -1,17 +1,21 @@
-use crate::backend::direct::node::ForwardLinks;
-use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx};
-use crate::{CompilerOptions, TaskMonitor};
+use std::sync::Arc;
+
 use itertools::Itertools;
-use mchprs_blocks::blocks::{Block, Instrument};
-use mchprs_blocks::BlockPos;
+use mchprs_blocks::{
+    blocks::{Block, Instrument},
+    BlockPos,
+};
 use mchprs_world::TickEntry;
 use rustc_hash::FxHashMap;
 use smallvec::SmallVec;
-use std::sync::Arc;
 use tracing::trace;
 
-use super::node::{ForwardLink, Node, NodeId, NodeInput, NodeType, Nodes, NonMaxU8};
+use super::node::{ForwardLink, ForwardLinks, Node, NodeId, NodeInput, NodeType, Nodes};
 use super::DirectBackend;
+use crate::compile_graph::{
+    CompileGraph, Direction, LinkType, NodeIdx, NodeType as CompileNodeType,
+};
+use crate::{CompilerOptions, TaskMonitor};
 
 #[derive(Debug, Default)]
 struct FinalGraphStats {
@@ -32,48 +36,23 @@ fn compile_node(
 ) -> Node {
     let node = &graph[node_idx];
 
-    const MAX_INPUTS: usize = 255;
+    let input_powers = |ty| {
+        graph
+            .edges(node_idx, Direction::Incoming)
+            .filter(move |edge| edge.weight().ty == ty)
+            .map(|edge| {
+                let link = edge.weight();
+                graph[edge.source()].state.power.saturating_sub(link.weight)
+            })
+    };
+    let default_inputs = input_powers(LinkType::Default)
+        .inspect(|_| stats.default_link_count += 1)
+        .collect::<NodeInput>();
+    let side_inputs = input_powers(LinkType::Side)
+        .inspect(|_| stats.side_link_count += 1)
+        .collect::<NodeInput>();
 
-    let mut default_input_count = 0;
-    let mut side_input_count = 0;
-
-    let mut default_inputs = NodeInput { ss_counts: [0; 16] };
-    let mut side_inputs = NodeInput { ss_counts: [0; 16] };
-    for edge in graph.edges(node_idx, Direction::Incoming) {
-        let weight = edge.weight();
-        let distance = weight.ss;
-        let source = edge.source();
-        let ss = graph[source].state.output_strength.saturating_sub(distance);
-        match weight.ty {
-            LinkType::Default => {
-                if default_input_count >= MAX_INPUTS {
-                    panic!(
-                        "Exceeded the maximum number of default inputs {}",
-                        MAX_INPUTS
-                    );
-                }
-                default_input_count += 1;
-                default_inputs.ss_counts[ss as usize] += 1;
-            }
-            LinkType::Side => {
-                if side_input_count >= MAX_INPUTS {
-                    panic!("Exceeded the maximum number of side inputs {}", MAX_INPUTS);
-                }
-                side_input_count += 1;
-                side_inputs.ss_counts[ss as usize] += 1;
-            }
-        }
-    }
-    stats.default_link_count += default_input_count;
-    stats.side_link_count += side_input_count;
-
-    // Make sure signal strength buckets add up to 255 so we can easily check for all zeros in
-    // get_bool_input
-    default_inputs.ss_counts[0] += (MAX_INPUTS - default_input_count) as u8;
-    side_inputs.ss_counts[0] += (MAX_INPUTS - side_input_count) as u8;
-
-    use crate::compile_graph::NodeType as CNodeType;
-    let fwd_link_range = if node.ty != CNodeType::Constant {
+    let fwd_link_range = if node.ty != CompileNodeType::Constant {
         let new_links = graph
             .edges(node_idx, Direction::Outgoing)
             .sorted_by_key(|edge| nodes_map[&edge.target()])
@@ -87,8 +66,8 @@ fn compile_node(
                 // Safety: bounds checked
                 let target_id = NodeId::from_index(idx);
 
-                let weight = edge.weight();
-                ForwardLink::new(target_id, weight.ty == LinkType::Side, weight.ss)
+                let link = edge.weight();
+                ForwardLink::new(target_id, link.ty == LinkType::Side, link.weight)
             });
         forward_links.extend(new_links)
     } else {
@@ -97,31 +76,31 @@ fn compile_node(
     stats.update_link_count += fwd_link_range.len();
 
     let ty = match &node.ty {
-        CNodeType::Repeater {
+        CompileNodeType::Repeater {
             delay,
             facing_diode,
         } => NodeType::Repeater {
             delay: *delay,
             facing_diode: *facing_diode,
         },
-        CNodeType::Torch => NodeType::Torch,
-        CNodeType::Comparator {
+        CompileNodeType::Torch => NodeType::Torch,
+        CompileNodeType::Comparator {
             mode,
             far_input,
             facing_diode,
         } => NodeType::Comparator {
             mode: *mode,
-            far_input: far_input.map(|value| NonMaxU8::new(value).unwrap()),
+            far_input: *far_input,
             facing_diode: *facing_diode,
         },
-        CNodeType::Lamp => NodeType::Lamp,
-        CNodeType::Button => NodeType::Button,
-        CNodeType::Lever => NodeType::Lever,
-        CNodeType::PressurePlate => NodeType::PressurePlate,
-        CNodeType::Trapdoor => NodeType::Trapdoor,
-        CNodeType::Wire => NodeType::Wire,
-        CNodeType::Constant => NodeType::Constant,
-        CNodeType::NoteBlock { instrument, note } => {
+        CompileNodeType::Lamp => NodeType::Lamp,
+        CompileNodeType::Button => NodeType::Button,
+        CompileNodeType::Lever => NodeType::Lever,
+        CompileNodeType::PressurePlate => NodeType::PressurePlate,
+        CompileNodeType::Trapdoor => NodeType::Trapdoor,
+        CompileNodeType::Wire => NodeType::Wire,
+        CompileNodeType::Constant => NodeType::Constant,
+        CompileNodeType::NoteBlock { instrument, note } => {
             let noteblock_id = noteblock_info.len().try_into().unwrap();
             noteblock_info.push((
                 node.block.iter().copied().map(|(pos, _)| pos).collect(),
@@ -137,9 +116,8 @@ fn compile_node(
         default_inputs,
         side_inputs,
         fwd_link_range,
-        powered: node.state.powered,
-        output_power: node.state.output_strength,
-        locked: node.state.repeater_locked,
+        power: node.state.power,
+        repeater_locked: node.state.repeater_locked,
         pending_tick: false,
         changed: false,
         is_io: node.is_input || node.is_output,
@@ -153,10 +131,9 @@ pub fn compile(
     options: &CompilerOptions,
     _monitor: Arc<TaskMonitor>,
 ) {
-    // Create a mapping from compile to backend node indices
     let mut nodes_map = FxHashMap::with_capacity_and_hasher(graph.node_count(), Default::default());
-    for node in graph.node_indices() {
-        nodes_map.insert(node, nodes_map.len());
+    for node_idx in graph.node_indices() {
+        nodes_map.insert(node_idx, nodes_map.len());
     }
     let nodes_len = nodes_map.len();
 

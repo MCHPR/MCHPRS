@@ -43,9 +43,9 @@ Examples: `%a`, `%repeater`, `%123`
 
 ### Input lists
 
-Input lists are defined as a list of value and distance pairs. The distance must be between 0 and 15 inclusive.
+Input lists are defined as a list of value and weight pairs. Weight is the power lost along a link. Values from 0 through 255 are accepted; the `clamp-weights` pass removes links with weight of 15 or more.
 
-`[%<name>:<distance>, ...]`
+`[%<name>:<weight>, ...]`
 
 For example: `[%a:12, %12:2]`
 
@@ -56,7 +56,7 @@ All components have a type and a list of arguments.
 These arguments have a standard type:
 - `powered`: boolean
 - `base_inputs`, `side_inputs`, `inputs`: input list
-- `output_strength`: integer between 0 and 15
+- `power`: integer between 0 and 15
 
 ### repeater
 
@@ -77,11 +77,11 @@ These arguments have a standard type:
 ### comparator
 
 ```
-%x = comparator <mode>, <far_input>, <facing_diode>, <output_strength>, <base_inputs>, <side_inputs>
+%x = comparator <mode>, <far_input>, <facing_diode>, <power>, <base_inputs>, <side_inputs>
 ```
 
 `mode` can either be `compare` or `subtract`.\
-`far_input` can either be `none` or a value.\
+`far_input` can either be `none` or an integer between 0 and 15.\
 `facing_diode` is a boolean.
 
 ### lamp
@@ -117,13 +117,13 @@ These arguments have a standard type:
 ### wire
 
 ```
-%x = wire <output_strength>, <inputs>
+%x = wire <power>, <inputs>
 ```
 
 ### constant
 
 ```
-%x = constant <output_strength>
+%x = constant <power>
 ```
 
 ### note_block
@@ -134,4 +134,3 @@ These arguments have a standard type:
 
 `instrument` is one of `harp`, `basedrum`, `snare`, `hat`, `bass`, `flute`, `bell`, `guitar`, `chime`, `xylophone`, `iron_xylophone`, `cow_bell`, `didgeridoo`, `bit`, `banjo`, or `pling`.\
 `note` is an integer between 0 and 24.
-

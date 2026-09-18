@@ -155,9 +155,13 @@ impl BlockEntity {
     pub fn from_nbt(id: &str, nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
         use nbt::Value;
         match id.trim_start_matches("minecraft:") {
-            "comparator" => Some(BlockEntity::Comparator {
-                output_strength: *nbt_unwrap_val!(&nbt["OutputSignal"], Value::Int) as u8,
-            }),
+            "comparator" => {
+                let output_strength = match nbt.get("OutputSignal") {
+                    Some(Value::Int(value)) => (*value).clamp(0, 15) as u8,
+                    _ => 0,
+                };
+                Some(BlockEntity::Comparator { output_strength })
+            }
             "furnace" => BlockEntity::load_container(
                 nbt_unwrap_val!(&nbt["Items"], Value::List),
                 ContainerType::Furnace,

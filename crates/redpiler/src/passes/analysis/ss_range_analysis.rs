@@ -12,13 +12,15 @@
 //! TODO: handle cases where a cycle has a constrained input. Pulse extender example: button ->
 //! comparator subtract by constant -> comparator loop
 
-use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx, NodeState, NodeType};
-use crate::passes::{AnalysisInfo, AnalysisInfos, AnalysisUsage, Pass};
-use crate::{CompilerInput, CompilerOptions};
+use std::iter;
+
 use itertools::Itertools;
 use mchprs_blocks::blocks::ComparatorMode;
 use mchprs_world::World;
-use std::iter;
+
+use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx, NodeState, NodeType};
+use crate::passes::{AnalysisInfo, AnalysisInfos, AnalysisUsage, Pass};
+use crate::{CompilerInput, CompilerOptions};
 
 /// The possible output range of a node
 #[derive(Clone, Copy, Debug)]
@@ -151,7 +153,7 @@ impl<W: World> Pass<W> for SSRangeAnalysis {
         // Handle transient states
         for node_idx in graph.node_indices() {
             let node = &graph[node_idx];
-            range_info.extend_range_to_include(node_idx, node.state.output_strength);
+            range_info.extend_range_to_include(node_idx, node.state.power.get());
         }
 
         analysis_infos.insert_analysis(range_info);
@@ -219,7 +221,7 @@ impl SSRangeAnalysis {
                     None
                 }
             })?;
-            let src_range = src_range.decay(link.ss);
+            let src_range = src_range.decay(link.weight);
 
             let acc = match link.ty {
                 LinkType::Default => &mut default_range,
@@ -249,7 +251,7 @@ impl SSRangeAnalysis {
                     && side_range.low > 0
                 {
                     // This repeater is always locked, use current state
-                    return SSRange::constant(state.output_strength);
+                    return SSRange::constant(state.power.get());
                 }
                 // For binary nodes, there are 3 possibilities: always powered, never powered, and
                 // sometimes powered
@@ -276,13 +278,13 @@ impl SSRangeAnalysis {
                 let input_range = if let Some(far_override) = far_input {
                     if default_range.high < 15 {
                         // The default input can never reach 15 ss, so we always use far override
-                        SSRange::constant(*far_override)
+                        SSRange::constant(far_override.get())
                     } else {
                         // The default range reaches 15 ss, overriding the far override, so the high
                         // must be 15. The low is always the far override, because if the default
                         // input is lower than the far override, it cannot possibly be 15.
                         SSRange {
-                            low: *far_override,
+                            low: far_override.get(),
                             high: 15,
                         }
                     }
@@ -324,7 +326,7 @@ impl SSRangeAnalysis {
             | NodeType::Wire
             | NodeType::NoteBlock { .. } => SSRange::constant(0),
             NodeType::Torch => SSRange::constant(15),
-            NodeType::Constant => SSRange::constant(state.output_strength),
+            NodeType::Constant => SSRange::constant(state.power.get()),
             NodeType::Button | NodeType::Lever | NodeType::PressurePlate => SSRange::FULL,
         }
     }

@@ -3,11 +3,12 @@
 //! This pass uses the output of SSRangeAnalysis pass to find links that can be removed because the
 //! output ss of a node is never higher than the weight of the link.
 
+use mchprs_world::World;
+
 use crate::compile_graph::{CompileGraph, Direction, NodeIdx};
 use crate::passes::analysis::ss_range_analysis::{SSRangeAnalysis, SSRangeInfo};
 use crate::passes::{AnalysisInfos, AnalysisUsage, Pass};
 use crate::{CompilerInput, CompilerOptions};
-use mchprs_world::World;
 
 pub struct UnreachableOutput;
 
@@ -32,7 +33,7 @@ impl<W: World> Pass<W> for UnreachableOutput {
             // is too high.
             let mut outgoing = graph.neighbors(idx, Direction::Outgoing).detach();
             while let Some((edge_idx, _)) = outgoing.next(graph) {
-                if graph[edge_idx].ss >= range.high {
+                if graph[edge_idx].weight >= range.high {
                     graph.remove_edge(edge_idx);
                 }
             }
