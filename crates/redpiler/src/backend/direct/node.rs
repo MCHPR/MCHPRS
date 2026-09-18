@@ -192,7 +192,7 @@ pub struct Node {
 
     pub fwd_link_range: ForwardLinkRange,
 
-    pub is_io: bool,
+    pub visible: bool,
 
     /// Powered or lit
     pub powered: bool,

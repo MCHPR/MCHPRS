@@ -248,8 +248,7 @@ impl Compiler {
     }
 
     pub fn flush<W: World>(&mut self, world: &mut W) {
-        let io_only = self.options.io_only;
-        self.backend().flush(world, io_only);
+        self.backend().flush(world);
     }
 
     pub fn inspect(&mut self, pos: BlockPos) {
