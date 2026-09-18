@@ -1,5 +1,5 @@
+use crate::compile_graph::SignalStrength;
 use mchprs_blocks::blocks::ComparatorMode;
-use std::num::NonZeroU8;
 use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
@@ -144,7 +144,7 @@ pub enum NodeType {
     Torch,
     Comparator {
         mode: ComparatorMode,
-        far_input: Option<NonMaxU8>,
+        far_input: Option<SignalStrength>,
         facing_diode: bool,
     },
     Lamp,
@@ -162,19 +162,22 @@ pub enum NodeType {
 #[repr(align(16))]
 #[derive(Debug, Clone, Default)]
 pub struct NodeInput {
-    pub ss_counts: [u8; 16],
+    pub power_counts: [u8; 16],
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct NonMaxU8(NonZeroU8);
-
-impl NonMaxU8 {
-    pub fn new(value: u8) -> Option<Self> {
-        NonZeroU8::new(value + 1).map(Self)
+impl NodeInput {
+    pub fn is_powered(&self) -> bool {
+        // Compilation pads the zero-power bucket so all counts sum to 255.
+        self.power_counts[0] != 255
     }
 
-    pub fn get(self) -> u8 {
-        self.0.get() - 1
+    pub fn power(&self) -> SignalStrength {
+        let counts = u128::from_le_bytes(self.power_counts);
+        if counts == 0 {
+            SignalStrength::Zero
+        } else {
+            SignalStrength::try_from(15 - (counts.leading_zeros() >> 3) as u8).unwrap()
+        }
     }
 }
 
@@ -193,15 +196,28 @@ pub struct Node {
 
     pub visible: bool,
 
-    /// Only for repeaters
-    pub locked: bool,
-    pub output_strength: u8,
+    pub power: SignalStrength,
+    pub repeater_locked: bool,
     pub changed: bool,
     pub pending_tick: bool,
 }
 
 impl Node {
     pub fn is_powered(&self) -> bool {
-        self.output_strength > 0
+        !self.power.is_zero()
+    }
+
+    pub fn set_power(&mut self, power: SignalStrength) {
+        self.power = power;
+        self.changed = true;
+    }
+
+    pub fn set_powered(&mut self, powered: bool) {
+        self.set_power(powered.into());
+    }
+
+    pub fn set_repeater_locked(&mut self, locked: bool) {
+        self.repeater_locked = locked;
+        self.changed = true;
     }
 }

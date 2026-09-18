@@ -1,12 +1,12 @@
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
-use mchprs_redstone::bool_to_ss;
 // use petgraph::stable_graph::{NodeIndex, StableGraph};
 use smallvec::SmallVec;
 use stable_graph::{NodeIndex, StableGraph};
 
 mod stable_graph;
 
+pub use redpiler_graph::SignalStrength;
 pub use stable_graph::{Direction, EdgeRef};
 pub type NodeIdx = NodeIndex<u32>;
 
@@ -19,7 +19,7 @@ pub enum NodeType {
     Torch,
     Comparator {
         mode: ComparatorMode,
-        far_input: Option<u8>,
+        far_input: Option<SignalStrength>,
         facing_diode: bool,
     },
     Lamp,
@@ -51,36 +51,35 @@ impl NodeType {
     }
 }
 
-/// Binary components are either 0 or 15, output components store their activation the same way
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct NodeState {
-    pub output_strength: u8,
+    pub power: SignalStrength,
     pub repeater_locked: bool,
     pub pending_tick: bool,
 }
 
 impl NodeState {
-    pub fn simple(powered: bool) -> NodeState {
-        NodeState::ss(bool_to_ss(powered))
+    pub fn from_power(power: SignalStrength) -> Self {
+        Self {
+            power,
+            ..Default::default()
+        }
     }
 
-    pub fn repeater(powered: bool, locked: bool) -> NodeState {
-        NodeState {
-            output_strength: bool_to_ss(powered),
+    pub fn from_powered(powered: bool) -> Self {
+        Self::from_power(powered.into())
+    }
+
+    pub fn repeater(powered: bool, locked: bool) -> Self {
+        Self {
+            power: powered.into(),
             repeater_locked: locked,
             ..Default::default()
         }
     }
 
-    pub fn ss(ss: u8) -> NodeState {
-        NodeState {
-            output_strength: ss,
-            ..Default::default()
-        }
-    }
-
     pub fn is_powered(&self) -> bool {
-        self.output_strength > 0
+        !self.power.is_zero()
     }
 }
 

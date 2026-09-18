@@ -125,7 +125,7 @@ impl<W: World> Pass<W> for SSSetAnalysis {
             {
                 SSSet::BINARY
             } else {
-                SSSet::singleton(node.state.output_strength)
+                SSSet::singleton(node.state.power.get())
             };
             sets[node_idx.index()] = Some(initial);
         }
@@ -195,7 +195,7 @@ fn evaluate(ty: &NodeType, state: &NodeState, default_input: SSSet, side_input: 
             if side_input.contains(0) {
                 default_input.to_binary()
             } else {
-                SSSet::singleton(state.output_strength)
+                SSSet::singleton(state.power.get())
             }
         }
         NodeType::Torch => default_input.to_inverted_binary(),
@@ -206,7 +206,7 @@ fn evaluate(ty: &NodeType, state: &NodeState, default_input: SSSet, side_input: 
             mode, far_input, ..
         } => {
             let input = match far_input {
-                Some(far_input) => default_input.far_override(*far_input),
+                Some(far_input) => default_input.far_override(far_input.get()),
                 None => default_input,
             };
             match mode {
@@ -215,7 +215,7 @@ fn evaluate(ty: &NodeType, state: &NodeState, default_input: SSSet, side_input: 
             }
         }
         NodeType::Wire => default_input,
-        NodeType::Constant => SSSet::singleton(state.output_strength),
+        NodeType::Constant => SSSet::singleton(state.power.get()),
         NodeType::Button | NodeType::Lever | NodeType::PressurePlate => SSSet::BINARY,
     }
 }
