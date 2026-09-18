@@ -153,15 +153,7 @@ impl DirectBackend {
                 continue;
             }
 
-            // Safety: SignalStrength bounds both indices to 0..=15.
-            unsafe {
-                *inputs
-                    .power_counts
-                    .get_unchecked_mut(old_input.get() as usize) -= 1;
-                *inputs
-                    .power_counts
-                    .get_unchecked_mut(new_input.get() as usize) += 1;
-            }
+            inputs.update_power(old_input, new_input);
 
             update::update_node(
                 &mut self.scheduler,

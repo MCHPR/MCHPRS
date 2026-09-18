@@ -1,4 +1,7 @@
-use std::ops::{Index, IndexMut};
+use std::{
+    num::NonZeroU128,
+    ops::{Index, IndexMut},
+};
 
 use mchprs_blocks::blocks::ComparatorMode;
 
@@ -162,24 +165,49 @@ pub enum NodeType {
 }
 
 #[repr(align(16))]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct NodeInput {
-    pub power_counts: [u8; 16],
+    power_counts: [u8; 16],
 }
 
 impl NodeInput {
+    pub const fn new() -> Self {
+        let mut power_counts = [0; 16];
+        power_counts[0] = u8::MAX;
+        Self { power_counts }
+    }
+
+    #[inline]
+    pub fn update_power(&mut self, old_power: SignalStrength, new_power: SignalStrength) {
+        self.power_counts[old_power.get() as usize] -= 1;
+        self.power_counts[new_power.get() as usize] += 1;
+    }
+
     pub fn is_powered(&self) -> bool {
-        // Compilation pads the zero-power bucket so all counts sum to 255.
-        self.power_counts[0] != 255
+        self.power_counts[0] != u8::MAX
     }
 
     pub fn power(&self) -> SignalStrength {
         let counts = u128::from_le_bytes(self.power_counts);
-        if counts == 0 {
-            SignalStrength::ZERO
-        } else {
-            SignalStrength::try_from(15 - (counts.leading_zeros() >> 3) as u8).unwrap()
+        // Safety: construction and updates preserve a total count of 255.
+        let counts = unsafe { NonZeroU128::new_unchecked(counts) };
+        // A nonzero u128 has at most 127 leading zeros, so the strength is 0..=15.
+        SignalStrength::try_from(15 - (counts.leading_zeros() >> 3) as u8).unwrap()
+    }
+}
+
+impl FromIterator<SignalStrength> for NodeInput {
+    fn from_iter<T: IntoIterator<Item = SignalStrength>>(powers: T) -> Self {
+        let mut inputs = Self::new();
+        for (index, power) in powers.into_iter().enumerate() {
+            assert!(
+                index < u8::MAX as usize,
+                "Exceeded the maximum number of inputs {}",
+                u8::MAX
+            );
+            inputs.update_power(SignalStrength::ZERO, power);
         }
+        inputs
     }
 }
 

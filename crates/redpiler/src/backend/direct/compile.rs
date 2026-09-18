@@ -36,42 +36,21 @@ fn compile_node(
 ) -> Node {
     let node = &graph[node_idx];
 
-    const MAX_INPUTS: usize = 255;
-
-    let mut default_input_count = 0;
-    let mut side_input_count = 0;
-
-    let mut default_inputs = NodeInput::default();
-    let mut side_inputs = NodeInput::default();
-    for edge in graph.edges(node_idx, Direction::Incoming) {
-        let link = edge.weight();
-        let source = edge.source();
-        let power = graph[source].state.power.saturating_sub(link.weight);
-        match link.ty {
-            LinkType::Default => {
-                if default_input_count >= MAX_INPUTS {
-                    panic!(
-                        "Exceeded the maximum number of default inputs {}",
-                        MAX_INPUTS
-                    );
-                }
-                default_input_count += 1;
-                default_inputs.power_counts[power.get() as usize] += 1;
-            }
-            LinkType::Side => {
-                if side_input_count >= MAX_INPUTS {
-                    panic!("Exceeded the maximum number of side inputs {}", MAX_INPUTS);
-                }
-                side_input_count += 1;
-                side_inputs.power_counts[power.get() as usize] += 1;
-            }
-        }
-    }
-    stats.default_link_count += default_input_count;
-    stats.side_link_count += side_input_count;
-
-    default_inputs.power_counts[0] += (MAX_INPUTS - default_input_count) as u8;
-    side_inputs.power_counts[0] += (MAX_INPUTS - side_input_count) as u8;
+    let input_powers = |ty| {
+        graph
+            .edges(node_idx, Direction::Incoming)
+            .filter(move |edge| edge.weight().ty == ty)
+            .map(|edge| {
+                let link = edge.weight();
+                graph[edge.source()].state.power.saturating_sub(link.weight)
+            })
+    };
+    let default_inputs = input_powers(LinkType::Default)
+        .inspect(|_| stats.default_link_count += 1)
+        .collect::<NodeInput>();
+    let side_inputs = input_powers(LinkType::Side)
+        .inspect(|_| stats.side_link_count += 1)
+        .collect::<NodeInput>();
 
     let fwd_link_range = if node.ty != CompileNodeType::Constant {
         let new_links = graph
