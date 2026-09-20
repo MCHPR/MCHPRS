@@ -199,6 +199,7 @@ impl Compiler {
 
     pub fn reset<W: World>(&mut self, world: &mut W, bounds: (BlockPos, BlockPos)) {
         if self.is_active {
+            self.flush(world);
             self.is_active = false;
             if let Some(backend) = &mut self.backend {
                 backend.reset(world, self.options.io_only)
@@ -227,20 +228,18 @@ impl Compiler {
         }
     }
 
-    pub fn tick(&mut self) {
-        self.backend().tick();
-    }
-
-    pub fn tickn(&mut self, ticks: u64) {
-        self.backend().tickn(ticks);
+    /// Returns the number of complete ticks executed without publishing world updates.
+    /// Deadline checks are cooperative and never interrupt a simulation tick.
+    pub fn run_ticks(&mut self, max_ticks: u64, deadline: Option<Instant>) -> u64 {
+        self.backend().run_ticks(max_ticks, deadline)
     }
 
     pub fn on_use_block(&mut self, pos: BlockPos) {
         self.backend().on_use_block(pos);
     }
 
-    pub fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) {
-        self.backend().set_pressure_plate(pos, powered);
+    pub fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) -> bool {
+        self.backend().set_pressure_plate(pos, powered)
     }
 
     pub fn flush<W: World>(&mut self, world: &mut W) {

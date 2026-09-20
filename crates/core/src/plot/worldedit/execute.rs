@@ -31,9 +31,7 @@ pub(super) fn execute_wand(ctx: CommandExecuteContext<'_>) {
         }],
     }
     .encode();
-    for player in &mut ctx.plot.packet_senders {
-        player.send_packet(&entity_equipment);
-    }
+    ctx.plot.output.send(&entity_equipment);
 }
 
 pub(super) fn execute_set(ctx: CommandExecuteContext<'_>) {

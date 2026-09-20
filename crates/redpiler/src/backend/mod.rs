@@ -1,6 +1,7 @@
 pub mod direct;
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use super::compile_graph::CompileGraph;
 use super::task_monitor::TaskMonitor;
@@ -18,16 +19,10 @@ pub trait JITBackend {
         options: &CompilerOptions,
         monitor: Arc<TaskMonitor>,
     );
-    fn tick(&mut self);
-
-    fn tickn(&mut self, ticks: u64) {
-        for _ in 0..ticks {
-            self.tick();
-        }
-    }
+    fn run_ticks(&mut self, max_ticks: u64, deadline: Option<Instant>) -> u64;
 
     fn on_use_block(&mut self, pos: BlockPos);
-    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool);
+    fn set_pressure_plate(&mut self, pos: BlockPos, powered: bool) -> bool;
     fn flush<W: World>(&mut self, world: &mut W, io_only: bool);
     fn reset<W: World>(&mut self, world: &mut W, io_only: bool);
     fn has_pending_ticks(&self) -> bool;

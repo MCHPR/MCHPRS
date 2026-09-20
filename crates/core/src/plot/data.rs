@@ -1,23 +1,9 @@
-use super::{Plot, PlotWorld, PLOT_WIDTH};
+use super::{Plot, PlotWorld, WorldOutput, PLOT_WIDTH};
 use anyhow::{Context, Result};
 use mchprs_save_data::plot_data::{ChunkData, PlotData, Tps, WorldSendRate};
 use std::path::Path;
 use std::sync::LazyLock;
-use std::time::Duration;
-
-// TODO: where to put this?
-pub fn sleep_time_for_tps(tps: Tps) -> Duration {
-    match tps {
-        Tps::Limited(tps) => {
-            if tps > 10 {
-                Duration::from_micros(1_000_000 / tps as u64)
-            } else {
-                Duration::from_millis(50)
-            }
-        }
-        Tps::Unlimited => Duration::ZERO,
-    }
-}
+use std::time::Instant;
 
 pub fn load_plot(path: impl AsRef<Path>) -> Result<PlotData> {
     let path = path.as_ref();
@@ -49,11 +35,11 @@ static EMPTY_PLOT: LazyLock<PlotData> = LazyLock::new(|| {
             z: 0,
             chunks,
             to_be_ticked: Vec::new(),
-            packet_senders: Vec::new(),
+            output: WorldOutput::new(WorldSendRate::default(), Instant::now()),
         };
         let chunk_data: Vec<ChunkData> = world.chunks.iter_mut().map(ChunkData::new).collect();
         PlotData {
-            tps: Tps::Limited(10),
+            tps: Tps::Limited(10.0),
             world_send_rate: WorldSendRate::default(),
             chunk_data,
             pending_ticks: Vec::new(),

@@ -86,7 +86,7 @@ pub trait World: 'static {
     ) {
     }
 
-    fn flush_block_changes(&mut self) {}
+    fn flush_updates(&mut self) {}
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

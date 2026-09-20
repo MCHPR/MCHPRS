@@ -55,7 +55,7 @@ impl BackendRunner {
 
     pub fn tick(&mut self) {
         if let Some(redpiler) = &mut self.redpiler {
-            redpiler.compiler.tick();
+            redpiler.compiler.run_ticks(1, None);
             redpiler.compiler.flush(&mut self.world);
             return;
         }

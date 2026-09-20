@@ -147,14 +147,20 @@ pub fn execute_command(
     }
     if command.mutates_world {
         plot.reset_redpiler();
+    } else {
+        plot.flush_redpiler();
     }
-    let ctx = CommandExecuteContext {
+    let context = CommandExecuteContext {
         plot: &mut plot.world,
         player: &mut plot.players[player_idx],
         arguments,
         flags: ctx_flags,
     };
-    (command.execute_fn)(ctx);
+    let execute = command.execute_fn;
+    execute(context);
+    if command.mutates_world {
+        plot.publish_world();
+    }
     true
 }
 
@@ -978,17 +984,6 @@ fn clear_area(plot: &mut PlotWorld, first_pos: BlockPos, second_pos: BlockPos) {
         for z in start_pos.z..=end_pos.z {
             for x in start_pos.x..=end_pos.x {
                 plot.set_block_raw(BlockPos::new(x, y, z), 0);
-            }
-        }
-    }
-    // Send modified chunks
-    for chunk_x in (start_pos.x >> 4)..=(end_pos.x >> 4) {
-        for chunk_z in (start_pos.z >> 4)..=(end_pos.z >> 4) {
-            if let Some(chunk) = plot.get_chunk(chunk_x, chunk_z) {
-                let chunk_data = chunk.encode_packet();
-                for player in &mut plot.packet_senders {
-                    player.send_packet(&chunk_data);
-                }
             }
         }
     }

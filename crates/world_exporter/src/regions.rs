@@ -10,21 +10,14 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-fn encode_section(section: &ChunkSection) -> HashMap<String, nbt::Value> {
+fn encode_section(section: &mut ChunkSection) -> HashMap<String, nbt::Value> {
     let num_entries = 16 * 16 * 16;
-    // Copy the chunk section's internal buffer
-    let orig_buffer = PalettedBitBuffer::load(
-        num_entries,
-        section.bits_per_block(),
-        section.data().to_vec(),
-        section.palette().to_vec(),
-        9,
-    );
+    let snapshot = section.snapshot();
 
     // Copy into a new buffer that can never use direct palette
     let mut buffer = PalettedBitBuffer::new(num_entries, u64::MAX);
     for idx in 0..num_entries {
-        buffer.set_entry(idx, orig_buffer.get_entry(idx));
+        buffer.set_entry(idx, snapshot.block_states.get_entry(idx));
     }
 
     let mut palette = Vec::new();
@@ -50,7 +43,7 @@ fn encode_section(section: &ChunkSection) -> HashMap<String, nbt::Value> {
 }
 
 fn serialize_chunk(chunk_x: i32, chunk_z: i32, chunk: ChunkData) -> Result<Vec<u8>> {
-    let chunk = chunk.load(chunk_x, chunk_z);
+    let mut chunk = chunk.load(chunk_x, chunk_z);
     let mut nbt = nbt::Blob::new();
     nbt.insert("DataVersion", nbt::Value::Int(MC_DATA_VERSION))?;
     nbt.insert("xPos", nbt::Value::Int(chunk_x))?;
@@ -75,7 +68,7 @@ fn serialize_chunk(chunk_x: i32, chunk_z: i32, chunk: ChunkData) -> Result<Vec<u
     nbt.insert("block_entities", nbt::Value::List(block_entities))?;
 
     let mut sections = Vec::new();
-    for (section_y, section) in chunk.sections.iter().enumerate() {
+    for (section_y, section) in chunk.sections.iter_mut().enumerate() {
         let mut section_nbt = HashMap::new();
         section_nbt.insert("Y".to_string(), nbt::Value::Byte(section_y as i8));
         let block_states = if section.block_count() != 0 {
