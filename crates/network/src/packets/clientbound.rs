@@ -393,6 +393,7 @@ impl ClientBoundPacket for CCommandSuggestionsResponse {
     }
 }
 
+// See: https://minecraft.wiki/w/Java_Edition_protocol/Command_data#Parsers
 #[derive(Debug)]
 pub enum CDeclareCommandsNodeParser {
     Entity(i8),
@@ -401,6 +402,7 @@ pub enum CDeclareCommandsNodeParser {
     Integer(i32, i32),
     Float(f32, f32),
     BlockPos,
+    ColumnPos,
     BlockState,
     String(i32),
 }
@@ -414,30 +416,31 @@ impl CDeclareCommandsNodeParser {
             };
         }
         match self {
-            Entity(flags) => {
-                buf.write_varint(arg_type!("minecraft:entity"));
-                buf.write_byte(*flags);
+            Float(min, max) => {
+                buf.write_varint(arg_type!("brigadier:float"));
+                buf.write_byte(3); // Supply min and max value
+                buf.write_float(*min);
+                buf.write_float(*max);
             }
-            Vec2 => buf.write_varint(arg_type!("minecraft:vec2")),
-            Vec3 => buf.write_varint(arg_type!("minecraft:vec3")),
-            BlockPos => buf.write_varint(arg_type!("minecraft:block_pos")),
-            BlockState => buf.write_varint(arg_type!("minecraft:block_state")),
             Integer(min, max) => {
                 buf.write_varint(arg_type!("brigadier:integer"));
                 buf.write_byte(3); // Supply min and max value
                 buf.write_int(*min);
                 buf.write_int(*max);
             }
-            Float(min, max) => {
-                buf.write_varint(arg_type!("brigadier:float"));
-                buf.write_byte(3);
-                buf.write_float(*min);
-                buf.write_float(*max);
-            }
             String(ty) => {
                 buf.write_varint(arg_type!("brigadier:string"));
                 buf.write_varint(*ty);
             }
+            Entity(flags) => {
+                buf.write_varint(arg_type!("minecraft:entity"));
+                buf.write_byte(*flags);
+            }
+            BlockPos => buf.write_varint(arg_type!("minecraft:block_pos")),
+            ColumnPos => buf.write_varint(arg_type!("minecraft:column_pos")),
+            Vec2 => buf.write_varint(arg_type!("minecraft:vec2")),
+            Vec3 => buf.write_varint(arg_type!("minecraft:vec3")),
+            BlockState => buf.write_varint(arg_type!("minecraft:block_state")),
         }
     }
 }
@@ -447,9 +450,9 @@ pub struct CCommandsNode {
     pub flags: i8,
     pub children: Vec<i32>,
     pub redirect_node: Option<i32>,
-    pub name: Option<&'static str>,
+    pub name: Option<String>,
     pub parser: Option<CDeclareCommandsNodeParser>,
-    pub suggestions_type: Option<&'static str>,
+    pub suggestions_type: Option<String>,
 }
 
 pub struct CCommands {
@@ -470,13 +473,13 @@ impl ClientBoundPacket for CCommands {
             if let Some(redirect_node) = node.redirect_node {
                 buf.write_varint(redirect_node);
             }
-            if let Some(name) = node.name {
+            if let Some(name) = &node.name {
                 buf.write_string(32767, name);
             }
             if let Some(parser) = &node.parser {
                 parser.write(&mut buf);
             }
-            if let Some(suggesstions_type) = node.suggestions_type {
+            if let Some(suggesstions_type) = &node.suggestions_type {
                 buf.write_string(32767, suggesstions_type);
             }
         }

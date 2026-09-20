@@ -1319,6 +1319,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mchprs_commands"
+version = "0.5.2-dev"
+dependencies = [
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "mchprs_core"
 version = "0.5.2-dev"
 dependencies = [
@@ -1333,6 +1340,7 @@ dependencies = [
  "hmac",
  "itertools",
  "mchprs_blocks",
+ "mchprs_commands",
  "mchprs_network",
  "mchprs_proc_macros",
  "mchprs_redpiler",
@@ -1352,6 +1360,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "thiserror 2.0.18",
  "tokio",
  "toml",
  "toml_edit 0.23.10+spec-1.0.0",

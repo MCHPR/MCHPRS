@@ -12,6 +12,7 @@ use regex::Regex;
 use rustc_hash::FxHashMap;
 use serde::Serialize;
 use std::fs::{self, File};
+use std::io::Write;
 use std::path::Path;
 use std::sync::LazyLock;
 
@@ -28,7 +29,7 @@ pub struct WorldEditClipboard {
 }
 
 pub fn create_clipboard<W: World>(
-    world: &mut W,
+    world: &W,
     origin: BlockPos,
     first_pos: BlockPos,
     second_pos: BlockPos,
@@ -327,10 +328,7 @@ struct Schematic {
     data_version: i32,
 }
 
-pub fn save_schematic(path: &Path, clipboard: &WorldEditClipboard) -> Result<()> {
-    fs::create_dir_all(path.parent().unwrap())?;
-
-    let mut file = File::create(path)?;
+pub fn save_schematic(path: &Path, clipboard: &WorldEditClipboard, overwrite: bool) -> Result<()> {
     let size_x = clipboard.size_x;
     let size_y = clipboard.size_y;
     let size_z = clipboard.size_z;
@@ -410,7 +408,18 @@ pub fn save_schematic(path: &Path, clipboard: &WorldEditClipboard) -> Result<()>
         version: 2,
         data_version: MC_DATA_VERSION,
     };
-    nbt::to_gzip_writer(&mut file, &schematic, Some("Schematic"))?;
+    let mut encoded = Vec::new();
+    nbt::to_gzip_writer(&mut encoded, &schematic, Some("Schematic"))?;
+    if let Some(directory) = path.parent() {
+        fs::create_dir_all(directory)?;
+    }
+    File::options()
+        .write(true)
+        .create(true)
+        .create_new(!overwrite)
+        .truncate(overwrite)
+        .open(path)?
+        .write_all(&encoded)?;
 
     Ok(())
 }

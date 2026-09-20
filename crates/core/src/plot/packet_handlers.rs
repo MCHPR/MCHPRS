@@ -1,19 +1,21 @@
 use super::Plot;
-use crate::config::CONFIG;
-use crate::player::{PacketSender, PlayerPos, SkinParts};
-use crate::server::Message;
-use crate::utils::{self, HyphenatedUUID};
-use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::items::{Item, ItemStack};
-use mchprs_blocks::BlockPos;
+use crate::{
+    commands::{schematic_names, SuggestionSource, COMMAND_REGISTRY},
+    player::{PacketSender, PlayerPos, SkinParts},
+    server::Message,
+    utils,
+};
+use mchprs_blocks::{
+    block_entities::BlockEntity,
+    items::{Item, ItemStack},
+    BlockPos,
+};
 use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::serverbound::*;
 use mchprs_world::World;
 use serde_json::json;
-use std::fs;
-use std::path::PathBuf;
-use std::time::Instant;
-use tracing::error;
+use std::{sync::mpsc, time::Instant};
+use tracing::warn;
 
 impl Plot {
     pub(super) fn handle_packets_for_player(&mut self, player: usize) {
@@ -30,51 +32,28 @@ impl ServerBoundPacketHandler for Plot {
         packet: SCommandSuggestionsRequest,
         player_idx: usize,
     ) {
-        if !packet.text.starts_with("//load ") {
-            return;
+        let mut suggestions = COMMAND_REGISTRY.suggestions(
+            &packet.text,
+            packet.transaction_id,
+            &self.players[player_idx],
+        );
+        if suggestions.needs(SuggestionSource::SchematicFiles) {
+            let names = schematic_names(self.players[player_idx].uuid).unwrap_or_else(|error| {
+                warn!("Unable to complete schematic filenames: {error}");
+                Vec::new()
+            });
+            suggestions.resolve(SuggestionSource::SchematicFiles, names);
         }
-
-        let mut path = PathBuf::from("./schems");
-        if CONFIG.schemati {
-            let uuid = self.players[player_idx].uuid;
-            path.push(HyphenatedUUID(uuid).to_string());
+        if suggestions.needs(SuggestionSource::PlayerNames) {
+            let (sender, receiver) = mpsc::sync_channel(1);
+            self.players[player_idx]
+                .pending_command_suggestions
+                .push(receiver);
+            self.send_message(Message::CommandSuggestions(suggestions, sender));
+        } else {
+            let response = suggestions.into_response();
+            self.players[player_idx].send_packet(&response.encode());
         }
-
-        let current = &packet.text[7..];
-        let mut res = CCommandSuggestionsResponse {
-            id: packet.transaction_id,
-            start: 7,
-            length: current.len() as i32,
-            matches: Vec::new(),
-        };
-
-        let dir = match fs::read_dir(path) {
-            Ok(dir) => dir,
-            Err(err) => {
-                if err.kind() != std::io::ErrorKind::NotFound {
-                    error!("There was an error completing //load");
-                    error!("{}", err);
-                }
-                return;
-            }
-        };
-
-        for entry in dir {
-            let entry = entry.unwrap();
-            if entry.file_type().unwrap().is_file() {
-                let name = entry.file_name();
-                let name = name.to_string_lossy();
-                if name.starts_with(current) {
-                    let m = CCommandSuggestionsResponseMatch {
-                        match_: name.to_string(),
-                        tooltip: None,
-                    };
-                    res.matches.push(m);
-                }
-            }
-        }
-
-        self.players[player_idx].send_packet(&res.encode());
     }
 
     fn handle_keep_alive(&mut self, _keep_alive: SKeepAlive, player_idx: usize) {

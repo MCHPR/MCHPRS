@@ -3,7 +3,8 @@ use indexmap::IndexMap;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::{quote, ToTokens};
 use serde::Deserialize;
-use std::{collections::HashMap, fs, path::PathBuf, process::Command};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::{fs, path::PathBuf, process::Command};
 
 #[derive(Deserialize)]
 struct BlockState {
@@ -66,6 +67,7 @@ struct Prop {
     u8_offset: u8,
     default: String,
     num_values: usize,
+    values: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -159,6 +161,7 @@ fn process_block(
                     ty: prop_type.clone(),
                     default: default_props[prop_name].clone(),
                     num_values,
+                    values: prop_values.clone(),
                     u8_offset: if prop_values[0] == "1" { 1 } else { 0 },
                 });
             }
@@ -258,6 +261,7 @@ fn generate_block_enum(blocks: &[ProcessedBlock]) -> TokenStream {
 }
 
 fn generate_get_name(blocks: &[ProcessedBlock]) -> TokenStream {
+    let names = blocks.iter().map(|block| &block.name);
     let match_arms = blocks.iter().map(|block| {
         let name = &block.name;
         let pat = block.match_ignore();
@@ -267,6 +271,10 @@ fn generate_get_name(blocks: &[ProcessedBlock]) -> TokenStream {
     });
 
     quote! {
+        pub fn names() -> &'static [&'static str] {
+            &[#(#names),*]
+        }
+
         pub fn get_name(self) -> &'static str {
             match self {
                 #( #match_arms ),*
@@ -369,6 +377,42 @@ fn generate_set_props(blocks: &[ProcessedBlock]) -> TokenStream {
             match self {
                 #( #match_arms )*
             }
+        }
+    }
+}
+
+fn generate_property_validation(blocks: &[ProcessedBlock]) -> TokenStream {
+    let match_arms = blocks.iter().flat_map(|block| {
+        block.props.iter().map(move |prop| {
+            let pat = block.match_ignore();
+            let name = &prop.name;
+            let values = &prop.values;
+            quote! { (#pat, #name) => Some(&[#(#values),*]), }
+        })
+    });
+    let mut all_values = BTreeMap::<&str, BTreeSet<&str>>::new();
+    for block in blocks {
+        for prop in &block.props {
+            all_values
+                .entry(&prop.name)
+                .or_default()
+                .extend(prop.values.iter().map(String::as_str));
+        }
+    }
+    let known_properties = all_values.iter().map(|(name, values)| {
+        let values = values.iter();
+        quote! { PropertyDefinition { name: #name, values: &[#(#values),*] }, }
+    });
+    quote! {
+        pub fn property_values(&self, name: &str) -> Option<&'static [&'static str]> {
+            match (self, name) {
+                #(#match_arms)*
+                _ => None,
+            }
+        }
+
+        pub fn known_properties() -> &'static [PropertyDefinition] {
+            &[#(#known_properties)*]
         }
     }
 }
@@ -809,6 +853,7 @@ fn generate_module(
         Some(|block| block.attrs.maybe_transparent),
     );
     let set_props = generate_set_props(blocks);
+    let property_validation = generate_property_validation(blocks);
     let gen_props = generate_gen_props(blocks);
     let rotate = generate_rotate(blocks);
     let flip = generate_flip(blocks);
@@ -850,6 +895,7 @@ fn generate_module(
             #is_cube
             #is_transparent
             #set_props
+            #property_validation
             #gen_props
             #rotate
             #flip
