@@ -53,6 +53,7 @@ The following options are available at the toplevel (under no header):
 | `schemati` | Mimic the verification and directory layout used by the Open Redstone Engineers [Schemati plugin](https://github.com/OpenRedstoneEngineers/Schemati) | `false` |
 | `block_in_hitbox` | Allow placing blocks inside of players (hitbox logic is simplified) | `true` |
 | `auto_redpiler` | Use redpiler automatically | `false` |
+| `autosave_interval_seconds` | Time between plot autosaves (in seconds) | `0` (disabled) |
 
 To change the plot size edit the constants defined in [plot/mod.rs](./crates/core/src/plot/mod.rs).
 
