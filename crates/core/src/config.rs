@@ -73,7 +73,8 @@ gen_config! {
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true,
     auto_redpiler: bool = false,
-    velocity: Option<VelocityConfig> = None
+    velocity: Option<VelocityConfig> = None,
+    autosave_interval_seconds: i64 = 0
 }
 
 #[derive(Serialize, Deserialize)]
