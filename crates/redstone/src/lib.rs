@@ -201,6 +201,19 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
     power
 }
 
+pub fn diode_should_be_prioritized(
+    world: &impl World,
+    pos: BlockPos,
+    facing: BlockDirection,
+) -> bool {
+    let output_direction = facing.opposite();
+    match world.get_block(pos.offset(output_direction.block_face())) {
+        Block::Repeater(front_repeater) => front_repeater.facing != output_direction,
+        Block::Comparator(front_comparator) => front_comparator.facing != output_direction,
+        _ => false,
+    }
+}
+
 pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
     match block {
         Block::RedstoneWire(wire) => {

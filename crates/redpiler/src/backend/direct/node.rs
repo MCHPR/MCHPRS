@@ -144,13 +144,13 @@ impl ForwardLinks {
 pub enum NodeType {
     Repeater {
         delay: u8,
-        facing_diode: bool,
+        prioritized: bool,
     },
     Torch,
     Comparator {
         mode: ComparatorMode,
         far_input: Option<NonMaxU8>,
-        facing_diode: bool,
+        prioritized: bool,
     },
     Lamp,
     Button,

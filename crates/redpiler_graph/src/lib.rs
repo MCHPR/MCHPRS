@@ -59,7 +59,7 @@ pub struct Node {
     pub block: SmallVec<[(BlockPos, u32); 1]>,
     pub state: NodeState,
 
-    pub facing_diode: bool,
+    pub diode_prioritized: bool,
     pub comparator_far_input: Option<u8>,
 
     pub inputs: Vec<Link>,
