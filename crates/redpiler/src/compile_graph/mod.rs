@@ -1,6 +1,5 @@
 use mchprs_blocks::blocks::{ComparatorMode, Instrument};
 use mchprs_blocks::BlockPos;
-// use petgraph::stable_graph::{NodeIndex, StableGraph};
 use smallvec::SmallVec;
 use stable_graph::{NodeIndex, StableGraph};
 
@@ -48,9 +47,20 @@ impl NodeType {
             NodeType::Trapdoor | NodeType::Lamp | NodeType::NoteBlock { .. }
         )
     }
+
+    pub fn is_binary_reader(&self) -> bool {
+        !matches!(self, NodeType::Comparator { .. } | NodeType::Wire)
+    }
+
+    pub fn is_binary_source(&self) -> bool {
+        !matches!(
+            self,
+            NodeType::Comparator { .. } | NodeType::Wire | NodeType::Constant
+        )
+    }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct NodeState {
     pub powered: bool,
     pub repeater_locked: bool,
@@ -107,13 +117,7 @@ pub struct CompileNode {
     pub annotations: Annotations,
 }
 
-impl CompileNode {
-    pub fn is_removable(&self) -> bool {
-        !self.is_input && !self.is_output && !self.state.pending_tick
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum LinkType {
     Default,
     Side,

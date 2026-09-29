@@ -66,14 +66,18 @@ Since each set has only 16 possible strengths and sets only grow, the sweeps ter
 Cycles can retain bounded output sets, for example a comparator loop fed by a bounded signal.
 The sets do not track correlations between inputs, so they can include combinations that cannot occur together at runtime.
 
-## The `ConstantCoalesce` Pass
-
-Disregarding High-Signal Strength logic, which Redpiler does not support anyways, the value of a constant is ever only in between 0 and 15. Effectively, there are only 16 different constant values possible. This optimization pass creates the 16 different constant nodes for all values, and removes all other constant nodes in the graph. The outgoing edges of the old constant nodes are transformed to source from the new constant nodes.
-
 ## The `Coalesce` Pass
 
-There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repetears that lock other repeaters. This is very inefficent because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
-Merged nodes must have the same initial state, a single default input link from the shared source, and no pending ticks.
+There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repeaters that lock other repeaters. This is very inefficient because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
+Nodes that are not inputs, have no pending tick, and have the same type, initial state and input links are identical and get merged, outputs only with outputs.
+A merged output keeps the blocks of all merged nodes and writes each of them.
+Input links are compared by source, link type and weight, and only the strongest link per source and link type counts.
+The weight is ignored when a binary source (everything except comparators, wires and constants) feeds a binary reader (everything except comparators and wires), since any link that carries a signal powers the reader the same way.
+Merging can make the nodes fed by the merged node identical as well, so those are checked again.
+
+The merged node updates the targets of one identical node after another, as if they ticked right after each other (see [Tick Ordering](#tick-ordering)).
+If one of them is also their input, for example a comparator reading its own output, it has to tick last, so its targets come last.
+Two such nodes are never merged.
 
 ## The `PruneOrphans` Pass
 
