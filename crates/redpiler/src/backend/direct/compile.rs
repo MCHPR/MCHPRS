@@ -1,7 +1,6 @@
 use crate::backend::direct::node::ForwardLinks;
 use crate::compile_graph::{CompileGraph, Direction, LinkType, NodeIdx};
 use crate::{CompilerOptions, TaskMonitor};
-use itertools::Itertools;
 use mchprs_blocks::blocks::Block;
 use mchprs_world::TickEntry;
 use rustc_hash::FxHashMap;
@@ -74,10 +73,6 @@ fn compile_node(
     let fwd_link_range = if node.ty != CNodeType::Constant {
         let new_links = graph
             .edges(node_idx, Direction::Outgoing)
-            .sorted_by_key(|edge| nodes_map[&edge.target()])
-            .into_group_map_by(|edge| std::mem::discriminant(&graph[edge.target()].ty))
-            .into_values()
-            .flatten()
             .map(|edge| unsafe {
                 let idx = edge.target();
                 let idx = nodes_map[&idx];

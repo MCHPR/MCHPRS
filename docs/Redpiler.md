@@ -28,6 +28,8 @@ To start, this pass iterates through all nodes in the graph. Different types of 
 
 When the input block of a node is searched, the block is either a component that can provide Redstone power on its own, or a Redstone Wire. If it can provide power, then it can directly create a link to that component. The corresponding node in the graph is looked up based on the position of the component, and a link to the node is created with a weight of 0. If the block is a Redstone Wire, then a breadth-first search is run to look for components that provide power to the Wire. The distance of the path taken from the starting wire to the input components are recorded as the weight of the links. Then, input components are looked up in the graph, and links are created.
 
+Each node's outgoing links are ordered by target type, then by target index, which is the order the backend updates them in.
+
 ## The `ClampWeights` Pass
 
 The links created in the `InputSearch` pass are weighted by the distance taken in the breadth-first search, but this may search Wires infinetely even though wires can only have a maximum 15 signal strength that decays every block. Therefore, this optimization pass was created to remove any links with a 15 or greater weight since they ultimately have no effect.
@@ -115,6 +117,8 @@ When a Torch is updated and there is not already a tick pending at its node, it 
 
 When a Torch is ticked, it checks if the Torch should be off. If that value is different from the current state, the state of the Torch is changed and any nodes that may be affected by this change is updated.
 
+Unlike in vanilla, Torches never burn out.
+
 ### Lamp
 
 When a Lamp is updated, it checks if the Lamp should be lit. If a Lamp should be lit but currently is not, then the Lamp state is changed (this is instant). If the Lamp should *not* be lit, but currently is, then a tick is scheduled with delay 2 and priority `Normal`.
@@ -146,6 +150,15 @@ Buttons can never be updated by other nodes.
 When a lever is flicked, its state is changed to the opposite of its previous state, and any nodes that may be affected by this change is updated (this is instant).
 
 Levers can never be updated nor ticked.
+
+## Tick Ordering
+
+A Redpiler tick is one redstone tick, which is two game ticks. The ticks due in a tick are fixed when it starts, and every delay is at least one tick, so a tick scheduled while ticking runs in a later tick.
+Due ticks run by priority, then in the order they were scheduled, as in vanilla. A ticked node updates the nodes it links to right away, so a node ticked later in the same tick reads the result. A node has at most one pending tick.
+
+The order in which one change reaches the nodes it links to is not specified.
+Vanilla derives it from block positions: a fixed neighbor update order, each component's update pattern, and the iteration order of a Java hash set for redstone wire. Rotating or moving a build can therefore change its behavior.
+Redpiler uses the order of each node's outgoing links instead, which matches vanilla only by chance. Optimizations may change this order, but no other part of the tick order.
 
 ## The Direct Backend
 
