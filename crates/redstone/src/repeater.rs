@@ -93,5 +93,8 @@ pub fn tick(mut rep: Repeater, world: &mut impl World, pos: BlockPos) {
         rep.powered = true;
         world.set_block(pos, Block::Repeater(rep));
         on_state_change(rep, world, pos);
+        if !should_be_powered && !world.pending_tick_at(pos) {
+            world.schedule_tick(pos, rep.delay as u32, TickPriority::Higher);
+        }
     }
 }
