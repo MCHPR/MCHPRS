@@ -180,7 +180,7 @@ fn collect_inputs(
     let mut side_input = SSSet::ZERO;
     for edge in graph.edges(node_idx, Direction::Incoming) {
         let link = edge.weight();
-        let source = sets[edge.source().index()].unwrap().decay(link.ss);
+        let source = sets[edge.source().index()].unwrap().decay(link.weight);
         match link.ty {
             LinkType::Default => default_input = default_input.combine(source),
             LinkType::Side => side_input = side_input.combine(source),

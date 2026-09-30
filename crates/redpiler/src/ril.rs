@@ -25,10 +25,10 @@ fn dump_edge(
     f: &mut fmt::Formatter<'_>,
     ctx: &FmtContext<'_>,
     src: NodeIdx,
-    weight: &CompileLink,
+    link: &CompileLink,
 ) -> fmt::Result {
     dump_node_name(f, ctx, src)?;
-    write!(f, ":{}", weight.ss)
+    write!(f, ":{}", link.weight)
 }
 
 fn dump_edges<'a>(

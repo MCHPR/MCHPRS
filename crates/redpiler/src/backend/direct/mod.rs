@@ -150,7 +150,7 @@ impl DirectBackend {
 
         for forward_link in self.forward_links.get(&node.fwd_link_range) {
             let side = forward_link.side();
-            let distance = forward_link.ss();
+            let weight = forward_link.weight();
             let update = forward_link.node();
 
             let update_ref = &mut self.nodes[update];
@@ -160,8 +160,8 @@ impl DirectBackend {
                 &mut update_ref.default_inputs
             };
 
-            let old_input = old_strength.saturating_sub(distance);
-            let new_input = output_strength.saturating_sub(distance);
+            let old_input = old_strength.saturating_sub(weight);
+            let new_input = output_strength.saturating_sub(weight);
 
             if old_input == new_input {
                 continue;
@@ -404,12 +404,12 @@ impl fmt::Display for DirectBackend {
             writeln!(f, "    n{} [ label = \"{}\\n({})\" ];", id, label, pos)?;
             for link in self.forward_links.get(&node.fwd_link_range) {
                 let out_index = link.node().index();
-                let distance = link.ss();
+                let weight = link.weight();
                 let color = if link.side() { ",color=\"blue\"" } else { "" };
                 writeln!(
                     f,
                     "    n{} -> n{} [ label = \"{}\"{} ];",
-                    id, out_index, distance, color
+                    id, out_index, weight, color
                 )?;
             }
         }

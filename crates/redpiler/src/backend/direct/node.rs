@@ -66,12 +66,11 @@ pub struct ForwardLink {
 }
 
 impl ForwardLink {
-    pub fn new(id: NodeId, side: bool, ss: u8) -> Self {
+    pub fn new(id: NodeId, side: bool, weight: u8) -> Self {
         assert!(id.index() < (1 << 27));
-        // the clamp_weights compile pass should ensure ss < 15
-        assert!(ss < 15);
+        assert!(weight < 15);
         Self {
-            data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | ss as u32,
+            data: (id.index() as u32) << 5 | if side { 1 << 4 } else { 0 } | weight as u32,
         }
     }
 
@@ -86,7 +85,7 @@ impl ForwardLink {
         self.data & (1 << 4) != 0
     }
 
-    pub fn ss(self) -> u8 {
+    pub fn weight(self) -> u8 {
         (self.data & 0b1111) as u8
     }
 }
@@ -96,7 +95,7 @@ impl std::fmt::Debug for ForwardLink {
         f.debug_struct("ForwardLink")
             .field("node", &self.node())
             .field("side", &self.side())
-            .field("ss", &self.ss())
+            .field("weight", &self.weight())
             .finish()
     }
 }

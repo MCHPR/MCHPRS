@@ -114,25 +114,25 @@ pub enum LinkType {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompileLink {
     pub ty: LinkType,
-    pub ss: u8,
+    pub weight: u8,
 }
 
 impl CompileLink {
-    pub fn new(ty: LinkType, ss: u8) -> CompileLink {
-        CompileLink { ty, ss }
+    pub fn new(ty: LinkType, weight: u8) -> Self {
+        Self { ty, weight }
     }
 
-    pub fn default(ss: u8) -> CompileLink {
-        CompileLink {
+    pub fn default(weight: u8) -> Self {
+        Self {
             ty: LinkType::Default,
-            ss,
+            weight,
         }
     }
 
-    pub fn side(ss: u8) -> CompileLink {
-        CompileLink {
+    pub fn side(weight: u8) -> Self {
+        Self {
             ty: LinkType::Side,
-            ss,
+            weight,
         }
     }
 }

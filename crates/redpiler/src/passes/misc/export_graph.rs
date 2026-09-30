@@ -22,13 +22,13 @@ fn convert_node(
     let mut inputs = Vec::new();
     for edge in graph.edges(node_idx, Direction::Incoming) {
         let idx = nodes_map[&edge.source()];
-        let weight = edge.weight();
+        let link = edge.weight();
         inputs.push(Link {
-            ty: match weight.ty {
+            ty: match link.ty {
                 CLinkType::Default => LinkType::Default,
                 CLinkType::Side => LinkType::Side,
             },
-            weight: weight.ss,
+            weight: link.weight,
             to: idx,
         });
     }

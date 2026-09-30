@@ -38,11 +38,13 @@ fn compile_node(
     let mut default_inputs = NodeInput { ss_counts: [0; 16] };
     let mut side_inputs = NodeInput { ss_counts: [0; 16] };
     for edge in graph.edges(node_idx, Direction::Incoming) {
-        let weight = edge.weight();
-        let distance = weight.ss;
+        let link = edge.weight();
         let source = edge.source();
-        let ss = graph[source].state.output_strength.saturating_sub(distance);
-        match weight.ty {
+        let ss = graph[source]
+            .state
+            .output_strength
+            .saturating_sub(link.weight);
+        match link.ty {
             LinkType::Default => {
                 if default_input_count >= MAX_INPUTS {
                     panic!(
@@ -85,8 +87,8 @@ fn compile_node(
                 // Safety: bounds checked
                 let target_id = NodeId::from_index(idx);
 
-                let weight = edge.weight();
-                ForwardLink::new(target_id, weight.ty == LinkType::Side, weight.ss)
+                let link = edge.weight();
+                ForwardLink::new(target_id, link.ty == LinkType::Side, link.weight)
             });
         forward_links.extend(new_links)
     } else {

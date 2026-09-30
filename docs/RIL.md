@@ -43,9 +43,9 @@ Examples: `%a`, `%repeater`, `%123`
 
 ### Input lists
 
-Input lists are defined as a list of value and distance pairs. The distance must be between 0 and 15 inclusive.
+Input lists are defined as a list of value and weight pairs. The weight must be between 0 and 15 inclusive.
 
-`[%<name>:<distance>, ...]`
+`[%<name>:<weight>, ...]`
 
 For example: `[%a:12, %12:2]`
 
