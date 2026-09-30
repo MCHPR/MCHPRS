@@ -32,7 +32,7 @@ impl<W: World> Pass<W> for UnreachableOutput {
             // is too high.
             let mut outgoing = graph.neighbors(idx, Direction::Outgoing).detach();
             while let Some((edge_idx, _)) = outgoing.next(graph) {
-                if graph[edge_idx].ss >= max_output {
+                if graph[edge_idx].weight >= max_output {
                     graph.remove_edge(edge_idx);
                 }
             }
