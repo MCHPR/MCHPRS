@@ -135,8 +135,10 @@ fn identify_block<W: World>(
         Block::Repeater(repeater) => (
             NodeType::Repeater {
                 delay: repeater.delay,
-                facing_diode: mchprs_redstone::is_diode(
-                    world.get_block(pos.offset(repeater.facing.opposite().block_face())),
+                prioritized: mchprs_redstone::diode_should_be_prioritized(
+                    world,
+                    pos,
+                    repeater.facing,
                 ),
             },
             NodeState::repeater(repeater.powered, repeater.locked),
@@ -145,8 +147,10 @@ fn identify_block<W: World>(
             NodeType::Comparator {
                 mode: comparator.mode,
                 far_input: comparator::get_far_input(world, pos, comparator.facing),
-                facing_diode: mchprs_redstone::is_diode(
-                    world.get_block(pos.offset(comparator.facing.opposite().block_face())),
+                prioritized: mchprs_redstone::diode_should_be_prioritized(
+                    world,
+                    pos,
+                    comparator.facing,
                 ),
             },
             NodeState::comparator(

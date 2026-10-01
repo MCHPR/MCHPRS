@@ -8,7 +8,7 @@ pub mod repeater;
 pub mod wire;
 
 use mchprs_blocks::block_entities::BlockEntity;
-use mchprs_blocks::blocks::{Block, LeverFace, RedstoneWire};
+use mchprs_blocks::blocks::{Block, LeverFace, RedstoneWire, Repeater};
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
 use mchprs_world::{TickPriority, World};
 
@@ -19,6 +19,58 @@ pub fn bool_to_ss(b: bool) -> u8 {
     }
 }
 
+/// Returns `true` if the given block provides either weak or strong power to the given side.
+/// Note that `side` is the side of the block receiving power, not the side of the block providing power.
+pub fn provides_weak_power(block: Block, side: BlockFace) -> bool {
+    if block.clone().get_pressure_plate_powered().is_some() {
+        return true;
+    }
+    match block {
+        Block::RedstoneTorch { .. } => side != BlockFace::Top,
+        Block::RedstoneWallTorch { facing, .. } => facing.block_face() != side,
+        Block::RedstoneBlock | Block::Lever { .. } | Block::StoneButton { .. } => true,
+        Block::Repeater(repeater) => repeater.facing.block_face() == side,
+        Block::Comparator(comparator) => comparator.facing.block_face() == side,
+        _ => false,
+    }
+}
+
+/// Returns `true` if the given block provides strong power to the given side.
+/// Note that `side` is the side of the block receiving power, not the side of the block providing power.
+pub fn provides_strong_power(block: Block, side: BlockFace) -> bool {
+    if block.clone().get_pressure_plate_powered().is_some() {
+        return side == BlockFace::Top;
+    }
+    match block {
+        Block::RedstoneTorch { .. } | Block::RedstoneWallTorch { .. } => side == BlockFace::Bottom,
+        Block::Lever { face, facing, .. } | Block::StoneButton { face, facing, .. } => match side {
+            BlockFace::Top => face == LeverFace::Floor,
+            BlockFace::Bottom => face == LeverFace::Ceiling,
+            _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
+        },
+        Block::Repeater(_) | Block::Comparator(_) => provides_weak_power(block, side),
+        _ => false,
+    }
+}
+
+fn get_output_power(block: Block, world: &impl World, pos: BlockPos) -> u8 {
+    if let Some(powered) = block.clone().get_pressure_plate_powered() {
+        return bool_to_ss(*powered);
+    }
+    match block {
+        Block::RedstoneTorch { lit } | Block::RedstoneWallTorch { lit, .. } => bool_to_ss(lit),
+        Block::RedstoneBlock => 15,
+        Block::Lever { powered, .. }
+        | Block::StoneButton { powered, .. }
+        | Block::Repeater(Repeater { powered, .. }) => bool_to_ss(powered),
+        Block::Comparator(_) => match world.get_block_entity(pos) {
+            Some(BlockEntity::Comparator { output_strength }) => *output_strength,
+            _ => 0,
+        },
+        _ => 0,
+    }
+}
+
 fn get_weak_power(
     block: Block,
     world: &impl World,
@@ -26,28 +78,7 @@ fn get_weak_power(
     side: BlockFace,
     dust_power: bool,
 ) -> u8 {
-    if block
-        .clone()
-        .get_pressure_plate_powered()
-        .is_some_and(|powered| *powered)
-    {
-        return 15;
-    }
-
     match block {
-        Block::RedstoneTorch { lit: true } if side != BlockFace::Top => 15,
-        Block::RedstoneWallTorch { lit: true, facing } if facing.block_face() != side => 15,
-        Block::RedstoneBlock => 15,
-        Block::Lever { powered, .. } if powered => 15,
-        Block::StoneButton { powered, .. } if powered => 15,
-        Block::Repeater(repeater) if repeater.facing.block_face() == side && repeater.powered => 15,
-        Block::Comparator(comparator) if comparator.facing.block_face() == side => {
-            if let Some(BlockEntity::Comparator { output_strength }) = world.get_block_entity(pos) {
-                *output_strength
-            } else {
-                0
-            }
-        }
         Block::RedstoneWire(wire) if dust_power => match side {
             BlockFace::Top => wire.power,
             BlockFace::Bottom => 0,
@@ -65,6 +96,7 @@ fn get_weak_power(
                 }
             }
         },
+        _ if provides_weak_power(block, side) => get_output_power(block, world, pos),
         _ => 0,
     }
 }
@@ -76,43 +108,9 @@ fn get_strong_power(
     side: BlockFace,
     dust_power: bool,
 ) -> u8 {
-    if block
-        .clone()
-        .get_pressure_plate_powered()
-        .is_some_and(|powered| *powered)
-        && side == BlockFace::Top
-    {
-        return 15;
-    }
-
     match block {
-        Block::RedstoneTorch { lit: true } if side == BlockFace::Bottom => 15,
-        Block::RedstoneWallTorch { lit: true, .. } if side == BlockFace::Bottom => 15,
-        Block::Lever {
-            face,
-            facing,
-            powered,
-        } => bool_to_ss(
-            match side {
-                BlockFace::Top => face == LeverFace::Floor,
-                BlockFace::Bottom => face == LeverFace::Ceiling,
-                _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
-            } && powered,
-        ),
-        Block::StoneButton {
-            face,
-            facing,
-            powered,
-        } => bool_to_ss(
-            match side {
-                BlockFace::Top => face == LeverFace::Floor,
-                BlockFace::Bottom => face == LeverFace::Ceiling,
-                _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
-            } && powered,
-        ),
-        Block::RedstoneWire { .. } => get_weak_power(block, world, pos, side, dust_power),
-        Block::Repeater(_) => get_weak_power(block, world, pos, side, dust_power),
-        Block::Comparator(_) => get_weak_power(block, world, pos, side, dust_power),
+        Block::RedstoneWire(_) => get_weak_power(block, world, pos, side, dust_power),
+        _ if provides_strong_power(block, side) => get_output_power(block, world, pos),
         _ => 0,
     }
 }
@@ -199,6 +197,19 @@ fn diode_get_input_strength(world: &impl World, pos: BlockPos, facing: BlockDire
         power = wire.power;
     }
     power
+}
+
+pub fn diode_should_be_prioritized(
+    world: &impl World,
+    pos: BlockPos,
+    facing: BlockDirection,
+) -> bool {
+    let output_direction = facing.opposite();
+    match world.get_block(pos.offset(output_direction.block_face())) {
+        Block::Repeater(front_repeater) => front_repeater.facing != output_direction,
+        Block::Comparator(front_comparator) => front_comparator.facing != output_direction,
+        _ => false,
+    }
 }
 
 pub fn update(block: Block, world: &mut impl World, pos: BlockPos) {
