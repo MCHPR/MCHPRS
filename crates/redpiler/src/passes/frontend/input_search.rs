@@ -3,7 +3,7 @@
 //! This pass populates the graph with edges.
 //! This pass is *mandatory*. Without it, there would be no links between nodes.
 
-use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
+use crate::compile_graph::{CompileGraph, CompileLink, Direction, LinkType, NodeIdx, NodeType};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
 use mchprs_blocks::blocks::{Block, LeverFace};
@@ -24,6 +24,13 @@ impl<W: World> Pass<W> for InputSearch {
     ) {
         let mut state = InputSearchState::new(input.world, graph);
         state.search();
+        for idx in (0..graph.node_bound()).map(NodeIdx::new) {
+            if graph.contains_node(idx) {
+                graph.sort_edges_by_key(idx, Direction::Outgoing, |graph, edge| {
+                    (type_order(&graph[edge.target()].ty), edge.target())
+                });
+            }
+        }
     }
 
     fn status_message(&self) -> &'static str {
@@ -32,6 +39,22 @@ impl<W: World> Pass<W> for InputSearch {
 
     fn driver_key(&self) -> &'static str {
         "input-search"
+    }
+}
+
+fn type_order(ty: &NodeType) -> u8 {
+    match ty {
+        NodeType::Repeater { .. } => 0,
+        NodeType::Torch => 1,
+        NodeType::Comparator { .. } => 2,
+        NodeType::Lamp => 3,
+        NodeType::Button => 4,
+        NodeType::Lever => 5,
+        NodeType::PressurePlate => 6,
+        NodeType::Trapdoor => 7,
+        NodeType::Wire => 8,
+        NodeType::Constant => 9,
+        NodeType::NoteBlock { .. } => 10,
     }
 }
 
