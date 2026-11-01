@@ -158,9 +158,6 @@ impl Scoreboard {
         if options.optimize {
             flags.push(("o", "- optimize"));
         }
-        if options.export {
-            flags.push(("e", "- export"));
-        }
         if options.io_only {
             flags.push(("i", "- io only"));
         }

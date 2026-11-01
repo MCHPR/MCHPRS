@@ -1398,7 +1398,6 @@ dependencies = [
  "mchprs_redstone",
  "mchprs_world",
  "petgraph",
- "redpiler_graph",
  "rustc-hash",
  "smallvec",
  "tracing",
@@ -1993,15 +1992,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "redpiler_graph"
-version = "0.6.0-dev"
-dependencies = [
- "bincode",
- "serde",
- "smallvec",
 ]
 
 [[package]]
