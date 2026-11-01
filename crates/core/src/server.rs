@@ -19,7 +19,7 @@ use mchprs_network::packets::serverbound::{
     SLoginStart, SPing, SRequest, ServerBoundPacketHandler, VelocityResponseData,
 };
 use mchprs_network::packets::{PacketEncoderExt, PlayerProperty, SlotData, COMPRESSION_THRESHOLD};
-use mchprs_network::{NetworkServer, NetworkState, PlayerPacketSender};
+use mchprs_network::{HandshakingConn, NetworkServer, NetworkState, PlayerPacketSender};
 use mchprs_text::TextComponent;
 use mchprs_utils::map;
 use mchprs_world::{MC_VERSION, PROTOCOL_VERSION};
@@ -478,14 +478,8 @@ impl MinecraftServer {
                 whitelist.iter().any(|entry| entry.name == *username)
             };
             if !whitelisted {
-                let disconnect = CDisconnectLogin {
-                    reason: json!({
-                        "text": "You are not whitelisted on this server"
-                    })
-                    .to_string(),
-                }
-                .encode();
-                clients[client_idx].send_packet(&disconnect);
+                let client = clients.remove(client_idx);
+                return refuse_login(&client, "You are not whitelisted on this server");
             }
         }
 
@@ -664,6 +658,9 @@ impl MinecraftServer {
             let packets = self.network.handshaking_clients[client_idx].receive_packets();
             for packet in packets {
                 packet.handle(self, client_idx);
+                if self.network.handshaking_clients.len() != clients_len {
+                    break;
+                }
             }
 
             let new_len = self.network.handshaking_clients.len();
@@ -674,6 +671,15 @@ impl MinecraftServer {
             clients_len = new_len;
         }
     }
+}
+
+fn refuse_login(client: &HandshakingConn, reason: &str) {
+    let disconnect = CDisconnectLogin {
+        reason: json!({ "text": reason }).to_string(),
+    }
+    .encode();
+    client.send_packet(&disconnect);
+    client.close_connection();
 }
 
 impl ServerBoundPacketHandler for MinecraftServer {
