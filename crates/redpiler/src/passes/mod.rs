@@ -1,6 +1,5 @@
 mod analysis;
 mod frontend;
-mod misc;
 mod opt;
 
 use mchprs_world::World;
@@ -19,7 +18,6 @@ use tracing::{debug, trace};
 
 use analysis::*;
 use frontend::*;
-use misc::*;
 use opt::*;
 
 pub fn build_pass_pipeline<'p, W: World>(
@@ -41,10 +39,6 @@ pub fn build_pass_pipeline<'p, W: World>(
         if options.io_only {
             builder.add_pass::<prune_orphans::PruneOrphans>();
         }
-    }
-
-    if options.export {
-        builder.add_pass::<export_graph::ExportGraph>();
     }
 
     builder.build()
@@ -74,7 +68,6 @@ impl<W: World> Default for PassRegistry<W> {
         registry.register_pass(constant_coalesce::ConstantCoalesce);
         registry.register_pass(coalesce::Coalesce);
         registry.register_pass(prune_orphans::PruneOrphans);
-        registry.register_pass(export_graph::ExportGraph);
 
         registry
     }

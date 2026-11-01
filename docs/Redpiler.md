@@ -79,10 +79,6 @@ Any redstone components that do not contribute to the functioning of output comp
 This pass recusively marks all nodes connected to an output node and removes all remaining unmarked nodes (Depth-First-Search).
 Nodes with pending ticks and their input dependencies are also retained.
 
-## The `ExportGraph` Pass
-
-This pass is neither a mandatory pass nor an optimization pass. This pass is only run when the `--export` flag is set and serializes the graph into a binary file which can be read by other programs. This can be greatly useful for people who wish to experiement with Redstone and might want a directed weighted graph just like what Redpiler creates. Using this pass, they can utilize Redpiler for their projects.
-
 # The Backend
 
 Once the graph has been created, it is sent to a Redpiler backend which is responsible for the runtime execution of the Redstone circuit. A backend may implement redstone executation in any way, whether that is by just-in-time compiling redstone or by interpreting the graph.

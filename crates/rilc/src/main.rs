@@ -40,9 +40,6 @@ enum Command {
         /// Enable optimization passes which may significantly increase compile times.
         #[arg(long, short = 'O')]
         optimize: bool,
-        /// Export the graph to a binary format. See the [`redpiler_graph`] crate.
-        #[arg(long, short)]
-        export: bool,
         /// Only flush lamp, button, lever, pressure plate, or trapdoor updates.
         #[arg(long, short)]
         io_only: bool,
@@ -160,7 +157,6 @@ fn main() -> ExitCode {
             input_path,
             output_path,
             optimize,
-            export,
             io_only,
             wire_dot_out,
             illegal_states_out,
@@ -170,7 +166,6 @@ fn main() -> ExitCode {
         } => {
             let options = CompilerOptions {
                 optimize,
-                export,
                 io_only,
                 update: false,
                 export_dot_graph: false,

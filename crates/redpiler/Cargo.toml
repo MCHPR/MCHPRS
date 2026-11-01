@@ -16,7 +16,6 @@ repository.workspace = true
 mchprs_blocks = { path = "../blocks" }
 mchprs_world = { path = "../world" }
 mchprs_redstone = { path = "../redstone" }
-redpiler_graph = { path = "../redpiler_graph" }
 tracing = { workspace = true }
 petgraph = { workspace = true }
 itertools = { workspace = true }
