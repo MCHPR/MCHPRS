@@ -422,10 +422,9 @@ impl Chunk {
         // 1).leading_zeros(). See also: https://wiki.vg/Protocol#Chunk_Data_and_Update_Light
         let heightmap_bits = (32 - ((block_height as u32 + 1) - 1).leading_zeros()) as u8;
         let mut heightmap_buffer = BitBuffer::create(heightmap_bits, 16 * 16);
-        for x in 0..16 {
-            for z in 0..16 {
-                heightmap_buffer
-                    .set_entry((x * 16) + z, self.get_top_most_block(x as u32, z as u32));
+        for z in 0..16 {
+            for x in 0..16 {
+                heightmap_buffer.set_entry(z * 16 + x, self.column_height(x as u32, z as u32));
             }
         }
 
@@ -493,17 +492,16 @@ impl Chunk {
     }
 
     #[cfg(feature = "networking")]
-    fn get_top_most_block(&self, x: u32, z: u32) -> u32 {
-        let mut top_most = 0;
-        for (section_y, section) in self.sections.iter().enumerate() {
-            for y in (0..16).rev() {
-                let block_state = section.get_block(x, y, z);
-                if block_state != 0 && top_most < y + section_y as u32 * 16 {
-                    top_most = section_y as u32 * 16;
-                }
+    fn column_height(&self, x: u32, z: u32) -> u32 {
+        for (section_y, section) in self.sections.iter().enumerate().rev() {
+            if section.block_count() == 0 {
+                continue;
+            }
+            if let Some(y) = (0..16).rev().find(|&y| section.get_block(x, y, z) != 0) {
+                return section_y as u32 * 16 + y + 1;
             }
         }
-        top_most
+        0
     }
 
     /// Sets a block in the chunk. Returns true if a block was changed.
