@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 
 pub const MC_VERSION: &str = "1.20.4";
 pub const MC_DATA_VERSION: i32 = 3700;
+const OVERWORLD_MIN_Y: i32 = -64;
 
 /// MCHPRS world export tool
 #[derive(Parser, Debug)]
@@ -25,7 +26,10 @@ fn main() -> Result<()> {
     let args = Args::parse();
 
     let now_utc: DateTime<Utc> = Utc::now();
-    let level_name = format!("MCHPRS World Export {}", now_utc);
+    let level_name = format!(
+        "MCHPRS World Export {}",
+        now_utc.format("%Y-%m-%d_%H-%M-%S%.f")
+    );
     let output_path = Path::new(&args.output_path).join(&level_name);
     fs::create_dir(&output_path)?;
 
