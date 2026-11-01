@@ -37,6 +37,8 @@ cargo build --release
 
 Once complete, the optimized executable will be located at `./target/release/mchprs` or `./target/release/mchprs.exe` depending on your operating system.
 
+`cargo run --release -p mchprs_world_exporter -- world <saves>` writes the plots of `world` as a new Minecraft save in the directory `<saves>`.
+
 ## Configuration
 
 MCHPRS will generate a `Config.toml` file in the current working directory when starting the server if it does not exist.
