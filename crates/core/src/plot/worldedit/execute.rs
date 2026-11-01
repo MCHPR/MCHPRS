@@ -255,23 +255,30 @@ pub(super) fn execute_paste(ctx: CommandExecuteContext<'_>) {
 }
 
 static SCHEMATI_VALIDATE_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[a-zA-Z0-9_.]+\.schem(atic)?").unwrap());
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9_.+-]+\.schem(atic)?$").unwrap());
+
+fn schematic_path(file_name: &str, owner: Option<u128>) -> Option<PathBuf> {
+    if !SCHEMATI_VALIDATE_REGEX.is_match(file_name) {
+        return None;
+    }
+
+    let mut path = PathBuf::from("./schems");
+    if let Some(owner) = owner {
+        path.push(HyphenatedUUID(owner).to_string());
+    }
+    path.push(file_name);
+    Some(path)
+}
 
 pub(super) fn execute_load(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let mut file_name = ctx.arguments[0].unwrap_string().clone();
-    if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
+    let file_name = ctx.arguments[0].unwrap_string();
+    let owner = CONFIG.schemati.then_some(ctx.player.uuid);
+    let Some(path) = schematic_path(file_name, owner) else {
         ctx.player.send_error_message("Filename is invalid");
         return;
-    }
-
-    if CONFIG.schemati {
-        let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
-        file_name.insert_str(0, &prefix);
-    }
-
-    let path = PathBuf::from("./schems").join(file_name);
+    };
     let clipboard = load_schematic(&path);
     match clipboard {
         Ok(cb) => {
@@ -301,18 +308,12 @@ pub(super) fn execute_load(ctx: CommandExecuteContext<'_>) {
 pub(super) fn execute_save(ctx: CommandExecuteContext<'_>) {
     let start_time = Instant::now();
 
-    let mut file_name = ctx.arguments[0].unwrap_string().clone();
-    if !SCHEMATI_VALIDATE_REGEX.is_match(&file_name) {
+    let file_name = ctx.arguments[0].unwrap_string();
+    let owner = CONFIG.schemati.then_some(ctx.player.uuid);
+    let Some(path) = schematic_path(file_name, owner) else {
         ctx.player.send_error_message("Filename is invalid");
         return;
-    }
-
-    if CONFIG.schemati {
-        let prefix = HyphenatedUUID(ctx.player.uuid).to_string() + "/";
-        file_name.insert_str(0, &prefix);
-    }
-
-    let path = PathBuf::from("./schems").join(file_name);
+    };
     let clipboard = ctx.player.worldedit_clipboard.as_ref().unwrap();
     match save_schematic(&path, clipboard) {
         Ok(_) => {
