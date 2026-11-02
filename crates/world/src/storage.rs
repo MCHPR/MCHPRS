@@ -307,7 +307,7 @@ impl ChunkSection {
         if changed {
             let changed_blocks = self
                 .changed_blocks
-                .get_or_insert(Box::new([-1; 16 * 16 * 16]));
+                .get_or_insert_with(|| Box::new([-1; 16 * 16 * 16]));
             changed_blocks[idx] = block as i16;
         }
         changed
