@@ -81,6 +81,7 @@ pub struct Plot {
     last_player_time: Instant,
     /// The last time the world changes were sent to the player
     last_world_send_time: Instant,
+    last_autosave_time: Instant,
     /// The duration we should sleep for after every update
     sleep_time: Duration,
     /// When this is false, the update loop will end and the thread will stop.
@@ -1092,6 +1093,23 @@ impl Plot {
 
         self.remove_dc_players();
         self.remove_oob_players();
+
+        let autosave_interval = Duration::from_secs(CONFIG.autosave_interval_seconds as u64);
+        if CONFIG.autosave_interval_seconds != 0
+            && self.last_autosave_time.elapsed() >= autosave_interval
+            && self.last_player_time >= self.last_autosave_time
+            && !self.redpiler.is_active()
+        {
+            let start_time = Instant::now();
+            self.save();
+            self.last_autosave_time = Instant::now();
+            debug!(
+                "autosaving plot ({}, {}) took {:?}",
+                self.world.x,
+                self.world.z,
+                start_time.elapsed()
+            );
+        }
     }
 
     fn create_async_rt() -> Runtime {
@@ -1183,6 +1201,7 @@ impl Plot {
             async_rt: Plot::create_async_rt(),
             scoreboard: Default::default(),
             world,
+            last_autosave_time: Instant::now(),
         }
     }
 
