@@ -2,6 +2,10 @@ use bincode::{BincodeRead, Result};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
+mod signal_strength;
+
+pub use signal_strength::{InvalidSignalStrength, SignalStrength};
+
 pub type NodeId = usize;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Hash)]
@@ -47,9 +51,8 @@ pub enum NodeType {
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct NodeState {
-    pub powered: bool,
+    pub power: SignalStrength,
     pub repeater_locked: bool,
-    pub output_strength: u8,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
@@ -60,7 +63,7 @@ pub struct Node {
     pub state: NodeState,
 
     pub facing_diode: bool,
-    pub comparator_far_input: Option<u8>,
+    pub comparator_far_input: Option<SignalStrength>,
 
     pub inputs: Vec<Link>,
     pub updates: Vec<NodeId>,
