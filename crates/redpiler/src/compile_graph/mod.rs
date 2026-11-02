@@ -13,13 +13,13 @@ pub type NodeIdx = NodeIndex<u32>;
 pub enum NodeType {
     Repeater {
         delay: u8,
-        facing_diode: bool,
+        prioritized: bool,
     },
     Torch,
     Comparator {
         mode: ComparatorMode,
         far_input: Option<u8>,
-        facing_diode: bool,
+        prioritized: bool,
     },
     Lamp,
     Button,

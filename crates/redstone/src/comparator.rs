@@ -149,8 +149,7 @@ pub fn update(comp: Comparator, world: &mut impl World, pos: BlockPos) {
             0
         };
     if output_strength != old_strength || comp.powered != should_be_powered(comp, world, pos) {
-        let front_block = world.get_block(pos.offset(comp.facing.opposite().block_face()));
-        let priority = if super::is_diode(front_block) {
+        let priority = if super::diode_should_be_prioritized(world, pos, comp.facing) {
             TickPriority::High
         } else {
             TickPriority::Normal

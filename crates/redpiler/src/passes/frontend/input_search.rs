@@ -6,9 +6,9 @@
 use crate::compile_graph::{CompileGraph, CompileLink, LinkType, NodeIdx};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
-use mchprs_blocks::blocks::{Block, LeverFace};
+use mchprs_blocks::blocks::Block;
 use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
-use mchprs_redstone::{self, comparator, wire};
+use mchprs_redstone::{self, comparator, provides_strong_power, provides_weak_power, wire};
 use mchprs_world::World;
 use rustc_hash::FxHashMap;
 
@@ -363,47 +363,4 @@ impl<'a, W: World> InputSearchState<'a, W> {
 
 fn is_wire(block: Block) -> bool {
     matches!(block, Block::RedstoneWire { .. })
-}
-
-/// Returns `true` if the given block provides either weak or strong power to the given side.
-/// Note that `side` is the side of the block receiving power, not the side of the block providing power.
-fn provides_weak_power(block: Block, side: BlockFace) -> bool {
-    if block.clone().get_pressure_plate_powered().is_some() {
-        return true;
-    }
-    match block {
-        Block::RedstoneTorch { .. } => side != BlockFace::Top,
-        Block::RedstoneWallTorch { facing, .. } => facing.block_face() != side,
-        Block::RedstoneBlock => true,
-        Block::Lever { .. } => true,
-        Block::StoneButton { .. } => true,
-        Block::Repeater(repeater) => repeater.facing.block_face() == side,
-        Block::Comparator(comparator) => comparator.facing.block_face() == side,
-        _ => false,
-    }
-}
-
-/// Returns `true` if the given block provides strong power to the given side.
-/// Note that `side` is the side of the block receiving power, not the side of the block providing power.
-fn provides_strong_power(block: Block, side: BlockFace) -> bool {
-    if block.clone().get_pressure_plate_powered().is_some() && side == BlockFace::Top {
-        return true;
-    }
-    match block {
-        Block::RedstoneTorch { .. } if side == BlockFace::Bottom => true,
-        Block::RedstoneWallTorch { .. } if side == BlockFace::Bottom => true,
-        Block::Lever { face, facing, .. } => match side {
-            BlockFace::Top => face == LeverFace::Floor,
-            BlockFace::Bottom => face == LeverFace::Ceiling,
-            _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
-        },
-        Block::StoneButton { face, facing, .. } => match side {
-            BlockFace::Top => face == LeverFace::Floor,
-            BlockFace::Bottom => face == LeverFace::Ceiling,
-            _ => face == LeverFace::Wall && facing == side.unwrap_direction(),
-        },
-        Block::Repeater(repeater) => repeater.facing.block_face() == side,
-        Block::Comparator(comparator) => comparator.facing.block_face() == side,
-        _ => false,
-    }
 }

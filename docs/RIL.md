@@ -61,11 +61,11 @@ These arguments have a standard type:
 ### repeater
 
 ```
-%x = repeater <delay>, <facing_diode>, <locked>, <powered>, <base_inputs>, <side_inputs>
+%x = repeater <delay>, <prioritized>, <locked>, <powered>, <base_inputs>, <side_inputs>
 ```
 
 `delay` is an integer between 1 and 4.\
-`facing_diode` is a boolean.\
+`prioritized` is a boolean.\
 `locked` is a boolean.
 
 ### torch
@@ -77,12 +77,12 @@ These arguments have a standard type:
 ### comparator
 
 ```
-%x = comparator <mode>, <far_input>, <facing_diode>, <output_strength>, <base_inputs>, <side_inputs>
+%x = comparator <mode>, <far_input>, <prioritized>, <output_strength>, <base_inputs>, <side_inputs>
 ```
 
 `mode` can either be `compare` or `subtract`.\
 `far_input` can either be `none` or a value.\
-`facing_diode` is a boolean.
+`prioritized` is a boolean.
 
 ### lamp
 
