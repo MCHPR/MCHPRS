@@ -866,6 +866,7 @@ impl Plot {
                 let command = args.remove(0);
                 if self.handle_command(player_idx, command, args) {
                     removal_offset += 1;
+                    break;
                 }
             }
         }
