@@ -135,7 +135,9 @@ impl MinecraftServer {
     pub fn run() {
         std::panic::set_hook(Box::new(|panic_info| {
             let backtrace = Backtrace::new();
-            error!("plot {}\n{:?}", panic_info, backtrace);
+            let thread = std::thread::current();
+            let name = thread.name().unwrap_or("unnamed");
+            error!("Thread '{name}' {panic_info}\n{backtrace:?}");
         }));
 
         info!("Starting server...");
