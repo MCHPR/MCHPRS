@@ -387,7 +387,11 @@ fn nbt_get_int(compound: &HashMap<String, nbt::Value>, name: &str) -> Option<i32
     let value = nbt_case_insensitive(compound, name)?;
     match value {
         nbt::Value::Byte(val) => Some(*val as i32),
+        nbt::Value::Short(val) => Some(*val as i32),
         nbt::Value::Int(val) => Some(*val),
+        nbt::Value::Long(val) => Some(*val as i32),
+        nbt::Value::Float(val) => Some(val.floor() as i32),
+        nbt::Value::Double(val) => Some(val.floor() as i32),
         _ => None,
     }
 }
