@@ -3,6 +3,7 @@ use common::*;
 
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::BlockDirection;
+use mchprs_redstone::wire::make_cross;
 use mchprs_world::{testing::TestWorld, TickPriority, World};
 
 test_all_backends!(lever_on_off);
@@ -215,5 +216,30 @@ fn pending_repeater_pulses_without_input(backend: TestBackend) {
     runner.tick();
     runner.check_block_powered(trapdoor_pos, true);
     runner.tick();
+    runner.check_block_powered(trapdoor_pos, false);
+}
+
+test_all_backends!(wire_on_wire);
+fn wire_on_wire(backend: TestBackend) {
+    let lever_pos = pos(0, 1, 0);
+    let wire_pos = pos(1, 1, 0);
+    let trapdoor_pos = pos(2, 1, 0);
+
+    let mut world = TestWorld::new(1, 1, 1);
+    make_lever(&mut world, lever_pos);
+    make_wire(&mut world, wire_pos);
+    // Wire stacked straight on wire, as only a paste can place it
+    for y in 2..5 {
+        world.set_block(pos(1, y, 0), Block::RedstoneWire(make_cross(0)));
+    }
+    world.set_block(trapdoor_pos, trapdoor());
+
+    let mut runner = BackendRunner::new(world, backend);
+    runner.check_block_powered(trapdoor_pos, false);
+
+    runner.use_block(lever_pos);
+    runner.check_block_powered(trapdoor_pos, true);
+
+    runner.use_block(lever_pos);
     runner.check_block_powered(trapdoor_pos, false);
 }
