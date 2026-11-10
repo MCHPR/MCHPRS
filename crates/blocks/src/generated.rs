@@ -3885,8 +3885,16 @@ impl Block {
     pub fn is_stone(self) -> bool {
         match self {
             Block::Stone => true,
+            Block::Observer { .. } => true,
+            Block::PolishedBlackstonePressurePlate { .. } => true,
+            Block::StonePressurePlate { .. } => true,
             Block::Sandstone => true,
             Block::CoalBlock => true,
+            Block::Furnace { .. } => true,
+            Block::QuartzBlock => true,
+            Block::SmoothQuartz => true,
+            Block::SmoothStoneSlab { .. } => true,
+            Block::QuartzSlab { .. } => true,
             Block::WhiteConcrete => true,
             Block::OrangeConcrete => true,
             Block::MagentaConcrete => true,
@@ -3920,6 +3928,8 @@ impl Block {
             Block::GreenTerracotta => true,
             Block::RedTerracotta => true,
             Block::BlackTerracotta => true,
+            Block::StoneBricks => true,
+            Block::EndPortalFrame { .. } => true,
             _ => false,
         }
     }
