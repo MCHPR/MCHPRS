@@ -47,7 +47,7 @@ fn fold_node(graph: &mut CompileGraph, idx: NodeIdx) -> bool {
     }
 
     graph[idx].ty = NodeType::Constant;
-    graph[idx].state = NodeState::ss(graph[idx].state.output_strength);
+    graph[idx].state = NodeState::from_power(graph[idx].state.power);
 
     let mut incoming = graph.neighbors(idx, Direction::Incoming).detach();
     while let Some(edge) = incoming.next_edge(graph) {

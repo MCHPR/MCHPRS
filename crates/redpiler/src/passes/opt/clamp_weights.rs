@@ -13,7 +13,7 @@ impl<W: World> Pass<W> for ClampWeights {
         _: &CompilerInput<'_, W>,
         _: &mut AnalysisInfos,
     ) {
-        graph.retain_edges(|g, edge| g[edge].ss < 15);
+        graph.retain_edges(|g, edge| g[edge].weight < 15);
     }
 
     fn status_message(&self) -> &'static str {
