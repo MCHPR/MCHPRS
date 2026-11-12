@@ -452,6 +452,10 @@ impl ServerBoundPacketHandler for Plot {
             .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));
         self.publish_world();
     }
+
+    fn handle_pick_item_from_block(&mut self, _packet: SPickItemFromBlock, player_idx: usize) {
+        self.players[player_idx].send_error_message("pick block no worky");
+    }
 }
 
 fn item_stack_from_slot_data(slot_data: &SlotData) -> ItemStack {
