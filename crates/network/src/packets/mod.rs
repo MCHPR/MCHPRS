@@ -208,6 +208,9 @@ fn read_decompressed<T: PacketDecoderExt>(
             packet_id!("play", "serverbound", "minecraft:use_item_on") => {
                 Box::new(SUseItemOn::decode(reader)?)
             }
+            packet_id!("play", "serverbound", "minecraft:pick_item_from_block") => {
+                Box::new(SPickItemFromBlock::decode(reader)?)
+            }
             _ => Box::new(SUnknown),
         },
     };

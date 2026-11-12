@@ -47,6 +47,7 @@ pub trait ServerBoundPacketHandler {
     fn handle_set_creative_mode_slot(&mut self, _packet: SSetCreativeModeSlot, _player_idx: usize) {
     }
     fn handle_update_sign(&mut self, _packet: SUpdateSign, _player_idx: usize) {}
+    fn handle_pick_item_from_block(&mut self, _packet: SPickItemFromBlock, _player_idx: usize) {}
     fn handle_unknown(&mut self, _packet: SUnknown, _player_idx: usize) {}
 }
 
@@ -655,5 +656,30 @@ impl ServerBoundPacket for SUpdateSign {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_update_sign(*self, player_idx);
+    }
+}
+
+#[derive(Debug)]
+pub struct SPickItemFromBlock {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub include_data: bool,
+}
+
+impl ServerBoundPacket for SPickItemFromBlock {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let (x, y, z) = decoder.read_position()?;
+        let include_data = decoder.read_bool()?;
+        Ok(SPickItemFromBlock {
+            x,
+            y,
+            z,
+            include_data,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_pick_item_from_block(*self, player_idx);
     }
 }
