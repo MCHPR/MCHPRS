@@ -28,6 +28,8 @@ To start, this pass iterates through all nodes in the graph. Different types of 
 
 When the input block of a node is searched, the block is either a component that can provide Redstone power on its own, or a Redstone Wire. If it can provide power, then it can directly create a link to that component. The corresponding node in the graph is looked up based on the position of the component, and a link to the node is created with a weight of 0. If the block is a Redstone Wire, then a breadth-first search is run to look for components that provide power to the Wire. The distance of the path taken from the starting wire to the input components are recorded as the weight of the links. Then, input components are looked up in the graph, and links are created.
 
+Each node's outgoing links are ordered by target type, then by target index, which is the order the backend updates them in.
+
 ## The `ClampWeights` Pass
 
 The links created in the `InputSearch` pass are weighted by the distance taken in the breadth-first search, but this may search Wires infinetely even though wires can only have a maximum 15 signal strength that decays every block. Therefore, this optimization pass was created to remove any links with a 15 or greater weight since they ultimately have no effect.
@@ -64,14 +66,18 @@ Since each set has only 16 possible strengths and sets only grow, the sweeps ter
 Cycles can retain bounded output sets, for example a comparator loop fed by a bounded signal.
 The sets do not track correlations between inputs, so they can include combinations that cannot occur together at runtime.
 
-## The `ConstantCoalesce` Pass
-
-Disregarding High-Signal Strength logic, which Redpiler does not support anyways, the value of a constant is ever only in between 0 and 15. Effectively, there are only 16 different constant values possible. This optimization pass creates the 16 different constant nodes for all values, and removes all other constant nodes in the graph. The outgoing edges of the old constant nodes are transformed to source from the new constant nodes.
-
 ## The `Coalesce` Pass
 
-There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repetears that lock other repeaters. This is very inefficent because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
-Merged nodes must have the same initial state, a single default input link from the shared source, and no pending ticks.
+There are often times when a wire powers many different components in the same way. For example, it is common for vertical multi-bit latches to be controlled by a slab tower that powers several repeaters that lock other repeaters. This is very inefficient because these repeaters will always have the exact same value, but they are still updated and ticked independently. To avoid this logic duplication, this optimization pass merges duplicate nodes into one, removing duplicate nodes from the graph and adjusting links to point to the new node.
+Nodes that are not inputs, have no pending tick, and have the same type, initial state and input links are identical and get merged, outputs only with outputs.
+A merged output keeps the blocks of all merged nodes and writes each of them.
+Input links are compared by source, link type and weight, and only the strongest link per source and link type counts.
+The weight is ignored when a binary source (everything except comparators, wires and constants) feeds a binary reader (everything except comparators and wires), since any link that carries a signal powers the reader the same way.
+Merging can make the nodes fed by the merged node identical as well, so those are checked again.
+
+The merged node updates the targets of one identical node after another, as if they ticked right after each other (see [Tick Ordering](#tick-ordering)).
+If one of them is also their input, for example a comparator reading its own output, it has to tick last, so its targets come last.
+Two such nodes are never merged.
 
 ## The `PruneOrphans` Pass
 
@@ -115,6 +121,8 @@ When a Torch is updated and there is not already a tick pending at its node, it 
 
 When a Torch is ticked, it checks if the Torch should be off. If that value is different from the current state, the state of the Torch is changed and any nodes that may be affected by this change is updated.
 
+Unlike in vanilla, Torches never burn out.
+
 ### Lamp
 
 When a Lamp is updated, it checks if the Lamp should be lit. If a Lamp should be lit but currently is not, then the Lamp state is changed (this is instant). If the Lamp should *not* be lit, but currently is, then a tick is scheduled with delay 2 and priority `Normal`.
@@ -146,6 +154,15 @@ Buttons can never be updated by other nodes.
 When a lever is flicked, its state is changed to the opposite of its previous state, and any nodes that may be affected by this change is updated (this is instant).
 
 Levers can never be updated nor ticked.
+
+## Tick Ordering
+
+A Redpiler tick is one redstone tick, which is two game ticks. The ticks due in a tick are fixed when it starts, and every delay is at least one tick, so a tick scheduled while ticking runs in a later tick.
+Due ticks run by priority, then in the order they were scheduled, as in vanilla. A ticked node updates the nodes it links to right away, so a node ticked later in the same tick reads the result. A node has at most one pending tick.
+
+The order in which one change reaches the nodes it links to is not specified.
+Vanilla derives it from block positions: a fixed neighbor update order, each component's update pattern, and the iteration order of a Java hash set for redstone wire. Rotating or moving a build can therefore change its behavior.
+Redpiler uses the order of each node's outgoing links instead, which matches vanilla only by chance. Optimizations may change this order, but no other part of the tick order.
 
 ## The Direct Backend
 

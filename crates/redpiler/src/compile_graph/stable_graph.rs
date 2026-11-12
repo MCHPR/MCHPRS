@@ -43,7 +43,7 @@ impl IdxT for u32 {
     }
 }
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct NodeIndex<Idx>(Idx);
 
 impl<Idx: IdxT> NodeIndex<Idx> {
@@ -306,6 +306,31 @@ impl<Node, Edge, Idx: IdxT> StableGraph<Node, Edge, Idx> {
             edges: &self.edges,
             dir: dir.dir(),
             next: first,
+        }
+    }
+
+    pub fn sort_edges_by_key<K: Ord>(
+        &mut self,
+        node_idx: NodeIndex<Idx>,
+        dir: Direction,
+        mut key: impl FnMut(&Self, EdgeRef<'_, Edge, Idx>) -> K,
+    ) {
+        let mut edges: Vec<(K, EdgeIndex<Idx>)> = self
+            .edges(node_idx, dir)
+            .map(|edge| {
+                let idx = edge.id();
+                (key(self, edge), idx)
+            })
+            .collect();
+        edges.sort_by(|(a, _), (b, _)| a.cmp(b));
+        let (Some((_, first)), Some((_, last))) = (edges.first(), edges.last()) else {
+            return;
+        };
+        self.nodes[node_idx.index()].edge_dirs[dir.dir()] = Some([*first, *last]);
+        for (i, (_, idx)) in edges.iter().enumerate() {
+            let links = &mut self.edges[idx.index()].dirs[dir.dir()];
+            links[DIR_PREV] = i.checked_sub(1).map(|prev| edges[prev].1);
+            links[DIR_NEXT] = edges.get(i + 1).map(|(_, next)| *next);
         }
     }
 
