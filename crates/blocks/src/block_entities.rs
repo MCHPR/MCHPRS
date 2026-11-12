@@ -100,7 +100,7 @@ impl SignBlockEntityText {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
-    // These are nbt compounds with a type id but no name. They are intended to be used in nbt::Value::RawCompound
+    // Use the `encode` and `decode` methods on `SignBlockEntityText` to read and write these.
     pub front_text: Vec<u8>,
     pub back_text: Vec<u8>,
 }
