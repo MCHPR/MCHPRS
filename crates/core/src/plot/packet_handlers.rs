@@ -3,7 +3,7 @@ use crate::config::CONFIG;
 use crate::player::{PacketSender, PlayerPos, SkinParts};
 use crate::server::Message;
 use crate::utils::{self, HyphenatedUUID};
-use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntityText};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::BlockPos;
 use mchprs_network::packets::serverbound::*;
@@ -427,7 +427,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_update_sign(&mut self, packet: SUpdateSign, _player: usize) {
         let pos = BlockPos::new(packet.x, packet.y, packet.z);
-        let mut rows = packet.lines.into_iter();
+        let mut rows = packet.lines.into_iter().map(Into::into);
         let rows = [
             rows.next().unwrap(),
             rows.next().unwrap(),
@@ -438,10 +438,15 @@ impl ServerBoundPacketHandler for Plot {
             Some(BlockEntity::Sign(sign)) => sign.as_ref().clone(),
             _ => Default::default(),
         };
+        let text = SignBlockEntityText {
+            messages: rows,
+            ..Default::default()
+        }
+        .encode();
         if packet.is_front_text {
-            block_entity.front_rows = rows;
+            block_entity.front_text = text;
         } else {
-            block_entity.back_rows = rows;
+            block_entity.back_text = text;
         }
         self.world
             .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));

@@ -19,4 +19,5 @@ mchprs_proc_macros = { path = "../proc_macros" }
 mchprs_text = { path = "../text" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_variant = { workspace = true }
 hematite-nbt = { workspace = true }

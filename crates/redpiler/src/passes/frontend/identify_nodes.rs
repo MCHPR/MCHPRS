@@ -10,16 +10,13 @@
 use crate::compile_graph::{Annotations, CompileGraph, CompileNode, NodeIdx, NodeState, NodeType};
 use crate::passes::{AnalysisInfos, Pass};
 use crate::{CompilerInput, CompilerOptions};
-use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
-use mchprs_blocks::{BlockDirection, BlockFace, BlockPos};
+use mchprs_blocks::BlockPos;
 use mchprs_redstone::{self, comparator, noteblock, wire};
 use mchprs_world::{for_each_block_optimized, World};
 use rustc_hash::{FxHashMap, FxHashSet};
-use serde_json::Value;
 use smallvec::smallvec;
-use tracing::warn;
 
 pub struct IdentifyNodes;
 
@@ -57,10 +54,6 @@ impl<W: World> Pass<W> for IdentifyNodes {
             if let Some(&idx) = first_pass.get(&tick.pos) {
                 graph[idx].state.pending_tick = true;
             }
-        }
-
-        for pos in second_pass {
-            apply_annotations(graph, options, &first_pass, plot, pos);
         }
     }
 
@@ -187,85 +180,4 @@ fn identify_block<W: World>(
         _ => return None,
     };
     Some((ty, state))
-}
-
-fn apply_annotations<W: World>(
-    graph: &mut CompileGraph,
-    options: &CompilerOptions,
-    first_pass: &FxHashMap<BlockPos, NodeIdx>,
-    world: &W,
-    pos: BlockPos,
-) {
-    let block = world.get_block(pos);
-    let annotations = parse_sign_annotations(world.get_block_entity(pos));
-    if annotations.is_empty() {
-        return;
-    }
-
-    let targets = match (block.get_sign_rotation(), block.get_wall_sign_facing()) {
-        (Some(rotation), None) => {
-            if let Some(facing) = BlockDirection::from_rotation(rotation) {
-                let behind = pos.offset(facing.opposite().block_face());
-                vec![behind]
-            } else {
-                warn!("Found sign with annotations, but bad rotation at {}", pos);
-                return;
-            }
-        }
-        (None, Some(facing)) => {
-            let behind = pos.offset(facing.opposite().block_face());
-            vec![
-                behind,
-                behind.offset(BlockFace::Top),
-                behind.offset(BlockFace::Bottom),
-            ]
-        }
-        _ => panic!("Block unimplemented for second pass"),
-    };
-
-    let target = targets.iter().flat_map(|pos| first_pass.get(pos)).next();
-    if let Some(&node_idx) = target {
-        for annotation in annotations {
-            let result = annotation.apply(graph, node_idx, options);
-            if let Err(msg) = result {
-                warn!("{} at {}", msg, pos);
-            }
-        }
-    } else {
-        warn!("Could not find component for annotation at {}", pos);
-    }
-}
-
-fn parse_sign_annotations(entity: Option<&BlockEntity>) -> Vec<NodeAnnotation> {
-    if let Some(BlockEntity::Sign(sign)) = entity {
-        sign.front_rows
-            .iter()
-            .flat_map(|row| serde_json::from_str(row))
-            .flat_map(|json: Value| NodeAnnotation::parse(json.as_object()?.get("text")?.as_str()?))
-            .collect_vec()
-    } else {
-        vec![]
-    }
-}
-
-pub enum NodeAnnotation {}
-
-impl NodeAnnotation {
-    fn parse(s: &str) -> Option<Self> {
-        let s = s.trim().to_ascii_lowercase();
-        if !(s.starts_with('[') && s.ends_with(']')) {
-            return None;
-        }
-        let _parts = s[1..s.len() - 1].split(' ').collect_vec();
-        None
-    }
-
-    fn apply(
-        self,
-        _graph: &mut CompileGraph,
-        _node_idx: NodeIdx,
-        _options: &CompilerOptions,
-    ) -> Result<(), String> {
-        match self {}
-    }
 }
