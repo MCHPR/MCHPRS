@@ -573,6 +573,15 @@ pub trait PacketEncoderExt: Write {
         }
     }
 
+    // fn write_nbt_blob(&mut self, nbt_blob: &nbt::Blob)
+    // where
+    //     Self: Sized,
+    // {
+    //     if let Err(err) = nbt_blob.to_writer_headless(self) {
+    //         error!("There was en error encoding NBT in a packet: {}", err);
+    //     }
+    // }
+
     fn write_text_component(&mut self, value: &TextComponent)
     where
         Self: Sized,

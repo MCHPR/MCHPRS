@@ -1,7 +1,7 @@
 use crate::blocks::Block;
 use crate::items::{Item, ItemStack};
 use mchprs_proc_macros::protocol_id;
-use mchprs_text::TextComponent;
+use mchprs_text::{ColorCode, TextComponent};
 use mchprs_utils::{map, nbt_unwrap_val};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -59,9 +59,60 @@ impl InventoryEntry {
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct SignBlockEntityText {
+    pub messages: [TextComponent; 4],
+    pub color: ColorCode,
+    pub has_glowing_text: bool,
+}
+
+impl SignBlockEntityText {
+    pub fn encode(&self) -> Vec<u8> {
+        let messages: Vec<nbt::Value> = self
+            .messages
+            .iter()
+            .map(|text| {
+                // This is rather inefficient; The NBT library has no way of embedding a serde structure into a Value,
+                // so instead we have to completely encode the structure and then deserialize it back into a Value.
+                let mut data = Vec::new();
+                nbt::to_writer(&mut data, text, None).unwrap();
+                let mut cur = Cursor::new(&data[3..]);
+                nbt::Value::from_reader(data[0], &mut cur)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let color = serde_variant::to_variant_name(&self.color).unwrap();
+        let nbt = nbt::Value::Compound(map! {
+            "messages" => nbt::Value::List(messages),
+            "color" => nbt::Value::String(color.to_owned()),
+            "has_glowing_text" => nbt::Value::Byte(self.has_glowing_text as i8)
+        });
+
+        let mut data = Vec::new();
+        nbt.to_writer(&mut data).unwrap();
+        data
+    }
+
+    pub fn decode(data: &[u8]) -> nbt::Value {
+        let mut cur = Cursor::new(data);
+        nbt::Value::from_reader(0xa, &mut cur).unwrap()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
-    pub front_rows: [TextComponent; 4],
-    pub back_rows: [TextComponent; 4],
+    // These are nbt compounds with a type id but no name. They are intended to be used in nbt::Value::RawCompound
+    pub front_text: Vec<u8>,
+    pub back_text: Vec<u8>,
+}
+
+impl Default for SignBlockEntity {
+    fn default() -> Self {
+        let def = SignBlockEntityText::default().encode();
+        Self {
+            front_text: def.clone(),
+            back_text: def,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -233,6 +284,7 @@ impl BlockEntity {
             ),
             "sign" => {
                 let sign = if nbt.contains_key("Text1") {
+                    // This is the pre-1.20 encoding
                     let rows = [
                         &nbt.get("Text1"),
                         &nbt.get("Text2"),
@@ -240,7 +292,6 @@ impl BlockEntity {
                         &nbt.get("Text4"),
                     ]
                     .map(|row| {
-                        dbg!(row);
                         match row {
                             Some(Value::String(row)) => Some(row),
                             _ => None,
@@ -248,34 +299,28 @@ impl BlockEntity {
                         .and_then(|row| serde_json::from_str(row).ok())
                         .unwrap_or_default()
                     });
+                    let front_text = SignBlockEntityText {
+                        messages: rows,
+                        ..Default::default()
+                    };
 
-                    // This is the pre-1.20 encoding
                     SignBlockEntity {
-                        front_rows: rows,
-                        back_rows: Default::default(),
+                        front_text: front_text.encode(),
+                        back_text: SignBlockEntityText::default().encode(),
                     }
                 } else {
                     let get_side = |side| {
-                        let messages =
-                            nbt_unwrap_val!(&nbt[side], Value::Compound).get("messages")?;
-                        let mut messages = nbt_unwrap_val!(messages, Value::List)
-                            .iter()
-                            .cloned()
-                            .map(|val| {
-                                let mut nbt_data = Vec::new();
-                                nbt::to_writer(&mut nbt_data, &val, None).unwrap();
-                                nbt::from_reader(&mut Cursor::new(nbt_data)).unwrap()
-                            });
-                        Some([
-                            messages.next()?,
-                            messages.next()?,
-                            messages.next()?,
-                            messages.next()?,
-                        ])
+                        let side = &nbt[side];
+                        if !matches!(side, nbt::Value::Compound(_)) {
+                            return None;
+                        }
+                        let mut data = Vec::new();
+                        side.to_writer(&mut data).unwrap();
+                        Some(data)
                     };
                     SignBlockEntity {
-                        front_rows: get_side("front_text")?,
-                        back_rows: get_side("back_text")?,
+                        front_text: get_side("front_text")?,
+                        back_text: get_side("back_text")?,
                     }
                 };
                 Some(BlockEntity::Sign(Box::new(sign)))
@@ -292,20 +337,10 @@ impl BlockEntity {
         use nbt::Value;
         match self {
             BlockEntity::Sign(sign) => Some({
-                let front = sign.front_rows.iter().map(|str| Value::String(str.clone()));
-                let back = sign.front_rows.iter().map(|str| Value::String(str.clone()));
                 nbt::Blob::with_content(map! {
                     "is_waxed" => Value::Byte(0),
-                    "front_text" => Value::Compound(map! {
-                        "has_glowing_text" => Value::Byte(0),
-                        "color" => Value::String("black".into()),
-                        "messages" => Value::List(front.collect())
-                    }),
-                    "back_text" => Value::Compound(map! {
-                        "has_glowing_text" => Value::Byte(0),
-                        "color" => Value::String("black".into()),
-                        "messages" => Value::List(back.collect())
-                    }),
+                    "front_text" => SignBlockEntityText::decode(&sign.front_text),
+                    "back_text" => SignBlockEntityText::decode(&sign.back_text),
                     "id" => Value::String("minecraft:sign".to_owned())
                 })
             }),

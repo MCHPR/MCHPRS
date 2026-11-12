@@ -66,11 +66,11 @@ fn get_sign_placement(
     standard: fn(u8) -> Block,
     wall: fn(BlockDirection) -> Block,
 ) -> Block {
-    let rotation = (((180.0 + context.player.yaw) * 16.0 / 360.0) + 0.5).floor() as u8 & 15;
+    let rotation = ((context.player.yaw + 180.0) * (16.0 / 360.0)).round() as i32 & 15;
 
     match context.block_face {
         BlockFace::Bottom => Block::Air,
-        BlockFace::Top => standard(rotation),
+        BlockFace::Top => standard(rotation as u8),
         _ => wall(context.block_face.unwrap_direction()),
     }
 }
