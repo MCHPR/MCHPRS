@@ -483,6 +483,10 @@ impl MinecraftServer {
             }
         }
 
+        if self.online_players.len() as i64 >= CONFIG.max_players {
+            return refuse_login(&clients.remove(client_idx), "The server is full");
+        }
+
         // Set generate uuid if it doesn't exist yet
         let uuid = match clients[client_idx].uuid {
             Some(uuid) => uuid,
