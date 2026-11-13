@@ -82,7 +82,7 @@ blocks:
   "minecraft:smooth_quartz": "solid,cube,simple_item"
   "minecraft:smooth_stone_slab": "maybe_solid,maybe_cube,maybe_transparent,item"
   "minecraft:quartz_slab": "maybe_solid,maybe_cube,maybe_transparent,item"
-  "minecraft:cauldron": "transparent,item"
+  "minecraft:cauldron": "transparent,simple_item"
   "minecraft:water_cauldron": "transparent"
   "minecraft:composter": "transparent,cube,item,wood" # FIXME: You can place repeaters and comparators on it, but not wires?
   "minecraft:white_concrete": "solid,cube,simple_item,stone"
@@ -158,7 +158,7 @@ blocks:
   "minecraft:bone_block": "solid,cube,item"
   "minecraft:iron_block": "solid,cube,simple_item"
   "minecraft:soul_sand": "solid,cube,simple_item"
-  "minecraft:pumpkin": "solid,cube,item"
+  "minecraft:pumpkin": "solid,cube,simple_item"
   "minecraft:emerald_block": "solid,cube,simple_item"
   "minecraft:hay_block": "solid,cube,item"
   "minecraft:sand": "solid,cube,simple_item"
