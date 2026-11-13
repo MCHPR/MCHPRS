@@ -13,10 +13,7 @@ pub(super) fn update_node(
     let node = &mut nodes[node_id];
 
     match node.ty {
-        NodeType::Repeater {
-            delay,
-            facing_diode,
-        } => {
+        NodeType::Repeater { delay, prioritized } => {
             let should_be_locked = get_bool_side(node);
             if should_be_locked != node.locked {
                 set_node_locked(node, should_be_locked);
@@ -27,7 +24,7 @@ pub(super) fn update_node(
 
             let should_be_powered = get_bool_input(node);
             if should_be_powered != node.powered {
-                let priority = if facing_diode {
+                let priority = if prioritized {
                     TickPriority::Highest
                 } else if !should_be_powered {
                     TickPriority::Higher
@@ -49,7 +46,7 @@ pub(super) fn update_node(
         NodeType::Comparator {
             mode,
             far_input,
-            facing_diode,
+            prioritized,
         } => {
             if node.pending_tick {
                 return;
@@ -63,7 +60,7 @@ pub(super) fn update_node(
             let old_strength = node.output_power;
             let output_power = calculate_comparator_output(mode, input_power, side_input_power);
             if output_power != old_strength {
-                let priority = if facing_diode {
+                let priority = if prioritized {
                     TickPriority::High
                 } else {
                     TickPriority::Normal

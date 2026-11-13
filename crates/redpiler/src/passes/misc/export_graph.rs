@@ -38,9 +38,9 @@ fn convert_node(
         .map(|idx| nodes_map[&idx])
         .collect();
 
-    let facing_diode = match node.ty {
-        CNodeType::Repeater { facing_diode, .. } | CNodeType::Comparator { facing_diode, .. } => {
-            facing_diode
+    let diode_prioritized = match node.ty {
+        CNodeType::Repeater { prioritized, .. } | CNodeType::Comparator { prioritized, .. } => {
+            prioritized
         }
         _ => false,
     };
@@ -88,7 +88,7 @@ fn convert_node(
             repeater_locked: node.state.repeater_locked,
         },
         comparator_far_input,
-        facing_diode,
+        diode_prioritized,
         inputs,
         updates,
     }

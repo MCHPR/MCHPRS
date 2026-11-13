@@ -95,22 +95,19 @@ fn compile_node(
     stats.update_link_count += fwd_link_range.len();
 
     let ty = match &node.ty {
-        CNodeType::Repeater {
-            delay,
-            facing_diode,
-        } => NodeType::Repeater {
+        CNodeType::Repeater { delay, prioritized } => NodeType::Repeater {
             delay: *delay,
-            facing_diode: *facing_diode,
+            prioritized: *prioritized,
         },
         CNodeType::Torch => NodeType::Torch,
         CNodeType::Comparator {
             mode,
             far_input,
-            facing_diode,
+            prioritized,
         } => NodeType::Comparator {
             mode: *mode,
             far_input: far_input.map(|value| NonMaxU8::new(value).unwrap()),
-            facing_diode: *facing_diode,
+            prioritized: *prioritized,
         },
         CNodeType::Lamp => NodeType::Lamp,
         CNodeType::Button => NodeType::Button,
