@@ -366,6 +366,30 @@ impl Player {
         }
     }
 
+    pub fn get_nearest_looking_direction(&self) -> BlockFacing {
+        let (yaw, pitch) = (self.yaw.to_radians(), self.pitch.to_radians());
+        let x = -yaw.sin() * pitch.cos();
+        let y = -pitch.sin();
+        let z = yaw.cos() * pitch.cos();
+        if y.abs() > x.abs().max(z.abs()) {
+            if y > 0.0 {
+                BlockFacing::Up
+            } else {
+                BlockFacing::Down
+            }
+        } else if x.abs() > z.abs() {
+            if x > 0.0 {
+                BlockFacing::East
+            } else {
+                BlockFacing::West
+            }
+        } else if z > 0.0 {
+            BlockFacing::South
+        } else {
+            BlockFacing::North
+        }
+    }
+
     pub fn teleport(&mut self, pos: PlayerPos) {
         // Prevent from teleporting to Infinity or NaN
         if !pos.x.is_finite() || !pos.y.is_finite() || !pos.z.is_finite() {

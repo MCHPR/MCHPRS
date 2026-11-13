@@ -248,6 +248,12 @@ pub fn get_state_for_placement(
         },
         Item::BoneBlock => Block::BoneBlock { axis: BlockAxis::Y },
         Item::HayBlock => Block::HayBlock { axis: BlockAxis::Y },
+        Item::Composter => Block::Composter { level: 0 },
+        Item::Cake => Block::Cake { bites: 0 },
+        Item::Observer => Block::Observer {
+            facing: context.player.get_nearest_looking_direction(),
+            powered: false,
+        },
         Item::EndPortalFrame => Block::EndPortalFrame {
             eye: false,
             facing: context.player.get_direction().opposite(),
