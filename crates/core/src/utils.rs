@@ -1,9 +1,7 @@
-use mchprs_blocks::block_entities::InventoryEntry;
-use mchprs_blocks::items::{Item, ItemStack};
+use mchprs_blocks::items::ItemStack;
 use mchprs_network::packets::SlotData;
 use serde::de::Visitor;
 use serde::{Deserialize, Serialize};
-use std::io::Cursor;
 use std::num::ParseIntError;
 use std::str::FromStr;
 
@@ -69,20 +67,12 @@ impl<'de> Deserialize<'de> for HyphenatedUUID {
 
 pub fn encode_slot_data(item: &ItemStack) -> SlotData {
     SlotData {
-        item_count: item.count as i8,
+        item_count: item.count as i32,
         item_id: item.item_type.get_id() as i32,
-        nbt: item.nbt.clone().map(|nbt| nbt.content),
-    }
-}
-
-pub fn inventory_entry_to_stack(entry: &InventoryEntry) -> ItemStack {
-    let nbt = entry
-        .nbt
-        .clone()
-        .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap());
-    ItemStack {
-        item_type: Item::from_id(entry.id),
-        count: entry.count as u8,
-        nbt,
+        container_items: item
+            .container_slots
+            .iter()
+            .map(|slot| slot.as_ref().map(encode_slot_data))
+            .collect(),
     }
 }

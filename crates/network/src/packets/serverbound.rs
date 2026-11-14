@@ -47,6 +47,7 @@ pub trait ServerBoundPacketHandler {
     fn handle_set_creative_mode_slot(&mut self, _packet: SSetCreativeModeSlot, _player_idx: usize) {
     }
     fn handle_update_sign(&mut self, _packet: SUpdateSign, _player_idx: usize) {}
+    fn handle_pick_item_from_block(&mut self, _packet: SPickItemFromBlock, _player_idx: usize) {}
     fn handle_unknown(&mut self, _packet: SUnknown, _player_idx: usize) {}
 }
 
@@ -264,36 +265,12 @@ pub struct SChatCommandArgumentSignature {
 #[derive(Debug)]
 pub struct SChatCommand {
     pub command: String,
-    pub timestamp: i64,
-    pub salt: i64,
-    pub argument_signatures: Vec<SChatCommandArgumentSignature>,
-    pub message_count: i32,
-    pub acknowledged: [u8; 3],
 }
 
 impl ServerBoundPacket for SChatCommand {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let command = decoder.read_string()?;
-        let timestamp = decoder.read_long()?;
-        let salt = decoder.read_long()?;
-        let mut argument_signatures = Vec::new();
-        let num_signatures = decoder.read_varint()?;
-        for _ in 0..num_signatures {
-            argument_signatures.push(SChatCommandArgumentSignature {
-                argument_name: decoder.read_string()?,
-                signature: decoder.read_bytes(256)?,
-            });
-        }
-        let message_count = decoder.read_varint()?;
-        let acknowledged = decoder.read_bytes(3)?.try_into().unwrap();
-        Ok(SChatCommand {
-            command,
-            timestamp,
-            salt,
-            argument_signatures,
-            message_count,
-            acknowledged,
-        })
+        Ok(SChatCommand { command })
     }
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
@@ -579,6 +556,7 @@ pub struct SUseItemOn {
     pub cursor_y: f32,
     pub cursor_z: f32,
     pub inside_block: bool,
+    pub world_border_hit: bool,
     pub sequence: i32,
 }
 
@@ -591,6 +569,7 @@ impl ServerBoundPacket for SUseItemOn {
         let cursor_y = decoder.read_float()?;
         let cursor_z = decoder.read_float()?;
         let inside_block = decoder.read_bool()?;
+        let world_border_hit = decoder.read_bool()?;
         let sequence = decoder.read_varint()?;
         Ok(SUseItemOn {
             x: location.0,
@@ -602,6 +581,7 @@ impl ServerBoundPacket for SUseItemOn {
             cursor_y,
             cursor_z,
             inside_block,
+            world_border_hit,
             sequence,
         })
     }
@@ -637,15 +617,7 @@ pub struct SSetCreativeModeSlot {
 impl ServerBoundPacket for SSetCreativeModeSlot {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let slot = decoder.read_short()?;
-        let clicked_item = if decoder.read_bool()? {
-            Some(SlotData {
-                item_id: decoder.read_varint()?,
-                item_count: decoder.read_byte()?,
-                nbt: decoder.read_nbt_compound()?,
-            })
-        } else {
-            None
-        };
+        let clicked_item = decoder.read_slot_data(true)?;
         Ok(SSetCreativeModeSlot { slot, clicked_item })
     }
 
@@ -684,5 +656,30 @@ impl ServerBoundPacket for SUpdateSign {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_update_sign(*self, player_idx);
+    }
+}
+
+#[derive(Debug)]
+pub struct SPickItemFromBlock {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+    pub include_data: bool,
+}
+
+impl ServerBoundPacket for SPickItemFromBlock {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let (x, y, z) = decoder.read_position()?;
+        let include_data = decoder.read_bool()?;
+        Ok(SPickItemFromBlock {
+            x,
+            y,
+            z,
+            include_data,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_pick_item_from_block(*self, player_idx);
     }
 }

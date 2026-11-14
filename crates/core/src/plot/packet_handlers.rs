@@ -3,17 +3,16 @@ use crate::config::CONFIG;
 use crate::player::{PacketSender, PlayerPos, SkinParts};
 use crate::server::Message;
 use crate::utils::{self, HyphenatedUUID};
-use mchprs_blocks::block_entities::BlockEntity;
+use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntityText};
 use mchprs_blocks::items::{Item, ItemStack};
 use mchprs_blocks::BlockPos;
-use mchprs_network::packets::clientbound::*;
 use mchprs_network::packets::serverbound::*;
+use mchprs_network::packets::{clientbound::*, SlotData};
 use mchprs_world::World;
-use serde_json::json;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
-use tracing::error;
+use tracing::{error, warn};
 
 impl Plot {
     pub(super) fn handle_packets_for_player(&mut self, player: usize) {
@@ -90,12 +89,10 @@ impl ServerBoundPacketHandler for Plot {
             if creative_inventory_action.slot < 0 || creative_inventory_action.slot >= 46 {
                 return;
             }
-            let item = ItemStack {
-                count: slot_data.item_count as u8,
-                item_type: Item::from_id(slot_data.item_id as u32),
-                nbt: slot_data.nbt.map(nbt::Blob::with_content),
-            };
+
+            let item = item_stack_from_slot_data(&slot_data);
             self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
+
             if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
                 let entity_equipment = CSetEquipment {
                     entity_id: self.players[player].entity_id as i32,
@@ -387,7 +384,7 @@ impl ServerBoundPacketHandler for Plot {
             },
             CSetEntityMetadataEntry {
                 index: 6,
-                metadata_type: 20,
+                metadata_type: 21,
                 value: vec![if self.players[player].crouching { 5 } else { 0 }],
             },
         ];
@@ -430,10 +427,7 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_update_sign(&mut self, packet: SUpdateSign, _player: usize) {
         let pos = BlockPos::new(packet.x, packet.y, packet.z);
-        let mut rows = packet
-            .lines
-            .iter()
-            .map(|line| json!({ "text": line }).to_string());
+        let mut rows = packet.lines.into_iter().map(Into::into);
         let rows = [
             rows.next().unwrap(),
             rows.next().unwrap(),
@@ -444,13 +438,63 @@ impl ServerBoundPacketHandler for Plot {
             Some(BlockEntity::Sign(sign)) => sign.as_ref().clone(),
             _ => Default::default(),
         };
+        let text = SignBlockEntityText {
+            messages: rows,
+            ..Default::default()
+        }
+        .encode();
         if packet.is_front_text {
-            block_entity.front_rows = rows;
+            block_entity.front_text = text;
         } else {
-            block_entity.back_rows = rows;
+            block_entity.back_text = text;
         }
         self.world
             .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));
         self.publish_world();
+    }
+
+    fn handle_pick_item_from_block(&mut self, packet: SPickItemFromBlock, player_idx: usize) {
+        let block_pos = BlockPos::new(packet.x, packet.y, packet.z);
+        let block = self.world.get_block(block_pos);
+        let Some(item) = block.get_item() else {
+            warn!("Could not pick item from block: `{}`.", block.get_name());
+            return;
+        };
+        let item_stack = ItemStack {
+            item_type: item,
+            count: 1,
+            nbt: None,
+            container_slots: Default::default(),
+        };
+
+        // Check to see if the item is already in the hotbar
+        for hotbar_slot in 0..9 {
+            if let Some(item_stack) = &self.players[player_idx].inventory[hotbar_slot + 36]
+                && item_stack.item_type == item
+            {
+                self.players[player_idx].set_held_slot(hotbar_slot as u32);
+                return;
+            }
+        }
+
+        // Create the item in the hotbar
+        let selected_slot = 36 + self.players[player_idx].selected_slot;
+        self.players[player_idx].set_inventory_slot(selected_slot, Some(item_stack));
+    }
+}
+
+fn item_stack_from_slot_data(slot_data: &SlotData) -> ItemStack {
+    ItemStack {
+        item_type: Item::from_id(slot_data.item_id as u32),
+        count: slot_data.item_count as u8,
+        nbt: None,
+        container_slots: slot_data
+            .container_items
+            .iter()
+            .map(|slot| {
+                slot.as_ref()
+                    .map(|slot_data| item_stack_from_slot_data(slot_data))
+            })
+            .collect(),
     }
 }

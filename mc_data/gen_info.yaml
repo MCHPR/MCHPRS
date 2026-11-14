@@ -248,3 +248,23 @@ items:
   "minecraft:milk_bucket": "max_stack:1"
   "minecraft:redstone": "block"
   "minecraft:ender_eye": ""
+
+
+# For blocks that were not defined with the `item` or `simple_item` attribute above,
+# a manual mapping from block to item is required. This is used for "pick-block"
+# functionality.
+
+block_to_item:
+  "minecraft:redstone_wire": "minecraft:redstone"
+  "minecraft:redstone_wall_torch": "minecraft:redstone_torch"
+  "minecraft:oak_wall_sign": "minecraft:oak_sign"
+  "minecraft:spruce_wall_sign": "minecraft:spruce_sign"
+  "minecraft:birch_wall_sign": "minecraft:birch_sign"
+  "minecraft:acacia_wall_sign": "minecraft:acacia_sign"
+  "minecraft:jungle_wall_sign": "minecraft:jungle_sign"
+  "minecraft:dark_oak_wall_sign": "minecraft:dark_oak_sign"
+  "minecraft:crimson_wall_sign": "minecraft:crimson_sign"
+  "minecraft:warped_wall_sign": "minecraft:warped_sign"
+  "minecraft:bamboo_wall_sign": "minecraft:bamboo_sign"
+  "minecraft:cherry_wall_sign": "minecraft:cherry_sign"
+  "minecraft:mangrove_wall_sign": "minecraft:mangrove_sign"

@@ -1,8 +1,11 @@
-use crate::items::Item;
+use crate::blocks::Block;
+use crate::items::{Item, ItemStack};
 use mchprs_proc_macros::protocol_id;
+use mchprs_text::{ColorCode, TextComponent};
 use mchprs_utils::{map, nbt_unwrap_val};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Cursor;
 use std::str::FromStr;
 
 /// A single item in an inventory
@@ -12,12 +15,104 @@ pub struct InventoryEntry {
     pub slot: i8,
     pub count: i8,
     pub nbt: Option<Vec<u8>>,
+    pub container_items: Vec<Option<InventoryEntry>>,
+}
+
+impl InventoryEntry {
+    pub fn get_item_stack(&self) -> ItemStack {
+        ItemStack {
+            item_type: Item::from_id(self.id),
+            count: self.count as u8,
+            nbt: self
+                .nbt
+                .as_ref()
+                .map(|data| nbt::Blob::from_reader(&mut Cursor::new(data)).unwrap()),
+            container_slots: self
+                .container_items
+                .iter()
+                .map(|entry| entry.as_ref().map(|entry| entry.get_item_stack()))
+                .collect(),
+        }
+    }
+
+    pub fn from_item_stack(slot: i8, item_stack: &ItemStack) -> Self {
+        Self {
+            id: item_stack.item_type.get_id(),
+            slot,
+            count: item_stack.count as i8,
+            nbt: item_stack.nbt.clone().map(|blob| {
+                let mut data = Vec::new();
+                blob.to_writer(&mut data).unwrap();
+                data
+            }),
+            container_items: item_stack
+                .container_slots
+                .iter()
+                .enumerate()
+                .map(|(slot, item)| {
+                    item.as_ref()
+                        .map(|item| InventoryEntry::from_item_stack(slot as i8, item))
+                })
+                .collect(),
+        }
+    }
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct SignBlockEntityText {
+    pub messages: [TextComponent; 4],
+    pub color: ColorCode,
+    pub has_glowing_text: bool,
+}
+
+impl SignBlockEntityText {
+    pub fn encode(&self) -> Vec<u8> {
+        let messages: Vec<nbt::Value> = self
+            .messages
+            .iter()
+            .map(|text| {
+                // This is rather inefficient; The NBT library has no way of embedding a serde structure into a Value,
+                // so instead we have to completely encode the structure and then deserialize it back into a Value.
+                let mut data = Vec::new();
+                nbt::to_writer(&mut data, text, None).unwrap();
+                let mut cur = Cursor::new(&data[3..]);
+                nbt::Value::from_reader(data[0], &mut cur)
+            })
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let color = serde_variant::to_variant_name(&self.color).unwrap();
+        let nbt = nbt::Value::Compound(map! {
+            "messages" => nbt::Value::List(messages),
+            "color" => nbt::Value::String(color.to_owned()),
+            "has_glowing_text" => nbt::Value::Byte(self.has_glowing_text as i8)
+        });
+
+        let mut data = Vec::new();
+        nbt.to_writer(&mut data).unwrap();
+        data
+    }
+
+    pub fn decode(data: &[u8]) -> nbt::Value {
+        let mut cur = Cursor::new(data);
+        nbt::Value::from_reader(0xa, &mut cur).unwrap()
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SignBlockEntity {
-    pub front_rows: [String; 4],
-    pub back_rows: [String; 4],
+    // Use the `encode` and `decode` methods on `SignBlockEntityText` to read and write these.
+    pub front_text: Vec<u8>,
+    pub back_text: Vec<u8>,
+}
+
+impl Default for SignBlockEntity {
+    fn default() -> Self {
+        let def = SignBlockEntityText::default().encode();
+        Self {
+            front_text: def.clone(),
+            back_text: def,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -67,6 +162,15 @@ impl ContainerType {
             ContainerType::Hopper => protocol_id!("minecraft:menu", "minecraft:hopper"),
         }
     }
+
+    pub fn for_block(block: &Block) -> Option<Self> {
+        match block {
+            Block::Furnace { .. } => Some(ContainerType::Furnace),
+            Block::Barrel { .. } => Some(ContainerType::Barrel),
+            Block::Hopper { .. } => Some(ContainerType::Hopper),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,10 +205,24 @@ impl BlockEntity {
         }
     }
 
-    fn load_container(slots_nbt: &[nbt::Value], ty: ContainerType) -> Option<BlockEntity> {
-        use nbt::Value;
+    pub fn make_container(ty: ContainerType, inventory: Vec<InventoryEntry>) -> BlockEntity {
         let num_slots = ty.num_slots();
         let mut fullness_sum: f32 = 0.0;
+        for item in &inventory {
+            let item_type = Item::from_id(item.id);
+            fullness_sum += item.count as f32 / item_type.max_stack_size() as f32;
+        }
+        BlockEntity::Container {
+            comparator_override: (if fullness_sum > 0.0 { 1.0 } else { 0.0 }
+                + (fullness_sum / num_slots as f32) * 14.0)
+                .floor() as u8,
+            inventory,
+            ty,
+        }
+    }
+
+    fn load_container(slots_nbt: &[nbt::Value], ty: ContainerType) -> Option<BlockEntity> {
+        use nbt::Value;
         let mut inventory = Vec::new();
         for item in slots_nbt {
             let item_compound = nbt_unwrap_val!(item, Value::Compound);
@@ -139,17 +257,11 @@ impl BlockEntity {
                 count,
                 id: item_type.unwrap_or(Item::Redstone).get_id(),
                 nbt: tag,
+                // TODO: Containers containing containers
+                container_items: Vec::new(),
             });
-
-            fullness_sum += count as f32 / item_type.map_or(64, Item::max_stack_size) as f32;
         }
-        Some(BlockEntity::Container {
-            comparator_override: (if fullness_sum > 0.0 { 1.0 } else { 0.0 }
-                + (fullness_sum / num_slots as f32) * 14.0)
-                .floor() as u8,
-            inventory,
-            ty,
-        })
+        Some(Self::make_container(ty, inventory))
     }
 
     pub fn from_nbt(id: &str, nbt: &HashMap<String, nbt::Value>) -> Option<BlockEntity> {
@@ -173,31 +285,42 @@ impl BlockEntity {
             "sign" => {
                 let sign = if nbt.contains_key("Text1") {
                     // This is the pre-1.20 encoding
+                    let rows = [
+                        &nbt.get("Text1"),
+                        &nbt.get("Text2"),
+                        &nbt.get("Text3"),
+                        &nbt.get("Text4"),
+                    ]
+                    .map(|row| {
+                        match row {
+                            Some(Value::String(row)) => Some(row),
+                            _ => None,
+                        }
+                        .and_then(|row| serde_json::from_str(row).ok())
+                        .unwrap_or_default()
+                    });
+                    let front_text = SignBlockEntityText {
+                        messages: rows,
+                        ..Default::default()
+                    };
+
                     SignBlockEntity {
-                        front_rows: [
-                            // This cloning is really dumb
-                            nbt_unwrap_val!(nbt["Text1"].clone(), Value::String),
-                            nbt_unwrap_val!(nbt["Text2"].clone(), Value::String),
-                            nbt_unwrap_val!(nbt["Text3"].clone(), Value::String),
-                            nbt_unwrap_val!(nbt["Text4"].clone(), Value::String),
-                        ],
-                        back_rows: Default::default(),
+                        front_text: front_text.encode(),
+                        back_text: SignBlockEntityText::default().encode(),
                     }
                 } else {
                     let get_side = |side| {
-                        let messages =
-                            nbt_unwrap_val!(&nbt[side], Value::Compound).get("messages")?;
-                        let mut messages = nbt_unwrap_val!(messages, Value::List).iter().cloned();
-                        Some([
-                            nbt_unwrap_val!(messages.next()?, Value::String),
-                            nbt_unwrap_val!(messages.next()?, Value::String),
-                            nbt_unwrap_val!(messages.next()?, Value::String),
-                            nbt_unwrap_val!(messages.next()?, Value::String),
-                        ])
+                        let side = &nbt[side];
+                        if !matches!(side, nbt::Value::Compound(_)) {
+                            return None;
+                        }
+                        let mut data = Vec::new();
+                        side.to_writer(&mut data).unwrap();
+                        Some(data)
                     };
                     SignBlockEntity {
-                        front_rows: get_side("front_text")?,
-                        back_rows: get_side("back_text")?,
+                        front_text: get_side("front_text")?,
+                        back_text: get_side("back_text")?,
                     }
                 };
                 Some(BlockEntity::Sign(Box::new(sign)))
@@ -214,20 +337,10 @@ impl BlockEntity {
         use nbt::Value;
         match self {
             BlockEntity::Sign(sign) => Some({
-                let front = sign.front_rows.iter().map(|str| Value::String(str.clone()));
-                let back = sign.front_rows.iter().map(|str| Value::String(str.clone()));
                 nbt::Blob::with_content(map! {
                     "is_waxed" => Value::Byte(0),
-                    "front_text" => Value::Compound(map! {
-                        "has_glowing_text" => Value::Byte(0),
-                        "color" => Value::String("black".into()),
-                        "messages" => Value::List(front.collect())
-                    }),
-                    "back_text" => Value::Compound(map! {
-                        "has_glowing_text" => Value::Byte(0),
-                        "color" => Value::String("black".into()),
-                        "messages" => Value::List(back.collect())
-                    }),
+                    "front_text" => SignBlockEntityText::decode(&sign.front_text),
+                    "back_text" => SignBlockEntityText::decode(&sign.back_text),
                     "id" => Value::String("minecraft:sign".to_owned())
                 })
             }),
