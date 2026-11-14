@@ -531,6 +531,11 @@ impl Player {
         self.inventory[slot as usize] = item;
     }
 
+    pub fn set_held_slot(&mut self, slot: u32) {
+        let set_held_slot = CSetHeldSlot { slot: slot as i32 }.encode();
+        self.client.send_packet(&set_held_slot);
+    }
+
     pub fn spawn_packet(&self) -> CSpawnEntity {
         CSpawnEntity {
             entity_id: self.entity_id as i32,

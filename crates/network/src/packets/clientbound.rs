@@ -1450,3 +1450,18 @@ impl ClientBoundPacket for CSystemChatMessage {
         )
     }
 }
+
+pub struct CSetHeldSlot {
+    pub slot: i32,
+}
+
+impl ClientBoundPacket for CSetHeldSlot {
+    fn encode(&self) -> PacketEncoder {
+        let mut buf = Vec::new();
+        buf.write_varint(self.slot);
+        PacketEncoder::new(
+            buf,
+            packet_id!("play", "clientbound", "minecraft:set_held_slot"),
+        )
+    }
+}

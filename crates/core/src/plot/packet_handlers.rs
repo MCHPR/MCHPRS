@@ -12,7 +12,7 @@ use mchprs_world::World;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
-use tracing::error;
+use tracing::{error, warn};
 
 impl Plot {
     pub(super) fn handle_packets_for_player(&mut self, player: usize) {
@@ -453,8 +453,33 @@ impl ServerBoundPacketHandler for Plot {
         self.publish_world();
     }
 
-    fn handle_pick_item_from_block(&mut self, _packet: SPickItemFromBlock, player_idx: usize) {
-        self.players[player_idx].send_error_message("pick block no worky");
+    fn handle_pick_item_from_block(&mut self, packet: SPickItemFromBlock, player_idx: usize) {
+        let block_pos = BlockPos::new(packet.x, packet.y, packet.z);
+        let block = self.world.get_block(block_pos);
+        let Some(item) = block.get_item() else {
+            warn!("Could not pick item from block: `{}`.", block.get_name());
+            return;
+        };
+        let item_stack = ItemStack {
+            item_type: item,
+            count: 1,
+            nbt: None,
+            container_slots: Default::default(),
+        };
+
+        // Check to see if the item is already in the hotbar
+        for hotbar_slot in 0..9 {
+            if let Some(item_stack) = &self.players[player_idx].inventory[hotbar_slot + 36]
+                && item_stack.item_type == item
+            {
+                self.players[player_idx].set_held_slot(hotbar_slot as u32);
+                return;
+            }
+        }
+
+        // Create the item in the hotbar
+        let selected_slot = 36 + self.players[player_idx].selected_slot;
+        self.players[player_idx].set_inventory_slot(selected_slot, Some(item_stack));
     }
 }
 

@@ -39,6 +39,7 @@ struct InfoYaml {
     blocks: IndexMap<String, String>,
     items: IndexMap<String, String>,
     prop_types: IndexMap<String, Vec<String>>,
+    block_to_item: HashMap<String, String>,
 }
 
 #[derive(Default, Debug)]
@@ -288,6 +289,29 @@ fn generate_get_name(blocks: &[ProcessedBlock]) -> TokenStream {
             match self {
                 #( #match_arms ),*
             }
+        }
+    }
+}
+
+fn generate_get_item(
+    block_to_item: &Vec<(usize, usize)>,
+    blocks: &[ProcessedBlock],
+    items: &[ProcessedItem],
+) -> TokenStream {
+    let match_arms = block_to_item.iter().map(|(block_idx, item_idx)| {
+        let pat = blocks[*block_idx].match_ignore();
+        let name_ident = ident(&items[*item_idx].pascal_name);
+        quote! {
+            #pat => Item::#name_ident
+        }
+    });
+
+    quote! {
+        pub fn get_item(self) -> Option<Item> {
+            Some(match self {
+                #( #match_arms, )*
+                _ => return None,
+            })
         }
     }
 }
@@ -802,6 +826,7 @@ fn generate_module(
     blocks: &[ProcessedBlock],
     prop_types: &[(String, Vec<String>)],
     items: &[ProcessedItem],
+    block_to_item: &Vec<(usize, usize)>,
 ) -> TokenStream {
     let block_enum = generate_block_enum(blocks);
 
@@ -831,6 +856,7 @@ fn generate_module(
     let flip = generate_flip(blocks);
     let get_id = generate_get_id(blocks);
     let from_id = generate_from_id(blocks);
+    let get_item = generate_get_item(&block_to_item, blocks, items);
     let is_wood = generate_is_attr(blocks, "is_wood", |block| block.attrs.wood, None);
     let is_wool = generate_is_attr(blocks, "is_wool", |block| block.attrs.wool, None);
     let is_stone = generate_is_attr(blocks, "is_stone", |block| block.attrs.stone, None);
@@ -863,6 +889,7 @@ fn generate_module(
         impl Block {
             #get_name
             #from_name
+            #get_item
             #is_solid
             #is_cube
             #is_transparent
@@ -930,7 +957,8 @@ fn main() {
         .collect::<Vec<_>>();
 
     let mut items = Vec::new();
-    for block in &processed_blocks {
+    let mut block_to_item = Vec::new();
+    for (block_idx, block) in processed_blocks.iter().enumerate() {
         if block.attrs.simple_item | block.attrs.item {
             let attrs = ItemAttrs {
                 block: true,
@@ -943,6 +971,7 @@ fn main() {
                 .get(&block.name)
                 .expect(&block.name)
                 .protocol_id;
+            block_to_item.push((block_idx, items.len()));
             items.push(ProcessedItem::new(&block.name, id, attrs));
         }
     }
@@ -970,7 +999,24 @@ fn main() {
         ));
     }
 
-    let gen_src = generate_module(&processed_blocks, &prop_types, &items).to_string();
+    let block_map: HashMap<String, usize> = processed_blocks
+        .iter()
+        .enumerate()
+        .map(|(block_idx, block)| (block.name.clone(), block_idx))
+        .collect();
+    let item_map: HashMap<String, usize> = items
+        .iter()
+        .enumerate()
+        .map(|(item_idx, item)| (item.name.clone(), item_idx))
+        .collect();
+    for (block_name, item_name) in &yaml.block_to_item {
+        let block_idx = *block_map.get(block_name).expect("block not found");
+        let item_idx = *item_map.get(item_name).expect("item not found");
+        block_to_item.push((block_idx, item_idx));
+    }
+
+    let gen_src =
+        generate_module(&processed_blocks, &prop_types, &items, &block_to_item).to_string();
     fs::write(&output_path, gen_src).unwrap();
     Command::new("rustfmt")
         .arg(&output_path)
