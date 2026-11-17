@@ -497,6 +497,10 @@ impl Player {
 
     pub fn set_gamemode(&mut self, gamemode: Gamemode) {
         self.gamemode = gamemode;
+        // The client starts flying when it becomes a spectator, without telling the server
+        if matches!(gamemode, Gamemode::Spectator) {
+            self.flying = true;
+        }
         let change_game_state = CGameEvent {
             reason: CGameEventType::ChangeGamemode,
             value: self.gamemode.get_id() as f32,
@@ -603,7 +607,7 @@ impl Player {
                 CSetEntityMetadataEntry {
                     index: 6,
                     metadata_type: 21,
-                    value: vec![if self.crouching { 5 } else { 0 }],
+                    value: vec![if self.crouching && !self.flying { 5 } else { 0 }],
                 },
                 CSetEntityMetadataEntry {
                     index: 17,

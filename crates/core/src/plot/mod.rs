@@ -347,6 +347,7 @@ impl Plot {
 
     fn change_player_gamemode(&mut self, player_idx: usize, gamemode: Gamemode) {
         self.players[player_idx].set_gamemode(gamemode);
+        self.send_metadata_to_others(player_idx);
         let _ = self.message_sender.send(Message::PlayerUpdateGamemode(
             self.players[player_idx].uuid,
             gamemode,
