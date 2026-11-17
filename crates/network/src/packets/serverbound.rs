@@ -41,6 +41,7 @@ pub trait ServerBoundPacketHandler {
     fn handle_player_abilities(&mut self, _packet: SPlayerAbilities, _player_idx: usize) {}
     fn handle_player_action(&mut self, _packet: SPlayerAction, _player_idx: usize) {}
     fn handle_player_command(&mut self, _packet: SPlayerCommand, _player_idx: usize) {}
+    fn handle_player_input(&mut self, _packet: SPlayerInput, _player_idx: usize) {}
     fn handle_swing_arm(&mut self, _packet: SSwingArm, _player_idx: usize) {}
     fn handle_use_item_on(&mut self, _packet: SUseItemOn, _player_idx: usize) {}
     fn handle_set_held_item(&mut self, _packet: SSetHeldItem, _player_idx: usize) {}
@@ -512,10 +513,45 @@ impl ServerBoundPacket for SPlayerAction {
 }
 
 #[derive(Debug)]
+pub struct SPlayerInput {
+    pub forward: bool,
+    pub backward: bool,
+    pub left: bool,
+    pub right: bool,
+    pub jump: bool,
+    pub shift: bool,
+    pub sprint: bool,
+}
+
+impl ServerBoundPacket for SPlayerInput {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let flags = decoder.read_unsigned_byte()?;
+        Ok(SPlayerInput {
+            forward: flags & 0x01 != 0,
+            backward: flags & 0x02 != 0,
+            left: flags & 0x04 != 0,
+            right: flags & 0x08 != 0,
+            jump: flags & 0x10 != 0,
+            shift: flags & 0x20 != 0,
+            sprint: flags & 0x40 != 0,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_player_input(*self, player_idx);
+    }
+}
+
+#[derive(Debug)]
 pub struct SPlayerCommand {
     pub entity_id: i32,
     pub action_id: i32,
     pub jump_boost: i32,
+}
+
+impl SPlayerCommand {
+    pub const START_SPRINTING: i32 = 1;
+    pub const STOP_SPRINTING: i32 = 2;
 }
 
 impl ServerBoundPacket for SPlayerCommand {

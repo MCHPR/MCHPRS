@@ -565,7 +565,7 @@ impl Plot {
         if self.redpiler.is_active() {
             let block = self.world.get_block(block_pos);
             let lever_or_button = matches!(block, Block::Lever { .. } | Block::StoneButton { .. });
-            if lever_or_button && !self.players[player].crouching {
+            if lever_or_button && !self.players[player].skips_block_use() {
                 self.redpiler.on_use_block(block_pos);
                 self.publish_world();
                 return;
@@ -601,7 +601,7 @@ impl Plot {
         }
 
         let block = self.world.get_block(block_pos);
-        if !self.players[player].crouching {
+        if !self.players[player].skips_block_use() {
             interaction::on_use(
                 block,
                 &mut self.world,
