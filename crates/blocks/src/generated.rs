@@ -883,6 +883,7 @@ impl Block {
             Block::OakWallSign { .. } => Item::OakSign,
             Block::BirchWallSign { .. } => Item::BirchSign,
             Block::WarpedWallSign { .. } => Item::WarpedSign,
+            Block::WaterCauldron { .. } => Item::Cauldron,
             _ => return None,
         })
     }

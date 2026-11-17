@@ -268,3 +268,4 @@ block_to_item:
   "minecraft:bamboo_wall_sign": "minecraft:bamboo_sign"
   "minecraft:cherry_wall_sign": "minecraft:cherry_sign"
   "minecraft:mangrove_wall_sign": "minecraft:mangrove_sign"
+  "minecraft:water_cauldron": "minecraft:cauldron"
