@@ -22,7 +22,7 @@ impl Plot {
         }
     }
 
-    fn send_metadata_to_others(&mut self, player: usize) {
+    pub(super) fn send_metadata_to_others(&mut self, player: usize) {
         let entity_metadata = self.players[player].metadata_packet().encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
@@ -139,7 +139,11 @@ impl ServerBoundPacketHandler for Plot {
     }
 
     fn handle_player_abilities(&mut self, player_abilities: SPlayerAbilities, player: usize) {
+        if self.players[player].flying == player_abilities.is_flying {
+            return;
+        }
         self.players[player].flying = player_abilities.is_flying;
+        self.send_metadata_to_others(player);
     }
 
     fn handle_swing_arm(&mut self, animation: SSwingArm, player: usize) {
