@@ -198,7 +198,9 @@ impl TextComponent {
                         _ => {
                             components.push(cur_component);
                             cur_component = Default::default();
-                            cur_component.color = Some(TextColor::ColorCode(color));
+                            if !matches!(color, ColorCode::Reset) {
+                                cur_component.color = Some(TextColor::ColorCode(color));
+                            }
                         }
                     }
                     continue;
