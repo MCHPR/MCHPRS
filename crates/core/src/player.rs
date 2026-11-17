@@ -565,6 +565,42 @@ impl Player {
     pub fn set_held_slot(&mut self, slot: u32) {
         let set_held_slot = CSetHeldSlot { slot: slot as i32 }.encode();
         self.client.send_packet(&set_held_slot);
+        self.selected_slot = slot;
+    }
+
+    pub fn pick_item(&mut self, item: ItemStack) {
+        let matching_slot = (36..45).chain(9..36).find(|&slot| {
+            self.inventory[slot as usize]
+                .as_ref()
+                .is_some_and(|stack| stack.is_same_item(&item))
+        });
+        if let Some(slot) = matching_slot
+            && slot >= 36
+        {
+            self.set_held_slot(slot - 36);
+            return;
+        }
+
+        let hotbar_slot = (0..9)
+            .map(|offset| (self.selected_slot + offset) % 9)
+            .find(|&slot| self.inventory[(36 + slot) as usize].is_none())
+            .unwrap_or(self.selected_slot);
+        let replaced = self.inventory[(36 + hotbar_slot) as usize].take();
+        match matching_slot {
+            Some(slot) => {
+                let picked = self.inventory[slot as usize].take();
+                self.set_inventory_slot(slot, replaced);
+                self.set_inventory_slot(36 + hotbar_slot, picked);
+            }
+            None => {
+                let free_slot = (9..36).find(|&slot| self.inventory[slot as usize].is_none());
+                if let (Some(free_slot), Some(replaced)) = (free_slot, replaced) {
+                    self.set_inventory_slot(free_slot, Some(replaced));
+                }
+                self.set_inventory_slot(36 + hotbar_slot, Some(item));
+            }
+        }
+        self.set_held_slot(hotbar_slot);
     }
 
     pub fn spawn_packet(&self) -> CSpawnEntity {
