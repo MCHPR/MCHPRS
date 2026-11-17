@@ -371,6 +371,10 @@ impl ServerBoundPacket for SKeepAlive {
     }
 }
 
+fn read_on_ground<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<bool> {
+    Ok(decoder.read_unsigned_byte()? & 0x01 != 0)
+}
+
 #[derive(Debug)]
 pub struct SSetPlayerPosition {
     pub x: f64,
@@ -385,7 +389,7 @@ impl ServerBoundPacket for SSetPlayerPosition {
             x: decoder.read_double()?,
             y: decoder.read_double()?,
             z: decoder.read_double()?,
-            on_ground: decoder.read_bool()?,
+            on_ground: read_on_ground(decoder)?,
         })
     }
 
@@ -412,7 +416,7 @@ impl ServerBoundPacket for SSetPlayerPositionAndRotation {
             z: decoder.read_double()?,
             yaw: decoder.read_float()?,
             pitch: decoder.read_float()?,
-            on_ground: decoder.read_bool()?,
+            on_ground: read_on_ground(decoder)?,
         })
     }
 
@@ -433,7 +437,7 @@ impl ServerBoundPacket for SPlayerRotation {
         Ok(SPlayerRotation {
             yaw: decoder.read_float()?,
             pitch: decoder.read_float()?,
-            on_ground: decoder.read_bool()?,
+            on_ground: read_on_ground(decoder)?,
         })
     }
 
@@ -450,7 +454,7 @@ pub struct SSetPlayerOnGround {
 impl ServerBoundPacket for SSetPlayerOnGround {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         Ok(SSetPlayerOnGround {
-            on_ground: decoder.read_bool()?,
+            on_ground: read_on_ground(decoder)?,
         })
     }
 
