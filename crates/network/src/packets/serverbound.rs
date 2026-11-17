@@ -651,13 +651,13 @@ impl ServerBoundPacket for SSetHeldItem {
 #[derive(Debug)]
 pub struct SSetCreativeModeSlot {
     pub slot: i16,
-    pub clicked_item: Option<SlotData>,
+    pub clicked_item: DecodeResult<Option<SlotData>>,
 }
 
 impl ServerBoundPacket for SSetCreativeModeSlot {
     fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
         let slot = decoder.read_short()?;
-        let clicked_item = decoder.read_slot_data(true)?;
+        let clicked_item = decoder.read_untrusted_slot_data();
         Ok(SSetCreativeModeSlot { slot, clicked_item })
     }
 
