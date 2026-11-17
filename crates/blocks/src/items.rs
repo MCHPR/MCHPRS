@@ -1,7 +1,7 @@
 use crate::block_entities::ContainerType;
 pub use crate::generated::Item;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct ItemStack {
     pub item_type: Item,
     pub count: u8,
@@ -10,6 +10,12 @@ pub struct ItemStack {
 }
 
 impl ItemStack {
+    pub fn is_same_item(&self, other: &ItemStack) -> bool {
+        self.item_type == other.item_type
+            && self.nbt == other.nbt
+            && self.container_slots == other.container_slots
+    }
+
     /// Create container item with specified signal strength
     pub fn container_with_ss(container_ty: ContainerType, ss: u8) -> ItemStack {
         let item = match container_ty {

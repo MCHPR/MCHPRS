@@ -22,6 +22,27 @@ impl Plot {
         }
     }
 
+    fn send_held_item_to_others(&mut self, player: usize) {
+        let held_item =
+            &self.players[player].inventory[self.players[player].selected_slot as usize + 36];
+        let entity_equipment = CSetEquipment {
+            entity_id: self.players[player].entity_id as i32,
+            equipment: vec![CSetEquipmentEquipment {
+                slot: 0, // Main hand
+                item: held_item.as_ref().map(utils::encode_slot_data),
+            }],
+        }
+        .encode();
+        for other_player in 0..self.players.len() {
+            if player == other_player {
+                continue;
+            };
+            self.players[other_player]
+                .client
+                .send_packet(&entity_equipment);
+        }
+    }
+
     pub(super) fn send_metadata_to_others(&mut self, player: usize) {
         let entity_metadata = self.players[player].metadata_packet().encode();
         for other_player in 0..self.players.len() {
@@ -108,24 +129,7 @@ impl ServerBoundPacketHandler for Plot {
                 self.players[player].inventory[slot as usize] = Some(item);
 
                 if slot == self.players[player].selected_slot + 36 {
-                    let entity_equipment = CSetEquipment {
-                        entity_id: self.players[player].entity_id as i32,
-                        equipment: vec![CSetEquipmentEquipment {
-                            slot: 0, // Main hand
-                            item: self.players[player].inventory[slot as usize]
-                                .as_ref()
-                                .map(utils::encode_slot_data),
-                        }],
-                    }
-                    .encode();
-                    for other_player in 0..self.players.len() {
-                        if player == other_player {
-                            continue;
-                        };
-                        self.players[other_player]
-                            .client
-                            .send_packet(&entity_equipment);
-                    }
+                    self.send_held_item_to_others(player);
                 }
             }
             Ok(None) => self.players[player].inventory[slot as usize] = None,
@@ -468,19 +472,8 @@ impl ServerBoundPacketHandler for Plot {
             container_slots: Default::default(),
         };
 
-        // Check to see if the item is already in the hotbar
-        for hotbar_slot in 0..9 {
-            if let Some(item_stack) = &self.players[player_idx].inventory[hotbar_slot + 36]
-                && item_stack.item_type == item
-            {
-                self.players[player_idx].set_held_slot(hotbar_slot as u32);
-                return;
-            }
-        }
-
-        // Create the item in the hotbar
-        let selected_slot = 36 + self.players[player_idx].selected_slot;
-        self.players[player_idx].set_inventory_slot(selected_slot, Some(item_stack));
+        self.players[player_idx].pick_item(item_stack);
+        self.send_held_item_to_others(player_idx);
     }
 }
 
