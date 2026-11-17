@@ -97,45 +97,49 @@ impl ServerBoundPacketHandler for Plot {
         creative_inventory_action: SSetCreativeModeSlot,
         player: usize,
     ) {
-        if let Some(slot_data) = creative_inventory_action.clicked_item {
-            if creative_inventory_action.slot < 0 || creative_inventory_action.slot >= 46 {
-                return;
-            }
+        if !(0..46).contains(&creative_inventory_action.slot) {
+            return;
+        }
+        let slot = creative_inventory_action.slot as u32;
 
-            let item = item_stack_from_slot_data(&slot_data);
-            self.players[player].inventory[creative_inventory_action.slot as usize] = Some(item);
+        match creative_inventory_action.clicked_item {
+            Ok(Some(slot_data)) => {
+                let item = item_stack_from_slot_data(&slot_data);
+                self.players[player].inventory[slot as usize] = Some(item);
 
-            if creative_inventory_action.slot as u32 == self.players[player].selected_slot + 36 {
-                let entity_equipment = CSetEquipment {
-                    entity_id: self.players[player].entity_id as i32,
-                    equipment: vec![CSetEquipmentEquipment {
-                        slot: 0, // Main hand
-                        item: self.players[player].inventory
-                            [creative_inventory_action.slot as usize]
-                            .as_ref()
-                            .map(utils::encode_slot_data),
-                    }],
-                }
-                .encode();
-                for other_player in 0..self.players.len() {
-                    if player == other_player {
-                        continue;
-                    };
-                    self.players[other_player]
-                        .client
-                        .send_packet(&entity_equipment);
+                if slot == self.players[player].selected_slot + 36 {
+                    let entity_equipment = CSetEquipment {
+                        entity_id: self.players[player].entity_id as i32,
+                        equipment: vec![CSetEquipmentEquipment {
+                            slot: 0, // Main hand
+                            item: self.players[player].inventory[slot as usize]
+                                .as_ref()
+                                .map(utils::encode_slot_data),
+                        }],
+                    }
+                    .encode();
+                    for other_player in 0..self.players.len() {
+                        if player == other_player {
+                            continue;
+                        };
+                        self.players[other_player]
+                            .client
+                            .send_packet(&entity_equipment);
+                    }
                 }
             }
-        } else {
-            self.players[player].inventory[creative_inventory_action.slot as usize] = None;
+            Ok(None) => self.players[player].inventory[slot as usize] = None,
+            Err(_) => {
+                self.players[player].send_error_message("The server couldn't read this item.")
+            }
         }
 
         // We wanna retrieve the item slot from the inventory
         // rather than re-using the value from the client,
         // to avoid getting out of sync if the server validates
         // or sanitizes data or something
-        let item = self.players[player].inventory[creative_inventory_action.slot as usize].clone();
-        self.players[player].set_inventory_slot(creative_inventory_action.slot as u32, item);
+        let item = self.players[player].inventory[slot as usize].clone();
+        self.players[player].set_inventory_slot(slot, item);
     }
 
     fn handle_player_abilities(&mut self, player_abilities: SPlayerAbilities, player: usize) {

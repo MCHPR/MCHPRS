@@ -378,16 +378,57 @@ pub trait PacketDecoderExt: Read + Sized {
         })
     }
 
-    fn read_slot_data(&mut self, can_skip_components: bool) -> DecodeResult<Option<SlotData>> {
+    /// Reads an item stack as the client sends it for creative inventory slots: its own
+    /// component values are prefixed with their length in bytes, those of nested items are not.
+    fn read_untrusted_slot_data(&mut self) -> DecodeResult<Option<SlotData>> {
         let item_count = self.read_varint()?;
-        if item_count == 0 {
+        if item_count <= 0 {
             return Ok(None);
         }
 
         let item_id = self.read_varint()?;
         let num_components = self.read_varint()?;
-        // Num components removed
-        self.read_varint()?;
+        let num_removed_components = self.read_varint()?;
+
+        let mut container_items = Vec::new();
+        for _ in 0..num_components {
+            let component_ty = self.read_varint()?;
+            let value_len = self.read_varint()?;
+            let mut value = Cursor::new(self.read_bytes(value_len as usize)?);
+            if component_ty == protocol_id!("minecraft:data_component_type", "minecraft:container")
+            {
+                container_items = value.read_container_slots()?;
+            }
+        }
+        for _ in 0..num_removed_components {
+            self.read_varint()?;
+        }
+
+        Ok(Some(SlotData {
+            item_count,
+            item_id,
+            container_items,
+        }))
+    }
+
+    fn read_container_slots(&mut self) -> DecodeResult<Vec<Option<SlotData>>> {
+        let num_slots = self.read_varint()?;
+        let mut slots = Vec::new();
+        for _ in 0..num_slots {
+            slots.push(self.read_slot_data()?);
+        }
+        Ok(slots)
+    }
+
+    fn read_slot_data(&mut self) -> DecodeResult<Option<SlotData>> {
+        let item_count = self.read_varint()?;
+        if item_count <= 0 {
+            return Ok(None);
+        }
+
+        let item_id = self.read_varint()?;
+        let num_components = self.read_varint()?;
+        let num_removed_components = self.read_varint()?;
 
         let mut container_items = Vec::new();
         for _ in 0..num_components {
@@ -468,20 +509,14 @@ pub trait PacketDecoderExt: Read + Sized {
                     let _ = self.read_varint()?;
                 }
                 protocol_id!("minecraft:data_component_type", "minecraft:container") => {
-                    let num_slots = self.read_varint()?;
-                    for _ in 0..num_slots {
-                        container_items.push(self.read_slot_data(false)?);
-                    }
+                    container_items = self.read_container_slots()?;
                 }
-                // If there's a component we can't handle, then there's no way to know how many bytes to skip to the next component, so we have to stop early
-                _ => {
-                    if !can_skip_components {
-                        return Err(PacketDecodeError::UnsupportedSlotComponent(component_ty));
-                    } else {
-                        break;
-                    }
-                }
+                // If there's a component we can't handle, then there's no way to know how many bytes to skip to the next component
+                _ => return Err(PacketDecodeError::UnsupportedSlotComponent(component_ty)),
             }
+        }
+        for _ in 0..num_removed_components {
+            self.read_varint()?;
         }
         Ok(Some(SlotData {
             item_count,
