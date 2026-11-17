@@ -1407,25 +1407,31 @@ impl ClientBoundPacket for CSoundEffect {
     }
 }
 
-pub struct CTeleportEntity {
+pub struct CEntityPositionSync {
     pub entity_id: i32,
     pub x: f64,
     pub y: f64,
     pub z: f64,
+    pub velocity_x: f64,
+    pub velocity_y: f64,
+    pub velocity_z: f64,
     pub yaw: f32,
     pub pitch: f32,
     pub on_ground: bool,
 }
 
-impl ClientBoundPacket for CTeleportEntity {
+impl ClientBoundPacket for CEntityPositionSync {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
         buf.write_double(self.x);
         buf.write_double(self.y);
         buf.write_double(self.z);
-        buf.write_byte(((self.yaw / 360f32 * 256f32) as i32 % 256) as i8);
-        buf.write_byte(((self.pitch / 360f32 * 256f32) as i32 % 256) as i8);
+        buf.write_double(self.velocity_x);
+        buf.write_double(self.velocity_y);
+        buf.write_double(self.velocity_z);
+        buf.write_float(self.yaw);
+        buf.write_float(self.pitch);
         buf.write_bool(self.on_ground);
         PacketEncoder::new(
             buf,

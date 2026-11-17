@@ -208,11 +208,14 @@ impl ServerBoundPacketHandler for Plot {
             || (new.y - old.y).abs() > 8.0
             || (new.z - old.z).abs() > 8.0
         {
-            CTeleportEntity {
+            CEntityPositionSync {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
                 z: new.z,
+                velocity_x: 0.0,
+                velocity_y: 0.0,
+                velocity_z: 0.0,
                 yaw: self.players[player].yaw,
                 pitch: self.players[player].pitch,
                 on_ground: player_position.on_ground,
@@ -259,11 +262,14 @@ impl ServerBoundPacketHandler for Plot {
             || (new.y - old.y).abs() > 8.0
             || (new.z - old.z).abs() > 8.0
         {
-            CTeleportEntity {
+            CEntityPositionSync {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
                 z: new.z,
+                velocity_x: 0.0,
+                velocity_y: 0.0,
+                velocity_z: 0.0,
                 yaw: self.players[player].yaw,
                 pitch: self.players[player].pitch,
                 on_ground: player_position_and_rotation.on_ground,
