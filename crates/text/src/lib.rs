@@ -1,11 +1,4 @@
-use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
-
-static URL_REGEX: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new("([a-zA-Z0-9§\\-:/]+\\.[a-zA-Z/0-9§\\-:_#]+(\\.[a-zA-Z/0-9.§\\-:#\\?\\+=_]+)?)")
-        .unwrap()
-});
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 #[serde(rename_all = "snake_case")]
@@ -86,20 +79,6 @@ impl Into<TextColor> for ColorCode {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "snake_case")]
-enum ClickEventType {
-    OpenUrl,
-    RunCommand,
-    SuggestCommand,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ClickEvent {
-    action: ClickEventType,
-    value: String,
-}
-
 /// This is only used for `TextComponent` serialize
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_false(field: &bool) -> bool {
@@ -164,9 +143,6 @@ pub struct TextComponent {
     pub obfuscated: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<TextColor>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    #[serde(rename = "clickEvent")]
-    pub click_event: Option<ClickEvent>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     #[serde(default)]
     pub extra: Vec<TextComponent>,
@@ -231,39 +207,8 @@ impl TextComponent {
             cur_component.text.push(c);
         }
         components.push(cur_component);
-
-        // This code is stinky
-        // Find URLs and add click action
-        let mut new_components = Vec::with_capacity(components.len());
-        for component in components {
-            let mut last = 0;
-            let text = &component.text;
-
-            for match_ in URL_REGEX.find_iter(text) {
-                let index = match_.start();
-                let matched = match_.as_str();
-                if last != index {
-                    let mut new = component.clone();
-                    new.text = String::from(&text[last..index]);
-                    new_components.push(new);
-                }
-                let mut new = component.clone();
-                new.text = matched.to_string();
-                new.click_event = Some(ClickEvent {
-                    action: ClickEventType::OpenUrl,
-                    value: matched.to_string(),
-                });
-                new_components.push(new);
-                last = index + matched.len();
-            }
-            if last < text.len() {
-                let mut new = component.clone();
-                new.text = String::from(&text[last..]);
-                new_components.push(new);
-            }
-        }
-
-        new_components
+        components.retain(|component| !component.text.is_empty());
+        components
     }
 
     pub fn encode_json(&self) -> String {
@@ -278,7 +223,6 @@ impl TextComponent {
             && !self.obfuscated
             && self.extra.is_empty()
             && self.color.is_none()
-            && self.click_event.is_none()
     }
 }
 

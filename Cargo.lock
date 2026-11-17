@@ -1445,7 +1445,6 @@ dependencies = [
 name = "mchprs_text"
 version = "0.6.0-dev"
 dependencies = [
- "regex",
  "serde",
  "serde_json",
 ]
