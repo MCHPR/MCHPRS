@@ -390,6 +390,11 @@ impl Player {
         }
     }
 
+    pub fn skips_block_use(&self) -> bool {
+        let main_hand = self.selected_slot as usize + 36;
+        self.crouching && (self.inventory[main_hand].is_some() || self.inventory[45].is_some())
+    }
+
     pub fn teleport(&mut self, pos: PlayerPos) {
         // Prevent from teleporting to Infinity or NaN
         if !pos.x.is_finite() || !pos.y.is_finite() || !pos.z.is_finite() {

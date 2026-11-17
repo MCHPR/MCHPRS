@@ -193,6 +193,9 @@ fn read_decompressed<T: PacketDecoderExt>(
             packet_id!("play", "serverbound", "minecraft:player_command") => {
                 Box::new(SPlayerCommand::decode(reader)?)
             }
+            packet_id!("play", "serverbound", "minecraft:player_input") => {
+                Box::new(SPlayerInput::decode(reader)?)
+            }
             packet_id!("play", "serverbound", "minecraft:set_carried_item") => {
                 Box::new(SSetHeldItem::decode(reader)?)
             }

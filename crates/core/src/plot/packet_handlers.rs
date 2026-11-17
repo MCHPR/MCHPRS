@@ -21,6 +21,18 @@ impl Plot {
             packet.handle(self, player);
         }
     }
+
+    fn send_metadata_to_others(&mut self, player: usize) {
+        let entity_metadata = self.players[player].metadata_packet().encode();
+        for other_player in 0..self.players.len() {
+            if player == other_player {
+                continue;
+            };
+            self.players[other_player]
+                .client
+                .send_packet(&entity_metadata);
+        }
+    }
 }
 
 impl ServerBoundPacketHandler for Plot {
@@ -369,44 +381,19 @@ impl ServerBoundPacketHandler for Plot {
 
     fn handle_player_command(&mut self, entity_action: SPlayerCommand, player: usize) {
         match entity_action.action_id {
-            0 => self.players[player].crouching = true,
-            1 => self.players[player].crouching = false,
-            3 => self.players[player].sprinting = true,
-            4 => self.players[player].sprinting = false,
-            _ => {}
+            SPlayerCommand::START_SPRINTING => self.players[player].sprinting = true,
+            SPlayerCommand::STOP_SPRINTING => self.players[player].sprinting = false,
+            _ => return,
         }
-        let mut bitfield = 0;
-        if self.players[player].crouching {
-            bitfield |= 0x02;
-        };
-        if self.players[player].sprinting {
-            bitfield |= 0x08;
-        };
-        let metadata_entries = vec![
-            CSetEntityMetadataEntry {
-                index: 0,
-                metadata_type: 0,
-                value: vec![bitfield],
-            },
-            CSetEntityMetadataEntry {
-                index: 6,
-                metadata_type: 21,
-                value: vec![if self.players[player].crouching { 5 } else { 0 }],
-            },
-        ];
-        let entity_metadata = CSetEntityMetadata {
-            entity_id: self.players[player].entity_id as i32,
-            metadata: metadata_entries,
+        self.send_metadata_to_others(player);
+    }
+
+    fn handle_player_input(&mut self, player_input: SPlayerInput, player: usize) {
+        if self.players[player].crouching == player_input.shift {
+            return;
         }
-        .encode();
-        for other_player in 0..self.players.len() {
-            if player == other_player {
-                continue;
-            };
-            self.players[other_player]
-                .client
-                .send_packet(&entity_metadata);
-        }
+        self.players[player].crouching = player_input.shift;
+        self.send_metadata_to_others(player);
     }
 
     fn handle_set_held_item(&mut self, held_item_change: SSetHeldItem, player: usize) {

@@ -487,7 +487,7 @@ pub fn use_item_on_block(
     }
     let can_place = item.item_type.is_block() && world.get_block(block_pos).can_place_block_in();
 
-    if !ctx.player.crouching
+    if !ctx.player.skips_block_use()
         && on_use(
             use_block,
             world,
