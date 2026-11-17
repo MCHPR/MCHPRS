@@ -124,15 +124,13 @@ impl ServerBoundPacketHandler for Plot {
         let slot = creative_inventory_action.slot as u32;
 
         match creative_inventory_action.clicked_item {
-            Ok(Some(slot_data)) => {
-                let item = item_stack_from_slot_data(&slot_data);
-                self.players[player].inventory[slot as usize] = Some(item);
-
+            Ok(clicked_item) => {
+                self.players[player].inventory[slot as usize] =
+                    clicked_item.as_ref().map(item_stack_from_slot_data);
                 if slot == self.players[player].selected_slot + 36 {
                     self.send_held_item_to_others(player);
                 }
             }
-            Ok(None) => self.players[player].inventory[slot as usize] = None,
             Err(_) => {
                 self.players[player].send_error_message("The server couldn't read this item.")
             }
@@ -378,6 +376,7 @@ impl ServerBoundPacketHandler for Plot {
             let selected_slot = self.players[player].selected_slot as usize + 36;
             if player_action.status == 3 {
                 self.players[player].inventory[selected_slot] = None;
+                self.send_held_item_to_others(player);
             } else if player_action.status == 4 {
                 let mut stack_empty = false;
                 if let Some(item_stack) = &mut self.players[player].inventory[selected_slot] {
@@ -386,6 +385,7 @@ impl ServerBoundPacketHandler for Plot {
                 }
                 if stack_empty {
                     self.players[player].inventory[selected_slot] = None;
+                    self.send_held_item_to_others(player);
                 }
             }
         }
