@@ -473,12 +473,12 @@ impl Chunk {
                     block_count: 0,
                     block_states: PalettedContainer {
                         bits_per_entry: 0,
-                        data_array: vec![0],
+                        data_array: vec![],
                         palette: Some(vec![0]),
                     },
                     biomes: PalettedContainer {
                         bits_per_entry: 0,
-                        data_array: vec![0],
+                        data_array: vec![],
                         palette: Some(vec![0]),
                     },
                 })
