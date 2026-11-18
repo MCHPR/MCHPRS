@@ -13,7 +13,6 @@ use crate::player::{EntityId, Gamemode, PacketSender, Player, PlayerPos};
 use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
 use anyhow::Error;
-use bus::BusReader;
 use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
@@ -66,7 +65,7 @@ pub struct Plot {
     pub redpiler: Compiler,
 
     // Thread communication
-    message_receiver: BusReader<BroadcastMessage>,
+    message_receiver: Receiver<BroadcastMessage>,
     message_sender: Sender<Message>,
     priv_message_receiver: Receiver<PrivMessage>,
 
@@ -1151,7 +1150,7 @@ impl Plot {
         plot_data: PlotData,
         x: i32,
         z: i32,
-        rx: BusReader<BroadcastMessage>,
+        rx: Receiver<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
@@ -1214,7 +1213,7 @@ impl Plot {
     fn load(
         x: i32,
         z: i32,
-        rx: BusReader<BroadcastMessage>,
+        rx: Receiver<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,
@@ -1298,7 +1297,7 @@ impl Plot {
     pub fn load_and_run(
         x: i32,
         z: i32,
-        rx: BusReader<BroadcastMessage>,
+        rx: Receiver<BroadcastMessage>,
         tx: Sender<Message>,
         priv_rx: Receiver<PrivMessage>,
         always_running: bool,

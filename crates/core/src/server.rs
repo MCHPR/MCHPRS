@@ -5,7 +5,6 @@ use crate::plot::{self, database, Plot, PLOT_BLOCK_HEIGHT};
 use crate::utils::HyphenatedUUID;
 use crate::{permissions, utils};
 use backtrace::Backtrace;
-use bus::Bus;
 use hmac::{Hmac, Mac};
 use mchprs_network::packets::clientbound::{
     CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent,
@@ -110,6 +109,7 @@ struct PlayerListEntry {
 struct PlotListEntry {
     plot_x: i32,
     plot_z: i32,
+    broadcast_sender: mpsc::Sender<BroadcastMessage>,
     priv_message_sender: mpsc::Sender<PrivMessage>,
 }
 
@@ -122,7 +122,6 @@ struct WhitelistEntry {
 /// This represents a minecraft server
 pub struct MinecraftServer {
     network: NetworkServer,
-    broadcaster: Bus<BroadcastMessage>,
     receiver: Receiver<Message>,
     plot_sender: Sender<Message>,
     online_players: FxHashMap<u128, PlayerListEntry>,
@@ -154,7 +153,6 @@ impl MinecraftServer {
 
         // Create thread messaging structs
         let (plot_tx, server_rx) = mpsc::channel();
-        let bus = Bus::new(100);
         let ctrl_handler_sender = plot_tx.clone();
 
         ctrlc::set_handler(move || {
@@ -185,7 +183,6 @@ impl MinecraftServer {
         // Create server struct
         let mut server = MinecraftServer {
             network: NetworkServer::new(bind_addr),
-            broadcaster: bus,
             receiver: server_rx,
             plot_sender: plot_tx,
             online_players: FxHashMap::default(),
@@ -195,11 +192,12 @@ impl MinecraftServer {
 
         // Load the spawn area plot on server start
         // This plot should be always active
+        let (broadcast_tx, broadcast_rx) = mpsc::channel();
         let (spawn_tx, spawn_rx) = mpsc::channel();
         Plot::load_and_run(
             0,
             0,
-            server.broadcaster.add_rx(),
+            broadcast_rx,
             server.plot_sender.clone(),
             spawn_rx,
             true,
@@ -208,6 +206,7 @@ impl MinecraftServer {
         server.running_plots.push(PlotListEntry {
             plot_x: 0,
             plot_z: 0,
+            broadcast_sender: broadcast_tx,
             priv_message_sender: spawn_tx,
         });
 
@@ -228,6 +227,12 @@ impl MinecraftServer {
         }
     }
 
+    fn broadcast(&self, message: BroadcastMessage) {
+        for plot in &self.running_plots {
+            let _ = plot.broadcast_sender.send(message.clone());
+        }
+    }
+
     /// Removes the plot entry from the `running_plots` list
     fn handle_plot_unload(&mut self, plot_x: i32, plot_z: i32) {
         let index = self
@@ -241,7 +246,7 @@ impl MinecraftServer {
 
     fn graceful_shutdown(&mut self) {
         info!("Commencing graceful shutdown...");
-        self.broadcaster.broadcast(BroadcastMessage::Shutdown);
+        self.broadcast(BroadcastMessage::Shutdown);
         // Wait for all plots to save and unload
         while !self.running_plots.is_empty() {
             while let Ok(message) = self.receiver.try_recv() {
@@ -276,11 +281,12 @@ impl MinecraftServer {
             .iter()
             .any(|p| p.plot_x == plot_x && p.plot_z == plot_z);
         if !plot_loaded {
+            let (broadcast_tx, broadcast_rx) = mpsc::channel();
             let (priv_tx, priv_rx) = mpsc::channel();
             Plot::load_and_run(
                 plot_x,
                 plot_z,
-                self.broadcaster.add_rx(),
+                broadcast_rx,
                 self.plot_sender.clone(),
                 priv_rx,
                 false,
@@ -289,6 +295,7 @@ impl MinecraftServer {
             self.running_plots.push(PlotListEntry {
                 plot_x,
                 plot_z,
+                broadcast_sender: broadcast_tx,
                 priv_message_sender: priv_tx,
             });
         } else {
@@ -520,21 +527,19 @@ impl MinecraftServer {
                     properties: player.properties.clone(),
                 };
                 database::ensure_user(&format!("{:032x}", player.uuid), &player.username);
-                self.broadcaster
-                    .broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
+                self.broadcast(BroadcastMessage::PlayerJoinedInfo(player_join_info));
                 self.send_player_to_plot(player, true);
             }
             Message::PlayerLeft(uuid) => {
                 if let Some((_, player)) = self.online_players.remove_entry(&uuid) {
                     info!("{} left the game", player.username);
                 }
-                self.broadcaster
-                    .broadcast(BroadcastMessage::PlayerLeft(uuid));
+                self.broadcast(BroadcastMessage::PlayerLeft(uuid));
             }
             Message::PlotUnload(plot_x, plot_z) => self.handle_plot_unload(plot_x, plot_z),
             Message::ChatInfo(uuid, username, message) => {
                 info!("<{}> {}", username, message);
-                self.broadcaster.broadcast(BroadcastMessage::Chat(
+                self.broadcast(BroadcastMessage::Chat(
                     uuid,
                     TextComponent::from_legacy_text(
                         &CONFIG
@@ -588,8 +593,7 @@ impl MinecraftServer {
                 if let Some(player) = self.online_players.get_mut(&uuid) {
                     player.gamemode = gamemode;
                 }
-                self.broadcaster
-                    .broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
+                self.broadcast(BroadcastMessage::PlayerUpdateGamemode(uuid, gamemode));
             }
             Message::WhitelistAdd(uuid, username, sender) => {
                 self.update_whitelist(sender, |whitelist| {
