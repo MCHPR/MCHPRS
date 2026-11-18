@@ -31,7 +31,6 @@ bitflags = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 md5 = { workspace = true }
-bus = { workspace = true }
 ctrlc = { workspace = true, features = ["termination"] }
 tracing = { workspace = true }
 rand = { workspace = true }
