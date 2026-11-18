@@ -32,6 +32,14 @@ fn parse_relative_coord<F: FromStr + Add + Add<Output = F>>(
     }
 }
 
+fn parse_relative_plot_coord(coord: &str, ref_coord: i32) -> Option<i32> {
+    match coord.strip_prefix('~') {
+        Some("") => Some(ref_coord),
+        Some(offset) => ref_coord.checked_add(offset.parse().ok()?),
+        None => coord.parse().ok(),
+    }
+}
+
 impl Plot {
     /// Handles a command that starts with `/plot` or `/p`
     fn handle_plot_command(&mut self, player: usize, command: &str, args: &[&str]) {
@@ -129,13 +137,13 @@ impl Plot {
 
                 let new_plot_x;
                 let new_plot_z;
-                if let Ok(x_arg) = parse_relative_coord(args[0], plot_x) {
+                if let Some(x_arg) = parse_relative_plot_coord(args[0], plot_x) {
                     new_plot_x = x_arg;
                 } else {
                     self.players[player].send_error_message("Unable to parse x coordinate!");
                     return;
                 }
-                if let Ok(z_arg) = parse_relative_coord(args[1], plot_z) {
+                if let Some(z_arg) = parse_relative_plot_coord(args[1], plot_z) {
                     new_plot_z = z_arg;
                 } else {
                     self.players[player].send_error_message("Unable to parse z coordinate!");
