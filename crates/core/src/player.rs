@@ -478,11 +478,10 @@ impl Player {
         self.client.send_packet(&cui_plugin_message);
     }
 
-    /// Sends the player the disconnect packet, it is still up to the player to end the network
-    /// stream.
-    pub fn kick(&self, reason: TextComponent) {
+    pub fn kick(&mut self, reason: TextComponent) {
         let disconnect = CDisconnect { reason }.encode();
         self.client.send_packet(&disconnect);
+        self.client.close_connection();
     }
 
     pub fn update_player_abilities(&self) {
