@@ -575,14 +575,14 @@ impl MinecraftServer {
                 self.graceful_shutdown();
             }
             Message::PlayerTeleportOther(player, other_username) => {
-                let username_lower = other_username.to_lowercase();
                 if let Some((_, other_player)) = self
                     .online_players
                     .iter()
-                    .find(|(_, p)| p.username.to_lowercase().starts_with(&username_lower))
+                    .find(|(_, p)| p.username.eq_ignore_ascii_case(&other_username))
                 {
                     let plot_x = other_player.plot_x;
                     let plot_z = other_player.plot_z;
+                    let other_username = other_player.username.clone();
 
                     let plot_loaded = self
                         .running_plots
