@@ -48,6 +48,7 @@ pub enum NetworkState {
 
 pub struct HandshakingConn {
     client: NetworkClient,
+    alive: bool,
     pub username: Option<String>,
     pub uuid: Option<u128>,
     pub forwarding_message_id: Option<i32>,
@@ -59,8 +60,8 @@ impl HandshakingConn {
         self.client.send_packet(data);
     }
 
-    pub fn receive_packets(&self) -> Vec<Box<dyn ServerBoundPacket>> {
-        self.client.receive_packets(&mut true)
+    pub fn receive_packets(&mut self) -> Vec<Box<dyn ServerBoundPacket>> {
+        self.client.receive_packets(&mut self.alive)
     }
 
     pub fn set_compressed(&self, compressed: bool) {
@@ -220,10 +221,12 @@ impl NetworkServer {
     }
 
     pub fn update(&mut self) {
+        self.handshaking_clients.retain(|client| client.alive);
         loop {
             match self.client_receiver.try_recv() {
                 Ok(client) => self.handshaking_clients.push(HandshakingConn {
                     client,
+                    alive: true,
                     username: None,
                     uuid: None,
                     forwarding_message_id: None,
