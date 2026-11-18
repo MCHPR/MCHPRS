@@ -7,7 +7,7 @@ use crate::{permissions, utils};
 use backtrace::Backtrace;
 use hmac::{Hmac, Mac};
 use mchprs_network::packets::clientbound::{
-    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent,
+    CConfigurationPluginMessage, CDisconnect, CDisconnectLogin, CFinishConfiguration, CGameEvent,
     CGameEventType, CKnownPacks, CKnownPacksEntry, CLogin, CLoginPluginRequest, CLoginSuccess,
     CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong,
     CRegistryData, CRegistryDataEntry, CSetCompression, CSetContainerContent, CSetHeldItem,
@@ -316,7 +316,26 @@ impl MinecraftServer {
         let uuid = client.uuid.unwrap();
         let username = client.username.clone().unwrap();
         let properties = client.properties.clone();
-        let player = Player::load_player(uuid, username, properties, client.into());
+        let permissions_cache = match CONFIG
+            .luckperms
+            .is_some()
+            .then(|| permissions::load_player_cache(uuid))
+            .transpose()
+        {
+            Ok(permissions_cache) => permissions_cache,
+            Err(err) => {
+                error!("Failed to load permissions for {username}: {err:?}");
+                let disconnect = CDisconnect {
+                    reason: "Could not load your permissions. Please try again later.".into(),
+                }
+                .encode();
+                client.send_packet(&disconnect);
+                client.close_connection();
+                return;
+            }
+        };
+        let player =
+            Player::load_player(uuid, username, properties, permissions_cache, client.into());
 
         let join_game = CLogin {
             entity_id: player.entity_id as i32,

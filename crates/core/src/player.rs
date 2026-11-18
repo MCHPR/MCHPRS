@@ -1,5 +1,4 @@
-use crate::config::CONFIG;
-use crate::permissions::{self, PlayerPermissionsCache};
+use crate::permissions::PlayerPermissionsCache;
 use crate::plot::worldedit::WorldEditUndo;
 use crate::plot::PLOT_SCALE;
 use crate::utils::{self, HyphenatedUUID};
@@ -196,6 +195,7 @@ impl Player {
         uuid: u128,
         username: String,
         properties: Vec<PlayerProperty>,
+        permissions_cache: Option<PlayerPermissionsCache>,
         client: PlayerConn,
     ) -> Player {
         // Load inventory
@@ -203,10 +203,6 @@ impl Player {
         for entry in player_data.inventory {
             inventory[entry.slot as usize] = Some(entry.get_item_stack());
         }
-        let permissions_cache = CONFIG
-            .luckperms
-            .is_some()
-            .then(|| permissions::load_player_cache(uuid).unwrap());
         Player {
             uuid,
             username,
@@ -250,6 +246,7 @@ impl Player {
         uuid: u128,
         username: String,
         properties: Vec<PlayerProperty>,
+        permissions_cache: Option<PlayerPermissionsCache>,
         client: PlayerConn,
     ) -> Player {
         let filename = format!("./world/players/{:032x}", uuid);
@@ -266,14 +263,29 @@ impl Player {
                         uuid,
                         username,
                         properties,
+                        permissions_cache,
                         client,
                     );
                 }
             };
 
-            Player::from_data(player_data, uuid, username, properties, client)
+            Player::from_data(
+                player_data,
+                uuid,
+                username,
+                properties,
+                permissions_cache,
+                client,
+            )
         } else {
-            Player::from_data(Default::default(), uuid, username, properties, client)
+            Player::from_data(
+                Default::default(),
+                uuid,
+                username,
+                properties,
+                permissions_cache,
+                client,
+            )
         }
     }
 
