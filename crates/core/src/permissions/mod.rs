@@ -40,9 +40,10 @@ impl PermissionNode {
         }
 
         for (i, segment) in str.split('.').enumerate() {
-            match &self.path[i] {
-                PathSegment::WildCard => return true,
-                PathSegment::Named(name) => {
+            match self.path.get(i) {
+                None => return false,
+                Some(PathSegment::WildCard) => return true,
+                Some(PathSegment::Named(name)) => {
                     if name != segment {
                         return false;
                     }
