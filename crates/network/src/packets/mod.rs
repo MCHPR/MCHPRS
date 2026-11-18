@@ -49,6 +49,7 @@ pub enum PacketDecodeError {
     FromUtf8(std::string::FromUtf8Error),
     Nbt(nbt::Error),
     UnsupportedSlotComponent(i32),
+    VarIntTooBig,
 }
 
 impl From<nbt::Error> for PacketDecodeError {
@@ -289,13 +290,13 @@ pub trait PacketDecoderExt: Read + Sized {
         let mut read;
         loop {
             read = self.read_byte()? as u8;
+            if num_read == 5 {
+                return Err(PacketDecodeError::VarIntTooBig);
+            }
             let value = (read & 0b0111_1111) as i32;
             result |= value << (7 * num_read);
 
             num_read += 1;
-            if num_read > 5 {
-                panic!("VarInt is too big!");
-            }
             if read & 0b1000_0000 == 0 {
                 break;
             }
