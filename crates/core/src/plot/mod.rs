@@ -14,6 +14,7 @@ use crate::server::{BroadcastMessage, Message, PrivMessage};
 use crate::utils::HyphenatedUUID;
 use anyhow::Error;
 use bus::BusReader;
+use itertools::Itertools;
 use mchprs_blocks::block_entities::BlockEntity;
 use mchprs_blocks::blocks::Block;
 use mchprs_blocks::items::Item;
@@ -773,10 +774,19 @@ impl Plot {
         }
     }
 
-    fn leave_plot(&mut self, uuid: u128) -> Player {
-        let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
+    /// Removes a player and destroys its entity. This does not unload the chunks or scoreboard on the player's side.
+    /// Use `Plot::leave_plot` if this is desired.
+    fn remove_player(&mut self, player_idx: usize) -> Player {
         self.world.packet_senders.remove(player_idx);
         let player = self.players.remove(player_idx);
+        self.locked_players.remove(&player.entity_id);
+        self.destroy_entity(player.entity_id);
+        player
+    }
+
+    fn leave_plot(&mut self, uuid: u128) -> Player {
+        let player_idx = self.players.iter().position(|p| p.uuid == uuid).unwrap();
+        let player = self.remove_player(player_idx);
 
         let destroy_other_entities = CRemoveEntities {
             entity_ids: self.players.iter().map(|p| p.entity_id as i32).collect(),
@@ -795,8 +805,6 @@ impl Plot {
                 .encode(),
             );
         }
-        self.destroy_entity(player.entity_id);
-        self.locked_players.remove(&player.entity_id);
         self.scoreboard.remove_player(&player);
         player
     }
@@ -975,22 +983,18 @@ impl Plot {
 
     /// Remove disconnected players
     fn remove_dc_players(&mut self) {
-        let message_sender = &mut self.message_sender;
-
-        let mut disconnected_players = Vec::new();
-        self.players.retain(|player| {
-            let alive = player.client.alive();
-            if !alive {
-                player.save();
-                message_sender
-                    .send(Message::PlayerLeft(player.uuid))
-                    .unwrap();
-                disconnected_players.push(player.entity_id);
-            }
-            alive
-        });
-        for entity_id in disconnected_players {
-            self.destroy_entity(entity_id);
+        let disconnected_idxs = self
+            .players
+            .iter()
+            .enumerate()
+            .filter_map(|(idx, player)| (!player.client.alive()).then_some(idx))
+            .collect_vec();
+        for player_idx in disconnected_idxs.into_iter().rev() {
+            let player = self.remove_player(player_idx);
+            player.save();
+            self.message_sender
+                .send(Message::PlayerLeft(player.uuid))
+                .unwrap();
         }
     }
 
