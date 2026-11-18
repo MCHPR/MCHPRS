@@ -755,8 +755,13 @@ impl ServerBoundPacketHandler for MinecraftServer {
         _login_acknowledged: SLoginAcknowledged,
         client_idx: usize,
     ) {
+        let clients = &mut self.network.handshaking_clients;
+        if clients[client_idx].uuid.is_none() {
+            clients.remove(client_idx).close_connection();
+            return;
+        }
         // The client has been switched to the Configuration state
-        let client = &mut self.network.handshaking_clients[client_idx];
+        let client = &mut clients[client_idx];
 
         // Sends the custom brand name to the player
         // (This can be seen in the f3 debug menu in-game)
