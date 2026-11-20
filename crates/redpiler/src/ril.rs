@@ -124,14 +124,11 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
     write!(f, " = ")?;
 
     match node.ty {
-        NodeType::Repeater {
-            delay,
-            facing_diode,
-        } => write!(
+        NodeType::Repeater { delay, prioritized } => write!(
             f,
             "repeater {}, {}, {}, {}, {}, {}",
             delay,
-            facing_diode,
+            prioritized,
             node.state.repeater_locked,
             node.state.powered,
             inputs.default_inputs(),
@@ -146,13 +143,13 @@ fn dump_node(f: &mut impl fmt::Write, ctx: &FmtContext<'_>) -> fmt::Result {
         NodeType::Comparator {
             mode,
             far_input,
-            facing_diode,
+            prioritized,
         } => write!(
             f,
             "comparator {}, {}, {}, {}, {}, {}",
             mode,
             FarInputFormatter(far_input),
-            facing_diode,
+            prioritized,
             node.state.output_strength,
             inputs.default_inputs(),
             inputs.side_inputs(),
@@ -844,7 +841,7 @@ impl Parser {
                     ));
                 }
                 self.expect_token(&[TokenType::Comma])?;
-                let (_, facing_diode) = self.expect_bool()?;
+                let (_, prioritized) = self.expect_bool()?;
                 self.expect_token(&[TokenType::Comma])?;
                 let (_, locked) = self.expect_bool()?;
                 self.expect_token(&[TokenType::Comma])?;
@@ -859,7 +856,7 @@ impl Parser {
                     node_state: NodeState::repeater(powered, locked),
                     node_ty: NodeType::Repeater {
                         delay: delay as u8,
-                        facing_diode,
+                        prioritized,
                     },
                 }
             }
@@ -885,7 +882,7 @@ impl Parser {
                 self.expect_token(&[TokenType::Comma])?;
                 let far_input = self.parse_comparator_far_input()?;
                 self.expect_token(&[TokenType::Comma])?;
-                let (_, facing_diode) = self.expect_bool()?;
+                let (_, prioritized) = self.expect_bool()?;
                 self.expect_token(&[TokenType::Comma])?;
                 let (_, output_strength) = self.expect_int()?;
                 self.expect_token(&[TokenType::Comma])?;
@@ -900,7 +897,7 @@ impl Parser {
                     node_ty: NodeType::Comparator {
                         mode,
                         far_input,
-                        facing_diode,
+                        prioritized,
                     },
                 }
             }
