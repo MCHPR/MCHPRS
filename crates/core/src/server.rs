@@ -252,11 +252,11 @@ impl MinecraftServer {
         self.broadcast(BroadcastMessage::Shutdown);
         // Wait for all plots to save and unload
         while !self.running_plots.is_empty() {
-            while let Ok(message) = self.receiver.try_recv() {
-                if let Message::PlotUnload(plot_x, plot_z) = message {
-                    self.handle_plot_unload(plot_x, plot_z);
-                }
-                std::thread::sleep(Duration::from_millis(2));
+            let Ok(message) = self.receiver.recv() else {
+                break;
+            };
+            if let Message::PlotUnload(plot_x, plot_z) = message {
+                self.handle_plot_unload(plot_x, plot_z);
             }
         }
 
