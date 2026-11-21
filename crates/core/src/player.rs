@@ -22,6 +22,8 @@ use tracing::{error, warn};
 #[cfg(feature = "luckperms")]
 use crate::permissions::PlayerPermissionsCache;
 
+pub const CONTAINER_WINDOW_ID: i32 = 1;
+
 pub type EntityId = u32;
 static ENTITY_ID_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -136,6 +138,7 @@ pub struct Player {
     pub inventory: Vec<Option<ItemStack>>,
     /// The selected slot of the player's hotbar (1-9)
     pub selected_slot: u32,
+    pub open_container: Option<(BlockPos, ContainerType)>,
     pub pos: PlayerPos,
     pub pos_seen_by_others: PlayerPos,
     /// The last X chunk the player was in. This is used for updated view position.
@@ -221,6 +224,7 @@ impl Player {
             skin_parts: Default::default(),
             inventory,
             selected_slot: player_data.selected_item_slot as u32,
+            open_container: None,
             pos,
             pos_seen_by_others: pos,
             pitch: player_data.rotation[0],
@@ -523,30 +527,59 @@ impl Player {
         true
     }
 
-    pub fn open_container(&self, inventory: &[InventoryEntry], container_type: ContainerType) {
+    pub fn open_container(
+        &mut self,
+        pos: BlockPos,
+        inventory: &[InventoryEntry],
+        container_type: ContainerType,
+    ) {
+        let open_window = COpenScreen {
+            window_id: CONTAINER_WINDOW_ID,
+            window_type: container_type.window_type(),
+            window_title: "Container".into(),
+        }
+        .encode();
+        self.client.send_packet(&open_window);
+        self.open_container = Some((pos, container_type));
+        self.send_container_content(inventory, container_type);
+    }
+
+    pub fn send_container_content(
+        &self,
+        inventory: &[InventoryEntry],
+        container_type: ContainerType,
+    ) {
         let mut slots: Vec<Option<SlotData>> =
             (0..container_type.num_slots()).map(|_| None).collect();
         for entry in inventory {
             let item_stack = entry.get_item_stack();
             slots[entry.slot as usize] = Some(utils::encode_slot_data(&item_stack));
         }
-
-        let open_window = COpenScreen {
-            window_id: 1,
-            window_type: container_type.window_type(),
-            window_title: "Container".into(),
-        }
-        .encode();
-        self.client.send_packet(&open_window);
+        let main_inventory_then_hotbar = &self.inventory[9..45];
+        slots.extend(
+            main_inventory_then_hotbar
+                .iter()
+                .map(|item| item.as_ref().map(utils::encode_slot_data)),
+        );
 
         let window_items = CSetContainerContent {
-            window_id: 1,
+            window_id: CONTAINER_WINDOW_ID,
             state_id: 0,
             slot_data: slots,
             carried_item: None,
         }
         .encode();
         self.client.send_packet(&window_items);
+
+        // The client swaps a container slot with the off hand, which the container content leaves out
+        let off_hand = CSetContainerSlot {
+            window_id: 0,
+            state_id: 0,
+            slot: 45,
+            slot_data: self.inventory[45].as_ref().map(utils::encode_slot_data),
+        }
+        .encode();
+        self.client.send_packet(&off_hand);
     }
 
     pub fn set_inventory_slot(&mut self, slot: u32, item: Option<ItemStack>) {

@@ -167,6 +167,9 @@ fn read_decompressed<T: PacketDecoderExt>(
             packet_id!("play", "serverbound", "minecraft:command_suggestion") => {
                 Box::new(SCommandSuggestionsRequest::decode(reader)?)
             }
+            packet_id!("play", "serverbound", "minecraft:container_click") => {
+                Box::new(SClickContainer::decode(reader)?)
+            }
             packet_id!("play", "serverbound", "minecraft:custom_payload") => {
                 Box::new(SPluginMessage::decode(reader)?)
             }

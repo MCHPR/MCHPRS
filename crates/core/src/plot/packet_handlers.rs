@@ -1,6 +1,6 @@
 use super::Plot;
 use crate::config::CONFIG;
-use crate::player::{PacketSender, PlayerPos, SkinParts};
+use crate::player::{PacketSender, PlayerPos, SkinParts, CONTAINER_WINDOW_ID};
 use crate::server::Message;
 use crate::utils::{self, HyphenatedUUID};
 use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntityText};
@@ -452,6 +452,31 @@ impl ServerBoundPacketHandler for Plot {
         self.world
             .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));
         self.publish_world();
+    }
+
+    fn handle_click_container(&mut self, packet: SClickContainer, player: usize) {
+        if packet.window_id != CONTAINER_WINDOW_ID {
+            return;
+        }
+        let Some((pos, open_ty)) = self.players[player].open_container else {
+            return;
+        };
+        let player_slot_clicked = packet.slot >= i16::from(open_ty.num_slots());
+        let container_untouched = player_slot_clicked
+            && matches!(
+                packet.mode,
+                ClickMode::Pickup | ClickMode::Swap | ClickMode::Clone | ClickMode::Throw
+            );
+        if container_untouched {
+            return;
+        }
+        let inventory = match self.world.get_block_entity(pos) {
+            Some(BlockEntity::Container { inventory, ty, .. }) if *ty == open_ty => {
+                inventory.as_slice()
+            }
+            _ => &[],
+        };
+        self.players[player].send_container_content(inventory, open_ty);
     }
 
     fn handle_pick_item_from_block(&mut self, packet: SPickItemFromBlock, player_idx: usize) {
