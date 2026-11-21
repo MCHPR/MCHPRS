@@ -603,6 +603,14 @@ impl Player {
         self.set_held_slot(hotbar_slot);
     }
 
+    pub fn swap_hands(&mut self) {
+        let main_hand = self.selected_slot + 36;
+        let main_hand_item = self.inventory[main_hand as usize].take();
+        let off_hand_item = self.inventory[45].take();
+        self.set_inventory_slot(main_hand, off_hand_item);
+        self.set_inventory_slot(45, main_hand_item);
+    }
+
     pub fn spawn_packet(&self) -> CSpawnEntity {
         CSpawnEntity {
             entity_id: self.entity_id as i32,
@@ -654,18 +662,21 @@ impl Player {
         }
     }
 
-    pub fn equippment_packet(&self) -> Option<CSetEquipment> {
-        self.inventory[self.selected_slot as usize + 36]
-            .as_ref()
-            .map(|item| {
-                CSetEquipment {
-                    entity_id: self.entity_id as i32,
-                    equipment: vec![CSetEquipmentEquipment {
-                        slot: 0, // Main hand
-                        item: Some(utils::encode_slot_data(item)),
-                    }],
-                }
-            })
+    pub fn equippment_packet(&self) -> CSetEquipment {
+        let hand = |slot: usize| self.inventory[slot].as_ref().map(utils::encode_slot_data);
+        CSetEquipment {
+            entity_id: self.entity_id as i32,
+            equipment: vec![
+                CSetEquipmentEquipment {
+                    slot: 0, // Main hand
+                    item: hand(self.selected_slot as usize + 36),
+                },
+                CSetEquipmentEquipment {
+                    slot: 1, // Off hand
+                    item: hand(45),
+                },
+            ],
+        }
     }
 }
 

@@ -22,17 +22,8 @@ impl Plot {
         }
     }
 
-    fn send_held_item_to_others(&mut self, player: usize) {
-        let held_item =
-            &self.players[player].inventory[self.players[player].selected_slot as usize + 36];
-        let entity_equipment = CSetEquipment {
-            entity_id: self.players[player].entity_id as i32,
-            equipment: vec![CSetEquipmentEquipment {
-                slot: 0, // Main hand
-                item: held_item.as_ref().map(utils::encode_slot_data),
-            }],
-        }
-        .encode();
+    fn send_hand_items_to_others(&mut self, player: usize) {
+        let entity_equipment = self.players[player].equippment_packet().encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
@@ -127,8 +118,8 @@ impl ServerBoundPacketHandler for Plot {
             Ok(clicked_item) => {
                 self.players[player].inventory[slot as usize] =
                     clicked_item.as_ref().map(item_stack_from_slot_data);
-                if slot == self.players[player].selected_slot + 36 {
-                    self.send_held_item_to_others(player);
+                if slot == self.players[player].selected_slot + 36 || slot == 45 {
+                    self.send_hand_items_to_others(player);
                 }
             }
             Err(_) => {
@@ -364,7 +355,7 @@ impl ServerBoundPacketHandler for Plot {
             let selected_slot = self.players[player].selected_slot as usize + 36;
             if player_action.status == 3 {
                 self.players[player].inventory[selected_slot] = None;
-                self.send_held_item_to_others(player);
+                self.send_hand_items_to_others(player);
             } else if player_action.status == 4 {
                 let mut stack_empty = false;
                 if let Some(item_stack) = &mut self.players[player].inventory[selected_slot] {
@@ -373,8 +364,11 @@ impl ServerBoundPacketHandler for Plot {
                 }
                 if stack_empty {
                     self.players[player].inventory[selected_slot] = None;
-                    self.send_held_item_to_others(player);
+                    self.send_hand_items_to_others(player);
                 }
+            } else if player_action.status == 6 {
+                self.players[player].swap_hands();
+                self.send_hand_items_to_others(player);
             }
         }
     }
@@ -487,7 +481,7 @@ impl ServerBoundPacketHandler for Plot {
         }
 
         self.players[player_idx].pick_item(item_stack);
-        self.send_held_item_to_others(player_idx);
+        self.send_hand_items_to_others(player_idx);
     }
 }
 

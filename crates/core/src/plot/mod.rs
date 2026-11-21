@@ -410,20 +410,17 @@ impl Plot {
         }
         let spawn_player = player.spawn_packet().encode();
         let metadata = player.metadata_packet().encode();
-        let entity_equipment = player.equippment_packet();
+        let entity_equipment = player.equippment_packet().encode();
         for other_player in &mut self.players {
             other_player.client.send_packet(&spawn_player);
             other_player.client.send_packet(&metadata);
-            if let Some(entity_equipment) = &entity_equipment {
-                other_player.client.send_packet(&entity_equipment.encode());
-            }
+            other_player.client.send_packet(&entity_equipment);
 
             let spawn_other_player = other_player.spawn_packet().encode();
             player.client.send_packet(&spawn_other_player);
 
-            if let Some(other_entity_equipment) = other_player.equippment_packet() {
-                player.client.send_packet(&other_entity_equipment.encode());
-            }
+            let other_entity_equipment = other_player.equippment_packet().encode();
+            player.client.send_packet(&other_entity_equipment);
 
             let other_metadata = other_player.metadata_packet().encode();
             player.client.send_packet(&other_metadata);
