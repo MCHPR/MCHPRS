@@ -138,7 +138,9 @@ impl Block {
 
     pub(crate) fn is_cube_dynamic(self) -> bool {
         match self {
-            Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => ty == SlabType::Top,
+            Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => {
+                ty != SlabType::Bottom
+            }
             _ => unreachable!(),
         }
     }
