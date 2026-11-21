@@ -1264,8 +1264,13 @@ impl ClientBoundPacket for CSetEquipment {
     fn encode(&self) -> PacketEncoder {
         let mut buf = Vec::new();
         buf.write_varint(self.entity_id);
-        for slot in &self.equipment {
-            buf.write_byte(slot.slot);
+        for (index, slot) in self.equipment.iter().enumerate() {
+            let is_last = index + 1 == self.equipment.len();
+            buf.write_byte(if is_last {
+                slot.slot
+            } else {
+                slot.slot | i8::MIN
+            });
             buf.write_slot_data(&slot.item);
         }
 
