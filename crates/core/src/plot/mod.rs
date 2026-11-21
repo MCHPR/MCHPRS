@@ -793,13 +793,11 @@ impl Plot {
         .encode();
         player.client.send_packet(&destroy_other_entities);
 
-        let chunk_offset_x = self.world.x << PLOT_SCALE;
-        let chunk_offset_z = self.world.z << PLOT_SCALE;
         for chunk in &self.world.chunks {
             player.client.send_packet(
                 &CUnloadChunk {
-                    chunk_x: chunk_offset_x + chunk.x,
-                    chunk_z: chunk_offset_z + chunk.z,
+                    chunk_x: chunk.x,
+                    chunk_z: chunk.z,
                 }
                 .encode(),
             );
