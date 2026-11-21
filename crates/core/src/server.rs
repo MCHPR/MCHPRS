@@ -1,13 +1,12 @@
 use crate::config::CONFIG;
-use crate::player::{Gamemode, PacketSender, Player};
+use crate::player::{Gamemode, LoadPlayerInfo, PacketSender, Player};
 use crate::plot::commands::DECLARE_COMMANDS;
 use crate::plot::{self, database, Plot, PLOT_BLOCK_HEIGHT};
-use crate::utils::HyphenatedUUID;
-use crate::{permissions, utils};
+use crate::utils::{self, HyphenatedUUID};
 use backtrace::Backtrace;
 use hmac::{Hmac, Mac};
 use mchprs_network::packets::clientbound::{
-    CConfigurationPluginMessage, CDisconnect, CDisconnectLogin, CFinishConfiguration, CGameEvent,
+    CConfigurationPluginMessage, CDisconnectLogin, CFinishConfiguration, CGameEvent,
     CGameEventType, CKnownPacks, CKnownPacksEntry, CLogin, CLoginPluginRequest, CLoginSuccess,
     CPlayerInfoActions, CPlayerInfoAddPlayer, CPlayerInfoUpdate, CPlayerInfoUpdatePlayer, CPong,
     CRegistryData, CRegistryDataEntry, CSetCompression, CSetContainerContent, CSetHeldItem,
@@ -31,6 +30,9 @@ use std::io::{self, Cursor, Write as _};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::time::{Duration, Instant};
 use tracing::{error, info, warn};
+
+#[cfg(feature = "luckperms")]
+use crate::permissions;
 
 /// `Message` gets send from a plot thread to the server thread.
 #[derive(Debug)]
@@ -176,6 +178,7 @@ impl MinecraftServer {
             }
         });
 
+        #[cfg(feature = "luckperms")]
         if let Some(permissions_config) = &CONFIG.luckperms {
             permissions::init(permissions_config.clone()).unwrap();
         }
@@ -316,6 +319,8 @@ impl MinecraftServer {
         let uuid = client.uuid.unwrap();
         let username = client.username.clone().unwrap();
         let properties = client.properties.clone();
+
+        #[cfg(feature = "luckperms")]
         let permissions_cache = match CONFIG
             .luckperms
             .is_some()
@@ -324,6 +329,7 @@ impl MinecraftServer {
         {
             Ok(permissions_cache) => permissions_cache,
             Err(err) => {
+                use mchprs_network::packets::clientbound::CDisconnect;
                 error!("Failed to load permissions for {username}: {err:?}");
                 let disconnect = CDisconnect {
                     reason: "Could not load your permissions. Please try again later.".into(),
@@ -334,8 +340,16 @@ impl MinecraftServer {
                 return;
             }
         };
-        let player =
-            Player::load_player(uuid, username, properties, permissions_cache, client.into());
+
+        let load_player_info = LoadPlayerInfo {
+            uuid,
+            username,
+            properties,
+            #[cfg(feature = "luckperms")]
+            permissions_cache,
+            client: client.into(),
+        };
+        let player = Player::load_player(load_player_info);
 
         let join_game = CLogin {
             entity_id: player.entity_id as i32,

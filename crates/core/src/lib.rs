@@ -4,6 +4,7 @@
 mod utils;
 mod config;
 mod interaction;
+#[cfg(feature = "luckperms")]
 mod permissions;
 mod player;
 pub mod plot;

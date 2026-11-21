@@ -1,8 +1,10 @@
-use crate::permissions::PermissionsConfig;
 use serde::{Deserialize, Serialize};
 use std::io::Write;
 use std::{fs, sync::LazyLock};
 use toml_edit::{value, DocumentMut};
+
+#[cfg(feature = "luckperms")]
+use crate::permissions::PermissionsConfig;
 
 pub static CONFIG: LazyLock<ServerConfig> = LazyLock::new(|| ServerConfig::load("Config.toml"));
 
@@ -32,11 +34,12 @@ impl<T> ConfigSerializeDefault for Option<T> {
 
 macro_rules! gen_config {
     (
-        $( $name:ident: $type:ty = $default:expr),*
+        $( $( #[$attr:meta] )? $name:ident: $type:ty = $default:expr),*
     ) => {
         #[derive(Serialize, Deserialize)]
         pub struct ServerConfig {
             $(
+                $( #[$attr] )?
                 pub $name: $type,
             )*
         }
@@ -47,6 +50,7 @@ macro_rules! gen_config {
                 let mut doc = str.parse::<DocumentMut>().unwrap();
 
                 $(
+                    $( #[$attr] )?
                     <$type as ConfigSerializeDefault>::fix_config($default, stringify!($name), &mut doc);
                 )*
 
@@ -70,6 +74,7 @@ gen_config! {
     view_distance: i64 = 8,
     whitelist: bool = false,
     schemati: bool = false,
+    #[cfg(feature = "luckperms")]
     luckperms: Option<PermissionsConfig> = None,
     block_in_hitbox: bool = true,
     auto_redpiler: bool = false,

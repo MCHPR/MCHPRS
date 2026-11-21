@@ -38,7 +38,7 @@ backtrace = { workspace = true }
 rusqlite = { workspace = true, features=["bundled"] }
 anyhow = { workspace = true }
 toml_edit = { workspace = true }
-mysql = { workspace = true }
+mysql = { workspace = true, optional = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 reqwest = { workspace = true, features = ["json"] }
 itertools = { workspace = true }
@@ -47,3 +47,6 @@ rustc-hash = { workspace = true }
 hmac = { workspace = true }
 sha2 = { workspace = true }
 regex = { workspace = true }
+
+[features]
+luckperms = ["dep:mysql"]

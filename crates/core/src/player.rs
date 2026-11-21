@@ -1,4 +1,3 @@
-use crate::permissions::PlayerPermissionsCache;
 use crate::plot::worldedit::WorldEditUndo;
 use crate::plot::PLOT_SCALE;
 use crate::utils::{self, HyphenatedUUID};
@@ -19,6 +18,9 @@ use std::io::{Cursor, Write};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Instant, SystemTime};
 use tracing::{error, warn};
+
+#[cfg(feature = "luckperms")]
+use crate::permissions::PlayerPermissionsCache;
 
 pub type EntityId = u32;
 static ENTITY_ID_COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -168,7 +170,17 @@ pub struct Player {
     pub worldedit_redo: Vec<WorldEditUndo>,
     /// Commands are stored so they can be handled after packets
     pub command_queue: Vec<String>,
+    #[cfg(feature = "luckperms")]
     permissions_cache: Option<PlayerPermissionsCache>,
+}
+
+pub struct LoadPlayerInfo {
+    pub uuid: u128,
+    pub username: String,
+    pub properties: Vec<PlayerProperty>,
+    #[cfg(feature = "luckperms")]
+    pub permissions_cache: Option<PlayerPermissionsCache>,
+    pub client: PlayerConn,
 }
 
 impl fmt::Debug for Player {
@@ -190,23 +202,16 @@ impl Player {
             | ((0x8 << 60) | (0x3 << 76))
     }
 
-    fn from_data(
-        player_data: PlayerData,
-        uuid: u128,
-        username: String,
-        properties: Vec<PlayerProperty>,
-        permissions_cache: Option<PlayerPermissionsCache>,
-        client: PlayerConn,
-    ) -> Player {
+    fn from_data(player_data: PlayerData, info: LoadPlayerInfo) -> Player {
         // Load inventory
         let mut inventory: Vec<Option<ItemStack>> = vec![None; 46];
         for entry in player_data.inventory {
             inventory[entry.slot as usize] = Some(entry.get_item_stack());
         }
         Player {
-            uuid,
-            username,
-            properties,
+            uuid: info.uuid,
+            username: info.username,
+            properties: info.properties,
             skin_parts: Default::default(),
             inventory,
             selected_slot: player_data.selected_item_slot as u32,
@@ -220,7 +225,7 @@ impl Player {
             last_chunk_x: 0,
             last_chunk_z: 0,
             entity_id: ENTITY_ID_COUNTER.fetch_add(1, Ordering::Relaxed),
-            client,
+            client: info.client,
             flying: player_data.flying,
             sprinting: false,
             crouching: false,
@@ -236,57 +241,32 @@ impl Player {
             worldedit_undo: Vec::new(),
             worldedit_redo: Vec::new(),
             command_queue: Vec::new(),
-            permissions_cache,
+            #[cfg(feature = "luckperms")]
+            permissions_cache: info.permissions_cache,
         }
     }
 
     /// This will load the player from the file. If the file does not exist,
     /// It will be created.
-    pub fn load_player(
-        uuid: u128,
-        username: String,
-        properties: Vec<PlayerProperty>,
-        permissions_cache: Option<PlayerPermissionsCache>,
-        client: PlayerConn,
-    ) -> Player {
-        let filename = format!("./world/players/{:032x}", uuid);
-        if let Ok(data) = fs::read(&filename) {
-            let player_data: PlayerData = match bincode::deserialize(&data) {
-                Ok(data) => data,
-                Err(_) => {
-                    warn!("There was an error loading the player data for {}, player data will be backed up and reset.", username);
-                    if let Err(err) = fs::rename(&filename, filename.clone() + ".bak") {
-                        error!("Failed to back up player data: {}", err);
-                    }
-                    return Player::from_data(
-                        Default::default(),
-                        uuid,
-                        username,
-                        properties,
-                        permissions_cache,
-                        client,
-                    );
-                }
-            };
+    pub fn load_player(info: LoadPlayerInfo) -> Player {
+        let filename = format!("./world/players/{:032x}", info.uuid);
+        let Ok(data) = fs::read(&filename) else {
+            // The file doesn't exist yet, create new data
+            return Player::from_data(Default::default(), info);
+        };
 
-            Player::from_data(
-                player_data,
-                uuid,
-                username,
-                properties,
-                permissions_cache,
-                client,
-            )
-        } else {
-            Player::from_data(
-                Default::default(),
-                uuid,
-                username,
-                properties,
-                permissions_cache,
-                client,
-            )
-        }
+        let player_data: PlayerData = match bincode::deserialize(&data) {
+            Ok(data) => data,
+            Err(_) => {
+                warn!("There was an error loading the player data for {}, player data will be backed up and reset.", info.username);
+                if let Err(err) = fs::rename(&filename, filename.clone() + ".bak") {
+                    error!("Failed to back up player data: {}", err);
+                }
+                return Player::from_data(Default::default(), info);
+            }
+        };
+
+        Player::from_data(player_data, info)
     }
 
     /// Saves the player to `./world/players/{uuid}`. This will create
@@ -520,6 +500,7 @@ impl Player {
         self.client.send_packet(&change_game_state);
     }
 
+    #[cfg(feature = "luckperms")]
     pub fn has_permission(&self, node: &str) -> bool {
         if let Some(cache) = &self.permissions_cache {
             if let Some(val) = cache.get_node_val(node) {
@@ -532,6 +513,11 @@ impl Player {
             // Permissions is not enabled
             true
         }
+    }
+
+    #[cfg(not(feature = "luckperms"))]
+    pub fn has_permission(&self, _node: &str) -> bool {
+        true
     }
 
     pub fn open_container(&self, inventory: &[InventoryEntry], container_type: ContainerType) {
