@@ -14,6 +14,7 @@ MCHPRS has made it possible to run programs such as [a limited form of Minecraft
 
 - [Table of Contents](#table-of-contents)
 - [Building](#building)
+    - [Features](#features)
 - [Configuration](#configuration)
     - [LuckPerms](#luckperms)
 - [Usage](#usage)
@@ -38,6 +39,14 @@ cargo build --release
 Once complete, the optimized executable will be located at `./target/release/mchprs` or `./target/release/mchprs.exe` depending on your operating system.
 
 `cargo run --release -p mchprs_world_exporter -- world <saves>` writes the plots of `world` as a new Minecraft save in the directory `<saves>`.
+
+### Features
+
+| Feature | Default | Adds |
+| --- | --- | --- |
+| `luckperms` | Yes | [LuckPerms](#luckperms) permissions |
+
+Enable a feature with `--features <name>`, or leave out the default ones with `--no-default-features`.
 
 ## Configuration
 
@@ -76,6 +85,8 @@ secret = "<secret>"
 ### LuckPerms
 
 MCHPRS has basic support for LuckPerms with MySQL or MariaDB remote database storage. This implementation has no commands or interface and would have to be managed through LuckPerms running on a proxy (`/lpb`) or other server (`/lp`)
+
+Requires the [`luckperms` feature](#features).
 
 To use LuckPerms, append this to your `Config.toml`:
 
