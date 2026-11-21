@@ -1351,6 +1351,7 @@ impl ClientBoundPacket for CUpdateObjectives {
         {
             buf.write_text_component(&objective.value);
             buf.write_varint(objective.ty as i32);
+            buf.write_bool(objective.number_format.is_some());
             if let Some(number_format) = &objective.number_format {
                 number_format.write_to_buf(&mut buf);
             }
