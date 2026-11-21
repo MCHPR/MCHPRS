@@ -137,6 +137,7 @@ pub struct Player {
     /// The selected slot of the player's hotbar (1-9)
     pub selected_slot: u32,
     pub pos: PlayerPos,
+    pub pos_seen_by_others: PlayerPos,
     /// The last X chunk the player was in. This is used for updated view position.
     pub last_chunk_x: i32,
     /// The last Z chunk the player was in. This is used for updated view position.
@@ -208,6 +209,11 @@ impl Player {
         for entry in player_data.inventory {
             inventory[entry.slot as usize] = Some(entry.get_item_stack());
         }
+        let pos = PlayerPos {
+            x: player_data.position[0],
+            y: player_data.position[1],
+            z: player_data.position[2],
+        };
         Player {
             uuid: info.uuid,
             username: info.username,
@@ -215,11 +221,8 @@ impl Player {
             skin_parts: Default::default(),
             inventory,
             selected_slot: player_data.selected_item_slot as u32,
-            pos: PlayerPos {
-                x: player_data.position[0],
-                y: player_data.position[1],
-                z: player_data.position[2],
-            },
+            pos,
+            pos_seen_by_others: pos,
             pitch: player_data.rotation[0],
             yaw: player_data.rotation[1],
             last_chunk_x: 0,
@@ -610,9 +613,9 @@ impl Player {
             // TODO: probably not the same
             head_yaw: self.yaw,
             data: 0, // unused
-            x: self.pos.x,
-            y: self.pos.y,
-            z: self.pos.z,
+            x: self.pos_seen_by_others.x,
+            y: self.pos_seen_by_others.y,
+            z: self.pos_seen_by_others.z,
             velocity_x: 0,
             velocity_y: 0,
             velocity_z: 0,

@@ -402,8 +402,9 @@ impl Plot {
         false
     }
 
-    fn enter_plot(&mut self, player: Player) {
+    fn enter_plot(&mut self, mut player: Player) {
         self.save();
+        player.pos_seen_by_others = player.pos;
         if self.players.is_empty() {
             self.world.pending_sounds.clear();
         }

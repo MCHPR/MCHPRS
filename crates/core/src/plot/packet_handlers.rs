@@ -226,7 +226,8 @@ impl ServerBoundPacketHandler for Plot {
         let new = PlayerPos::new(player_position.x, player_position.y, player_position.z);
         self.players[player].pos = new;
         self.players[player].on_ground = player_position.on_ground;
-        let packet = match relative_move(old, new) {
+        let seen = std::mem::replace(&mut self.players[player].pos_seen_by_others, new);
+        let packet = match relative_move(seen, new) {
             Some((delta_x, delta_y, delta_z)) => CUpdateEntityPosition {
                 delta_x,
                 delta_y,
@@ -273,7 +274,8 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].yaw = player_position_and_rotation.yaw;
         self.players[player].pitch = player_position_and_rotation.pitch;
         self.players[player].on_ground = player_position_and_rotation.on_ground;
-        let packet = match relative_move(old, new) {
+        let seen = std::mem::replace(&mut self.players[player].pos_seen_by_others, new);
+        let packet = match relative_move(seen, new) {
             Some((delta_x, delta_y, delta_z)) => CUpdateEntityPositionAndRotation {
                 delta_x,
                 delta_y,
