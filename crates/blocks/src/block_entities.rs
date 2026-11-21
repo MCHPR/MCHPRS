@@ -197,7 +197,7 @@ impl BlockEntity {
         match self {
             BlockEntity::Comparator { .. } => block_entity_id!("minecraft:comparator"),
             BlockEntity::Container { ty, .. } => match ty {
-                ContainerType::Furnace => block_entity_id!("minecraft:comparator"),
+                ContainerType::Furnace => block_entity_id!("minecraft:furnace"),
                 ContainerType::Barrel => block_entity_id!("minecraft:barrel"),
                 ContainerType::Hopper => block_entity_id!("minecraft:hopper"),
             },
