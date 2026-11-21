@@ -48,6 +48,11 @@ macro_rules! gen_config {
             fn load(config_file: &str) -> ServerConfig {
                 let str = fs::read_to_string("Config.toml").unwrap_or_default();
                 let mut doc = str.parse::<DocumentMut>().unwrap();
+                #[cfg(not(feature = "luckperms"))]
+                assert!(
+                    !doc.contains_key("luckperms"),
+                    "{config_file} configures LuckPerms, but this build has no LuckPerms support"
+                );
 
                 $(
                     $( #[$attr] )?
