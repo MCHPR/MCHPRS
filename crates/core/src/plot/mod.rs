@@ -896,6 +896,7 @@ impl Plot {
                                     properties: player_join_info.properties,
                                 }),
                                 update_gamemode: Some(player_join_info.gamemode.get_id()),
+                                update_listed: Some(true),
                                 ..Default::default()
                             },
                         }],
