@@ -226,11 +226,16 @@ impl ServerBoundPacketHandler for Plot {
         let new = PlayerPos::new(player_position.x, player_position.y, player_position.z);
         self.players[player].pos = new;
         self.players[player].on_ground = player_position.on_ground;
-        let packet = if (new.x - old.x).abs() > 8.0
-            || (new.y - old.y).abs() > 8.0
-            || (new.z - old.z).abs() > 8.0
-        {
-            CEntityPositionSync {
+        let packet = match relative_move(old, new) {
+            Some((delta_x, delta_y, delta_z)) => CUpdateEntityPosition {
+                delta_x,
+                delta_y,
+                delta_z,
+                entity_id: self.players[player].entity_id as i32,
+                on_ground: player_position.on_ground,
+            }
+            .encode(),
+            None => CEntityPositionSync {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
@@ -242,19 +247,7 @@ impl ServerBoundPacketHandler for Plot {
                 pitch: self.players[player].pitch,
                 on_ground: player_position.on_ground,
             }
-            .encode()
-        } else {
-            let delta_x = ((player_position.x * 32.0 - old.x * 32.0) * 128.0) as i16;
-            let delta_y = ((player_position.y * 32.0 - old.y * 32.0) * 128.0) as i16;
-            let delta_z = ((player_position.z * 32.0 - old.z * 32.0) * 128.0) as i16;
-            CUpdateEntityPosition {
-                delta_x,
-                delta_y,
-                delta_z,
-                entity_id: self.players[player].entity_id as i32,
-                on_ground: player_position.on_ground,
-            }
-            .encode()
+            .encode(),
         };
         for other_player in 0..self.players.len() {
             if player == other_player {
@@ -280,11 +273,18 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].yaw = player_position_and_rotation.yaw;
         self.players[player].pitch = player_position_and_rotation.pitch;
         self.players[player].on_ground = player_position_and_rotation.on_ground;
-        let packet = if (new.x - old.x).abs() > 8.0
-            || (new.y - old.y).abs() > 8.0
-            || (new.z - old.z).abs() > 8.0
-        {
-            CEntityPositionSync {
+        let packet = match relative_move(old, new) {
+            Some((delta_x, delta_y, delta_z)) => CUpdateEntityPositionAndRotation {
+                delta_x,
+                delta_y,
+                delta_z,
+                pitch: player_position_and_rotation.pitch,
+                yaw: player_position_and_rotation.yaw,
+                entity_id: self.players[player].entity_id as i32,
+                on_ground: player_position_and_rotation.on_ground,
+            }
+            .encode(),
+            None => CEntityPositionSync {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
@@ -296,21 +296,7 @@ impl ServerBoundPacketHandler for Plot {
                 pitch: self.players[player].pitch,
                 on_ground: player_position_and_rotation.on_ground,
             }
-            .encode()
-        } else {
-            let delta_x = ((player_position_and_rotation.x * 32.0 - old.x * 32.0) * 128.0) as i16;
-            let delta_y = ((player_position_and_rotation.y * 32.0 - old.y * 32.0) * 128.0) as i16;
-            let delta_z = ((player_position_and_rotation.z * 32.0 - old.z * 32.0) * 128.0) as i16;
-            CUpdateEntityPositionAndRotation {
-                delta_x,
-                delta_y,
-                delta_z,
-                pitch: player_position_and_rotation.pitch,
-                yaw: player_position_and_rotation.yaw,
-                entity_id: self.players[player].entity_id as i32,
-                on_ground: player_position_and_rotation.on_ground,
-            }
-            .encode()
+            .encode(),
         };
         let entity_head_look = CSetHeadRotation {
             entity_id: self.players[player].entity_id as i32,
@@ -517,4 +503,22 @@ fn item_stack_from_slot_data(slot_data: &SlotData) -> ItemStack {
             })
             .collect(),
     }
+}
+
+// The client rounds entity positions to 1/4096 of a block with Java's `Math.round`, which rounds halves up
+fn fixed_point_pos(pos: f64) -> i64 {
+    let scaled = pos * 4096.0;
+    let floor = scaled.floor();
+    floor as i64 + i64::from(scaled - floor >= 0.5)
+}
+
+fn relative_move(old: PlayerPos, new: PlayerPos) -> Option<(i16, i16, i16)> {
+    let delta = |from: f64, to: f64| {
+        i16::try_from(fixed_point_pos(to).checked_sub(fixed_point_pos(from))?).ok()
+    };
+    Some((
+        delta(old.x, new.x)?,
+        delta(old.y, new.y)?,
+        delta(old.z, new.z)?,
+    ))
 }
