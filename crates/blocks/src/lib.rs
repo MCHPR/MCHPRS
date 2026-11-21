@@ -5,7 +5,7 @@ pub mod items;
 
 pub use mchprs_proc_macros::BlockProperty;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::str::FromStr;
 
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Serialize, Deserialize, Hash)]
@@ -95,7 +95,7 @@ impl std::fmt::Display for BlockPos {
 }
 
 pub trait BlockProperty: Sized {
-    fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str);
+    fn encode(self, props: &mut BTreeMap<&'static str, String>, name: &'static str);
     fn decode(&mut self, props: &HashMap<&str, &str>, name: &str);
 }
 
@@ -103,7 +103,7 @@ impl<T> BlockProperty for T
 where
     T: ToString + FromStr,
 {
-    fn encode(self, props: &mut HashMap<&'static str, String>, name: &'static str) {
+    fn encode(self, props: &mut BTreeMap<&'static str, String>, name: &'static str) {
         props.insert(name, self.to_string());
     }
 

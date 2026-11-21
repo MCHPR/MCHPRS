@@ -454,8 +454,8 @@ fn generate_gen_props(blocks: &[ProcessedBlock]) -> TokenStream {
         }
     });
     quote! {
-        pub fn properties(&self) -> HashMap<&'static str, String> {
-            let mut props = HashMap::new();
+        pub fn properties(&self) -> BTreeMap<&'static str, String> {
+            let mut props = BTreeMap::new();
             match self {
                 #( #match_arms )*
             }

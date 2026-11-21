@@ -18,7 +18,7 @@ pub fn create_block_property_impl(input: DeriveInput) -> Result<TokenStream, Err
 
     let tokens = quote! {
         impl BlockProperty for #struct_name {
-            fn encode(self, props: &mut ::std::collections::HashMap<&'static str, String>, _name: &'static str) {
+            fn encode(self, props: &mut ::std::collections::BTreeMap<&'static str, String>, _name: &'static str) {
                 #(
                     <#field_types as BlockProperty>::encode(self.#field_names, props, stringify!(#field_names));
                 )*
