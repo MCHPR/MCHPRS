@@ -1,6 +1,6 @@
 use super::Plot;
 use crate::config::CONFIG;
-use crate::player::{PacketSender, PlayerPos, SkinParts};
+use crate::player::{PacketSender, PlayerPos, SkinParts, CONTAINER_WINDOW_ID};
 use crate::server::Message;
 use crate::utils::{self, HyphenatedUUID};
 use mchprs_blocks::block_entities::{BlockEntity, SignBlockEntityText};
@@ -22,17 +22,8 @@ impl Plot {
         }
     }
 
-    fn send_held_item_to_others(&mut self, player: usize) {
-        let held_item =
-            &self.players[player].inventory[self.players[player].selected_slot as usize + 36];
-        let entity_equipment = CSetEquipment {
-            entity_id: self.players[player].entity_id as i32,
-            equipment: vec![CSetEquipmentEquipment {
-                slot: 0, // Main hand
-                item: held_item.as_ref().map(utils::encode_slot_data),
-            }],
-        }
-        .encode();
+    fn send_hand_items_to_others(&mut self, player: usize) {
+        let entity_equipment = self.players[player].equippment_packet().encode();
         for other_player in 0..self.players.len() {
             if player == other_player {
                 continue;
@@ -127,8 +118,8 @@ impl ServerBoundPacketHandler for Plot {
             Ok(clicked_item) => {
                 self.players[player].inventory[slot as usize] =
                     clicked_item.as_ref().map(item_stack_from_slot_data);
-                if slot == self.players[player].selected_slot + 36 {
-                    self.send_held_item_to_others(player);
+                if slot == self.players[player].selected_slot + 36 || slot == 45 {
+                    self.send_hand_items_to_others(player);
                 }
             }
             Err(_) => {
@@ -226,11 +217,17 @@ impl ServerBoundPacketHandler for Plot {
         let new = PlayerPos::new(player_position.x, player_position.y, player_position.z);
         self.players[player].pos = new;
         self.players[player].on_ground = player_position.on_ground;
-        let packet = if (new.x - old.x).abs() > 8.0
-            || (new.y - old.y).abs() > 8.0
-            || (new.z - old.z).abs() > 8.0
-        {
-            CEntityPositionSync {
+        let seen = std::mem::replace(&mut self.players[player].pos_seen_by_others, new);
+        let packet = match relative_move(seen, new) {
+            Some((delta_x, delta_y, delta_z)) => CUpdateEntityPosition {
+                delta_x,
+                delta_y,
+                delta_z,
+                entity_id: self.players[player].entity_id as i32,
+                on_ground: player_position.on_ground,
+            }
+            .encode(),
+            None => CEntityPositionSync {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
@@ -242,19 +239,7 @@ impl ServerBoundPacketHandler for Plot {
                 pitch: self.players[player].pitch,
                 on_ground: player_position.on_ground,
             }
-            .encode()
-        } else {
-            let delta_x = ((player_position.x * 32.0 - old.x * 32.0) * 128.0) as i16;
-            let delta_y = ((player_position.y * 32.0 - old.y * 32.0) * 128.0) as i16;
-            let delta_z = ((player_position.z * 32.0 - old.z * 32.0) * 128.0) as i16;
-            CUpdateEntityPosition {
-                delta_x,
-                delta_y,
-                delta_z,
-                entity_id: self.players[player].entity_id as i32,
-                on_ground: player_position.on_ground,
-            }
-            .encode()
+            .encode(),
         };
         for other_player in 0..self.players.len() {
             if player == other_player {
@@ -280,11 +265,19 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].yaw = player_position_and_rotation.yaw;
         self.players[player].pitch = player_position_and_rotation.pitch;
         self.players[player].on_ground = player_position_and_rotation.on_ground;
-        let packet = if (new.x - old.x).abs() > 8.0
-            || (new.y - old.y).abs() > 8.0
-            || (new.z - old.z).abs() > 8.0
-        {
-            CEntityPositionSync {
+        let seen = std::mem::replace(&mut self.players[player].pos_seen_by_others, new);
+        let packet = match relative_move(seen, new) {
+            Some((delta_x, delta_y, delta_z)) => CUpdateEntityPositionAndRotation {
+                delta_x,
+                delta_y,
+                delta_z,
+                pitch: player_position_and_rotation.pitch,
+                yaw: player_position_and_rotation.yaw,
+                entity_id: self.players[player].entity_id as i32,
+                on_ground: player_position_and_rotation.on_ground,
+            }
+            .encode(),
+            None => CEntityPositionSync {
                 entity_id: self.players[player].entity_id as i32,
                 x: new.x,
                 y: new.y,
@@ -296,21 +289,7 @@ impl ServerBoundPacketHandler for Plot {
                 pitch: self.players[player].pitch,
                 on_ground: player_position_and_rotation.on_ground,
             }
-            .encode()
-        } else {
-            let delta_x = ((player_position_and_rotation.x * 32.0 - old.x * 32.0) * 128.0) as i16;
-            let delta_y = ((player_position_and_rotation.y * 32.0 - old.y * 32.0) * 128.0) as i16;
-            let delta_z = ((player_position_and_rotation.z * 32.0 - old.z * 32.0) * 128.0) as i16;
-            CUpdateEntityPositionAndRotation {
-                delta_x,
-                delta_y,
-                delta_z,
-                pitch: player_position_and_rotation.pitch,
-                yaw: player_position_and_rotation.yaw,
-                entity_id: self.players[player].entity_id as i32,
-                on_ground: player_position_and_rotation.on_ground,
-            }
-            .encode()
+            .encode(),
         };
         let entity_head_look = CSetHeadRotation {
             entity_id: self.players[player].entity_id as i32,
@@ -376,7 +355,7 @@ impl ServerBoundPacketHandler for Plot {
             let selected_slot = self.players[player].selected_slot as usize + 36;
             if player_action.status == 3 {
                 self.players[player].inventory[selected_slot] = None;
-                self.send_held_item_to_others(player);
+                self.send_hand_items_to_others(player);
             } else if player_action.status == 4 {
                 let mut stack_empty = false;
                 if let Some(item_stack) = &mut self.players[player].inventory[selected_slot] {
@@ -385,8 +364,11 @@ impl ServerBoundPacketHandler for Plot {
                 }
                 if stack_empty {
                     self.players[player].inventory[selected_slot] = None;
-                    self.send_held_item_to_others(player);
+                    self.send_hand_items_to_others(player);
                 }
+            } else if player_action.status == 6 {
+                self.players[player].swap_hands();
+                self.send_hand_items_to_others(player);
             }
         }
     }
@@ -430,8 +412,22 @@ impl ServerBoundPacketHandler for Plot {
         self.players[player].selected_slot = held_item_change.slot as u32;
     }
 
-    fn handle_update_sign(&mut self, packet: SUpdateSign, _player: usize) {
+    fn handle_update_sign(&mut self, packet: SUpdateSign, player: usize) {
         let pos = BlockPos::new(packet.x, packet.y, packet.z);
+        let block = self.world.get_block(pos);
+        if !(block.is_sign() || block.is_wall_sign()) {
+            return;
+        }
+        if let Some(owner) = self.owner {
+            let player = &mut self.players[player];
+            if owner != player.uuid && !player.has_permission("plots.admin.interact.other") {
+                player.send_no_permission_message();
+                return;
+            }
+        } else if !self.players[player].has_permission("plots.admin.interact.unowned") {
+            self.players[player].send_no_permission_message();
+            return;
+        }
         let mut rows = packet.lines.into_iter().map(Into::into);
         let rows = [
             rows.next().unwrap(),
@@ -456,6 +452,31 @@ impl ServerBoundPacketHandler for Plot {
         self.world
             .set_block_entity(pos, BlockEntity::Sign(Box::new(block_entity)));
         self.publish_world();
+    }
+
+    fn handle_click_container(&mut self, packet: SClickContainer, player: usize) {
+        if packet.window_id != CONTAINER_WINDOW_ID {
+            return;
+        }
+        let Some((pos, open_ty)) = self.players[player].open_container else {
+            return;
+        };
+        let player_slot_clicked = packet.slot >= i16::from(open_ty.num_slots());
+        let container_untouched = player_slot_clicked
+            && matches!(
+                packet.mode,
+                ClickMode::Pickup | ClickMode::Swap | ClickMode::Clone | ClickMode::Throw
+            );
+        if container_untouched {
+            return;
+        }
+        let inventory = match self.world.get_block_entity(pos) {
+            Some(BlockEntity::Container { inventory, ty, .. }) if *ty == open_ty => {
+                inventory.as_slice()
+            }
+            _ => &[],
+        };
+        self.players[player].send_container_content(inventory, open_ty);
     }
 
     fn handle_pick_item_from_block(&mut self, packet: SPickItemFromBlock, player_idx: usize) {
@@ -485,7 +506,7 @@ impl ServerBoundPacketHandler for Plot {
         }
 
         self.players[player_idx].pick_item(item_stack);
-        self.send_held_item_to_others(player_idx);
+        self.send_hand_items_to_others(player_idx);
     }
 }
 
@@ -503,4 +524,22 @@ fn item_stack_from_slot_data(slot_data: &SlotData) -> ItemStack {
             })
             .collect(),
     }
+}
+
+// The client rounds entity positions to 1/4096 of a block with Java's `Math.round`, which rounds halves up
+fn fixed_point_pos(pos: f64) -> i64 {
+    let scaled = pos * 4096.0;
+    let floor = scaled.floor();
+    floor as i64 + i64::from(scaled - floor >= 0.5)
+}
+
+fn relative_move(old: PlayerPos, new: PlayerPos) -> Option<(i16, i16, i16)> {
+    let delta = |from: f64, to: f64| {
+        i16::try_from(fixed_point_pos(to).checked_sub(fixed_point_pos(from))?).ok()
+    };
+    Some((
+        delta(old.x, new.x)?,
+        delta(old.y, new.y)?,
+        delta(old.z, new.z)?,
+    ))
 }

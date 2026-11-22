@@ -27,6 +27,7 @@ pub trait ServerBoundPacketHandler {
         _player_idx: usize,
     ) {
     }
+    fn handle_click_container(&mut self, _packet: SClickContainer, _player_idx: usize) {}
     fn handle_plugin_message(&mut self, _packet: SPluginMessage, _player_idx: usize) {}
     fn handle_keep_alive(&mut self, _packet: SKeepAlive, _player_idx: usize) {}
     fn handle_set_player_position(&mut self, _packet: SSetPlayerPosition, _player_idx: usize) {}
@@ -333,6 +334,53 @@ impl ServerBoundPacket for SCommandSuggestionsRequest {
 
     fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
         handler.handle_command_suggestions_request(*self, player_idx);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ClickMode {
+    Pickup,
+    QuickMove,
+    Swap,
+    Clone,
+    Throw,
+    QuickCraft,
+    PickupAll,
+}
+
+/// The slots the client changed follow the click mode
+#[derive(Debug)]
+pub struct SClickContainer {
+    pub window_id: i32,
+    pub slot: i16,
+    pub mode: ClickMode,
+}
+
+impl ServerBoundPacket for SClickContainer {
+    fn decode<T: PacketDecoderExt>(decoder: &mut T) -> DecodeResult<Self> {
+        let window_id = decoder.read_varint()?;
+        let _state_id = decoder.read_varint()?;
+        let slot = decoder.read_short()?;
+        let _button = decoder.read_byte()?;
+        // Like vanilla, read an unknown mode as a pickup
+        let mode = match decoder.read_varint()? {
+            1 => ClickMode::QuickMove,
+            2 => ClickMode::Swap,
+            3 => ClickMode::Clone,
+            4 => ClickMode::Throw,
+            5 => ClickMode::QuickCraft,
+            6 => ClickMode::PickupAll,
+            _ => ClickMode::Pickup,
+        };
+        Ok(SClickContainer {
+            window_id,
+            slot,
+            mode,
+        })
+    }
+
+    fn handle(self: Box<Self>, handler: &mut dyn ServerBoundPacketHandler, player_idx: usize) {
+        handler.handle_click_container(*self, player_idx);
     }
 }
 

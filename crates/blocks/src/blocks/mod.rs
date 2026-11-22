@@ -88,40 +88,6 @@ impl BlockTransform for BlockDirection {
 }
 
 impl Block {
-    pub fn is_sign(self) -> bool {
-        matches!(
-            self,
-            Block::OakSign { .. }
-                | Block::SpruceSign { .. }
-                | Block::BirchSign { .. }
-                | Block::AcaciaSign { .. }
-                | Block::JungleSign { .. }
-                | Block::DarkOakSign { .. }
-                | Block::CrimsonSign { .. }
-                | Block::WarpedSign { .. }
-                | Block::BambooSign { .. }
-                | Block::CherrySign { .. }
-                | Block::MangroveSign { .. }
-        )
-    }
-
-    pub fn is_wall_sign(self) -> bool {
-        matches!(
-            self,
-            Block::OakWallSign { .. }
-                | Block::SpruceWallSign { .. }
-                | Block::BirchWallSign { .. }
-                | Block::AcaciaWallSign { .. }
-                | Block::JungleWallSign { .. }
-                | Block::DarkOakWallSign { .. }
-                | Block::CrimsonWallSign { .. }
-                | Block::WarpedWallSign { .. }
-                | Block::BambooWallSign { .. }
-                | Block::CherryWallSign { .. }
-                | Block::MangroveWallSign { .. }
-        )
-    }
-
     pub fn has_block_entity(self) -> bool {
         self.is_sign()
             || self.is_wall_sign()
@@ -152,34 +118,6 @@ impl Block {
         }
     }
 
-    pub fn get_sign_rotation(self) -> Option<u8> {
-        Some(match self {
-            Block::OakSign { rotation, .. }
-            | Block::SpruceSign { rotation, .. }
-            | Block::BirchSign { rotation, .. }
-            | Block::AcaciaSign { rotation, .. }
-            | Block::JungleSign { rotation, .. }
-            | Block::DarkOakSign { rotation, .. }
-            | Block::CrimsonSign { rotation, .. }
-            | Block::WarpedSign { rotation, .. } => rotation,
-            _ => return None,
-        })
-    }
-
-    pub fn get_wall_sign_facing(self) -> Option<BlockDirection> {
-        Some(match self {
-            Block::OakWallSign { facing, .. }
-            | Block::SpruceWallSign { facing, .. }
-            | Block::BirchWallSign { facing, .. }
-            | Block::AcaciaWallSign { facing, .. }
-            | Block::JungleWallSign { facing, .. }
-            | Block::DarkOakWallSign { facing, .. }
-            | Block::CrimsonWallSign { facing, .. }
-            | Block::WarpedWallSign { facing, .. } => facing,
-            _ => return None,
-        })
-    }
-
     pub(crate) fn is_solid_dynamic(self) -> bool {
         match self {
             Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => {
@@ -200,7 +138,9 @@ impl Block {
 
     pub(crate) fn is_cube_dynamic(self) -> bool {
         match self {
-            Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => ty == SlabType::Top,
+            Block::SmoothStoneSlab { ty, .. } | Block::QuartzSlab { ty, .. } => {
+                ty != SlabType::Bottom
+            }
             _ => unreachable!(),
         }
     }

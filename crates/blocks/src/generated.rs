@@ -1520,8 +1520,8 @@ impl Block {
             }
         }
     }
-    pub fn properties(&self) -> HashMap<&'static str, String> {
-        let mut props = HashMap::new();
+    pub fn properties(&self) -> BTreeMap<&'static str, String> {
+        let mut props = BTreeMap::new();
         match self {
             Block::Air => {}
             Block::Stone => {}
@@ -3954,6 +3954,54 @@ impl Block {
             Block::RedStainedGlass => true,
             Block::BlackStainedGlass => true,
             _ => false,
+        }
+    }
+    pub fn is_sign(self) -> bool {
+        match self {
+            Block::OakSign { .. } => true,
+            Block::SpruceSign { .. } => true,
+            Block::BirchSign { .. } => true,
+            Block::AcaciaSign { .. } => true,
+            Block::JungleSign { .. } => true,
+            Block::DarkOakSign { .. } => true,
+            Block::CrimsonSign { .. } => true,
+            Block::WarpedSign { .. } => true,
+            Block::BambooSign { .. } => true,
+            Block::CherrySign { .. } => true,
+            Block::MangroveSign { .. } => true,
+            _ => false,
+        }
+    }
+    pub fn is_wall_sign(self) -> bool {
+        match self {
+            Block::OakWallSign { .. } => true,
+            Block::SpruceWallSign { .. } => true,
+            Block::BirchWallSign { .. } => true,
+            Block::AcaciaWallSign { .. } => true,
+            Block::JungleWallSign { .. } => true,
+            Block::DarkOakWallSign { .. } => true,
+            Block::CrimsonWallSign { .. } => true,
+            Block::WarpedWallSign { .. } => true,
+            Block::BambooWallSign { .. } => true,
+            Block::CherryWallSign { .. } => true,
+            Block::MangroveWallSign { .. } => true,
+            _ => false,
+        }
+    }
+    pub fn get_wall_sign_facing(self) -> Option<BlockDirection> {
+        match self {
+            Block::OakWallSign { facing, .. }
+            | Block::SpruceWallSign { facing, .. }
+            | Block::BirchWallSign { facing, .. }
+            | Block::AcaciaWallSign { facing, .. }
+            | Block::JungleWallSign { facing, .. }
+            | Block::DarkOakWallSign { facing, .. }
+            | Block::CrimsonWallSign { facing, .. }
+            | Block::WarpedWallSign { facing, .. }
+            | Block::BambooWallSign { facing, .. }
+            | Block::CherryWallSign { facing, .. }
+            | Block::MangroveWallSign { facing, .. } => Some(facing),
+            _ => None,
         }
     }
 }

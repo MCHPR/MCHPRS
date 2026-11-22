@@ -22,6 +22,8 @@ use tracing::{error, warn};
 #[cfg(feature = "luckperms")]
 use crate::permissions::PlayerPermissionsCache;
 
+pub const CONTAINER_WINDOW_ID: i32 = 1;
+
 pub type EntityId = u32;
 static ENTITY_ID_COUNTER: AtomicU32 = AtomicU32::new(0);
 
@@ -136,7 +138,9 @@ pub struct Player {
     pub inventory: Vec<Option<ItemStack>>,
     /// The selected slot of the player's hotbar (1-9)
     pub selected_slot: u32,
+    pub open_container: Option<(BlockPos, ContainerType)>,
     pub pos: PlayerPos,
+    pub pos_seen_by_others: PlayerPos,
     /// The last X chunk the player was in. This is used for updated view position.
     pub last_chunk_x: i32,
     /// The last Z chunk the player was in. This is used for updated view position.
@@ -208,6 +212,11 @@ impl Player {
         for entry in player_data.inventory {
             inventory[entry.slot as usize] = Some(entry.get_item_stack());
         }
+        let pos = PlayerPos {
+            x: player_data.position[0],
+            y: player_data.position[1],
+            z: player_data.position[2],
+        };
         Player {
             uuid: info.uuid,
             username: info.username,
@@ -215,11 +224,9 @@ impl Player {
             skin_parts: Default::default(),
             inventory,
             selected_slot: player_data.selected_item_slot as u32,
-            pos: PlayerPos {
-                x: player_data.position[0],
-                y: player_data.position[1],
-                z: player_data.position[2],
-            },
+            open_container: None,
+            pos,
+            pos_seen_by_others: pos,
             pitch: player_data.rotation[0],
             yaw: player_data.rotation[1],
             last_chunk_x: 0,
@@ -520,30 +527,59 @@ impl Player {
         true
     }
 
-    pub fn open_container(&self, inventory: &[InventoryEntry], container_type: ContainerType) {
+    pub fn open_container(
+        &mut self,
+        pos: BlockPos,
+        inventory: &[InventoryEntry],
+        container_type: ContainerType,
+    ) {
+        let open_window = COpenScreen {
+            window_id: CONTAINER_WINDOW_ID,
+            window_type: container_type.window_type(),
+            window_title: "Container".into(),
+        }
+        .encode();
+        self.client.send_packet(&open_window);
+        self.open_container = Some((pos, container_type));
+        self.send_container_content(inventory, container_type);
+    }
+
+    pub fn send_container_content(
+        &self,
+        inventory: &[InventoryEntry],
+        container_type: ContainerType,
+    ) {
         let mut slots: Vec<Option<SlotData>> =
             (0..container_type.num_slots()).map(|_| None).collect();
         for entry in inventory {
             let item_stack = entry.get_item_stack();
             slots[entry.slot as usize] = Some(utils::encode_slot_data(&item_stack));
         }
-
-        let open_window = COpenScreen {
-            window_id: 1,
-            window_type: container_type.window_type(),
-            window_title: "Container".into(),
-        }
-        .encode();
-        self.client.send_packet(&open_window);
+        let main_inventory_then_hotbar = &self.inventory[9..45];
+        slots.extend(
+            main_inventory_then_hotbar
+                .iter()
+                .map(|item| item.as_ref().map(utils::encode_slot_data)),
+        );
 
         let window_items = CSetContainerContent {
-            window_id: 1,
+            window_id: CONTAINER_WINDOW_ID,
             state_id: 0,
             slot_data: slots,
             carried_item: None,
         }
         .encode();
         self.client.send_packet(&window_items);
+
+        // The client swaps a container slot with the off hand, which the container content leaves out
+        let off_hand = CSetContainerSlot {
+            window_id: 0,
+            state_id: 0,
+            slot: 45,
+            slot_data: self.inventory[45].as_ref().map(utils::encode_slot_data),
+        }
+        .encode();
+        self.client.send_packet(&off_hand);
     }
 
     pub fn set_inventory_slot(&mut self, slot: u32, item: Option<ItemStack>) {
@@ -600,6 +636,14 @@ impl Player {
         self.set_held_slot(hotbar_slot);
     }
 
+    pub fn swap_hands(&mut self) {
+        let main_hand = self.selected_slot + 36;
+        let main_hand_item = self.inventory[main_hand as usize].take();
+        let off_hand_item = self.inventory[45].take();
+        self.set_inventory_slot(main_hand, off_hand_item);
+        self.set_inventory_slot(45, main_hand_item);
+    }
+
     pub fn spawn_packet(&self) -> CSpawnEntity {
         CSpawnEntity {
             entity_id: self.entity_id as i32,
@@ -610,9 +654,9 @@ impl Player {
             // TODO: probably not the same
             head_yaw: self.yaw,
             data: 0, // unused
-            x: self.pos.x,
-            y: self.pos.y,
-            z: self.pos.z,
+            x: self.pos_seen_by_others.x,
+            y: self.pos_seen_by_others.y,
+            z: self.pos_seen_by_others.z,
             velocity_x: 0,
             velocity_y: 0,
             velocity_z: 0,
@@ -651,18 +695,21 @@ impl Player {
         }
     }
 
-    pub fn equippment_packet(&self) -> Option<CSetEquipment> {
-        self.inventory[self.selected_slot as usize + 36]
-            .as_ref()
-            .map(|item| {
-                CSetEquipment {
-                    entity_id: self.entity_id as i32,
-                    equipment: vec![CSetEquipmentEquipment {
-                        slot: 0, // Main hand
-                        item: Some(utils::encode_slot_data(item)),
-                    }],
-                }
-            })
+    pub fn equippment_packet(&self) -> CSetEquipment {
+        let hand = |slot: usize| self.inventory[slot].as_ref().map(utils::encode_slot_data);
+        CSetEquipment {
+            entity_id: self.entity_id as i32,
+            equipment: vec![
+                CSetEquipmentEquipment {
+                    slot: 0, // Main hand
+                    item: hand(self.selected_slot as usize + 36),
+                },
+                CSetEquipmentEquipment {
+                    slot: 1, // Off hand
+                    item: hand(45),
+                },
+            ],
+        }
     }
 }
 

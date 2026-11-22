@@ -197,7 +197,7 @@ impl BlockEntity {
         match self {
             BlockEntity::Comparator { .. } => block_entity_id!("minecraft:comparator"),
             BlockEntity::Container { ty, .. } => match ty {
-                ContainerType::Furnace => block_entity_id!("minecraft:comparator"),
+                ContainerType::Furnace => block_entity_id!("minecraft:furnace"),
                 ContainerType::Barrel => block_entity_id!("minecraft:barrel"),
                 ContainerType::Hopper => block_entity_id!("minecraft:hopper"),
             },
@@ -354,7 +354,7 @@ impl BlockEntity {
                 let mut items = Vec::new();
                 for entry in inventory {
                     let nbt = map! {
-                        "Count" => nbt::Value::Byte(entry.count),
+                        "count" => nbt::Value::Int(entry.count as i32),
                         "id" => nbt::Value::String(Item::from_id(entry.id).get_name().to_owned()),
                         "Slot" => nbt::Value::Byte(entry.slot)
                     };

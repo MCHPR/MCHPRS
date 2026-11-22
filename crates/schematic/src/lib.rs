@@ -389,6 +389,11 @@ pub fn save_schematic(path: &Path, clipboard: &WorldEditClipboard) -> Result<()>
     let mut block_entities = Vec::new();
     for (pos, block_entity) in &clipboard.block_entities {
         if let Some(mut blob) = block_entity.to_nbt(false) {
+            let id = blob
+                .content
+                .remove("id")
+                .expect("block entity NBT has an id");
+            blob.insert("Id", id)?;
             blob.insert("Pos", nbt::Value::IntArray(vec![pos.x, pos.y, pos.z]))?;
             block_entities.push(blob);
         }

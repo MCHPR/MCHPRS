@@ -402,27 +402,25 @@ impl Plot {
         false
     }
 
-    fn enter_plot(&mut self, player: Player) {
+    fn enter_plot(&mut self, mut player: Player) {
         self.save();
+        player.pos_seen_by_others = player.pos;
         if self.players.is_empty() {
             self.world.pending_sounds.clear();
         }
         let spawn_player = player.spawn_packet().encode();
         let metadata = player.metadata_packet().encode();
-        let entity_equipment = player.equippment_packet();
+        let entity_equipment = player.equippment_packet().encode();
         for other_player in &mut self.players {
             other_player.client.send_packet(&spawn_player);
             other_player.client.send_packet(&metadata);
-            if let Some(entity_equipment) = &entity_equipment {
-                other_player.client.send_packet(&entity_equipment.encode());
-            }
+            other_player.client.send_packet(&entity_equipment);
 
             let spawn_other_player = other_player.spawn_packet().encode();
             player.client.send_packet(&spawn_other_player);
 
-            if let Some(other_entity_equipment) = other_player.equippment_packet() {
-                player.client.send_packet(&other_entity_equipment.encode());
-            }
+            let other_entity_equipment = other_player.equippment_packet().encode();
+            player.client.send_packet(&other_entity_equipment);
 
             let other_metadata = other_player.metadata_packet().encode();
             player.client.send_packet(&other_metadata);
@@ -793,13 +791,11 @@ impl Plot {
         .encode();
         player.client.send_packet(&destroy_other_entities);
 
-        let chunk_offset_x = self.world.x << PLOT_SCALE;
-        let chunk_offset_z = self.world.z << PLOT_SCALE;
         for chunk in &self.world.chunks {
             player.client.send_packet(
                 &CUnloadChunk {
-                    chunk_x: chunk_offset_x + chunk.x,
-                    chunk_z: chunk_offset_z + chunk.z,
+                    chunk_x: chunk.x,
+                    chunk_z: chunk.z,
                 }
                 .encode(),
             );
@@ -898,6 +894,7 @@ impl Plot {
                                     properties: player_join_info.properties,
                                 }),
                                 update_gamemode: Some(player_join_info.gamemode.get_id()),
+                                update_listed: Some(true),
                                 ..Default::default()
                             },
                         }],

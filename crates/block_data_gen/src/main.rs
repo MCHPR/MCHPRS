@@ -13,7 +13,14 @@ struct BlockState {
 }
 
 #[derive(Deserialize)]
+struct BlockDefinition {
+    #[serde(rename = "type")]
+    ty: String,
+}
+
+#[derive(Deserialize)]
 struct BlockJson {
+    definition: BlockDefinition,
     properties: Option<IndexMap<String, Vec<String>>>,
     states: Vec<BlockState>,
 }
@@ -73,6 +80,7 @@ struct Prop {
 struct ProcessedBlock {
     name: String,
     pascal_name: String,
+    ty: String,
     props: Vec<Prop>,
     attrs: BlockAttrs,
     base_id: u32,
@@ -211,6 +219,7 @@ fn process_block(
     ProcessedBlock {
         pascal_name: unnamespaced.to_case(Case::Pascal),
         name,
+        ty: json.definition.ty.clone(),
         props,
         attrs,
         base_id: json.states[0].id,
@@ -351,6 +360,21 @@ fn generate_is_attr(
     }
 }
 
+fn generate_get_wall_sign_facing(blocks: &[ProcessedBlock]) -> TokenStream {
+    let wall_signs = blocks
+        .iter()
+        .filter(|block| block.ty == "minecraft:wall_sign")
+        .map(|block| ident(&block.pascal_name));
+    quote! {
+        pub fn get_wall_sign_facing(self) -> Option<BlockDirection> {
+            match self {
+                #( Block::#wall_signs { facing, .. } )|* => Some(facing),
+                _ => None,
+            }
+        }
+    }
+}
+
 fn generate_from_name(blocks: &[ProcessedBlock]) -> TokenStream {
     let match_arms = blocks.iter().map(|block| {
         let name = &block.name;
@@ -430,8 +454,8 @@ fn generate_gen_props(blocks: &[ProcessedBlock]) -> TokenStream {
         }
     });
     quote! {
-        pub fn properties(&self) -> HashMap<&'static str, String> {
-            let mut props = HashMap::new();
+        pub fn properties(&self) -> BTreeMap<&'static str, String> {
+            let mut props = BTreeMap::new();
             match self {
                 #( #match_arms )*
             }
@@ -861,6 +885,19 @@ fn generate_module(
     let is_wool = generate_is_attr(blocks, "is_wool", |block| block.attrs.wool, None);
     let is_stone = generate_is_attr(blocks, "is_stone", |block| block.attrs.stone, None);
     let is_glass = generate_is_attr(blocks, "is_glass", |block| block.attrs.glass, None);
+    let is_sign = generate_is_attr(
+        blocks,
+        "is_sign",
+        |block| block.ty == "minecraft:standing_sign",
+        None,
+    );
+    let is_wall_sign = generate_is_attr(
+        blocks,
+        "is_wall_sign",
+        |block| block.ty == "minecraft:wall_sign",
+        None,
+    );
+    let get_wall_sign_facing = generate_get_wall_sign_facing(blocks);
 
     let prop_from_str = generate_prop_from_str_impls(prop_types);
     let prop_display = generate_prop_display_impls(prop_types);
@@ -903,6 +940,9 @@ fn generate_module(
             #is_wood
             #is_stone
             #is_glass
+            #is_sign
+            #is_wall_sign
+            #get_wall_sign_facing
         }
 
         #prop_from_str
