@@ -17,12 +17,12 @@ pub enum RedpilerState {
 impl RedpilerState {
     fn to_str(self) -> TextComponent {
         let (text, color) = match self {
-            RedpilerState::Stopped => ("Stopped", ColorCode::LightPurple.into()),
-            RedpilerState::Compiling => ("Compiling", ColorCode::Yellow.into()),
-            RedpilerState::Running => ("Running", ColorCode::Green.into()),
+            RedpilerState::Stopped => ("Stopped", ColorCode::LightPurple),
+            RedpilerState::Compiling => ("Compiling", ColorCode::Yellow),
+            RedpilerState::Running => ("Running", ColorCode::Green),
         };
         TextComponentBuilder::new(text.into())
-            .color(color)
+            .color_code(color)
             .bold()
             .finish()
     }
